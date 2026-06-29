@@ -60,10 +60,13 @@ pub enum Agent {
     Hermes,
     Kilo,
     Qodercli,
+    Freebuff,
+    Junie,
+    OpenClaude,
 }
 
 impl Agent {
-    pub const SCREEN_MANIFEST_AGENTS: [Self; 18] = [
+    pub const SCREEN_MANIFEST_AGENTS: [Self; 21] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -82,6 +85,9 @@ impl Agent {
         Self::Hermes,
         Self::Kilo,
         Self::Qodercli,
+        Self::Freebuff,
+        Self::Junie,
+        Self::OpenClaude,
     ];
 }
 
@@ -106,6 +112,9 @@ pub fn agent_label(agent: Agent) -> &'static str {
         Agent::Hermes => "hermes",
         Agent::Kilo => "kilo",
         Agent::Qodercli => "qodercli",
+        Agent::Freebuff => "freebuff",
+        Agent::Junie => "junie",
+        Agent::OpenClaude => "openclaude",
     }
 }
 
@@ -131,6 +140,9 @@ pub fn parse_agent_label(agent: &str) -> Option<Agent> {
         "hermes" | "hermes-agent" => Some(Agent::Hermes),
         "kilo" | "kilo-code" | "kilo code" => Some(Agent::Kilo),
         "qodercli" | "qoderclicn" | "qoder" | "qodercn" => Some(Agent::Qodercli),
+        "freebuff" | "freebuff-cli" => Some(Agent::Freebuff),
+        "junie" | "junie-cli" => Some(Agent::Junie),
+        "openclaude" | "open-claude" | "openclaude-cli" => Some(Agent::OpenClaude),
         _ => None,
     }
 }
@@ -160,6 +172,9 @@ pub fn identify_agent(process_name: &str) -> Option<Agent> {
         "hermes" | "hermes-agent" => Some(Agent::Hermes),
         "kilo" | "kilo-code" | "kilo code" => Some(Agent::Kilo),
         "qodercli" | "qoderclicn" | "qoder" | "qodercn" => Some(Agent::Qodercli),
+        "freebuff" | "freebuff-cli" => Some(Agent::Freebuff),
+        "junie" | "junie-cli" => Some(Agent::Junie),
+        "openclaude" | "open-claude" | "openclaude-cli" => Some(Agent::OpenClaude),
         _ => None,
     }
 }

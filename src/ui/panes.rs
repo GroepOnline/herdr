@@ -824,8 +824,11 @@ mod tests {
         let mut app = AppState::test_new();
         app.mode = Mode::Terminal;
         app.view.terminal_area = Rect::new(0, 0, 12, 3);
+        let ws = Workspace::test_new("test");
+        let root_pane_id = ws.tabs[0].root_pane;
+
         app.view.pane_infos = vec![PaneInfo {
-            id: PaneId::from_raw(1),
+            id: root_pane_id,
             rect: Rect::new(0, 0, 12, 3),
             inner_rect: Rect::default(),
             scrollbar_rect: None,
@@ -833,8 +836,7 @@ mod tests {
             is_focused: false,
         }];
 
-        let ws = Workspace::test_new("test");
-        let terminal_id = ws.tabs[0].panes[&PaneId::from_raw(1)]
+        let terminal_id = ws.tabs[0].panes[&root_pane_id]
             .attached_terminal_id
             .clone();
         let mut terminal_state = TerminalState::new(terminal_id.clone(), "/tmp".into());

@@ -1,0 +1,26 @@
+id = "freebuff"
+version = "2026.06.29.1"
+min_engine_version = 2
+updated_at = "2026-06-29T20:28:00Z"
+aliases = ["freebuff-cli"]
+
+[[rules]]
+id = "freebuff_working"
+state = "working"
+priority = 1000
+region = "whole_recent"
+visible_working = true
+line_regex = ['^[\x{2800}-\x{28FF}] [a-zA-Z]']
+
+[[rules]]
+id = "freebuff_blocked"
+state = "blocked"
+priority = 1100
+region = "whole_recent"
+visible_blocker = true
+any = [
+  { contains = ["waiting for user confirmation"] },
+  { contains = ["awaiting approval"] },
+  { contains = ["permission required"] },
+  { contains = ["do you want to proceed?"] }
+]

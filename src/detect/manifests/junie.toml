@@ -1,0 +1,31 @@
+id = "junie"
+version = "2026.06.29.1"
+min_engine_version = 2
+updated_at = "2026-06-29T20:28:00Z"
+aliases = ["junie-cli"]
+
+[[rules]]
+id = "junie_blocked"
+state = "blocked"
+priority = 1100
+region = "whole_recent"
+visible_blocker = true
+any = [
+  { contains = ["waiting for approval"] },
+  { contains = ["requires approval"] },
+  { contains = ["do you want to proceed?"] },
+  { contains = ["permission required"] }
+]
+
+[[rules]]
+id = "junie_working"
+state = "working"
+priority = 1000
+region = "whole_recent"
+visible_working = true
+any = [
+  { contains = ["junie is working"] },
+  { contains = ["esc to cancel"] },
+  { contains = ["esc to interrupt"] },
+  { line_regex = ['^[\x{2800}-\x{28FF}] [a-zA-Z]'] }
+]
