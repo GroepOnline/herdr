@@ -43,6 +43,9 @@ pub struct AgentSoundOverrides {
     pub hermes: AgentSoundSetting,
     pub kilo: AgentSoundSetting,
     pub qodercli: AgentSoundSetting,
+    pub freebuff: AgentSoundSetting,
+    pub junie: AgentSoundSetting,
+    pub open_claude: AgentSoundSetting,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
@@ -138,6 +141,9 @@ impl AgentSoundOverrides {
             Some(Agent::Hermes) => self.hermes,
             Some(Agent::Kilo) => self.kilo,
             Some(Agent::Qodercli) => self.qodercli,
+            Some(Agent::Freebuff) => self.freebuff,
+            Some(Agent::Junie) => self.junie,
+            Some(Agent::OpenClaude) => self.open_claude,
             None => AgentSoundSetting::Default,
         }
     }
@@ -176,6 +182,9 @@ impl Default for AgentSoundOverrides {
             hermes: AgentSoundSetting::Default,
             kilo: AgentSoundSetting::Default,
             qodercli: AgentSoundSetting::Default,
+            freebuff: AgentSoundSetting::Default,
+            junie: AgentSoundSetting::Default,
+            open_claude: AgentSoundSetting::Default,
         }
     }
 }
