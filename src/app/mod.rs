@@ -1843,9 +1843,9 @@ mod tests {
         let restore_calls = fake.restore_calls.clone();
         app.set_prefix_input_source(Box::new(fake));
 
-        // ctrl+b (the default prefix key) enters prefix mode → switch edge.
+        // ctrl+a (the default prefix key) enters prefix mode → switch edge.
         app.handle_raw_input_event(raw_key(
-            KeyCode::Char('b'),
+            KeyCode::Char('a'),
             KeyModifiers::CONTROL,
             KeyEventKind::Press,
         ))
