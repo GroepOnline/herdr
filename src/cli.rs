@@ -1129,7 +1129,7 @@ fn print_terminal_help() {
     eprintln!("  herdr terminal session observe <target> [--cols N] [--rows N]");
     eprintln!("  herdr terminal title set <title>");
     eprintln!("  herdr terminal title clear");
-    eprintln!("  detach from direct attach with ctrl+b q; send literal ctrl+b with ctrl+b ctrl+b");
+    eprintln!("  detach from direct attach with ctrl+a q; send literal ctrl+a with ctrl+a ctrl+a");
 }
 
 fn print_wait_help() {
