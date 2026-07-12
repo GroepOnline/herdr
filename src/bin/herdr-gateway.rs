@@ -85,12 +85,67 @@ async fn get_session(State(state): State<SharedState>) -> Json<Value> {
 
 async fn sse_events(State(state): State<SharedState>) -> Sse<impl tokio_stream::Stream<Item = Result<SseEvent, std::convert::Infallible>>> {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Result<SseEvent, std::convert::Infallible>>();
+    let socket_path = state.read().await.socket_path.clone();
 
     let _ = tx.send(Ok(SseEvent::default()
         .event("connected")
-        .data(json!({"status": "ok"}).to_string())));
+        .data(json!({"status": "connected"}).to_string())));
 
-    let _ = tx.send(Ok(SseEvent::default().comment("keepalive")));
+    tokio::task::spawn(async move {
+        let mut stream = match UnixStream::connect(&socket_path).await {
+            Ok(s) => s,
+            Err(e) => {
+                let _ = tx.send(Ok(SseEvent::default()
+                    .event("error")
+                    .data(format!("socket: {}", e))));
+                return;
+            }
+        };
+
+        let sub_req = json!({"id": "gw:sse", "method": "events.subscribe", "params": {"subscriptions": []}});
+        let mut req_bytes = serde_json::to_vec(&sub_req).unwrap_or_default();
+        req_bytes.push(b'\n');
+        if stream.write_all(&req_bytes).await.is_err() {
+            return;
+        }
+
+        let mut buf = vec![0u8; 32768];
+        let mut line_buf = Vec::new();
+        loop {
+            match stream.read(&mut buf).await {
+                Ok(0) => break,
+                Ok(n) => {
+                    for &byte in &buf[..n] {
+                        if byte == b'\n' {
+                            if !line_buf.is_empty() {
+                                if let Ok(val) = serde_json::from_slice::<Value>(&line_buf) {
+                                    let event_type = val.get("event")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("message");
+                                    let id = val.get("seq")
+                                        .and_then(|v| v.as_u64())
+                                        .unwrap_or(0);
+                                    let data = serde_json::to_string(&val)
+                                        .unwrap_or_else(|_| "{}".to_string());
+                                    let sse = SseEvent::default()
+                                        .event(event_type)
+                                        .id(id.to_string())
+                                        .data(data);
+                                    if tx.send(Ok(sse)).is_err() {
+                                        return;
+                                    }
+                                }
+                                line_buf.clear();
+                            }
+                        } else {
+                            line_buf.push(byte);
+                        }
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+    });
 
     let stream = UnboundedReceiverStream::new(rx);
     Sse::new(stream).keep_alive(KeepAlive::new().interval(std::time::Duration::from_secs(15)))
