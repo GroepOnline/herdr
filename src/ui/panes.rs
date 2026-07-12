@@ -563,13 +563,14 @@ fn render_pane_border_titles(app: &AppState, ws: &crate::workspace::Workspace, f
         if info.is_focused {
             style = style.add_modifier(Modifier::BOLD);
         }
-        buf.set_stringn(
-            start_x,
-            y,
-            title,
-            end_x.saturating_sub(start_x) as usize,
-            style,
-        );
+        let max_len = end_x.saturating_sub(start_x) as usize;
+        for dx in 0..max_len {
+            let x = start_x + dx as u16;
+            if x < area.x + area.width {
+                buf[(x, y)].set_style(Style::default());
+            }
+        }
+        buf.set_stringn(start_x, y, title, max_len, style);
     }
 }
 

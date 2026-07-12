@@ -4338,8 +4338,8 @@ mod tests {
         app.state.mode = Mode::Terminal;
         assert!(!app.state.detach_requested);
 
-        // Send Ctrl+B (prefix key, raw byte 0x02).
-        let prefix_bytes = vec![0x02];
+        // Send Ctrl+A (prefix key, raw byte 0x01).
+        let prefix_bytes = vec![0x01];
         app.route_client_input(prefix_bytes);
 
         assert_eq!(
