@@ -29,13 +29,13 @@ const PREVIEW_UPDATE_MANIFEST_URL: &str = "https://herdr.dev/preview.json";
 fn stable_update_url() -> String {
     std::env::var("HERDR_UPDATE_BASE_URL")
         .map(|b| format!("{}/latest.json", b.trim_end_matches('/')))
-        .unwrap_or_else(|_| stable_update_url().to_string())
+        .unwrap_or_else(|_| STABLE_UPDATE_MANIFEST_URL.to_string())
 }
 
 fn preview_update_url() -> String {
     std::env::var("HERDR_UPDATE_BASE_URL")
         .map(|b| format!("{}/preview.json", b.trim_end_matches('/')))
-        .unwrap_or_else(|_| preview_update_url().to_string())
+        .unwrap_or_else(|_| PREVIEW_UPDATE_MANIFEST_URL.to_string())
 }
 const HOMEBREW_FORMULA_API_URL: &str = "https://formulae.brew.sh/api/formula/herdr.json";
 const HERDR_UPDATE_COMMAND: &str = "herdr update";
@@ -295,11 +295,11 @@ impl ReleaseInfo {
 }
 
 fn fetch_update_manifest() -> Result<UpdateManifest, String> {
-    fetch_json_manifest(stable_update_url())
+    fetch_json_manifest(&stable_update_url())
 }
 
 fn fetch_preview_manifest() -> Result<PreviewManifest, String> {
-    fetch_json_manifest(preview_update_url())
+    fetch_json_manifest(&preview_update_url())
 }
 
 fn fetch_json_manifest<T>(url: &str) -> Result<T, String>
