@@ -1,0 +1,22 @@
+[Unit]
+Description=Herdr Terminal Multiplexer Server (CHEF Fleet)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/herdr.real server
+ExecReload=kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=2
+Environment=HERDR_RENDER_ENCODING=ansi
+Environment=HERDR_UPDATE_BASE_URL=https://github.com/OnlineChefGroep/herdr/releases/download
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+
+[Install]
+WantedBy=default.target
+

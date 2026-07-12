@@ -96,6 +96,7 @@ mod terminal_theme;
 mod ui;
 mod update;
 mod workspace;
+mod fleet;
 mod worktree;
 
 fn init_logging() {
