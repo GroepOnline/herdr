@@ -16,10 +16,10 @@ if (existsSync(BINARY_PATH)) {
 }
 
 const platformMap = {
-  "linux-x64": "herdr-x86_64-unknown-linux-gnu.tar.xz",
-  "linux-arm64": "herdr-aarch64-unknown-linux-gnu.tar.xz",
-  "darwin-x64": "herdr-x86_64-apple-darwin.tar.xz",
-  "darwin-arm64": "herdr-aarch64-apple-darwin.tar.xz",
+  "linux-x64": "herdr-linux-x86_64",
+  "linux-arm64": "herdr-linux-aarch64",
+  "darwin-x64": "herdr-macos-x86_64",
+  "darwin-arm64": "herdr-macos-aarch64",
 };
 
 const arch = os.arch() === "arm64" ? "arm64" : "x64";
@@ -27,12 +27,13 @@ const platform = os.platform() + "-" + arch;
 const asset = platformMap[platform];
 
 if (!asset) {
-  console.error("No prebuilt binary for " + platform + ". Build from source.");
+  console.error("No prebuilt binary for " + platform);
+  console.error("Build from source: git clone https://github.com/" + REPO);
   process.exit(1);
 }
 
 const url = "https://github.com/" + REPO + "/releases/download/v" + VERSION + "/" + asset;
-console.log("Downloading herdr " + VERSION + " for " + platform + "...");
+console.log("Downloading herdr " + VERSION + " (" + platform + ")...");
 
 mkdirSync(BIN_DIR, { recursive: true });
 const file = createWriteStream(BINARY_PATH);
@@ -43,11 +44,15 @@ function doDownload(dlUrl) {
       doDownload(res.headers.location);
       return;
     }
+    if (res.statusCode !== 200) {
+      console.error("Download failed: HTTP " + res.statusCode);
+      process.exit(1);
+    }
     res.pipe(file);
     file.on("finish", () => {
       file.close();
       if (os.platform() !== "win32") chmodSync(BINARY_PATH, 0o755);
-      console.log("herdr " + VERSION + " installed");
+      console.log("herdr " + VERSION + " installed to " + BINARY_PATH);
     });
   }).on("error", (err) => {
     console.error("Download failed: " + err.message);
@@ -56,5 +61,3 @@ function doDownload(dlUrl) {
 }
 
 doDownload(url);
-INSTEOF
-echo "install.js OK"
