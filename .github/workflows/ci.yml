@@ -21,6 +21,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Install Zig
+        uses: mlugg/setup-zig@v1
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -55,6 +58,9 @@ jobs:
           targets: ${{ matrix.target.name }}
 
       - uses: Swatinem/rust-cache@v2
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v1
 
       - name: Install Linux deps
         if: matrix.target.os == 'ubuntu-latest'
