@@ -734,7 +734,7 @@ pub(super) fn render_sidebar_collapsed(app: &AppState, frame: &mut Frame, area: 
                         .unwrap_or(detail_idx + 1);
                     let pane_style = Style::default().fg(p.overlay0);
                     let (icon, icon_style) =
-                        agent_icon(detail.state, detail.seen, app.spinner_tick, p);
+                        agent_icon(detail.state, detail.seen, app.spinner_tick, app.spinner_style, p);
                     frame.render_widget(
                         Paragraph::new(Line::from(vec![
                             Span::styled(format!("{pane_num}"), pane_style),
@@ -1070,7 +1070,7 @@ fn render_agent_detail(
         // Check if this agent entry corresponds to the active session
         let is_active = app.is_active_pane(detail.ws_idx, detail.tab_idx, detail.pane_id);
 
-        let (icon, icon_style) = agent_icon(detail.state, detail.seen, app.spinner_tick, p);
+        let (icon, icon_style) = agent_icon(detail.state, detail.seen, app.spinner_tick, app.spinner_style, p);
         let label_color = state_label_color(detail.state, detail.seen, p);
         let label = detail
             .state_labels

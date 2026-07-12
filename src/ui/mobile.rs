@@ -322,7 +322,7 @@ fn render_header_status(
     let (state, seen) = ws.aggregate_state(&app.terminals);
     let (dot, dot_style) = if matches!(state, AgentState::Working) {
         (
-            super::spinner_frame(app.spinner_tick),
+            super::spinner_frame(app.spinner_tick, app.spinner_style),
             Style::default().fg(p.yellow),
         )
     } else {
@@ -513,7 +513,7 @@ fn render_mobile_switcher_content(
                 entry.ws_idx == ws_idx && entry.tab_idx == tab_idx && entry.pane_id == pane_id
             });
             let bg = mobile_item_bg(false, active, p);
-            let (icon, icon_style) = agent_icon(entry.state, entry.seen, app.spinner_tick, p);
+            let (icon, icon_style) = agent_icon(entry.state, entry.seen, app.spinner_tick, app.spinner_style, p);
             let title = Line::from(vec![
                 Span::styled("  ", Style::default().bg(bg)),
                 Span::styled(icon, icon_style.bg(bg)),

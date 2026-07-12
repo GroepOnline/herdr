@@ -629,6 +629,7 @@ impl App {
             toast_config: config.ui.toast.clone(),
             keybinds: config.keybinds(),
             spinner_tick: 0,
+            spinner_style: config.ui.spinner_style,
             palette: theme_palette,
             theme_name,
             theme_runtime,

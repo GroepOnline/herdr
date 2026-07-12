@@ -207,11 +207,12 @@ pub(super) fn agent_icon(
     state: AgentState,
     seen: bool,
     tick: u32,
+    style: crate::config::SpinnerStyle,
     p: &Palette,
 ) -> (&'static str, Style) {
     match (state, seen) {
         (AgentState::Blocked, _) => ("◉", Style::default().fg(p.red)),
-        (AgentState::Working, _) => (super::spinner_frame(tick), Style::default().fg(p.yellow)),
+        (AgentState::Working, _) => (super::spinner_frame(tick, style), Style::default().fg(p.yellow)),
         (AgentState::Idle, false) => ("●", Style::default().fg(p.teal)),
         (AgentState::Idle, true) => ("✓", Style::default().fg(p.green)),
         (AgentState::Unknown, _) => ("○", Style::default().fg(p.overlay0)),

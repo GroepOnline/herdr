@@ -94,13 +94,13 @@ use crate::terminal::TerminalRuntimeRegistry;
 
 const COLLAPSED_WIDTH: u16 = 4; // num + space + dot + separator
 
-// Braille spinner frames — smooth rotation
-const SPINNERS: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+use crate::config::SpinnerStyle;
 
-/// Map spinner_tick (incremented every frame at ~60fps) to a spinner frame.
-/// We want ~8 updates/sec so divide by 8.
-pub(super) fn spinner_frame(tick: u32) -> &'static str {
-    SPINNERS[(tick as usize / 8) % SPINNERS.len()]
+/// Pick the spinner frame for a given style at a given tick.
+pub(super) fn spinner_frame(tick: u32, style: SpinnerStyle) -> &'static str {
+    let frames = style.frames();
+    let divisor = style.speed_divisor();
+    frames[(tick as usize / divisor as usize) % frames.len()]
 }
 
 /// Compute view geometry and reconcile pane sizes.
