@@ -28,3 +28,9 @@ NOT a standalone fork.
 ## Sync
 - Rebase on upstream stable within 1 week
 - Max downstream delta: less than 10 commits
+## NPM Package (2026-07-12)
+- Name: onlinechefgroep-herdr
+- Directory: npm/
+- Wrapper: npm/bin/herdr.js (cross-platform binary launcher)
+- Postinstall: npm/install.js (downloads binary from GitHub Releases)
+- Publish: cd npm && npm publish --access public
