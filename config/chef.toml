@@ -1,0 +1,24 @@
+# OnlineChefGroep Herdr Profile
+# Apply with: herdr config import config/chef.toml
+# or: bun run install-profile
+
+[keys]
+prefix = "ctrl+a"
+
+[ui]
+redraw_on_focus_gained = false
+host_cursor = "auto"
+show_agent_labels_on_pane_borders = false
+
+[theme]
+name = "catppuccin"
+
+[terminal]
+default_shell = "/usr/bin/fish"
+
+[ui.toast]
+delivery = "terminal"
+
+[update]
+channel = "stable"
+version_check = false
