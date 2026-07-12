@@ -1,0 +1,20 @@
+{
+  "name": "herdr-chef",
+  "version": "0.7.1-chef",
+  "private": true,
+  "description": "OnlineChefGroep downstream distribution of Herdr terminal multiplexer",
+  "scripts": {
+    "doctor": "bun scripts/doctor.ts",
+    "sync": "bun scripts/sync-upstream.ts",
+    "build": "cargo build --release",
+    "test": "cargo nextest run",
+    "lint": "cargo clippy -- -D warnings",
+    "fmt": "cargo fmt --check",
+    "release": "bun scripts/release.ts",
+    "install-profile": "bun scripts/install-profile.ts",
+    "baseline": "bun scripts/baseline.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
