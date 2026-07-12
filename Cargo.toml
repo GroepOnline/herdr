@@ -71,3 +71,9 @@ windows-sys = { version = "0.61.2", features = [
 [[bin]]
 name = "herdr-gateway"
 path = "src/bin/herdr-gateway.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true
