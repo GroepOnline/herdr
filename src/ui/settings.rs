@@ -506,7 +506,7 @@ fn render_settings_appearance(app: &AppState, frame: &mut Frame, area: Rect) {
         }
         let col = visible_idx % 2;
         let row = visible_idx / 2;
-        let x = list_area.x + (col * col_width as u16);
+        let x = list_area.x + col as u16 * col_width as u16;
         let y = list_area.y + row as u16;
         let is_selected = idx == app.settings.list.selected;
         let is_current = idx == current_idx;

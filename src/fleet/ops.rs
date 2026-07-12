@@ -1,9 +1,7 @@
-use std::collections::HashMap;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
 use crate::detect::AgentState;
-use crate::layout::PaneId;
 use crate::terminal::state::TerminalState;
 
 /// Fleet operations metadata for a single pane/agent.
