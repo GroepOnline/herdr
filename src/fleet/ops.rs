@@ -1,5 +1,5 @@
 use std::path::Path;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crate::detect::AgentState;
 use crate::terminal::state::TerminalState;
@@ -16,14 +16,14 @@ pub struct FleetOpsMetadata {
     pub ci_status: Option<CiStatus>,
     pub model: Option<String>,
     pub provider: Option<String>,
-    pub host: Option<String>,
+    pub host: String,
     pub elapsed: Option<Duration>,
-    pub last_activity: Option<Instant>,
     pub retry_count: u32,
     pub session_resume_available: bool,
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub enum CiStatus {
     Pending,
     Running,
@@ -47,9 +47,8 @@ impl FleetOpsMetadata {
             repo,
             worktree,
             branch,
-            host: Some(host.to_string()),
+            host: host.to_string(),
             elapsed: None,
-            last_activity: None,
             retry_count: 0,
             session_resume_available: term.persisted_agent_session.is_some(),
             model: term
@@ -205,7 +204,7 @@ mod tests {
     #[test]
     fn test_render_bar_minimal() {
         let meta = FleetOpsMetadata {
-            host: Some("sofie".to_string()),
+            host: "sofie".to_string(),
             ..Default::default()
         };
         let bar = meta.render_bar("claude", AgentState::Idle, None);
@@ -222,7 +221,7 @@ mod tests {
             worktree: Some("main".to_string()),
             model: Some("glm-5.2".to_string()),
             provider: Some("zai".to_string()),
-            host: Some("sofie".to_string()),
+            host: "sofie".to_string(),
             elapsed: Some(Duration::from_secs(300)),
             github_pr: Some(42),
             ci_status: Some(CiStatus::Success),
