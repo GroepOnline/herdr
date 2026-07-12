@@ -273,7 +273,7 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
                 state.settings.list.selected = toast_delivery_index(state.toast_delivery());
             }
             KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => {
-                state.settings.section = SettingsSection::Integrations;
+                state.settings.section = SettingsSection::Appearance;
                 state.settings.list.selected = 0;
             }
             _ => {
@@ -347,6 +347,7 @@ pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
         SettingsSection::PaneLabels => usize::from(!state.agent_border_labels_enabled()),
         SettingsSection::Experiments => 0,
         SettingsSection::Integrations => 0,
+        SettingsSection::Appearance => 0,
         SettingsSection::Fleet => 0,
         SettingsSection::Plugins => 0,
     };
@@ -409,6 +410,14 @@ impl AppState {
 
         match self.settings.section {
             SettingsSection::Fleet | SettingsSection::Plugins => None,
+            SettingsSection::Appearance => {
+                let list_y = area.y + 2;
+                if row < list_y { return None; }
+                let col_width = (area.width as usize / 2).max(20);
+                let col = if (col - area.x) as usize >= col_width { 1 } else { 0 };
+                let visible_idx = (row - list_y) as usize * 2 + col;
+                (visible_idx < crate::config::SpinnerStyle::ALL.len()).then_some(visible_idx)
+            }
             SettingsSection::Theme => {
                 let max_visible = area.height as usize;
                 let scroll = if self.settings.list.selected >= max_visible {
@@ -469,7 +478,8 @@ impl AppState {
                         }
                         SettingsSection::Experiments => 0,
                         SettingsSection::Integrations => 0,
-                        SettingsSection::Fleet => 0,
+                        SettingsSection::Appearance => 0,
+        SettingsSection::Fleet => 0,
                         SettingsSection::Plugins => 0,
                     });
                     return None;
@@ -494,6 +504,10 @@ impl AppState {
                             Some(SettingsAction::SaveAgentBorderLabels(enabled))
                         }
                         SettingsSection::Experiments => experiment_toggle_action(self, idx),
+                        SettingsSection::Appearance => {
+                            crate::config::SpinnerStyle::ALL.get(idx).copied()
+                                .map(SettingsAction::SaveSpinnerStyle)
+                        }
                         SettingsSection::Fleet | SettingsSection::Plugins => None,
                         SettingsSection::Integrations => None,
                     };
