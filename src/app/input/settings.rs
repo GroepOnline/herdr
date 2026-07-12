@@ -19,6 +19,7 @@ pub(super) enum SettingsAction {
     SaveAgentBorderLabels(bool),
     SavePaneHistory(bool),
     SaveSwitchAsciiInputSourceInPrefix(bool),
+    SaveSpinnerStyle(crate::config::SpinnerStyle),
     InstallRecommendedIntegrations,
 }
 
@@ -53,6 +54,7 @@ impl App {
                 SettingsAction::SaveSwitchAsciiInputSourceInPrefix(enabled) => {
                     self.save_switch_ascii_input_source_in_prefix(enabled)
                 }
+                SettingsAction::SaveSpinnerStyle(style) => self.save_spinner_style(style),
                 SettingsAction::InstallRecommendedIntegrations => {
                     self.install_recommended_integrations()
                 }
@@ -151,6 +153,34 @@ fn apply_settings(state: &mut AppState) -> Option<SettingsAction> {
 
 pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Option<SettingsAction> {
     match state.settings.section {
+        SettingsSection::Appearance => match key.code {
+            KeyCode::Up | KeyCode::Char('k') => state.settings.list.move_prev(),
+            KeyCode::Down | KeyCode::Char('j') => {
+                state.settings.list.move_next(crate::config::SpinnerStyle::ALL.len())
+            }
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                return crate::config::SpinnerStyle::ALL
+                    .get(state.settings.list.selected)
+                    .copied()
+                    .map(SettingsAction::SaveSpinnerStyle);
+            }
+            KeyCode::BackTab | KeyCode::Left | KeyCode::Char('h') => {
+                state.settings.section = SettingsSection::PaneLabels;
+                state.settings.list.selected =
+                    usize::from(!state.agent_border_labels_enabled());
+            }
+            KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => {
+                state.settings.section = SettingsSection::Fleet;
+                state.settings.list.selected = 0;
+            }
+            _ => {
+                if let Some(super::modal::ModalAction::Close) =
+                    super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS)
+                {
+                    cancel_settings(state);
+                }
+            }
+        },
         SettingsSection::Fleet | SettingsSection::Plugins => {
             return None;
         }

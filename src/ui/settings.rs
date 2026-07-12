@@ -149,6 +149,9 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
                 app.settings.list.selected,
             );
         }
+        SettingsSection::Appearance => {
+            render_settings_appearance(app, frame, content_area);
+        }
         SettingsSection::Fleet => {
             render_settings_info(
                 frame,

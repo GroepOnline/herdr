@@ -375,9 +375,9 @@ impl SpinnerStyle {
             | Self::Fish | Self::DotsCircle | Self::Sand | Self::Dots8Bit
             | Self::Balloon | Self::Moon | Self::Earth | Self::Flame | Self::Binary => 80,
             Self::Arc | Self::BoxBounce | Self::Pipe | Self::Noise
-            | Self::Arrow | Self::BetaWave | Self::Galaxy | Self::Vortex
+            | Self::Arrow | Self::Arrow3 | Self::BetaWave | Self::Galaxy | Self::Vortex
             | Self::Dizzy | Self::Ninja | Self::Robot | Self::Magic | Self::Wizard => 100,
-            Self::Circle | Self::CircleQuarters | Self::Star
+            Self::Circle | Self::CircleQuarters | Self::Star | Self::Star2
             | Self::Grenade | Self::Toggle | Self::Clock | Self::Weather
             | Self::Hearts | Self::Bee | Self::Dragon
             | Self::Ghost | Self::Crown | Self::Fire | Self::Boom
@@ -1317,7 +1317,7 @@ impl Default for UiConfig {
             show_agent_labels_on_pane_borders: false,
             hide_tab_bar_when_single_tab: false,
             agent_panel_sort: AgentPanelSortConfig::Spaces,
-            spinner_style: SpinnerStyle::Braille,
+            spinner_style: SpinnerStyle::Dots,
             accent: "cyan".into(),
             toast: ToastConfig::default(),
             sound: SoundConfig::default(),
