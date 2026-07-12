@@ -133,11 +133,15 @@ fn insert_graphics_before_sync_end(encoded: &mut Vec<u8>, graphics: &[u8]) {
     }
 
     if let Some(sync_end) = rfind_subslice(encoded, SYNC_OUTPUT_END) {
-        encoded.splice(sync_end..sync_end, graphics.iter().copied());
+        let mut gfx: Vec<u8> = Vec::with_capacity(graphics.len() + 6);
+        gfx.extend_from_slice(b"7");
+        gfx.extend_from_slice(graphics);
+        gfx.extend_from_slice(b"8");
+        encoded.splice(sync_end..sync_end, gfx);
     } else {
         encoded.extend_from_slice(graphics);
     }
-}
+}}
 
 fn rfind_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() || needle.len() > haystack.len() {

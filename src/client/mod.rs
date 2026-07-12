@@ -653,7 +653,7 @@ impl Drop for TerminalGuard {
 fn requested_render_encoding() -> RenderEncoding {
     match std::env::var("HERDR_RENDER_ENCODING").ok().as_deref() {
         Some("terminal-ansi" | "terminal_ansi" | "ansi") => RenderEncoding::TerminalAnsi,
-        _ => RenderEncoding::SemanticFrame,
+        _ => RenderEncoding::TerminalAnsi,
     }
 }
 
@@ -1964,17 +1964,26 @@ fn write_encoded_frame_with_graphics(
     encoded: &[u8],
     graphics: &[u8],
 ) -> io::Result<()> {
-    writer.write_all(encoded)?;
     if graphics.is_empty() {
-        return Ok(());
+        return writer.write_all(encoded);
     }
 
     record_received_kitty_graphics(graphics);
-    writer.write_all(b"\x1b7")?;
-    writer.write_all(graphics)?;
-    writer.write_all(b"\x1b8")
-}
 
+    const SYNC_END: &[u8] = b"[?2026l";
+    if let Some(pos) = encoded.windows(SYNC_END.len()).rposition(|w| w == SYNC_END) {
+        writer.write_all(&encoded[..pos])?;
+        writer.write_all(b"7")?;
+        writer.write_all(graphics)?;
+        writer.write_all(b"8")?;
+        writer.write_all(&encoded[pos..])
+    } else {
+        writer.write_all(encoded)?;
+        writer.write_all(b"7")?;
+        writer.write_all(graphics)?;
+        writer.write_all(b"8")
+    }
+}
 fn contains_kitty_graphics_bytes(bytes: &[u8]) -> bool {
     bytes.windows(3).any(|window| window == b"\x1b_G")
 }
