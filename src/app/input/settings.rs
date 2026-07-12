@@ -181,8 +181,31 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
                 }
             }
         },
-        SettingsSection::Fleet | SettingsSection::Plugins => {
-            return None;
+        SettingsSection::Fleet => {
+            if let KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') = key.code {
+                state.settings.section = SettingsSection::Plugins;
+                state.settings.list.selected = 0;
+            } else if let KeyCode::BackTab | KeyCode::Left | KeyCode::Char('h') = key.code {
+                state.settings.section = SettingsSection::Appearance;
+                state.settings.list.selected = 0;
+            } else if let Some(super::modal::ModalAction::Close) =
+                super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS)
+            {
+                cancel_settings(state);
+            }
+        }
+        SettingsSection::Plugins => {
+            if let KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') = key.code {
+                state.settings.section = SettingsSection::Integrations;
+                state.settings.list.selected = 0;
+            } else if let KeyCode::BackTab | KeyCode::Left | KeyCode::Char('h') = key.code {
+                state.settings.section = SettingsSection::Fleet;
+                state.settings.list.selected = 0;
+            } else if let Some(super::modal::ModalAction::Close) =
+                super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS)
+            {
+                cancel_settings(state);
+            }
         }
         SettingsSection::Theme => match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
