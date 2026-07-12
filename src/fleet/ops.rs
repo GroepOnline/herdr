@@ -107,9 +107,7 @@ impl FleetOpsMetadata {
             }
         }
 
-        if let Some(host) = &self.host {
-            parts.push(host.clone());
-        }
+        parts.push(self.host.clone());
 
         if let Some(elapsed) = self.elapsed {
             parts.push(format_duration(elapsed));
