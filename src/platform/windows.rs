@@ -1,19 +1,21 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     ffi::c_void,
     mem::{size_of, MaybeUninit},
     path::PathBuf,
-    ptr::null_mut,
+    ptr::{copy_nonoverlapping, null_mut},
 };
 
 use windows_sys::{
     Wdk::System::Threading::{NtQueryInformationProcess, ProcessBasicInformation},
     Win32::{
         Foundation::{
-            CloseHandle, LocalFree, HANDLE, INVALID_HANDLE_VALUE, NTSTATUS, STATUS_SUCCESS,
-            UNICODE_STRING,
+            CloseHandle, GlobalFree, LocalFree, HANDLE, INVALID_HANDLE_VALUE, NTSTATUS,
+            STATUS_SUCCESS, UNICODE_STRING,
         },
         System::{
+            Console::GetConsoleWindow,
+            DataExchange::{CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData},
             Diagnostics::{
                 Debug::ReadProcessMemory,
                 ToolHelp::{
@@ -21,6 +23,8 @@ use windows_sys::{
                     TH32CS_SNAPPROCESS,
                 },
             },
+            Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE},
+            Ole::CF_UNICODETEXT,
             Threading::{
                 GetExitCodeProcess, OpenProcess, TerminateProcess, PROCESS_BASIC_INFORMATION,
                 PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
@@ -45,6 +49,85 @@ struct WindowsProcessEntry {
 }
 
 pub fn raise_server_nofile_limit() {}
+
+fn raw_command_shell(comspec: Option<std::ffi::OsString>) -> std::ffi::OsString {
+    comspec
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| r"C:\Windows\System32\cmd.exe".into())
+}
+
+pub(crate) fn detached_custom_command_process_platform(command: &str) -> std::process::Command {
+    detached_custom_command_process_with_comspec(command, std::env::var_os("ComSpec"))
+}
+
+fn detached_custom_command_process_with_comspec(
+    command: &str,
+    comspec: Option<std::ffi::OsString>,
+) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+
+    let mut process = std::process::Command::new(raw_command_shell(comspec));
+    process.arg("/d").arg("/c").raw_arg(command);
+    process
+}
+
+pub(crate) fn pane_custom_command_pty_builder_platform(
+    command: &str,
+) -> portable_pty::CommandBuilder {
+    pane_custom_command_pty_builder_with_comspec(command, std::env::var_os("ComSpec"))
+}
+
+fn pane_custom_command_pty_builder_with_comspec(
+    command: &str,
+    comspec: Option<std::ffi::OsString>,
+) -> portable_pty::CommandBuilder {
+    let mut builder = portable_pty::CommandBuilder::new(raw_command_shell(comspec));
+    builder.arg("/d");
+    builder.arg("/c");
+    builder.raw_arg(command);
+    builder
+}
+
+pub(crate) fn scrollback_editor_argv(path: &std::path::Path) -> std::io::Result<Vec<String>> {
+    let editor = std::env::var("VISUAL")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| {
+            std::env::var("EDITOR")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+        });
+    scrollback_editor_argv_with_env(path, editor.as_deref())
+}
+
+fn scrollback_editor_argv_with_env(
+    path: &std::path::Path,
+    editor: Option<&str>,
+) -> std::io::Result<Vec<String>> {
+    let mut argv = match editor.filter(|value| !value.trim().is_empty()) {
+        Some(editor) => command_line_to_argv(editor).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("failed to parse editor command {editor:?}"),
+            )
+        })?,
+        None => vec!["notepad.exe".to_string()],
+    };
+    if argv.is_empty() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "editor command must not be empty",
+        ));
+    }
+    argv.push(path.display().to_string());
+    Ok(argv)
+}
+
+pub fn detach_server_daemon_command(_command: &mut std::process::Command) {}
+
+pub fn current_process_is_detached_server_daemon() -> bool {
+    false
+}
 
 pub fn foreground_job(child_pid: u32) -> Option<ForegroundJob> {
     let entries = snapshot_processes();
@@ -140,11 +223,15 @@ fn process_is_ancestor(
     parent_by_pid: &HashMap<u32, u32>,
 ) -> bool {
     let mut current = descendant_pid;
-    while let Some(parent) = parent_by_pid.get(&current).copied() {
+    let mut visited = HashSet::new();
+    while visited.insert(current) {
+        let Some(parent) = parent_by_pid.get(&current).copied() else {
+            return false;
+        };
         if parent == ancestor_pid {
             return true;
         }
-        if parent == 0 || parent == current {
+        if parent == 0 {
             return false;
         }
         current = parent;
@@ -161,13 +248,23 @@ fn descendant_entries(root_pid: u32, entries: &[WindowsProcessEntry]) -> Vec<&Wi
 
     let mut output = Vec::new();
     let mut queue = VecDeque::new();
+    let mut visited = HashSet::new();
+    visited.insert(root_pid);
     if let Some(root_children) = children.get(&root_pid) {
-        queue.extend(root_children.iter().copied());
+        for entry in root_children.iter().copied() {
+            if visited.insert(entry.pid) {
+                queue.push_back(entry);
+            }
+        }
     }
     while let Some(entry) = queue.pop_front() {
         output.push(entry);
         if let Some(next) = children.get(&entry.pid) {
-            queue.extend(next.iter().copied());
+            for child in next.iter().copied() {
+                if visited.insert(child.pid) {
+                    queue.push_back(child);
+                }
+            }
         }
     }
     output
@@ -341,8 +438,50 @@ pub fn process_exists(pid: u32) -> bool {
     ok && exit_code == STILL_ACTIVE
 }
 
-pub fn write_clipboard(_bytes: &[u8]) -> bool {
-    false
+pub fn write_clipboard(bytes: &[u8]) -> bool {
+    let Ok(text) = std::str::from_utf8(bytes) else {
+        return false;
+    };
+    if text.contains('\0') {
+        return false;
+    }
+    let mut utf16: Vec<u16> = text.encode_utf16().collect();
+    utf16.push(0);
+    let Some(byte_len) = utf16.len().checked_mul(size_of::<u16>()) else {
+        return false;
+    };
+
+    unsafe {
+        let owner = GetConsoleWindow();
+        if owner.is_null() || OpenClipboard(owner) == 0 {
+            return false;
+        }
+        let _clipboard = ClipboardGuard;
+
+        if EmptyClipboard() == 0 {
+            return false;
+        }
+
+        let memory = GlobalAlloc(GMEM_MOVEABLE, byte_len);
+        if memory.is_null() {
+            return false;
+        }
+
+        let locked = GlobalLock(memory);
+        if locked.is_null() {
+            GlobalFree(memory);
+            return false;
+        }
+        copy_nonoverlapping(utf16.as_ptr(), locked.cast::<u16>(), utf16.len());
+        GlobalUnlock(memory);
+
+        if SetClipboardData(CF_UNICODETEXT as u32, memory).is_null() {
+            GlobalFree(memory);
+            return false;
+        }
+
+        true
+    }
 }
 
 pub fn read_clipboard_text() -> Option<String> {
@@ -387,6 +526,16 @@ fn wide_null(value: &str) -> Vec<u16> {
 }
 
 struct ProcessHandle(HANDLE);
+
+struct ClipboardGuard;
+
+impl Drop for ClipboardGuard {
+    fn drop(&mut self) {
+        unsafe {
+            CloseClipboard();
+        }
+    }
+}
 
 impl ProcessHandle {
     fn open(pid: u32, access: u32) -> Option<Self> {
@@ -495,6 +644,75 @@ mod tests {
         thread,
         time::{Duration, Instant},
     };
+
+    fn argv_strings(argv: &[std::ffi::OsString]) -> Vec<String> {
+        argv.into_iter()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect()
+    }
+
+    #[test]
+    fn pane_custom_command_uses_cmd() {
+        let builder = super::pane_custom_command_pty_builder_with_comspec(
+            "echo hello",
+            Some(r"C:\Windows\System32\cmd.exe".into()),
+        );
+
+        assert_eq!(
+            argv_strings(builder.get_argv()),
+            [r"C:\Windows\System32\cmd.exe", "/d", "/c"]
+        );
+    }
+
+    #[test]
+    fn detached_custom_command_uses_cmd() {
+        let expected_shell = std::env::var_os("ComSpec")
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| r"C:\Windows\System32\cmd.exe".into())
+            .to_string_lossy()
+            .into_owned();
+
+        let process = super::detached_custom_command_process_platform("echo hello");
+
+        assert_eq!(process.get_program().to_string_lossy(), expected_shell);
+        assert_eq!(
+            process
+                .get_args()
+                .map(|arg| arg.to_string_lossy().into_owned())
+                .collect::<Vec<_>>(),
+            ["/d", "/c", "echo hello"]
+        );
+    }
+
+    #[test]
+    fn custom_command_falls_back_when_comspec_is_empty() {
+        let builder =
+            super::pane_custom_command_pty_builder_with_comspec("echo hello", Some("".into()));
+
+        assert_eq!(
+            argv_strings(builder.get_argv()),
+            [r"C:\Windows\System32\cmd.exe", "/d", "/c"]
+        );
+    }
+
+    #[test]
+    fn detached_custom_command_preserves_quoted_command_tail() {
+        let path = std::env::temp_dir().join(format!(
+            "herdr-raw-command-quotes-{}.txt",
+            std::process::id()
+        ));
+        let command = format!(r#"echo "hi" > "{}""#, path.display());
+
+        let status = super::detached_custom_command_process_platform(&command)
+            .status()
+            .expect("spawn raw command");
+
+        assert!(status.success(), "{status:?}");
+        let content = std::fs::read_to_string(&path).expect("read command output");
+        let _ = std::fs::remove_file(&path);
+        assert!(content.contains(r#""hi""#), "{content:?}");
+        assert!(!content.contains(r#"\"hi\""#), "{content:?}");
+    }
 
     #[test]
     fn windows_process_cwd_reads_child_launch_directory() {
@@ -690,6 +908,65 @@ mod tests {
         pids.sort_unstable();
 
         assert_eq!(pids, vec![10, 20, 30]);
+    }
+
+    #[test]
+    fn windows_process_tree_ignores_pid_reuse_cycles() {
+        let entries = vec![
+            test_entry(10, 30, "powershell.exe", &["powershell.exe"]),
+            test_entry(20, 10, "codex.exe", &["codex.exe"]),
+            test_entry(30, 20, "node.exe", &["node.exe"]),
+        ];
+
+        let descendants = super::descendant_entries(10, &entries);
+
+        assert_eq!(
+            descendants
+                .iter()
+                .map(|entry| entry.pid)
+                .collect::<Vec<_>>(),
+            vec![20, 30]
+        );
+    }
+
+    #[test]
+    fn windows_process_tree_returns_shell_when_candidate_parent_chain_cycles() {
+        let entries = vec![
+            test_entry(10, 40, "powershell.exe", &["powershell.exe"]),
+            test_entry(20, 10, "codex.exe", &["codex.exe"]),
+            test_entry(30, 10, "codex.exe", &["codex.exe"]),
+            test_entry(40, 10, "node.exe", &["node.exe"]),
+        ];
+
+        let job = super::select_pane_foreground_job(10, &entries).unwrap();
+
+        assert_eq!(job.process_group_id, 10);
+        assert_eq!(job.processes[0].name, "powershell.exe");
+    }
+
+    #[test]
+    fn scrollback_editor_argv_uses_editor_env_and_appends_path() {
+        let path = std::path::Path::new(r"C:\Users\User\AppData\Local\Temp\herdr scrollback.txt");
+        let argv = super::scrollback_editor_argv_with_env(
+            path,
+            Some(r#""C:\Program Files\Microsoft VS Code\Code.exe" --wait"#),
+        )
+        .unwrap();
+
+        assert_eq!(argv[0], r"C:\Program Files\Microsoft VS Code\Code.exe");
+        assert_eq!(argv[1], "--wait");
+        assert_eq!(argv[2], path.display().to_string());
+    }
+
+    #[test]
+    fn scrollback_editor_argv_falls_back_to_notepad() {
+        let path = std::path::Path::new(r"C:\Temp\herdr-scrollback.txt");
+        let argv = super::scrollback_editor_argv_with_env(path, None).unwrap();
+
+        assert_eq!(
+            argv,
+            vec!["notepad.exe".to_string(), path.display().to_string()]
+        );
     }
 
     fn test_entry(

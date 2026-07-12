@@ -133,7 +133,11 @@ fn insert_graphics_before_sync_end(encoded: &mut Vec<u8>, graphics: &[u8]) {
     }
 
     if let Some(sync_end) = rfind_subslice(encoded, SYNC_OUTPUT_END) {
-        encoded.splice(sync_end..sync_end, graphics.iter().copied());
+        let mut gfx: Vec<u8> = Vec::with_capacity(graphics.len() + 6);
+        gfx.extend_from_slice(b"\x1b7");
+        gfx.extend_from_slice(graphics);
+        gfx.extend_from_slice(b"\x1b8");
+        encoded.splice(sync_end..sync_end, gfx);
     } else {
         encoded.extend_from_slice(graphics);
     }
@@ -364,19 +368,14 @@ pub(crate) fn visible_hyperlinks(
     let Some(ws_idx) = app_state.active else {
         return Vec::new();
     };
-    let Some(tab) = app_state
-        .workspaces
-        .get(ws_idx)
-        .and_then(crate::workspace::Workspace::active_tab)
-    else {
+    if app_state.workspaces.get(ws_idx).is_none() {
         return Vec::new();
-    };
+    }
 
     let mut links = Vec::new();
     for info in &app_state.view.pane_infos {
-        if let Some(runtime) = tab
-            .terminal_id(info.id)
-            .and_then(|terminal_id| terminal_runtimes.get(terminal_id))
+        if let Some(runtime) =
+            app_state.runtime_for_pane_in_workspace(terminal_runtimes, ws_idx, info.id)
         {
             links.extend(runtime.visible_hyperlinks(info.inner_rect));
         }

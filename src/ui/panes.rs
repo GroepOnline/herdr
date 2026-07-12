@@ -825,10 +825,9 @@ mod tests {
         app.mode = Mode::Terminal;
         app.view.terminal_area = Rect::new(0, 0, 12, 3);
         let ws = Workspace::test_new("test");
-        let root_pane_id = ws.tabs[0].root_pane;
-
+        let pane_id = ws.tabs[0].root_pane;
         app.view.pane_infos = vec![PaneInfo {
-            id: root_pane_id,
+            id: pane_id,
             rect: Rect::new(0, 0, 12, 3),
             inner_rect: Rect::default(),
             scrollbar_rect: None,
@@ -836,9 +835,7 @@ mod tests {
             is_focused: false,
         }];
 
-        let terminal_id = ws.tabs[0].panes[&root_pane_id]
-            .attached_terminal_id
-            .clone();
+        let terminal_id = ws.tabs[0].panes[&pane_id].attached_terminal_id.clone();
         let mut terminal_state = TerminalState::new(terminal_id.clone(), "/tmp".into());
         terminal_state.set_manual_label("1 模块组织（已定）".into());
         app.terminals.insert(terminal_id, terminal_state);

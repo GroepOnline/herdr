@@ -11,7 +11,7 @@ pub struct AgentSessionRef {
     pub value: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentSessionRefKind {
     Id,
@@ -71,7 +71,7 @@ pub fn session_ref_from_report(
 
 pub fn normalize_session_start_source(value: Option<String>) -> Option<String> {
     match value.as_deref().map(str::trim) {
-        Some(source @ ("startup" | "resume" | "clear" | "compact" | "new")) => {
+        Some(source @ ("startup" | "resume" | "clear" | "compact" | "new" | "fork")) => {
             Some(source.to_string())
         }
         _ => None,
@@ -140,6 +140,13 @@ pub fn plan(source: &str, agent: &str, session_ref: &AgentSessionRef) -> Option<
         ("herdr:kimi", "kimi", AgentSessionRefKind::Id) => {
             vec!["kimi".into(), "--session".into(), session_ref.value.clone()]
         }
+        ("herdr:mastracode", "mastracode", AgentSessionRefKind::Id) => {
+            vec![
+                "mastracode".into(),
+                "--thread".into(),
+                session_ref.value.clone(),
+            ]
+        }
         ("herdr:pi", "pi", AgentSessionRefKind::Path | AgentSessionRefKind::Id) => {
             vec!["pi".into(), "--session".into(), session_ref.value.clone()]
         }
@@ -206,6 +213,7 @@ fn is_official_agent_source(source: &str, agent: &str) -> bool {
             | ("herdr:droid", "droid")
             | ("herdr:kimi", "kimi")
             | ("herdr:omp", "omp")
+            | ("herdr:mastracode", "mastracode")
             | ("herdr:pi", "pi")
             | ("herdr:hermes", "hermes")
             | ("herdr:opencode", "opencode")
@@ -313,6 +321,16 @@ mod tests {
             .unwrap()
             .argv,
             vec!["kimi", "--session", "kimi-session"]
+        );
+        assert_eq!(
+            plan(
+                "herdr:mastracode",
+                "mastracode",
+                &AgentSessionRef::id("mastracode-session").unwrap()
+            )
+            .unwrap()
+            .argv,
+            vec!["mastracode", "--thread", "mastracode-session"]
         );
         assert_eq!(
             plan(
@@ -490,6 +508,16 @@ mod tests {
         assert_eq!(session_ref.kind, AgentSessionRefKind::Id);
         assert_eq!(session_ref.value, "kimi-id");
 
+        let session_ref = session_ref_from_report(
+            "herdr:mastracode",
+            "mastracode",
+            Some("mastracode-id".into()),
+            None,
+        )
+        .unwrap();
+        assert_eq!(session_ref.kind, AgentSessionRefKind::Id);
+        assert_eq!(session_ref.value, "mastracode-id");
+
         let session_ref =
             session_ref_from_report("herdr:kilo", "kilo", Some("kilo-id".into()), None).unwrap();
         assert_eq!(session_ref.kind, AgentSessionRefKind::Id);
@@ -523,6 +551,10 @@ mod tests {
         assert_eq!(
             normalize_session_start_source(Some("new".into())),
             Some("new".into())
+        );
+        assert_eq!(
+            normalize_session_start_source(Some("fork".into())),
+            Some("fork".into())
         );
         assert_eq!(
             normalize_session_start_source(Some(" resume ".into())),
@@ -587,6 +619,13 @@ mod tests {
             &AgentSessionRef::path(&devin_session).unwrap()
         )
         .is_none());
+        assert!(session_ref_from_snapshot(
+            "herdr:mastracode",
+            "mastracode",
+            AgentSessionRefKind::Id,
+            "mastracode-session"
+        )
+        .is_some());
         assert!(session_ref_from_snapshot(
             "herdr:hermes",
             "hermes",

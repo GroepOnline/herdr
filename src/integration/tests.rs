@@ -175,6 +175,7 @@ fn windows_supports_only_cli_hook_integrations() {
     assert!(!integration_target_supported(IntegrationTarget::Hermes));
     assert!(!integration_target_supported(IntegrationTarget::Cursor));
     assert!(!integration_target_supported(IntegrationTarget::Devin));
+    assert!(!integration_target_supported(IntegrationTarget::Mastracode));
 
     assert!(integration_target_supported(IntegrationTarget::Claude));
     assert!(integration_target_supported(IntegrationTarget::Codex));
@@ -203,6 +204,7 @@ fn windows_does_not_offer_unsupported_integrations_even_when_commands_exist() {
     fs::write(bin.join("hermes.exe"), "").unwrap();
     fs::write(bin.join("cursor-agent.cmd"), "@echo off\r\n").unwrap();
     fs::write(bin.join("devin.cmd"), "@echo off\r\n").unwrap();
+    fs::write(bin.join("mastracode.cmd"), "@echo off\r\n").unwrap();
 
     assert!(!integration_target_available(IntegrationTarget::Pi));
     assert!(!integration_target_available(IntegrationTarget::Omp));
@@ -211,6 +213,7 @@ fn windows_does_not_offer_unsupported_integrations_even_when_commands_exist() {
     assert!(!integration_target_available(IntegrationTarget::Hermes));
     assert!(!integration_target_available(IntegrationTarget::Cursor));
     assert!(!integration_target_available(IntegrationTarget::Devin));
+    assert!(!integration_target_available(IntegrationTarget::Mastracode));
 
     if let Some(path) = original_path {
         std::env::set_var("PATH", path);
@@ -2587,6 +2590,13 @@ fn bundled_integration_assets_report_session_refs() {
     assert!(CURSOR_HOOK_ASSET.contains("sessionStart"));
     assert!(!CURSOR_HOOK_ASSET.contains("\"state\":"));
     assert!(!CURSOR_HOOK_ASSET.contains("pane.release_agent"));
+    assert!(MASTRACODE_HOOK_ASSET.contains("HERDR_INTEGRATION_ID=mastracode"));
+    assert!(MASTRACODE_HOOK_ASSET.contains("HERDR_INTEGRATION_VERSION=1"));
+    assert!(MASTRACODE_HOOK_ASSET.contains("session_id"));
+    assert!(!MASTRACODE_HOOK_ASSET.contains("run_id"));
+    assert!(MASTRACODE_HOOK_ASSET.contains("agent_session_id"));
+    assert!(MASTRACODE_HOOK_ASSET.contains("pane.report_agent"));
+    assert!(MASTRACODE_HOOK_ASSET.contains("pane.release_agent"));
 }
 
 #[test]
@@ -2671,20 +2681,134 @@ fn omp_extension_refreshes_session_ref_before_agent_start_state() {
     assert!(report_session < publish_state);
 }
 
+fn omp_handler(event: &str) -> &'static str {
+    let start = OMP_EXTENSION_ASSET
+        .find(&format!("pi.on(\"{event}\""))
+        .unwrap_or_else(|| panic!("omp extension registers {event} handler"));
+    let rest = &OMP_EXTENSION_ASSET[start..];
+    let end = rest[1..]
+        .find("\n\n  pi.")
+        .map(|offset| offset + 1)
+        .unwrap_or(rest.len());
+    &rest[..end]
+}
+
 #[test]
-fn omp_session_hook_ignores_non_ui_sessions() {
-    let session_start_handler = OMP_EXTENSION_ASSET
-        .find("pi.on(\"session_start\"")
-        .expect("omp extension registers session_start handler");
-    let non_ui_guard = OMP_EXTENSION_ASSET
+fn omp_root_activation_requires_ui_context() {
+    let activator = OMP_EXTENSION_ASSET
+        .find("function activateRootSession(ctx: any, sessionStartSource = \"startup\"): boolean")
+        .expect("omp extension should centralize root session activation");
+    let helper = &OMP_EXTENSION_ASSET[activator..];
+    let non_ui_guard = helper
         .find("ctx?.hasUI !== true")
-        .expect("omp extension checks UI context");
-    let session_report = OMP_EXTENSION_ASSET
-        .find("void reportSession()")
+        .expect("omp extension checks UI context before activating");
+    let root_session = helper
+        .find("rootSession = true;")
+        .expect("omp extension activates root session after UI guard");
+    let session_report = helper
+        .find("void reportSession(sessionStartSource);")
         .expect("omp extension reports root session");
 
-    assert!(session_start_handler < non_ui_guard);
-    assert!(non_ui_guard < session_report);
+    assert!(non_ui_guard < root_session);
+    assert!(root_session < session_report);
+}
+
+#[test]
+fn omp_session_start_and_switch_use_root_activation() {
+    let session_start = OMP_EXTENSION_ASSET
+        .find("pi.on(\"session_start\", (_event, ctx)")
+        .expect("omp extension registers session_start handler");
+    let session_start_handler = &OMP_EXTENSION_ASSET[session_start..];
+    session_start_handler
+        .find("if (!activateRootSession(ctx))")
+        .expect("omp session_start handler should activate root session");
+
+    let session_switch = OMP_EXTENSION_ASSET
+        .find("pi.on(\"session_switch\", (event, ctx)")
+        .expect("omp extension registers session_switch handler");
+    let session_switch_handler = &OMP_EXTENSION_ASSET[session_switch..];
+    session_switch_handler
+        .find("if (!activateRootSession(ctx, event?.reason || \"resume\"))")
+        .expect("omp session_switch handler should activate root session with switch reason");
+}
+
+#[test]
+fn omp_session_reports_include_start_source() {
+    let report_session = OMP_EXTENSION_ASSET
+        .find("function reportSession(sessionStartSource = \"startup\"): Promise<void>")
+        .expect("omp extension should label session reports with a lifecycle source");
+    let helper = &OMP_EXTENSION_ASSET[report_session..];
+    let session_source = helper
+        .find("session_start_source: sessionStartSource")
+        .expect("omp session reports should include the lifecycle source");
+    let session_ref = helper
+        .find("...sessionRef")
+        .expect("omp session reports should include the native session ref");
+
+    assert!(session_source < session_ref);
+}
+
+#[test]
+fn omp_socket_requests_are_serialized() {
+    let queue = OMP_EXTENSION_ASSET
+        .find("let requestQueue = Promise.resolve();")
+        .expect("omp extension should keep socket reports ordered");
+    let send_request = OMP_EXTENSION_ASSET[queue..]
+        .find("function sendRequest(request: unknown): Promise<void>")
+        .expect("omp extension should wrap socket sends in an ordered queue");
+    let queued_send = OMP_EXTENSION_ASSET[queue + send_request..]
+        .find("requestQueue = requestQueue.then(")
+        .expect("omp extension should serialize socket requests through the queue");
+    let raw_send = OMP_EXTENSION_ASSET[queue + send_request..]
+        .find("sendRequestNow(request)")
+        .expect("omp extension should enqueue the raw socket send");
+
+    assert!(queued_send < raw_send);
+}
+
+#[test]
+fn omp_runtime_events_can_activate_root_session_after_resume() {
+    for event in [
+        "agent_start",
+        "tool_approval_requested",
+        "tool_approval_resolved",
+        "tool_execution_start",
+        "tool_execution_end",
+    ] {
+        let handler = omp_handler(event);
+        handler
+            .find("!rootSession && !activateRootSession(ctx)")
+            .unwrap_or_else(|| panic!("omp {event} handler should recover missing root session"));
+    }
+}
+
+#[test]
+fn omp_ask_and_approval_events_report_blocked_state() {
+    let approval_handler = omp_handler("tool_approval_requested");
+    approval_handler
+        .find("activateBlocked(label);")
+        .expect("approval requests should block the pane");
+
+    let approval_resolved = omp_handler("tool_approval_resolved");
+    approval_resolved
+        .find("deactivateBlocked();")
+        .expect("approval resolution should unblock the pane");
+
+    let ask_handler = omp_handler("tool_execution_start");
+    ask_handler
+        .find("event?.toolName !== \"ask\"")
+        .expect("tool execution handler should only treat Ask as blocked");
+    ask_handler
+        .find("activateBlocked(askBlockedMessage(event.args));")
+        .expect("Ask start should block the pane");
+
+    let ask_end_handler = omp_handler("tool_execution_end");
+    ask_end_handler
+        .find("event?.toolName !== \"ask\"")
+        .expect("tool execution end should only treat Ask as blocked");
+    ask_end_handler
+        .find("deactivateBlocked();")
+        .expect("Ask end should unblock the pane");
 }
 
 #[test]
@@ -2986,5 +3110,200 @@ fn install_cursor_errors_when_config_dir_missing() {
     );
 
     std::env::remove_var(CURSOR_CONFIG_DIR_ENV_VAR);
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn install_mastracode_writes_hook_and_updates_hooks_json() {
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let original_home = std::env::var_os("HOME");
+    let mastracode_dir = base.join(".mastracode");
+    fs::create_dir_all(&mastracode_dir).unwrap();
+    fs::write(
+        mastracode_dir.join("hooks.json"),
+        r#"{"PostToolUse":[{"type":"command","command":"echo keep-me"}]}"#,
+    )
+    .unwrap();
+    std::env::set_var("HOME", &base);
+
+    let installed = install_mastracode().unwrap();
+
+    assert_eq!(
+        installed.hook_path,
+        mastracode_dir
+            .join("hooks")
+            .join(MASTRACODE_HOOK_INSTALL_NAME)
+    );
+    assert_eq!(installed.hooks_path, mastracode_dir.join("hooks.json"));
+    assert_eq!(
+        fs::read_to_string(&installed.hook_path).unwrap(),
+        MASTRACODE_HOOK_ASSET
+    );
+
+    let hooks_file: Value =
+        serde_json::from_str(&fs::read_to_string(mastracode_dir.join("hooks.json")).unwrap())
+            .unwrap();
+    let hooks = hooks_file.as_object().unwrap();
+    for (event, action) in MASTRACODE_HOOK_EVENTS {
+        let entries = hooks.get(event).and_then(Value::as_array).unwrap();
+        assert_eq!(entries.len(), 1, "{event} should have one Herdr hook");
+        let command = entries[0].get("command").and_then(Value::as_str).unwrap();
+        assert!(command.starts_with("bash "));
+        assert!(command.contains(MASTRACODE_HOOK_INSTALL_NAME));
+        assert!(command.ends_with(action));
+        assert_eq!(
+            entries[0].get("type").and_then(Value::as_str),
+            Some("command")
+        );
+        assert_eq!(
+            entries[0].get("timeout").and_then(Value::as_u64),
+            Some(MASTRACODE_HOOK_TIMEOUT_MS)
+        );
+    }
+    assert_eq!(
+        hooks["PostToolUse"][0]
+            .get("command")
+            .and_then(Value::as_str),
+        Some("echo keep-me")
+    );
+
+    if let Some(home) = original_home {
+        std::env::set_var("HOME", home);
+    } else {
+        std::env::remove_var("HOME");
+    }
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn install_mastracode_is_idempotent_for_hook_entries() {
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let original_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", &base);
+
+    install_mastracode().unwrap();
+    install_mastracode().unwrap();
+
+    let hooks_file: Value = serde_json::from_str(
+        &fs::read_to_string(base.join(".mastracode").join("hooks.json")).unwrap(),
+    )
+    .unwrap();
+    let hooks = hooks_file.as_object().unwrap();
+    for (event, _) in MASTRACODE_HOOK_EVENTS {
+        assert_eq!(hooks.get(event).and_then(Value::as_array).unwrap().len(), 1);
+    }
+
+    if let Some(home) = original_home {
+        std::env::set_var("HOME", home);
+    } else {
+        std::env::remove_var("HOME");
+    }
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn uninstall_mastracode_removes_herdr_hooks_and_preserves_others() {
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let original_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", &base);
+
+    install_mastracode().unwrap();
+    let hooks_path = base.join(".mastracode").join("hooks.json");
+    let mut hooks_file: Value =
+        serde_json::from_str(&fs::read_to_string(&hooks_path).unwrap()).unwrap();
+    hooks_file["UserPromptSubmit"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({ "type": "command", "command": "echo user-defined" }));
+    fs::write(
+        &hooks_path,
+        serde_json::to_string_pretty(&hooks_file).unwrap(),
+    )
+    .unwrap();
+
+    let result = uninstall_mastracode().unwrap();
+    assert!(result.removed_hook_file);
+    assert!(result.updated_hooks);
+    assert!(!base
+        .join(".mastracode")
+        .join("hooks")
+        .join(MASTRACODE_HOOK_INSTALL_NAME)
+        .is_file());
+
+    let hooks_file: Value =
+        serde_json::from_str(&fs::read_to_string(&hooks_path).unwrap()).unwrap();
+    let hooks = hooks_file.as_object().unwrap();
+    for (event, _) in MASTRACODE_HOOK_EVENTS {
+        if event == "UserPromptSubmit" {
+            continue;
+        }
+        assert!(!hooks.contains_key(event), "{event} should be removed");
+    }
+    let user_prompt_submit = hooks
+        .get("UserPromptSubmit")
+        .and_then(Value::as_array)
+        .unwrap();
+    assert_eq!(user_prompt_submit.len(), 1);
+    assert_eq!(
+        user_prompt_submit[0].get("command").and_then(Value::as_str),
+        Some("echo user-defined")
+    );
+
+    if let Some(home) = original_home {
+        std::env::set_var("HOME", home);
+    } else {
+        std::env::remove_var("HOME");
+    }
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn install_mastracode_errors_when_event_value_not_array() {
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let original_home = std::env::var_os("HOME");
+    let mastracode_dir = base.join(".mastracode");
+    fs::create_dir_all(&mastracode_dir).unwrap();
+    fs::write(mastracode_dir.join("hooks.json"), r#"{"SessionStart":{}}"#).unwrap();
+    std::env::set_var("HOME", &base);
+
+    let err = install_mastracode().unwrap_err().to_string();
+    assert!(
+        err.contains("hook entries for SessionStart must be an array"),
+        "unexpected error: {err}"
+    );
+
+    if let Some(home) = original_home {
+        std::env::set_var("HOME", home);
+    } else {
+        std::env::remove_var("HOME");
+    }
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn uninstall_mastracode_errors_when_event_value_not_array() {
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let original_home = std::env::var_os("HOME");
+    let mastracode_dir = base.join(".mastracode");
+    fs::create_dir_all(&mastracode_dir).unwrap();
+    fs::write(mastracode_dir.join("hooks.json"), r#"{"SessionStart":{}}"#).unwrap();
+    std::env::set_var("HOME", &base);
+
+    let err = uninstall_mastracode().unwrap_err().to_string();
+    assert!(
+        err.contains("hook entries for SessionStart must be an array"),
+        "unexpected error: {err}"
+    );
+
+    if let Some(home) = original_home {
+        std::env::set_var("HOME", home);
+    } else {
+        std::env::remove_var("HOME");
+    }
     let _ = fs::remove_dir_all(base);
 }

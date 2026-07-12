@@ -5,7 +5,9 @@ use tracing::{info, warn};
 
 use crate::detect::{Agent, AgentState};
 use crate::events::AppEvent;
-use crate::layout::{find_in_direction, NavDirection, PaneId};
+use crate::layout::PaneId;
+#[cfg(test)]
+use crate::layout::{find_in_direction, NavDirection};
 use crate::selection::Selection;
 use crate::terminal::{EffectiveStateChange, TerminalStateMutation};
 use crate::workspace::WorkspaceGitStatus;
@@ -295,6 +297,14 @@ impl AppState {
         }
     }
 
+    fn sync_selection_after_focus_navigation(&mut self) {
+        if self.copy_mode.is_some() {
+            self.sync_copy_mode_with_focus();
+        } else {
+            self.clear_selection();
+        }
+    }
+
     pub(crate) fn focus_pane_in_workspace(&mut self, ws_idx: usize, pane_id: PaneId) -> bool {
         let Some(ws) = self.workspaces.get(ws_idx) else {
             return false;
@@ -311,6 +321,9 @@ impl AppState {
             return false;
         }
 
+        if self.copy_mode.is_some() {
+            self.clear_copy_mode_selection();
+        }
         self.switch_workspace_tab(ws_idx, tab_idx);
         if let Some(tab) = self
             .workspaces
@@ -320,6 +333,7 @@ impl AppState {
             tab.layout.focus_pane(pane_id);
             self.previous_pane_focus = previous;
             self.mark_session_dirty();
+            self.sync_copy_mode_with_focus();
             return true;
         }
         false
@@ -947,8 +961,6 @@ impl AppState {
     pub fn switch_workspace(&mut self, idx: usize) {
         if idx < self.workspaces.len() {
             let previous_focus = self.current_pane_focus_target();
-            self.selection = None;
-            self.selection_autoscroll = None;
             self.active = Some(idx);
             self.selected = idx;
             let workspace_id = self.workspaces[idx].id.clone();
@@ -965,6 +977,7 @@ impl AppState {
             self.tab_scroll_follow_active = true;
             self.refresh_tab_bar_view();
             self.record_pane_focus_after_navigation(previous_focus);
+            self.sync_selection_after_focus_navigation();
         }
     }
 
@@ -982,8 +995,6 @@ impl AppState {
 
         let previous_focus = self.current_pane_focus_target();
         let workspace_changed = self.active != Some(ws_idx);
-        self.selection = None;
-        self.selection_autoscroll = None;
         self.active = Some(ws_idx);
         self.selected = ws_idx;
         let workspace_id = self.workspaces[ws_idx].id.clone();
@@ -1001,6 +1012,7 @@ impl AppState {
         self.tab_scroll_follow_active = true;
         self.refresh_tab_bar_view();
         self.record_pane_focus_after_navigation(previous_focus);
+        self.sync_selection_after_focus_navigation();
         true
     }
 
@@ -1083,11 +1095,10 @@ impl AppState {
             .min(crate::ui::mobile_switcher_max_scroll(self));
     }
 
+    #[cfg(test)]
     pub fn switch_tab(&mut self, idx: usize) {
         if let Some(ws_idx) = self.active {
             let previous_focus = self.current_pane_focus_target();
-            self.selection = None;
-            self.selection_autoscroll = None;
             let Some(ws) = self.workspaces.get_mut(ws_idx) else {
                 return;
             };
@@ -1099,6 +1110,7 @@ impl AppState {
             self.tab_scroll_follow_active = true;
             self.refresh_tab_bar_view();
             self.record_pane_focus_after_navigation(previous_focus);
+            self.sync_selection_after_focus_navigation();
         }
     }
 
@@ -1167,6 +1179,7 @@ impl AppState {
         }
     }
 
+    #[cfg(test)]
     pub fn next_workspace(&mut self) {
         if self.workspaces.is_empty() {
             return;
@@ -1178,6 +1191,7 @@ impl AppState {
         self.switch_workspace(next);
     }
 
+    #[cfg(test)]
     pub fn previous_workspace(&mut self) {
         if self.workspaces.is_empty() {
             return;
@@ -1238,6 +1252,7 @@ impl AppState {
         self.refresh_tab_bar_view();
     }
 
+    #[cfg(test)]
     pub fn next_tab(&mut self) {
         if let Some(ws) = self.active.and_then(|i| self.workspaces.get(i)) {
             if !ws.tabs.is_empty() {
@@ -1247,6 +1262,7 @@ impl AppState {
         }
     }
 
+    #[cfg(test)]
     pub fn previous_tab(&mut self) {
         if let Some(ws) = self.active.and_then(|i| self.workspaces.get(i)) {
             if !ws.tabs.is_empty() {
@@ -1260,14 +1276,17 @@ impl AppState {
         }
     }
 
+    #[cfg(test)]
     pub fn next_agent(&mut self) {
         self.cycle_agent_entry(true);
     }
 
+    #[cfg(test)]
     pub fn previous_agent(&mut self) {
         self.cycle_agent_entry(false);
     }
 
+    #[cfg(test)]
     pub fn focus_agent_entry(&mut self, idx: usize) -> bool {
         let entries = crate::ui::agent_panel_entries(self);
         let Some(target) = entries.get(idx) else {
@@ -1289,6 +1308,7 @@ impl AppState {
         false
     }
 
+    #[cfg(test)]
     fn cycle_agent_entry(&mut self, forward: bool) {
         let entries = crate::ui::agent_panel_entries(self);
         if entries.is_empty() {
@@ -1418,6 +1438,15 @@ impl AppState {
         &mut self,
         pane_ids: impl IntoIterator<Item = PaneId>,
     ) {
+        let pane_ids = pane_ids.into_iter().collect::<Vec<_>>();
+        self.clear_copy_mode_for_removed_panes(pane_ids.iter().copied());
+        if self
+            .previous_pane_focus
+            .as_ref()
+            .is_some_and(|focus| pane_ids.contains(&focus.pane_id))
+        {
+            self.previous_pane_focus = None;
+        }
         for pane_id in pane_ids {
             self.plugin_panes.remove(&pane_id);
         }
@@ -1536,6 +1565,7 @@ pub(crate) struct PaneZoomOutcome {
 }
 
 impl AppState {
+    #[cfg(test)]
     pub fn navigate_pane(&mut self, direction: NavDirection) {
         let Some(ws_idx) = self.active else {
             return;
@@ -1556,6 +1586,7 @@ impl AppState {
         }
     }
 
+    #[cfg(test)]
     pub fn swap_pane(&mut self, direction: NavDirection) -> bool {
         let Some(ws_idx) = self.active else {
             return false;
@@ -1610,6 +1641,7 @@ impl AppState {
         }
     }
 
+    #[cfg(test)]
     pub fn cycle_pane(&mut self, reverse: bool) {
         let Some(ws_idx) = self.active else {
             return;
@@ -1628,6 +1660,7 @@ impl AppState {
         }
     }
 
+    #[cfg(test)]
     pub fn last_pane(&mut self) {
         let Some(target) = self.previous_pane_focus.clone() else {
             return;
@@ -1708,6 +1741,7 @@ impl AppState {
         })
     }
 
+    #[cfg(test)]
     pub fn toggle_zoom(&mut self) {
         let Some(ws_idx) = self.active else {
             return;
@@ -1749,6 +1783,7 @@ impl AppState {
         }
     }
 
+    #[cfg(test)]
     fn close_focused_pane_would_close_workspace(&self, ws_idx: usize) -> bool {
         self.workspaces.get(ws_idx).is_some_and(|ws| {
             let pane_count = ws
@@ -1767,6 +1802,7 @@ impl AppState {
         })
     }
 
+    #[cfg(test)]
     /// Close the focused pane. Returns true when the close was deferred to confirmation.
     pub fn close_pane(&mut self) -> bool {
         let active = self.active;
@@ -1812,6 +1848,7 @@ impl AppState {
         false
     }
 
+    #[cfg(test)]
     /// Close the active tab. Returns true when the close was deferred to confirmation.
     pub fn close_tab(&mut self) -> bool {
         if self.active.is_some_and(|ws_idx| {
@@ -1980,15 +2017,23 @@ impl AppState {
         }
 
         let metrics = self.pane_scroll_metrics(terminal_runtimes, pane_id);
-        let row_selection = Selection::range(
+        let visible_selection = Selection::line_range(
             pane_id,
-            viewport_row,
-            0,
+            Selection::absolute_row_for_viewport(0, metrics),
+            Selection::absolute_row_for_viewport(info.inner_rect.height.saturating_sub(1), metrics),
             info.inner_rect.width.saturating_sub(1),
-            metrics,
         );
-        let row_text = rt.extract_selection(&row_selection)?;
-        url_at_column(&row_text, col).map(str::to_owned)
+        let visible_text = rt.extract_selection(&visible_selection)?;
+        let logical_cell =
+            logical_cell_for_visible_cell(&visible_text, info.inner_rect.width, viewport_row, col)?;
+        let line_start = visible_text[..logical_cell.byte_index]
+            .rfind('\n')
+            .map_or(0, |idx| idx + 1);
+        let line_end = visible_text[logical_cell.byte_index..]
+            .find('\n')
+            .map_or(visible_text.len(), |idx| logical_cell.byte_index + idx);
+        let line = visible_text.get(line_start..line_end)?;
+        url_at_column(line, logical_cell.logical_col).map(str::to_owned)
     }
 
     pub fn copy_selection(&mut self, terminal_runtimes: &crate::terminal::TerminalRuntimeRegistry) {
@@ -2069,10 +2114,110 @@ fn word_bounds_at_column(row: &str, col: u16) -> Option<(u16, u16)> {
 pub(crate) fn url_at_column(row: &str, col: u16) -> Option<&str> {
     let cells = text_cells(row);
     let clicked_idx = cell_index_at_column(&cells, col)?;
-    let span = url_span_at_column(&cells, clicked_idx)?;
+    let span = url_spans(&cells)
+        .into_iter()
+        .find(|span| span.contains(clicked_idx))?;
     let start_byte = byte_index_for_cell(row, span.start);
     let end_byte = byte_index_after_cell(row, span.end);
     safe_web_url(row.get(start_byte..end_byte)?)
+}
+
+fn url_spans(cells: &[TextCell]) -> Vec<CellSpan> {
+    let mut spans = Vec::new();
+    let mut start = 0;
+    while start < cells.len() {
+        if starts_with_chars(&cells[start..], "http://")
+            || starts_with_chars(&cells[start..], "https://")
+        {
+            let mut end = start;
+            while end + 1 < cells.len() && !cells[end + 1].ch.is_whitespace() {
+                end += 1;
+            }
+            if let Some(span) = trim_url_edges(cells, CellSpan { start, end }) {
+                spans.push(span);
+            }
+            start = end + 1;
+        } else {
+            start += 1;
+        }
+    }
+    spans
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VisibleTextCell {
+    pub(crate) byte_index: usize,
+    pub(crate) ch: char,
+    pub(crate) logical_col: u16,
+    pub(crate) screen_row: u16,
+    pub(crate) screen_col: u16,
+}
+
+pub(crate) fn visible_text_cells(text: &str, pane_width: u16) -> Vec<VisibleTextCell> {
+    if pane_width == 0 {
+        return Vec::new();
+    }
+
+    let mut cells = Vec::new();
+    let mut screen_row = 0u16;
+    let mut screen_col = 0u16;
+    let mut logical_col = 0u16;
+    let mut pending_wrap = false;
+    for (byte_index, ch) in text.char_indices() {
+        if ch == '\n' {
+            screen_row = screen_row.saturating_add(1);
+            screen_col = 0;
+            logical_col = 0;
+            pending_wrap = false;
+            continue;
+        }
+        if pending_wrap {
+            screen_row = screen_row.saturating_add(1);
+            screen_col = 0;
+            pending_wrap = false;
+        }
+
+        let width = UnicodeWidthChar::width(ch).unwrap_or(0) as u16;
+        cells.push(VisibleTextCell {
+            byte_index,
+            ch,
+            logical_col,
+            screen_row,
+            screen_col,
+        });
+
+        logical_col = logical_col.saturating_add(width);
+        screen_col = screen_col.saturating_add(width);
+        while screen_col > pane_width {
+            screen_col -= pane_width;
+            screen_row = screen_row.saturating_add(1);
+        }
+        if width > 0 && screen_col == pane_width {
+            pending_wrap = true;
+            screen_col = pane_width.saturating_sub(1);
+        }
+    }
+    cells
+}
+
+pub(crate) fn logical_cell_for_visible_cell(
+    text: &str,
+    pane_width: u16,
+    target_row: u16,
+    target_col: u16,
+) -> Option<VisibleTextCell> {
+    visible_text_cells(text, pane_width)
+        .into_iter()
+        .find(|cell| {
+            let width = UnicodeWidthChar::width(cell.ch).unwrap_or(0) as u16;
+            cell.screen_row == target_row
+                && if width == 0 {
+                    target_col == cell.screen_col
+                } else {
+                    target_col >= cell.screen_col
+                        && target_col < cell.screen_col.saturating_add(width)
+                }
+        })
 }
 
 fn token_span_at_column(cells: &[TextCell], clicked_idx: usize) -> Option<CellSpan> {
@@ -2521,9 +2666,11 @@ impl AppState {
                     .collect()
                 }
             }
-            // Intercepted in App::handle_internal_event before reaching this
-            // dispatch; never touches AppState.
+            // Both intercepted before this dispatch — in App::handle_internal_event (monolithic)
+            // or via HeadlessServer forwarding to the foreground client (server); never touch
+            // AppState. Kept for AppEvent exhaustiveness.
             AppEvent::ClipboardWrite { .. } => Vec::new(),
+            AppEvent::PrefixInputSource { .. } => Vec::new(),
             AppEvent::TerminalCwdReported { pane_id, cwd } => {
                 if !cwd.is_absolute() || !cwd.is_dir() {
                     return Vec::new();
@@ -2849,7 +2996,7 @@ impl AppState {
 
     fn handle_pane_died(&mut self, pane_id: PaneId) {
         self.pending_agent_notifications.remove(&pane_id);
-        self.plugin_panes.remove(&pane_id);
+        self.remove_plugin_pane_records([pane_id]);
         let ws_idx = self
             .workspaces
             .iter()

@@ -233,9 +233,37 @@ pub fn stop_session(name: Option<&str>) -> Result<SessionInfo, String> {
     stop_session_with_timeout(name, STOP_WAIT_TIMEOUT)
 }
 
+pub(crate) fn stop_active_server() -> Result<(), String> {
+    let socket_path = active_api_socket_path();
+    let client_socket_path = crate::server::socket_paths::client_socket_path();
+    stop_socket_with_timeout(
+        socket_path.clone(),
+        vec![socket_path, client_socket_path],
+        STOP_WAIT_TIMEOUT,
+        "server",
+    )
+}
+
 fn stop_session_with_timeout(name: Option<&str>, timeout: Duration) -> Result<SessionInfo, String> {
-    let deadline = Instant::now() + timeout;
     let socket_path = api_socket_path_for(name);
+    let client_socket_path = client_socket_path_for(name);
+    let label = format!("session {}", name.unwrap_or(DEFAULT_SESSION_NAME));
+    stop_socket_with_timeout(
+        socket_path.clone(),
+        vec![socket_path, client_socket_path],
+        timeout,
+        &label,
+    )?;
+    Ok(session_info(name))
+}
+
+fn stop_socket_with_timeout(
+    socket_path: PathBuf,
+    stopped_socket_paths: Vec<PathBuf>,
+    timeout: Duration,
+    label: &str,
+) -> Result<(), String> {
+    let deadline = Instant::now() + timeout;
     let request = serde_json::json!({
         "id": "cli:session:stop",
         "method": "server.stop",
@@ -243,8 +271,7 @@ fn stop_session_with_timeout(name: Option<&str>, timeout: Duration) -> Result<Se
     });
     let stream = crate::ipc::connect_local_stream(&socket_path).map_err(|err| {
         format!(
-            "session {} is not running or cannot be reached at {}: {err}",
-            name.unwrap_or(DEFAULT_SESSION_NAME),
+            "{label} is not running or cannot be reached at {}: {err}",
             socket_path.display()
         )
     })?;
@@ -254,15 +281,19 @@ fn stop_session_with_timeout(name: Option<&str>, timeout: Duration) -> Result<Se
             return Err(error.to_string());
         }
     }
-    if !wait_until_stopped_until(&socket_path, deadline) {
+    if !wait_until_stopped_until(&stopped_socket_paths, deadline) {
+        let reachable = reachable_socket_paths(&stopped_socket_paths);
         return Err(format!(
-            "session {} did not stop within {}ms; socket is still reachable at {}",
-            name.unwrap_or(DEFAULT_SESSION_NAME),
+            "{label} did not stop within {}ms; sockets are still reachable at {}",
             timeout.as_millis(),
-            socket_path.display()
+            reachable
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         ));
     }
-    Ok(session_info(name))
+    Ok(())
 }
 
 pub fn delete_session(name: &str) -> Result<SessionInfo, String> {
@@ -294,7 +325,7 @@ fn send_stop_request(
         return Ok(None);
     };
     if let Err(err) = stream.set_send_timeout(Some(write_timeout)) {
-        if err.kind() != std::io::ErrorKind::InvalidInput {
+        if !stop_timeout_error_allows_wait(&err) {
             return Err(err.to_string());
         }
     }
@@ -323,7 +354,7 @@ fn send_stop_request_inner(
         return Ok(None);
     };
     if let Err(err) = stream.set_recv_timeout(Some(read_timeout)) {
-        if err.kind() == std::io::ErrorKind::InvalidInput {
+        if stop_timeout_error_allows_wait(&err) {
             return Ok(None);
         }
         return Err(err);
@@ -335,6 +366,11 @@ fn send_stop_request_inner(
         return Ok(None);
     }
     Ok(Some(line))
+}
+
+fn stop_timeout_error_allows_wait(err: &std::io::Error) -> bool {
+    err.kind() == std::io::ErrorKind::InvalidInput
+        || (cfg!(windows) && err.kind() == std::io::ErrorKind::Unsupported)
 }
 
 fn stop_request_error_allows_wait(err: &std::io::Error) -> bool {
@@ -353,14 +389,22 @@ fn is_running_at(socket_path: &Path) -> bool {
     socket_path.exists() && crate::ipc::connect_local_stream(socket_path).is_ok()
 }
 
-fn wait_until_stopped_until(socket_path: &Path, deadline: Instant) -> bool {
+fn wait_until_stopped_until(socket_paths: &[PathBuf], deadline: Instant) -> bool {
     while Instant::now() < deadline {
-        if !is_running_at(socket_path) {
+        if socket_paths.iter().all(|path| !is_running_at(path)) {
             return true;
         }
         std::thread::sleep(STOP_WAIT_POLL.min(time_until(deadline)));
     }
-    !is_running_at(socket_path)
+    socket_paths.iter().all(|path| !is_running_at(path))
+}
+
+fn reachable_socket_paths(socket_paths: &[PathBuf]) -> Vec<PathBuf> {
+    socket_paths
+        .iter()
+        .filter(|path| is_running_at(path))
+        .cloned()
+        .collect()
 }
 
 fn time_until(deadline: Instant) -> Duration {
@@ -463,6 +507,20 @@ mod tests {
             let err = std::io::Error::from(kind);
             assert!(stop_request_error_allows_wait(&err), "{kind:?}");
         }
+    }
+
+    #[test]
+    fn stop_timeout_invalid_input_waits_for_socket_state() {
+        let err = std::io::Error::from(std::io::ErrorKind::InvalidInput);
+
+        assert!(stop_timeout_error_allows_wait(&err));
+    }
+
+    #[test]
+    fn stop_timeout_unsupported_waits_for_socket_state_only_on_windows() {
+        let err = std::io::Error::from(std::io::ErrorKind::Unsupported);
+
+        assert_eq!(stop_timeout_error_allows_wait(&err), cfg!(windows));
     }
 
     #[test]

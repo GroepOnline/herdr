@@ -13,6 +13,9 @@ use unicode_width::UnicodeWidthStr;
 use crate::layout::PaneId;
 use crate::protocol::CellData;
 
+#[cfg(windows)]
+mod windows_recent_fallback;
+
 use super::cursor::{CursorPositionSettleState, DecscusrTracker, CURSOR_POSITION_SETTLE};
 use super::{
     input::{
@@ -97,6 +100,10 @@ impl InputState {
     pub fn mouse_reporting_enabled(self) -> bool {
         self.mouse_protocol_mode.reporting_enabled()
     }
+
+    pub fn plain_page_keys_use_host_scrollback(self) -> bool {
+        !self.alternate_screen && !self.mouse_reporting_enabled() && !self.application_cursor
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -116,6 +123,8 @@ pub(crate) struct GhosttyPaneTerminal {
 
 pub(crate) struct GhosttyPaneCore {
     pub terminal: crate::ghostty::Terminal,
+    #[cfg(windows)]
+    recent_fallback: windows_recent_fallback::Cache,
     pub render_state: crate::ghostty::RenderState,
     pub kitty_keyboard: KittyKeyboardTracker,
     pub initial_default_foreground: Option<crate::ghostty::RgbColor>,
@@ -133,6 +142,7 @@ pub(crate) struct GhosttyPaneCore {
     pub xtgettcap_query_tracker: XtgettcapQueryTracker,
     decscusr_tracker: DecscusrTracker,
     cursor_settle_state: CursorPositionSettleState,
+    windows_powershell_prompt_cwd_reporting: bool,
 }
 
 pub(crate) struct PaneTerminal {
@@ -374,6 +384,8 @@ impl GhosttyPaneTerminal {
         Ok(Self {
             core: Mutex::new(GhosttyPaneCore {
                 terminal,
+                #[cfg(windows)]
+                recent_fallback: windows_recent_fallback::Cache::default(),
                 render_state,
                 kitty_keyboard: KittyKeyboardTracker::default(),
                 initial_default_foreground,
@@ -391,10 +403,17 @@ impl GhosttyPaneTerminal {
                 xtgettcap_query_tracker: XtgettcapQueryTracker::default(),
                 decscusr_tracker: DecscusrTracker::default(),
                 cursor_settle_state: CursorPositionSettleState::default(),
+                windows_powershell_prompt_cwd_reporting: false,
             }),
             key_encoder: Mutex::new(key_encoder),
             pending_pty_responses,
         })
+    }
+
+    pub(super) fn set_windows_powershell_prompt_cwd_reporting(&self, enabled: bool) {
+        if let Ok(mut core) = self.core.lock() {
+            core.windows_powershell_prompt_cwd_reporting = enabled;
+        }
     }
 
     pub fn apply_host_terminal_theme(&self, theme: crate::terminal_theme::TerminalTheme) {
@@ -564,6 +583,8 @@ impl GhosttyPaneTerminal {
             xtgettcap_responses,
             &mut terminal_responses,
         );
+        #[cfg(windows)]
+        windows_recent_fallback::update(&mut core);
         crate::render_prof::duration_since("pty.ghostty_write", write_started);
 
         let has_kitty_graphics_sequence = crate::kitty_graphics::is_enabled()
@@ -585,7 +606,14 @@ impl GhosttyPaneTerminal {
             core.cursor_settle_state
                 .observe(cursor_after_write, Instant::now());
         }
-        let request_render = !synchronized_output && !has_kitty_graphics_sequence;
+        #[cfg(windows)]
+        let reported_cwd = if core.windows_powershell_prompt_cwd_reporting {
+            reported_cwd.or_else(|| windows_powershell_current_prompt_cwd(&mut core))
+        } else {
+            reported_cwd
+        };
+
+        let request_render = !synchronized_output;
         let render_delay = render_delay_after_pty_write(
             synchronized_output,
             has_kitty_graphics_sequence,
@@ -674,6 +702,8 @@ impl GhosttyPaneTerminal {
             return;
         };
         core.terminal.write(ansi.as_bytes());
+        #[cfg(windows)]
+        windows_recent_fallback::update(&mut core);
         if let Ok(mut key_encoder) = self.key_encoder.lock() {
             key_encoder.set_from_terminal(&core.terminal);
         }
@@ -1624,37 +1654,101 @@ fn ghostty_detection_text(core: &GhosttyPaneCore) -> Result<String, crate::ghost
     ghostty_recent_text(core, lines)
 }
 
+#[cfg(windows)]
+fn windows_powershell_current_prompt_cwd(core: &mut GhosttyPaneCore) -> Option<std::path::PathBuf> {
+    if core.terminal.active_screen().ok()? != crate::ghostty::ActiveScreen::Primary {
+        return None;
+    }
+    let cursor = current_cursor_state(core)?;
+    let rows = core.terminal.rows().ok()?;
+    let cols = core.terminal.cols().ok()?;
+    if rows == 0 || cols == 0 || cursor.y >= rows {
+        return None;
+    }
+    let total_rows = core.terminal.total_rows().ok()?;
+    let viewport_start = total_rows.saturating_sub(usize::from(rows));
+    let cursor_row = viewport_start + usize::from(cursor.y);
+    if core
+        .terminal
+        .read_text_screen(
+            (0, cursor_row as u32),
+            (cols.saturating_sub(1), cursor_row as u32),
+            false,
+        )
+        .ok()?
+        .trim()
+        .is_empty()
+    {
+        return None;
+    }
+    let text = core
+        .terminal
+        .read_text_screen(
+            (0, viewport_start as u32),
+            (cols.saturating_sub(1), cursor_row as u32),
+            false,
+        )
+        .ok()?;
+    windows_powershell_prompt_cwd(&text)
+}
+
+#[cfg(windows)]
+fn windows_powershell_prompt_cwd(text: &str) -> Option<std::path::PathBuf> {
+    text.lines()
+        .rev()
+        .find(|line| !line.trim().is_empty())
+        .and_then(windows_powershell_prompt_line_cwd)
+}
+
+#[cfg(windows)]
+fn windows_powershell_prompt_line_cwd(line: &str) -> Option<std::path::PathBuf> {
+    let line = line.trim_end();
+    let rest = line.strip_prefix("PS ")?;
+    let marker = rest.find('>')?;
+    let mut raw_cwd = rest[..marker].trim_end();
+    let suffix = rest[marker..].trim_end();
+    if !suffix.chars().all(|ch| ch == '>') {
+        return None;
+    }
+    if let Some((_, filesystem_path)) = raw_cwd.rsplit_once("::") {
+        raw_cwd = filesystem_path;
+    }
+    let cwd = std::path::PathBuf::from(raw_cwd);
+    (cwd.is_absolute() && cwd.is_dir()).then_some(cwd)
+}
+
 fn ghostty_recent_text(
     core: &GhosttyPaneCore,
     lines: usize,
 ) -> Result<String, crate::ghostty::Error> {
-    let total_rows = core.terminal.total_rows()?;
-    let cols = core.terminal.cols()?;
-    if total_rows == 0 || cols == 0 {
-        return Ok(String::new());
+    let text = ghostty_recent_text_for_terminal(&core.terminal, lines)?;
+    #[cfg(windows)]
+    {
+        if text.trim().is_empty() {
+            let fallback = windows_recent_fallback::recent_text(core, lines, false);
+            if !fallback.trim().is_empty() {
+                return Ok(fallback);
+            }
+        }
     }
-    let start = total_rows.saturating_sub(lines);
-    let mut rows = Vec::with_capacity(total_rows.saturating_sub(start));
-    for y in start..total_rows {
-        rows.push(ghostty_screen_row(core, cols, y as u32)?);
-    }
-    trim_trailing_blank_rows(&mut rows);
-    Ok(recent_text_from_rows(&rows, lines))
+    Ok(text)
 }
 
 fn ghostty_recent_text_unwrapped(
     core: &GhosttyPaneCore,
     lines: usize,
 ) -> Result<String, crate::ghostty::Error> {
-    let total_rows = core.terminal.total_rows()?;
-    let cols = core.terminal.cols()?;
-    if total_rows == 0 || cols == 0 {
-        return Ok(String::new());
+    let text = ghostty_recent_text_unwrapped_for_terminal(&core.terminal, lines)?;
+    #[cfg(windows)]
+    {
+        if text.trim().is_empty() {
+            let fallback = windows_recent_fallback::recent_text(core, lines, true);
+            if !fallback.trim().is_empty() {
+                return Ok(fallback);
+            }
+        }
     }
-    let start = total_rows.saturating_sub(lines) as u32;
-    let end = total_rows.saturating_sub(1) as u32;
-    core.terminal
-        .read_text_screen((0, start), (cols.saturating_sub(1), end), false)
+    Ok(text)
 }
 
 fn ghostty_recent_ansi(
@@ -1662,15 +1756,76 @@ fn ghostty_recent_ansi(
     lines: usize,
     unwrap: bool,
 ) -> Result<String, crate::ghostty::Error> {
-    let total_rows = core.terminal.total_rows()?;
-    let cols = core.terminal.cols()?;
-    if total_rows == 0 || cols == 0 {
-        return Ok(String::new());
+    let ansi = ghostty_recent_ansi_for_terminal(&core.terminal, lines, unwrap)?;
+    #[cfg(windows)]
+    {
+        if ansi.trim().is_empty() {
+            let fallback = windows_recent_fallback::recent_text(core, lines, unwrap);
+            if !fallback.trim().is_empty() {
+                return Ok(fallback);
+            }
+        }
     }
-    let start = total_rows.saturating_sub(lines) as u32;
-    let end = total_rows.saturating_sub(1) as u32;
-    core.terminal
-        .read_ansi_screen((0, start), (cols.saturating_sub(1), end), false, unwrap)
+    Ok(ansi)
+}
+
+fn ghostty_recent_text_for_terminal(
+    terminal: &crate::ghostty::Terminal,
+    lines: usize,
+) -> Result<String, crate::ghostty::Error> {
+    let Some((start, end, cols)) = ghostty_recent_read_range(terminal, lines)? else {
+        return Ok(String::new());
+    };
+    let mut rows = Vec::with_capacity(end.saturating_sub(start).saturating_add(1));
+    for y in start..=end {
+        rows.push(ghostty_screen_row(terminal, cols, y as u32)?);
+    }
+    trim_trailing_blank_rows(&mut rows);
+    Ok(recent_text_from_rows(&rows, lines))
+}
+
+fn ghostty_recent_text_unwrapped_for_terminal(
+    terminal: &crate::ghostty::Terminal,
+    lines: usize,
+) -> Result<String, crate::ghostty::Error> {
+    let Some((start, end, cols)) = ghostty_recent_read_range(terminal, lines)? else {
+        return Ok(String::new());
+    };
+    terminal.read_text_screen(
+        (0, start as u32),
+        (cols.saturating_sub(1), end as u32),
+        false,
+    )
+}
+
+fn ghostty_recent_ansi_for_terminal(
+    terminal: &crate::ghostty::Terminal,
+    lines: usize,
+    unwrap: bool,
+) -> Result<String, crate::ghostty::Error> {
+    let Some((start, end, cols)) = ghostty_recent_read_range(terminal, lines)? else {
+        return Ok(String::new());
+    };
+    terminal.read_ansi_screen(
+        (0, start as u32),
+        (cols.saturating_sub(1), end as u32),
+        false,
+        unwrap,
+    )
+}
+
+fn ghostty_recent_read_range(
+    terminal: &crate::ghostty::Terminal,
+    lines: usize,
+) -> Result<Option<(usize, usize, u16)>, crate::ghostty::Error> {
+    let total_rows = terminal.total_rows()?;
+    let cols = terminal.cols()?;
+    if total_rows == 0 || cols == 0 || lines == 0 {
+        return Ok(None);
+    }
+    let end = total_rows.saturating_sub(1);
+    let start = end.saturating_add(1).saturating_sub(lines);
+    Ok(Some((start, end, cols)))
 }
 
 fn ghostty_restore_scroll_offset_from_bottom(
@@ -1701,13 +1856,13 @@ fn ghostty_extract_selection(
 }
 
 fn ghostty_screen_row(
-    core: &GhosttyPaneCore,
+    terminal: &crate::ghostty::Terminal,
     cols: u16,
     y: u32,
 ) -> Result<String, crate::ghostty::Error> {
     let mut line = String::new();
     for x in 0..cols {
-        let (wide, graphemes) = core.terminal.screen_cell(x, y)?;
+        let (wide, graphemes) = terminal.screen_cell(x, y)?;
         if wide == crate::ghostty::CellWide::SpacerTail {
             continue;
         }
@@ -1932,6 +2087,7 @@ fn ghostty_cell_style(
     if basic.style.strikethrough {
         modifiers |= Modifier::CROSSED_OUT;
     }
+    modifiers = crate::protocol::modifier_with_underline_style(modifiers, basic.style.underline);
     style.add_modifier(modifiers)
 }
 
@@ -2200,6 +2356,102 @@ mod tests {
         let g = u16::from(color.g) * 257;
         let b = u16::from(color.b) * 257;
         Bytes::from(format!("\x1b]{command};rgb:{r:04x}/{g:04x}/{b:04x}\x1b\\"))
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_powershell_prompt_cwd_uses_latest_default_prompt_path() {
+        let cwd = std::env::current_dir().unwrap();
+        let text = format!("PS C:\\old> cd {}\nPS {}>", cwd.display(), cwd.display());
+
+        assert_eq!(windows_powershell_prompt_cwd(&text).as_ref(), Some(&cwd));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_powershell_prompt_cwd_requires_current_prompt_line() {
+        let cwd = std::env::current_dir().unwrap();
+        let text = format!("PS {}>\ncommand output", cwd.display());
+
+        assert_eq!(windows_powershell_prompt_cwd(&text), None);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_powershell_prompt_cwd_ignores_command_echo() {
+        let cwd = std::env::current_dir().unwrap();
+        let text = format!("PS {}> echo hi", cwd.display());
+
+        assert_eq!(windows_powershell_prompt_cwd(&text), None);
+    }
+
+    #[cfg(windows)]
+    fn process_windows_powershell_prompt_bytes(
+        bytes: &[u8],
+        cols: u16,
+        rows: u16,
+        enabled: bool,
+    ) -> ProcessBytesResult {
+        let (tx, _rx) = mpsc::channel(4);
+        let terminal = crate::ghostty::Terminal::new(cols, rows, 100).unwrap();
+        let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
+        pane.set_windows_powershell_prompt_cwd_reporting(enabled);
+        pane.process_pty_bytes(PaneId::from_raw(1), 0, bytes, &tx)
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn process_pty_bytes_reports_windows_powershell_prompt_cwd() {
+        let cwd = std::env::current_dir().unwrap();
+        let bytes = format!("PS C:\\old> cd {}\r\nPS {}>", cwd.display(), cwd.display());
+
+        let result = process_windows_powershell_prompt_bytes(bytes.as_bytes(), 80, 24, true);
+
+        assert_eq!(result.reported_cwd.as_ref(), Some(&cwd));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn process_pty_bytes_reports_wrapped_windows_powershell_prompt_cwd() {
+        let cwd = std::env::current_dir().unwrap();
+        let bytes = format!("PS {}>", cwd.display());
+
+        let result = process_windows_powershell_prompt_bytes(bytes.as_bytes(), 12, 8, true);
+
+        assert_eq!(result.reported_cwd.as_ref(), Some(&cwd));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn process_pty_bytes_ignores_prompt_like_output_on_previous_line() {
+        let cwd = std::env::current_dir().unwrap();
+        let bytes = format!("PS {}>\r\n", cwd.display());
+
+        let result = process_windows_powershell_prompt_bytes(bytes.as_bytes(), 80, 24, true);
+
+        assert_eq!(result.reported_cwd, None);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn process_pty_bytes_ignores_windows_powershell_prompt_cwd_on_alternate_screen() {
+        let cwd = std::env::current_dir().unwrap();
+        let bytes = format!("\x1b[?1049hPS {}>", cwd.display());
+
+        let result = process_windows_powershell_prompt_bytes(bytes.as_bytes(), 80, 24, true);
+
+        assert_eq!(result.reported_cwd, None);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn process_pty_bytes_skips_windows_powershell_prompt_cwd_when_disabled() {
+        let cwd = std::env::current_dir().unwrap();
+        let bytes = format!("PS {}>", cwd.display());
+
+        let result = process_windows_powershell_prompt_bytes(bytes.as_bytes(), 80, 24, false);
+
+        assert_eq!(result.reported_cwd, None);
     }
 
     fn expected_xtgettcap_response(cap_hex: &str, value: Option<&[u8]>) -> Bytes {
@@ -2514,30 +2766,36 @@ mod tests {
     }
 
     #[test]
-    fn ghostty_release_still_encoded_for_report_event_pane() {
+    fn ghostty_report_event_pane_keeps_basic_compatibility_keys_legacy() {
         let (tx, _rx) = mpsc::channel(4);
         // Push kitty flags including REPORT_EVENT_TYPES (0b10) + DISAMBIGUATE (0b1).
         let mut terminal = crate::ghostty::Terminal::new(80, 24, 0).unwrap();
         terminal.write(b"\x1b[>3u");
         let pane = GhosttyPaneTerminal::new(terminal, tx).unwrap();
 
-        let release = pane.encode_terminal_key(
-            crate::input::TerminalKey::new(
-                crossterm::event::KeyCode::Enter,
-                crossterm::event::KeyModifiers::empty(),
-            )
-            .with_kind(crossterm::event::KeyEventKind::Release),
-            pane.keyboard_protocol().unwrap(),
-        );
-        let parsed =
-            crate::input::parse_terminal_key_sequence(std::str::from_utf8(&release).unwrap())
-                .unwrap();
-        assert_eq!(parsed.code, crossterm::event::KeyCode::Enter);
-        assert_eq!(
-            parsed.kind,
-            crossterm::event::KeyEventKind::Release,
-            "report-event pane should encode a release, got {release:?}"
-        );
+        for (code, expected) in [
+            (crossterm::event::KeyCode::Enter, b"\r".as_slice()),
+            (crossterm::event::KeyCode::Backspace, b"\x7f".as_slice()),
+        ] {
+            let press = pane.encode_terminal_key(
+                crate::input::TerminalKey::new(code, crossterm::event::KeyModifiers::empty()),
+                pane.keyboard_protocol().unwrap(),
+            );
+            assert_eq!(
+                press, expected,
+                "{code:?} press should stay legacy-compatible without REPORT_ALL_KEYS"
+            );
+
+            let release = pane.encode_terminal_key(
+                crate::input::TerminalKey::new(code, crossterm::event::KeyModifiers::empty())
+                    .with_kind(crossterm::event::KeyEventKind::Release),
+                pane.keyboard_protocol().unwrap(),
+            );
+            assert!(
+                release.is_empty(),
+                "{code:?} release should not fall back to legacy bytes, got {release:?}"
+            );
+        }
     }
 
     #[test]
@@ -2761,6 +3019,47 @@ mod tests {
         let encoded = pane.encode_terminal_key(key, crate::input::KeyboardProtocol::Legacy);
 
         assert_eq!(encoded, b"\x1b[127;3u");
+    }
+
+    #[test]
+    fn ghostty_pane_characterizes_ctrl_backspace_encoding() {
+        let (tx, _rx) = mpsc::channel(4);
+        let legacy = GhosttyPaneTerminal::new(
+            crate::ghostty::Terminal::new(80, 24, 0).unwrap(),
+            tx.clone(),
+        )
+        .unwrap();
+
+        let ctrl_backspace = crate::input::TerminalKey::new(
+            crossterm::event::KeyCode::Backspace,
+            crossterm::event::KeyModifiers::CONTROL,
+        );
+        assert_eq!(
+            legacy.encode_terminal_key(ctrl_backspace, crate::input::KeyboardProtocol::Legacy),
+            b"\x08"
+        );
+
+        let plain_backspace = crate::input::TerminalKey::new(
+            crossterm::event::KeyCode::Backspace,
+            crossterm::event::KeyModifiers::empty(),
+        );
+        assert_eq!(
+            legacy.encode_terminal_key(plain_backspace, crate::input::KeyboardProtocol::Legacy),
+            b"\x7f"
+        );
+
+        let kitty = GhosttyPaneTerminal::new(
+            crate::ghostty::Terminal::new(80, 24, 0).unwrap(),
+            tx.clone(),
+        )
+        .unwrap();
+        let pane_id = PaneId::from_raw(1);
+        kitty.process_pty_bytes(pane_id, 0, b"\x1b[>1u", &tx);
+
+        assert_eq!(
+            kitty.encode_terminal_key(ctrl_backspace, crate::input::KeyboardProtocol::Legacy),
+            b"\x1b[127;5u"
+        );
     }
 
     #[test]
@@ -3215,6 +3514,25 @@ mod tests {
     }
 
     #[test]
+    fn kitty_graphics_write_requests_render_with_settle_backstop() {
+        crate::kitty_graphics::set_enabled(true);
+        let (tx, _rx) = mpsc::channel(4);
+        let terminal = crate::ghostty::Terminal::new(80, 24, 0).unwrap();
+        let pane_terminal = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
+        let pane_id = PaneId::from_raw(1);
+
+        let result = pane_terminal.process_pty_bytes(
+            pane_id,
+            0,
+            b"\x1b_Ga=T,f=32,t=d,i=7,p=1,s=1,v=1,q=2;/wAA/w==\x1b\\",
+            &tx,
+        );
+
+        assert!(result.request_render);
+        assert_eq!(result.render_delay, Some(KITTY_GRAPHICS_REDRAW_SETTLE));
+    }
+
+    #[test]
     fn seeded_history_is_rendered_on_next_draw() {
         let (tx, _rx) = mpsc::channel(4);
         let terminal = crate::ghostty::Terminal::new(20, 5, 100).unwrap();
@@ -3609,8 +3927,7 @@ mod tests {
         let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
         let pane_id = PaneId::from_raw(1);
 
-        let result =
-            pane.process_pty_bytes(pane_id, 0, b"\x1bP+q6E6F7065;536D756C78;4D7\x1b\\", &tx);
+        let result = pane.process_pty_bytes(pane_id, 0, b"\x1bP+q6E6F7065;4D7\x1b\\", &tx);
 
         assert!(result.terminal_responses.is_empty());
         assert!(rx.try_recv().is_err());
@@ -3623,12 +3940,18 @@ mod tests {
         let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
         let pane_id = PaneId::from_raw(1);
 
-        let result = pane.process_pty_bytes(pane_id, 0, b"\x1bP+q5375;536574756C63\x1b\\", &tx);
+        let result = pane.process_pty_bytes(
+            pane_id,
+            0,
+            b"\x1bP+q5375;536D756C78;536574756C63\x1b\\",
+            &tx,
+        );
 
         assert_eq!(
             result.terminal_responses,
             vec![
                 expected_xtgettcap_response("5375", None),
+                expected_xtgettcap_response("536D756C78", Some(b"\\E[4:%p1%dm")),
                 expected_xtgettcap_response(
                     "536574756C63",
                     Some(b"\\E[58:2::%p1%{65536}%/%d:%p1%{256}%/%{255}%&%d:%p1%{255}%&%d%;m")
@@ -3657,6 +3980,59 @@ mod tests {
         let style = terminal.backend().buffer()[(0, 0)].style();
         assert!(style.add_modifier.contains(Modifier::UNDERLINED));
         assert_eq!(style.underline_color, Some(Color::Rgb(17, 34, 51)));
+    }
+
+    #[test]
+    fn dirty_patch_preserves_curly_underline_style() {
+        let (tx, _rx) = mpsc::channel(4);
+        let terminal = crate::ghostty::Terminal::new(20, 5, 0).unwrap();
+        let pane = GhosttyPaneTerminal::new(terminal, tx).unwrap();
+        let backend = ratatui::backend::TestBackend::new(20, 5);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| pane.render(frame, Rect::new(0, 0, 20, 5), false))
+            .unwrap();
+        {
+            let mut core = pane.core.lock().unwrap();
+            core.terminal.write(b"\x1b[4:3mU");
+        }
+
+        let patch = match pane.collect_dirty_patch(20, 5) {
+            TerminalDirtyPatchOutcome::Patch(patch) => patch,
+            other => panic!("expected dirty patch, got {other:?}"),
+        };
+
+        let cell = &patch.rows[0].1[0];
+        assert_eq!(cell.symbol, "U");
+        assert_eq!(
+            crate::protocol::underline_style_from_modifier(cell.modifier),
+            3
+        );
+    }
+
+    #[test]
+    fn full_frame_preserves_curly_underline_style() {
+        let (tx, _rx) = mpsc::channel(4);
+        let terminal = crate::ghostty::Terminal::new(20, 5, 0).unwrap();
+        let pane = GhosttyPaneTerminal::new(terminal, tx).unwrap();
+        {
+            let mut core = pane.core.lock().unwrap();
+            core.terminal.write(b"\x1b[4:3mU");
+        }
+
+        let backend = ratatui::backend::TestBackend::new(20, 5);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| pane.render(frame, Rect::new(0, 0, 20, 5), false))
+            .unwrap();
+
+        let frame =
+            crate::protocol::FrameData::from_ratatui_buffer(terminal.backend().buffer(), None);
+        assert_eq!(frame.cells[0].symbol, "U");
+        assert_eq!(
+            crate::protocol::underline_style_from_modifier(frame.cells[0].modifier),
+            3
+        );
     }
 
     #[test]

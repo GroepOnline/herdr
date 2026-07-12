@@ -207,6 +207,7 @@ impl App {
                 });
             }
         }
+        self.emit_layout_updated_event(ws_idx, new_tab_idx);
 
         let Some(layout) = self.layout_description(ws_idx, new_tab_idx) else {
             return encode_error(id, "layout_apply_failed", "new layout unavailable");
@@ -243,6 +244,7 @@ impl App {
         let Some(layout) = self.layout_description(ws_idx, tab_idx) else {
             return encode_error(id, "layout_not_found", "layout unavailable");
         };
+        self.emit_layout_updated_event(ws_idx, tab_idx);
         encode_success(id, ResponseResult::LayoutSplitRatioSet { layout })
     }
 
@@ -345,11 +347,9 @@ impl App {
                 &self.terminal_runtimes,
             )
         });
-        self.resolve_new_terminal_cwd(follow_cwd.or_else(|| {
-            self.state
-                .focused_runtime_in_workspace(&self.terminal_runtimes, ws_idx)
-                .and_then(|runtime| runtime.cwd())
-        }))
+        self.resolve_new_terminal_cwd(
+            follow_cwd.or_else(|| self.focused_pane_cwd_in_workspace(ws_idx)),
+        )
     }
 
     fn apply_layout_node_to_pane(
@@ -395,16 +395,11 @@ impl App {
         let default_shell = self.state.default_shell.clone();
         let scrollback_limit_bytes = self.state.pane_scrollback_limit_bytes;
         let host_terminal_theme = self.state.host_terminal_theme;
-        let cwd = pane.cwd.as_ref().map(PathBuf::from).or_else(|| {
-            self.state.workspaces.get(ws_idx).and_then(|ws| {
-                let tab_idx = ws.find_tab_index_for_pane(target_pane_id)?;
-                ws.tabs.get(tab_idx)?.cwd_for_pane(
-                    target_pane_id,
-                    &self.state.terminals,
-                    &self.terminal_runtimes,
-                )
-            })
-        });
+        let cwd = pane
+            .cwd
+            .as_ref()
+            .map(PathBuf::from)
+            .or_else(|| self.cwd_for_pane_in_workspace(ws_idx, target_pane_id));
         let extra_env = super::env::normalize_launch_env(pane.env.clone())
             .map_err(|(_, message)| message.to_string())?;
         let direction = match direction {
@@ -593,10 +588,11 @@ fn validate_layout_node(
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_support::{exiting_test_command, shutdown_test_runtimes};
     use super::*;
     use crate::{
         api::schema::{ErrorResponse, ResponseResult, SuccessResponse},
-        config::Config,
+        config::{Config, ShellModeConfig},
         workspace::Workspace,
     };
 
@@ -609,6 +605,8 @@ mod tests {
             api_rx,
             crate::api::EventHub::default(),
         );
+        app.state.default_shell = exiting_test_command().into();
+        app.state.shell_mode = ShellModeConfig::NonLogin;
         app.state.workspaces = vec![Workspace::test_new("layout")];
         app.state.active = Some(0);
         app.state.selected = 0;
@@ -691,6 +689,12 @@ mod tests {
             panic!("expected split layout root");
         };
         assert!((ratio - 0.72).abs() < f32::EPSILON);
+        assert!(matches!(
+            &app.event_hub.events_after(0).last().expect("layout event").1.data,
+            EventData::LayoutUpdated { layout }
+                if layout.tab_id == app.public_tab_id(0, 0).unwrap()
+                    && (layout.splits[0].ratio - 0.72).abs() < f32::EPSILON
+        ));
     }
 
     #[test]
@@ -779,6 +783,49 @@ mod tests {
             second_pane.command,
             Some(vec!["sh".into(), "-c".into(), "true".into()])
         );
+        assert!(matches!(
+            &app.event_hub.events_after(0).last().expect("layout event").1.data,
+            EventData::LayoutUpdated { layout }
+                if layout.tab_id == app.public_tab_id(0, 0).unwrap()
+                    && layout.panes.len() == 2
+        ));
+        shutdown_test_runtimes(&mut app);
+    }
+
+    #[tokio::test]
+    async fn layout_apply_new_tab_follows_cached_focused_pane_cwd_without_runtime() {
+        let mut app = app_with_workspace();
+        let focused_pane = app.state.workspaces[0].tabs[0].root_pane;
+        let cached_cwd = std::env::temp_dir();
+        let terminal_id = app.state.workspaces[0]
+            .terminal_id(focused_pane)
+            .cloned()
+            .unwrap();
+        app.state.terminals.get_mut(&terminal_id).unwrap().cwd = cached_cwd.clone();
+
+        let response = app.handle_layout_apply(
+            "req".into(),
+            LayoutApplyParams {
+                workspace_id: None,
+                tab_id: None,
+                tab_label: Some("cached".into()),
+                focus: false,
+                root: LayoutNode::Pane {
+                    pane: LayoutPane::default(),
+                },
+            },
+        );
+
+        let success: SuccessResponse = serde_json::from_str(&response).unwrap();
+        assert!(matches!(success.result, ResponseResult::LayoutApply { .. }));
+        let created = &app.state.workspaces[0].tabs[1];
+        let created_terminal_id = created.terminal_id(created.root_pane).unwrap();
+        let created_cwd = &app.state.terminals.get(created_terminal_id).unwrap().cwd;
+        assert_eq!(
+            crate::worktree::canonical_or_original(created_cwd),
+            crate::worktree::canonical_or_original(&cached_cwd)
+        );
+        shutdown_test_runtimes(&mut app);
     }
 
     #[tokio::test]

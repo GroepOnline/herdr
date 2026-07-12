@@ -16,6 +16,47 @@ const PROC_PGRP_ONLY: u32 = 2;
 const SERVER_NOFILE_LIMIT_TARGET: libc::rlim_t = 8192;
 const CF_STRING_ENCODING_UTF8: u32 = 0x0800_0100;
 
+fn raw_command_argv(command: &str, flag: &str) -> Vec<std::ffi::OsString> {
+    vec!["/bin/sh".into(), flag.into(), command.into()]
+}
+
+pub(crate) fn detached_custom_command_process_platform(command: &str) -> std::process::Command {
+    let argv = raw_command_argv(command, "-lc");
+    let mut command = std::process::Command::new(&argv[0]);
+    command.args(&argv[1..]);
+    command
+}
+
+pub(crate) fn pane_custom_command_pty_builder_platform(
+    command: &str,
+) -> portable_pty::CommandBuilder {
+    portable_pty::CommandBuilder::from_argv(raw_command_argv(command, "-c"))
+}
+
+pub(crate) fn scrollback_editor_argv(path: &Path) -> std::io::Result<Vec<String>> {
+    let quoted_path = shell_quote(&path.display().to_string());
+    let command = format!(
+        r#"scrollback_file={quoted_path}; eval "${{EDITOR:-vi}} \"\$scrollback_file\""; status=$?; rm -f "$scrollback_file"; exit $status"#
+    );
+    Ok(vec!["/bin/sh".to_string(), "-c".to_string(), command])
+}
+
+fn shell_quote(value: &str) -> String {
+    if !value.is_empty()
+        && value.chars().all(|ch| {
+            ch.is_ascii_alphanumeric()
+                || matches!(
+                    ch,
+                    '@' | '%' | '_' | '+' | '=' | ':' | ',' | '.' | '/' | '-'
+                )
+        })
+    {
+        return value.to_string();
+    }
+
+    format!("'{}'", value.replace('\'', "'\\''"))
+}
+
 #[repr(C)]
 struct TisInputSource {
     _private: [u8; 0],
@@ -73,6 +114,34 @@ extern "C" {
         buffer_size: CfIndex,
         encoding: u32,
     ) -> Boolean;
+
+    #[link_name = "kCFRunLoopDefaultMode"]
+    static CF_RUN_LOOP_DEFAULT_MODE: CfStringRef;
+
+    #[link_name = "CFRunLoopRunInMode"]
+    fn cf_run_loop_run_in_mode(
+        mode: CfStringRef,
+        seconds: f64,
+        return_after_source_handled: Boolean,
+    ) -> libc::c_int;
+}
+
+/// Pump the main thread's run loop once (non-blocking) so the process receives the
+/// `kTISNotifySelectedKeyboardInputSourceChanged` notification and refreshes the per-process cache
+/// that `TISCopyCurrentKeyboardInputSource` reads. That notification arrives only via the main
+/// thread's run loop, so a process that never runs a CFRunLoop (the headless server) reads a stale
+/// source. Must run on the main thread.
+pub(crate) fn pump_input_source_runloop() {
+    debug_assert!(
+        // SAFETY: `pthread_main_np` is always safe to call.
+        unsafe { libc::pthread_main_np() } != 0,
+        "pump_input_source_runloop must run on the main thread"
+    );
+    // SAFETY: `CFRunLoopRunInMode` is thread-safe; a 0-second call drains the ready sources and
+    // returns immediately (no blocking). `CF_RUN_LOOP_DEFAULT_MODE` is a framework-owned constant.
+    unsafe {
+        let _ = cf_run_loop_run_in_mode(CF_RUN_LOOP_DEFAULT_MODE, 0.0, 0);
+    }
 }
 
 #[derive(Debug)]
@@ -1116,5 +1185,16 @@ printf '%s\n' "$@" > "$HERDR_NOTIFY_ARGS"
             args,
             "-e\non run argv\n-e\ndisplay notification (item 2 of argv) with title (item 1 of argv)\n-e\nend run\ntitle\nbody\n"
         );
+    }
+
+    #[test]
+    fn scrollback_editor_argv_preserves_unix_editor_shell_semantics() {
+        let path = std::path::Path::new("/tmp/herdr scrollback.txt");
+        let argv = scrollback_editor_argv(path).unwrap();
+
+        assert_eq!(argv[0], "/bin/sh");
+        assert_eq!(argv[1], "-c");
+        assert!(argv[2].contains("EDITOR:-vi"));
+        assert!(argv[2].contains("/tmp/herdr scrollback.txt"));
     }
 }
