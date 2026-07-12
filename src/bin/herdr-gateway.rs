@@ -12,7 +12,6 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
 use tokio::sync::RwLock;
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use tokio_stream::StreamExt;
 
 #[derive(Clone)]
 struct GatewayState {

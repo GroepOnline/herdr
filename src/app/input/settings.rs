@@ -151,6 +151,9 @@ fn apply_settings(state: &mut AppState) -> Option<SettingsAction> {
 
 pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Option<SettingsAction> {
     match state.settings.section {
+        SettingsSection::Fleet | SettingsSection::Plugins => {
+            return None;
+        }
         SettingsSection::Theme => match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
                 let previous = state.settings.list.selected;
@@ -314,6 +317,8 @@ pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
         SettingsSection::PaneLabels => usize::from(!state.agent_border_labels_enabled()),
         SettingsSection::Experiments => 0,
         SettingsSection::Integrations => 0,
+        SettingsSection::Fleet => 0,
+        SettingsSection::Plugins => 0,
     };
     state.mode = Mode::Settings;
 }
@@ -373,6 +378,7 @@ impl AppState {
         }
 
         match self.settings.section {
+            SettingsSection::Fleet | SettingsSection::Plugins => None,
             SettingsSection::Theme => {
                 let max_visible = area.height as usize;
                 let scroll = if self.settings.list.selected >= max_visible {
@@ -433,6 +439,8 @@ impl AppState {
                         }
                         SettingsSection::Experiments => 0,
                         SettingsSection::Integrations => 0,
+                        SettingsSection::Fleet => 0,
+                        SettingsSection::Plugins => 0,
                     });
                     return None;
                 }
@@ -456,6 +464,7 @@ impl AppState {
                             Some(SettingsAction::SaveAgentBorderLabels(enabled))
                         }
                         SettingsSection::Experiments => experiment_toggle_action(self, idx),
+                        SettingsSection::Fleet | SettingsSection::Plugins => None,
                         SettingsSection::Integrations => None,
                     };
                 }

@@ -877,6 +877,8 @@ pub enum SettingsSection {
     Sound,
     Toast,
     PaneLabels,
+    Fleet,
+    Plugins,
     Experiments,
     Integrations,
 }
@@ -887,6 +889,8 @@ impl SettingsSection {
         Self::Sound,
         Self::Toast,
         Self::PaneLabels,
+        Self::Fleet,
+        Self::Plugins,
         Self::Integrations,
         Self::Experiments,
     ];
@@ -897,6 +901,8 @@ impl SettingsSection {
             Self::Sound => "sound",
             Self::Toast => "toasts",
             Self::PaneLabels => "pane labels",
+            Self::Fleet => "fleet",
+            Self::Plugins => "plugins",
             Self::Experiments => "experiments",
             Self::Integrations => "integrations",
         }

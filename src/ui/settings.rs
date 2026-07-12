@@ -149,6 +149,35 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
                 app.settings.list.selected,
             );
         }
+        SettingsSection::Fleet => {
+            render_settings_info(
+                frame,
+                content_area,
+                p,
+                "CHEF Fleet Operations",
+                &[
+                    "fleet ops bar shows per-pane agent metadata",
+                    "configure via: src/fleet/ops.rs",
+                    "plugins: linear, github, fleet-health, cloudflare, kater-bridge",
+                    "API gateway: http://127.0.0.1:7777 (systemd: herdr-gateway)",
+                ],
+            );
+        }
+        SettingsSection::Plugins => {
+            render_settings_info(
+                frame,
+                content_area,
+                p,
+                "Plugin Marketplace",
+                &[
+                    "install plugins: herdr plugin install <id>",
+                    "marketplace: github.com/OnlineChefGroep/herdr-plugins",
+                    "available: linear-context, github-status, fleet-health,",
+                    "           cloudflare-tunnel, session-park, kater-bridge",
+                    "settings prefix+S opens this overlay",
+                ],
+            );
+        }
         SettingsSection::Experiments => {
             render_settings_experiments(app, frame, content_area);
         }
@@ -389,6 +418,29 @@ fn render_settings_theme(app: &AppState, frame: &mut Frame, area: Rect) {
 
     let mut state = ListState::default().with_selected(Some(app.settings.list.selected));
     frame.render_stateful_widget(list, area, &mut state);
+}
+
+
+fn render_settings_info(
+    frame: &mut Frame,
+    area: Rect,
+    p: &crate::app::state::Palette,
+    title: &str,
+    lines: &[&str],
+) {
+    let mut text = Vec::new();
+    text.push(Line::from(Span::styled(
+        title,
+        Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
+    )));
+    text.push(Line::from(""));
+    for line in lines {
+        text.push(Line::from(Span::styled(
+            *line,
+            Style::default().fg(p.text),
+        )));
+    }
+    frame.render_widget(Paragraph::new(text), area);
 }
 
 fn render_settings_toggle(
