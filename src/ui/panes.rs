@@ -402,6 +402,7 @@ fn render_pane_borders(app: &AppState, ws: &crate::workspace::Workspace, frame: 
     }
 
     render_pane_border_titles(app, ws, frame);
+    render_fleet_ops_bar(app, ws, frame);
 }
 
 fn add_split_border_cells(
@@ -524,6 +525,79 @@ fn line_touches_pane(x: u16, y: u16, info: &PaneInfo, pane_gaps: bool) -> bool {
         || (in_cols && y == shared_bottom)
         || (x == shared_right && y == shared_bottom)
 }
+
+
+/// Fleet Ops Bar — compact status line at bottom of each pane border.
+/// Shows agent | state | git branch | host when available.
+fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame: &mut Frame) {
+    use crate::fleet::FleetOpsMetadata;
+    use crate::detect::AgentState;
+
+    let buf = frame.buffer_mut();
+    let area = buf.area;
+
+    for info in &app.view.pane_infos {
+        if !info.borders.contains(Borders::BOTTOM) || info.rect.width <= 8 {
+            continue;
+        }
+
+        let Some(pane) = ws.pane_state(info.id) else { continue; };
+        let Some(term) = app.terminals.get(&pane.attached_terminal_id) else { continue; };
+
+        let agent_name = term.agent_name.as_deref().unwrap_or("shell");
+        let label = term.manual_label.as_deref();
+        let state = term.state;
+        let host = std::env::var("HERDR_HOST_NAME")
+            .or_else(|_| std::env::var("HOSTNAME"))
+            .unwrap_or_default();
+
+        let host_str = if host.is_empty() { None } else { Some(host.as_str()) };
+
+        let meta = FleetOpsMetadata::from_terminal(term, host_str.unwrap_or("local"));
+        let bar_text = meta.render_bar(agent_name, state, label);
+
+        // Truncate to pane width - 2 (borders)
+        let max_len = (info.rect.width.saturating_sub(2)) as usize;
+        let display: String = if bar_text.len() > max_len {
+            format!("{}...", &bar_text[..max_len.saturating_sub(3).min(bar_text.len())])
+        } else {
+            bar_text
+        };
+
+        if display.is_empty() {
+            continue;
+        }
+
+        let y = info.rect.y.saturating_add(info.rect.height).saturating_sub(1);
+        if y < area.y || y >= area.y.saturating_add(area.height) {
+            continue;
+        }
+
+        let start_x = info.rect.x.saturating_add(1);
+        let end_x = info
+            .rect
+            .x
+            .saturating_add(info.rect.width)
+            .saturating_sub(1)
+            .min(area.x.saturating_add(area.width));
+        if start_x >= end_x {
+            continue;
+        }
+
+        let color = match state {
+            AgentState::Blocked => app.palette.red,
+            AgentState::Working => app.palette.accent,
+            AgentState::Idle => app.palette.overlay0,
+            AgentState::Unknown => app.palette.overlay0,
+        };
+
+        let style = Style::default().fg(color);
+        let max_render = end_x.saturating_sub(start_x) as usize;
+        let truncated: String = display.chars().take(max_render).collect();
+        buf.set_stringn(start_x, y, &truncated, max_render, style);
+    }
+}
+
 
 fn render_pane_border_titles(app: &AppState, ws: &crate::workspace::Workspace, frame: &mut Frame) {
     let buf = frame.buffer_mut();
