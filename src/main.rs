@@ -97,6 +97,7 @@ mod ui;
 mod update;
 mod workspace;
 mod fleet;
+pub mod template;
 mod worktree;
 
 fn init_logging() {
