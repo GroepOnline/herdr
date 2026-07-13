@@ -8,12 +8,16 @@
     "url": "https://github.com/OnlineChefGroep/herdr.git"
   },
   "homepage": "https://github.com/OnlineChefGroep/herdr",
-  "keywords": ["terminal","multiplexer","tmux","herdr","ai-agent","rust"],
-  "bin": { "herdr": "./bin/herdr.js" },
-  "files": ["bin/herdr.js","install.js","README.md"],
-  "scripts": { "postinstall": "node install.js" },
-  "engines": { "node": ">=18" },
-  "os": ["linux","darwin","win32"]
+  "keywords": ["terminal", "multiplexer", "tmux", "herdr", "ai-agent", "rust"],
+  "bin": {
+    "herdr": "./bin/herdr.js"
+  },
+  "files": ["bin/herdr.js", "install.js", "README.md"],
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "os": ["linux", "darwin", "win32"]
 }
-NPMEOF
-echo "package.json OK"

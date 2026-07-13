@@ -15,8 +15,12 @@ const paths = [
 
 for (const p of paths) {
   if (existsSync(p)) {
-    try { execFileSync(p, process.argv.slice(2), { stdio: "inherit" }); return; }
-    catch (e) { continue; }
+    try {
+      execFileSync(p, process.argv.slice(2), { stdio: "inherit" });
+      return;
+    } catch {
+      continue;
+    }
   }
 }
 
@@ -24,5 +28,3 @@ console.error("herdr binary not found. Install via:");
 console.error("  npm install -g onlinechefgroep-herdr");
 console.error("Or: https://github.com/OnlineChefGroep/herdr/releases");
 process.exit(1);
-BINEOF
-echo "bin/herdr.js OK"

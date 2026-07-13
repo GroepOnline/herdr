@@ -1,0 +1,77 @@
+name: Publish distribution
+
+# Publishes onlinechefgroep-herdr to npmjs.org after a GitHub release.
+# Required secret: NPM_TOKEN (org-level, visibility all — same as pi-agent-orchestrator).
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to publish (must match an existing GitHub release tag, without v prefix)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    name: npm (onlinechefgroep-herdr)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: npm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Verify GitHub release assets exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          for asset in herdr-linux-x86_64 herdr-linux-aarch64 herdr-macos-x86_64 herdr-macos-aarch64; do
+            gh release view "v${VERSION}" -R "${{ github.repository }}" --json assets \
+              --jq '.assets[].name' | grep -Fx "$asset" >/dev/null \
+              || { echo "missing release asset: $asset"; exit 1; }
+          done
+
+      - name: Sync npm package version
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = process.argv[1];
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          " "$VERSION"
+          node -e "
+            const fs = require('fs');
+            let install = fs.readFileSync('install.js', 'utf8');
+            install = install.replace(/^const VERSION = \".*\";/m, 'const VERSION = \"' + process.argv[1] + '\";');
+            fs.writeFileSync('install.js', install);
+          " "$VERSION"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
