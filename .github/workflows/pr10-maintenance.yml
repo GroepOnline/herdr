@@ -68,6 +68,43 @@ jobs:
       - name: Apply audited remediation
         run: python3 .github/maintainer/patch_pr10.py
 
+      - name: Modernize derivable default
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/fleet/ops.rs")
+          text = path.read_text(encoding="utf-8")
+          old = '''#[derive(Clone, Debug)]
+          #[allow(dead_code)]
+          pub enum CiStatus {
+              Pending,
+              Running,
+              Success,
+              Failed,
+              Cancelled,
+          }
+
+          impl Default for CiStatus {
+              fn default() -> Self {
+                  CiStatus::Pending
+              }
+          }'''
+          new = '''#[derive(Clone, Debug, Default)]
+          #[allow(dead_code)]
+          pub enum CiStatus {
+              #[default]
+              Pending,
+              Running,
+              Success,
+              Failed,
+              Cancelled,
+          }'''
+          if text.count(old) != 1:
+              raise SystemExit("src/fleet/ops.rs: expected one manual CiStatus Default implementation")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
       - name: Format
         run: cargo fmt --all
 
