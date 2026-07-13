@@ -4,7 +4,7 @@ const { join } = require("path");
 const https = require("https");
 const os = require("os");
 
-const VERSION = "0.7.3";
+const VERSION = "0.7.4";
 const REPO = "OnlineChefGroep/herdr";
 const BIN_DIR = join(__dirname, "bin");
 const BINARY_NAME = os.platform() === "win32" ? "herdr.exe" : "herdr";

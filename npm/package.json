@@ -1,6 +1,6 @@
 {
   "name": "onlinechefgroep-herdr",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "Herdr - fast terminal multiplexer with AI agent detection (OnlineChefGroep distribution)",
   "license": "MIT",
   "repository": {

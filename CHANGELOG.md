@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## [0.7.4] - 2026-07-13
+
+OnlineChefGroep fork release — first build shipped from `OnlineChefGroep/herdr` CI (not upstream binaries).
+
+### Added
+- Agent detection for `freebuff`, `junie`, and `openclaude`.
+- `herdr-gateway` HTTP API with SSE event streaming (`:7777`).
+- Fleet Ops Bar, Fleet/Plugins settings tabs, and workspace templates (`dev`, `incident`).
+- Spinner appearance settings with live preview (76 styles).
+- GitHub Actions CI (check, test, cross-build).
+- npm package `onlinechefgroep-herdr` and Homebrew tap `OnlineChefGroep/tap`.
+
+### Fixed
+- Direct attach (`herdr terminal attach`) now uses configured `keys.prefix` for detach and literal-prefix forwarding (default `ctrl+a`).
+- Prefix routing test updated for `ctrl+a` default.
+
+### Changed
+- Distribution binaries publish from `OnlineChefGroep/herdr` releases (replacing upstream-seeded v0.7.3 assets).
+
 ## [0.7.3] - 2026-07-08
 
 ### Fixed
