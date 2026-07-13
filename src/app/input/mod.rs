@@ -294,9 +294,7 @@ impl App {
                         SettingsAction::SaveSwitchAsciiInputSourceInPrefix(enabled) => {
                             self.save_switch_ascii_input_source_in_prefix(enabled)
                         }
-                        SettingsAction::SaveSpinnerStyle(style) => {
-                            self.save_spinner_style(style)
-                        }
+                        SettingsAction::SaveSpinnerStyle(style) => self.save_spinner_style(style),
                         SettingsAction::InstallRecommendedIntegrations => {
                             self.install_recommended_integrations()
                         }

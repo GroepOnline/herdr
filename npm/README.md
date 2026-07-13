@@ -16,6 +16,8 @@ Or with bun:
 bun add -g onlinechefgroep-herdr
 ```
 
+Prebuilt binaries are published for Linux (x64/arm64) and macOS (x64/arm64). Windows is not part of the v0.7.4 binary release.
+
 ## Quick start
 
 ```bash
@@ -44,5 +46,3 @@ cargo build --release
 ## License
 
 MIT - see [LICENSE](https://github.com/OnlineChefGroep/herdr/blob/master/LICENSE)
-RMEOF
-echo "README.md OK" && cd ~/herdr-private && git add npm/ && git status --short npm/

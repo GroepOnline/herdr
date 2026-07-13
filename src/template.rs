@@ -146,7 +146,11 @@ mod tests {
             name: "test".to_string(),
             description: None,
             version: None,
-            workspace: TemplateWorkspace { label: None, cwd: None, focus: None },
+            workspace: TemplateWorkspace {
+                label: None,
+                cwd: None,
+                focus: None,
+            },
             tabs: vec![],
         };
         assert!(validate_template(&tmpl).is_err());
@@ -155,9 +159,11 @@ mod tests {
     #[test]
     fn test_panes_to_layout_single() {
         let panes = vec![TemplatePane {
-            split: None, ratio: None,
+            split: None,
+            ratio: None,
             label: Some("editor".to_string()),
-            cwd: None, command: Some(vec!["nvim".to_string()]),
+            cwd: None,
+            command: Some(vec!["nvim".to_string()]),
             env: None,
         }];
         let node = panes_to_layout_node(&panes);
@@ -168,19 +174,27 @@ mod tests {
     fn test_panes_to_layout_split() {
         let panes = vec![
             TemplatePane {
-                split: None, ratio: None,
+                split: None,
+                ratio: None,
                 label: Some("a".to_string()),
-                cwd: None, command: None, env: None,
+                cwd: None,
+                command: None,
+                env: None,
             },
             TemplatePane {
-                split: Some("right".to_string()), ratio: Some(0.4),
+                split: Some("right".to_string()),
+                ratio: Some(0.4),
                 label: Some("b".to_string()),
-                cwd: None, command: None, env: None,
+                cwd: None,
+                command: None,
+                env: None,
             },
         ];
         let node = panes_to_layout_node(&panes);
         match node {
-            LayoutNode::Split { direction, ratio, .. } => {
+            LayoutNode::Split {
+                direction, ratio, ..
+            } => {
                 assert_eq!(direction, SplitDirection::Right);
                 assert!((ratio - 0.4).abs() < 0.01);
             }
@@ -188,4 +202,3 @@ mod tests {
         }
     }
 }
-

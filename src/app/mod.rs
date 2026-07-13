@@ -4390,7 +4390,12 @@ last_pane = "prefix+tab"
         app.state.switch_workspace_tab(0, first_second_tab);
         app.state.switch_workspace_tab(1, 0);
 
-        app.route_client_input(vec![0x02, b'\t']);
+        let mut prefix_tab = crate::input::encode_terminal_key(
+            crate::input::TerminalKey::new(app.state.prefix_code, app.state.prefix_mods),
+            crate::input::KeyboardProtocol::Legacy,
+        );
+        prefix_tab.push(b'\t');
+        app.route_client_input(prefix_tab.clone());
 
         assert_eq!(app.state.mode, Mode::Terminal);
         assert_eq!(app.state.active, Some(0));
@@ -4400,7 +4405,7 @@ last_pane = "prefix+tab"
             Some(first_second_root)
         );
 
-        app.route_client_input(vec![0x02, b'\t']);
+        app.route_client_input(prefix_tab);
 
         assert_eq!(app.state.active, Some(1));
         assert_eq!(app.state.workspaces[1].focused_pane_id(), Some(second_root));

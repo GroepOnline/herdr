@@ -22,20 +22,15 @@ pub struct FleetOpsMetadata {
     pub session_resume_available: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 #[allow(dead_code)]
 pub enum CiStatus {
+    #[default]
     Pending,
     Running,
     Success,
     Failed,
     Cancelled,
-}
-
-impl Default for CiStatus {
-    fn default() -> Self {
-        CiStatus::Pending
-    }
 }
 
 impl FleetOpsMetadata {
@@ -162,7 +157,9 @@ fn derive_git_context(cwd: &Path) -> (Option<String>, Option<String>, Option<Str
         });
 
     let worktree = if repo.is_some() {
-        cwd.file_name().and_then(|n| n.to_str()).map(|s| s.to_string())
+        cwd.file_name()
+            .and_then(|n| n.to_str())
+            .map(|s| s.to_string())
     } else {
         None
     };
@@ -236,4 +233,3 @@ mod tests {
         assert!(bar.contains("resume"));
     }
 }
-

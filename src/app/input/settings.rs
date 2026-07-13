@@ -155,9 +155,10 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
     match state.settings.section {
         SettingsSection::Appearance => match key.code {
             KeyCode::Up | KeyCode::Char('k') => state.settings.list.move_prev(),
-            KeyCode::Down | KeyCode::Char('j') => {
-                state.settings.list.move_next(crate::config::SpinnerStyle::ALL.len())
-            }
+            KeyCode::Down | KeyCode::Char('j') => state
+                .settings
+                .list
+                .move_next(crate::config::SpinnerStyle::ALL.len()),
             KeyCode::Enter | KeyCode::Char(' ') => {
                 return crate::config::SpinnerStyle::ALL
                     .get(state.settings.list.selected)
@@ -166,8 +167,7 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             }
             KeyCode::BackTab | KeyCode::Left | KeyCode::Char('h') => {
                 state.settings.section = SettingsSection::PaneLabels;
-                state.settings.list.selected =
-                    usize::from(!state.agent_border_labels_enabled());
+                state.settings.list.selected = usize::from(!state.agent_border_labels_enabled());
             }
             KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => {
                 state.settings.section = SettingsSection::Fleet;
@@ -435,9 +435,15 @@ impl AppState {
             SettingsSection::Fleet | SettingsSection::Plugins => None,
             SettingsSection::Appearance => {
                 let list_y = area.y + 2;
-                if row < list_y { return None; }
+                if row < list_y {
+                    return None;
+                }
                 let col_width = (area.width as usize / 2).max(20);
-                let col = if (col - area.x) as usize >= col_width { 1 } else { 0 };
+                let col = if (col - area.x) as usize >= col_width {
+                    1
+                } else {
+                    0
+                };
                 let visible_idx = (row - list_y) as usize * 2 + col;
                 (visible_idx < crate::config::SpinnerStyle::ALL.len()).then_some(visible_idx)
             }
@@ -502,7 +508,7 @@ impl AppState {
                         SettingsSection::Experiments => 0,
                         SettingsSection::Integrations => 0,
                         SettingsSection::Appearance => 0,
-        SettingsSection::Fleet => 0,
+                        SettingsSection::Fleet => 0,
                         SettingsSection::Plugins => 0,
                     });
                     return None;
@@ -527,10 +533,10 @@ impl AppState {
                             Some(SettingsAction::SaveAgentBorderLabels(enabled))
                         }
                         SettingsSection::Experiments => experiment_toggle_action(self, idx),
-                        SettingsSection::Appearance => {
-                            crate::config::SpinnerStyle::ALL.get(idx).copied()
-                                .map(SettingsAction::SaveSpinnerStyle)
-                        }
+                        SettingsSection::Appearance => crate::config::SpinnerStyle::ALL
+                            .get(idx)
+                            .copied()
+                            .map(SettingsAction::SaveSpinnerStyle),
                         SettingsSection::Fleet | SettingsSection::Plugins => None,
                         SettingsSection::Integrations => None,
                     };

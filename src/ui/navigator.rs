@@ -176,7 +176,8 @@ fn render_row(app: &AppState, frame: &mut Frame, rect: Rect, row: &NavigatorRow,
     } else {
         Style::default().fg(p.subtext0).bg(p.panel_bg)
     };
-    let (status_icon, status_style) = agent_icon(row.status, row.seen, app.spinner_tick, app.spinner_style, p);
+    let (status_icon, status_style) =
+        agent_icon(row.status, row.seen, app.spinner_tick, app.spinner_style, p);
     let status_style = if selected {
         base_style.add_modifier(Modifier::BOLD)
     } else {

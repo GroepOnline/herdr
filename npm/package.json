@@ -1,6 +1,6 @@
 {
   "name": "onlinechefgroep-herdr",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "Herdr - fast terminal multiplexer with AI agent detection (OnlineChefGroep distribution)",
   "license": "MIT",
   "repository": {
@@ -8,16 +8,30 @@
     "url": "https://github.com/OnlineChefGroep/herdr.git"
   },
   "homepage": "https://github.com/OnlineChefGroep/herdr",
-  "keywords": ["terminal", "multiplexer", "tmux", "herdr", "ai-agent", "rust"],
+  "keywords": [
+    "terminal",
+    "multiplexer",
+    "tmux",
+    "herdr",
+    "ai-agent",
+    "rust"
+  ],
   "bin": {
     "herdr": "./bin/herdr.js"
   },
-  "files": ["bin/herdr.js", "install.js", "README.md"],
+  "files": [
+    "bin/herdr.js",
+    "install.js",
+    "README.md"
+  ],
   "scripts": {
     "postinstall": "node install.js"
   },
   "engines": {
     "node": ">=18"
   },
-  "os": ["linux", "darwin", "win32"]
+  "os": [
+    "linux",
+    "darwin"
+  ]
 }

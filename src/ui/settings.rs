@@ -423,7 +423,6 @@ fn render_settings_theme(app: &AppState, frame: &mut Frame, area: Rect) {
     frame.render_stateful_widget(list, area, &mut state);
 }
 
-
 fn render_settings_info(
     frame: &mut Frame,
     area: Rect,
@@ -438,10 +437,7 @@ fn render_settings_info(
     )));
     text.push(Line::from(""));
     for line in lines {
-        text.push(Line::from(Span::styled(
-            *line,
-            Style::default().fg(p.text),
-        )));
+        text.push(Line::from(Span::styled(*line, Style::default().fg(p.text))));
     }
     frame.render_widget(Paragraph::new(text), area);
 }
@@ -510,16 +506,16 @@ fn render_settings_appearance(app: &AppState, frame: &mut Frame, area: Rect) {
         let y = list_area.y + row as u16;
         let is_selected = idx == app.settings.list.selected;
         let is_current = idx == current_idx;
-        let preview_frame = style.frames()[(tick as usize / style.speed_divisor() as usize) % style.frames().len()];
+        let preview_frame =
+            style.frames()[(tick as usize / style.speed_divisor() as usize) % style.frames().len()];
 
         let marker = if is_current { "✓" } else { " " };
-        let style_fg = if is_selected {
-            p.text
-        } else {
-            p.subtext0
-        };
+        let style_fg = if is_selected { p.text } else { p.subtext0 };
         let row_style = if is_selected {
-            Style::default().bg(p.surface0).fg(p.text).add_modifier(Modifier::BOLD)
+            Style::default()
+                .bg(p.surface0)
+                .fg(p.text)
+                .add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(style_fg)
         };
@@ -530,10 +526,7 @@ fn render_settings_appearance(app: &AppState, frame: &mut Frame, area: Rect) {
             Span::styled("  ", row_style),
             Span::styled(style.label(), row_style),
         ]);
-        frame.render_widget(
-            Paragraph::new(line),
-            Rect::new(x, y, col_width as u16, 1),
-        );
+        frame.render_widget(Paragraph::new(line), Rect::new(x, y, col_width as u16, 1));
     }
 }
 

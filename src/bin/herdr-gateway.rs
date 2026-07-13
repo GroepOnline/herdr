@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 
 use axum::extract::State;
 use axum::response::sse::{Event as SseEvent, KeepAlive, Sse};
@@ -17,6 +18,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 struct GatewayState {
     socket_path: PathBuf,
     version: String,
+    started_at: Instant,
 }
 
 type SharedState = Arc<RwLock<GatewayState>>;
@@ -28,7 +30,10 @@ async fn socket_request(socket_path: &PathBuf, req: &Value) -> Result<Value, Str
 
     let mut req_bytes = serde_json::to_vec(req).map_err(|e| e.to_string())?;
     req_bytes.push(b'\n');
-    stream.write_all(&req_bytes).await.map_err(|e| e.to_string())?;
+    stream
+        .write_all(&req_bytes)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let mut buf = vec![0u8; 65536];
     let n = stream.read(&mut buf).await.map_err(|e| e.to_string())?;
@@ -51,9 +56,7 @@ fn next_id() -> String {
 
 async fn health(State(state): State<SharedState>) -> Json<Value> {
     let s = state.read().await;
-    let uptime = std::time::Instant::now()
-        .elapsed()
-        .as_secs();
+    let uptime = s.started_at.elapsed().as_secs();
     Json(json!({
         "status": "ok",
         "gateway_version": s.version,
@@ -83,8 +86,11 @@ async fn get_session(State(state): State<SharedState>) -> Json<Value> {
     Json(data.unwrap_or_else(|e| json!({"error": e})))
 }
 
-async fn sse_events(State(state): State<SharedState>) -> Sse<impl tokio_stream::Stream<Item = Result<SseEvent, std::convert::Infallible>>> {
-    let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Result<SseEvent, std::convert::Infallible>>();
+async fn sse_events(
+    State(state): State<SharedState>,
+) -> Sse<impl tokio_stream::Stream<Item = Result<SseEvent, std::convert::Infallible>>> {
+    let (tx, rx) =
+        tokio::sync::mpsc::unbounded_channel::<Result<SseEvent, std::convert::Infallible>>();
     let socket_path = state.read().await.socket_path.clone();
 
     let _ = tx.send(Ok(SseEvent::default()
@@ -102,7 +108,8 @@ async fn sse_events(State(state): State<SharedState>) -> Sse<impl tokio_stream::
             }
         };
 
-        let sub_req = json!({"id": "gw:sse", "method": "events.subscribe", "params": {"subscriptions": []}});
+        let sub_req =
+            json!({"id": "gw:sse", "method": "events.subscribe", "params": {"subscriptions": []}});
         let mut req_bytes = serde_json::to_vec(&sub_req).unwrap_or_default();
         req_bytes.push(b'\n');
         if stream.write_all(&req_bytes).await.is_err() {
@@ -119,12 +126,11 @@ async fn sse_events(State(state): State<SharedState>) -> Sse<impl tokio_stream::
                         if byte == b'\n' {
                             if !line_buf.is_empty() {
                                 if let Ok(val) = serde_json::from_slice::<Value>(&line_buf) {
-                                    let event_type = val.get("event")
+                                    let event_type = val
+                                        .get("event")
                                         .and_then(|v| v.as_str())
                                         .unwrap_or("message");
-                                    let id = val.get("seq")
-                                        .and_then(|v| v.as_u64())
-                                        .unwrap_or(0);
+                                    let id = val.get("seq").and_then(|v| v.as_u64()).unwrap_or(0);
                                     let data = serde_json::to_string(&val)
                                         .unwrap_or_else(|_| "{}".to_string());
                                     let sse = SseEvent::default()
@@ -168,7 +174,8 @@ async fn main() -> anyhow::Result<()> {
 
     let state = Arc::new(RwLock::new(GatewayState {
         socket_path: socket_path.clone(),
-        version: "0.7.3-chef".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        started_at: Instant::now(),
     }));
 
     let app = Router::new()
@@ -187,4 +194,3 @@ async fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
-
