@@ -95,12 +95,13 @@ struct AttachEscapeState;
 #[derive(Debug)]
 #[cfg(unix)]
 struct AttachEscapeState {
-    prefix_byte: u8,
+    prefix: Vec<u8>,
     pending_prefix: bool,
+    buffered_input: Vec<u8>,
 }
 
-#[derive(Debug)]
 #[cfg(unix)]
+#[derive(Debug)]
 enum AttachInputAction {
     Forward(Vec<u8>),
     Scroll {
@@ -117,11 +118,18 @@ enum AttachInputAction {
 
 impl AttachEscapeState {
     #[cfg(unix)]
-    fn new(prefix_byte: u8) -> Self {
-        Self {
-            prefix_byte,
-            pending_prefix: false,
+    fn new(prefix: Vec<u8>) -> io::Result<Self> {
+        if prefix.is_empty() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "direct attach prefix must encode to at least one byte",
+            ));
         }
+        Ok(Self {
+            prefix,
+            pending_prefix: false,
+            buffered_input: Vec::new(),
+        })
     }
 
     #[cfg(unix)]
@@ -131,28 +139,49 @@ impl AttachEscapeState {
         viewport_rows: u16,
         mouse_scroll_lines: usize,
     ) -> AttachInputAction {
-        let prefix = self.prefix_byte;
+        self.buffered_input.extend_from_slice(&data);
+        let mut output = Vec::with_capacity(self.buffered_input.len() + self.prefix.len());
 
-        let mut output = Vec::with_capacity(data.len());
-        for byte in data {
+        while !self.buffered_input.is_empty() {
             if self.pending_prefix {
-                self.pending_prefix = false;
-                match byte {
-                    b'q' => return AttachInputAction::Detach,
-                    other if other == prefix => output.push(prefix),
-                    other => {
-                        output.push(prefix);
-                        output.push(other);
-                    }
+                if self.buffered_input[0] == b'q' {
+                    self.buffered_input.remove(0);
+                    self.pending_prefix = false;
+                    return AttachInputAction::Detach;
                 }
+
+                if self.buffered_input.starts_with(&self.prefix) {
+                    self.buffered_input.drain(..self.prefix.len());
+                    output.extend_from_slice(&self.prefix);
+                    self.pending_prefix = false;
+                    continue;
+                }
+
+                if self.buffered_input.len() < self.prefix.len()
+                    && self.prefix.starts_with(&self.buffered_input)
+                {
+                    break;
+                }
+
+                output.extend_from_slice(&self.prefix);
+                output.push(self.buffered_input.remove(0));
+                self.pending_prefix = false;
                 continue;
             }
 
-            if byte == prefix {
+            if self.buffered_input.starts_with(&self.prefix) {
+                self.buffered_input.drain(..self.prefix.len());
                 self.pending_prefix = true;
-            } else {
-                output.push(byte);
+                continue;
             }
+
+            if self.buffered_input.len() < self.prefix.len()
+                && self.prefix.starts_with(&self.buffered_input)
+            {
+                break;
+            }
+
+            output.push(self.buffered_input.remove(0));
         }
 
         if output.is_empty() {
@@ -168,14 +197,20 @@ impl AttachEscapeState {
 }
 
 #[cfg(unix)]
-fn attach_prefix_byte(code: KeyCode, mods: KeyModifiers) -> Option<u8> {
+fn attach_prefix_bytes(code: KeyCode, modifiers: KeyModifiers) -> io::Result<Vec<u8>> {
     use crate::input::{encode_terminal_key, KeyboardProtocol, TerminalKey};
 
-    if mods != KeyModifiers::CONTROL {
-        return None;
+    let bytes = encode_terminal_key(TerminalKey::new(code, modifiers), KeyboardProtocol::Legacy);
+    if bytes.is_empty() {
+        Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!(
+                "configured direct attach prefix {modifiers:?}+{code:?} has no terminal encoding"
+            ),
+        ))
+    } else {
+        Ok(bytes)
     }
-    let bytes = encode_terminal_key(TerminalKey::new(code, mods), KeyboardProtocol::Legacy);
-    (bytes.len() == 1).then(|| bytes[0])
 }
 
 #[cfg(unix)]
@@ -847,12 +882,12 @@ pub fn run_client() -> io::Result<()> {
 #[cfg(unix)]
 pub fn run_terminal_attach(terminal_id: String, takeover: bool) -> io::Result<()> {
     let loaded_config = crate::config::Config::load();
-    let (code, mods) = loaded_config.config.prefix_key();
-    let prefix_byte = attach_prefix_byte(code, mods).unwrap_or(0x01);
+    let (code, modifiers) = loaded_config.config.prefix_key();
+    let prefix = attach_prefix_bytes(code, modifiers)?;
     run_client_with_mode(
         RenderEncoding::TerminalAnsi,
         Some((terminal_id, takeover)),
-        Some(AttachEscapeState::new(prefix_byte)),
+        Some(AttachEscapeState::new(prefix)?),
         "attaching to terminal",
     )
 }
@@ -2491,7 +2526,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn attach_escape_detaches_on_prefix_q() {
-        let mut escape = AttachEscapeState::new(0x01);
+        let mut escape = AttachEscapeState::new(vec![0x01]).unwrap();
         assert!(matches!(
             escape.filter_input(vec![0x01], 24, 3),
             AttachInputAction::None
@@ -2505,7 +2540,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn attach_escape_sends_literal_prefix_on_double_prefix() {
-        let mut escape = AttachEscapeState::new(0x01);
+        let mut escape = AttachEscapeState::new(vec![0x01]).unwrap();
         assert!(matches!(
             escape.filter_input(vec![0x01], 24, 3),
             AttachInputAction::None
@@ -2519,7 +2554,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn attach_escape_forwards_prefix_before_non_escape_key() {
-        let mut escape = AttachEscapeState::new(0x01);
+        let mut escape = AttachEscapeState::new(vec![0x01]).unwrap();
         assert!(matches!(
             escape.filter_input(vec![b'a', 0x01], 24, 3),
             AttachInputAction::Forward(bytes) if bytes == b"a"
@@ -2532,8 +2567,8 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn attach_escape_uses_configured_prefix_byte() {
-        let mut escape = AttachEscapeState::new(0x02);
+    fn attach_escape_uses_configured_prefix_sequence() {
+        let mut escape = AttachEscapeState::new(vec![0x02]).unwrap();
         assert!(matches!(
             escape.filter_input(vec![0x02], 24, 3),
             AttachInputAction::None
@@ -2546,8 +2581,78 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn attach_prefix_bytes_preserves_single_and_multibyte_sequences() {
+        assert_eq!(
+            attach_prefix_bytes(KeyCode::Char('a'), KeyModifiers::CONTROL).unwrap(),
+            vec![0x01]
+        );
+        assert_eq!(
+            attach_prefix_bytes(KeyCode::Esc, KeyModifiers::empty()).unwrap(),
+            vec![0x1b]
+        );
+        let f12 = attach_prefix_bytes(KeyCode::F(12), KeyModifiers::empty()).unwrap();
+        assert!(
+            f12.len() > 1,
+            "F12 must remain a multi-byte escape sequence"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn attach_escape_rejects_an_empty_prefix() {
+        assert!(AttachEscapeState::new(Vec::new()).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn attach_escape_matches_multibyte_prefix_across_read_boundaries() {
+        let prefix = b"\x1b[24~".to_vec();
+        let mut escape = AttachEscapeState::new(prefix).unwrap();
+
+        assert!(matches!(
+            escape.filter_input(b"\x1b[2".to_vec(), 24, 3),
+            AttachInputAction::None
+        ));
+        assert!(matches!(
+            escape.filter_input(b"4~".to_vec(), 24, 3),
+            AttachInputAction::None
+        ));
+        assert!(matches!(
+            escape.filter_input(vec![b'q'], 24, 3),
+            AttachInputAction::Detach
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn attach_escape_forwards_doubled_multibyte_prefix_literally() {
+        let prefix = b"\x1b[24~".to_vec();
+        let mut escape = AttachEscapeState::new(prefix.clone()).unwrap();
+
+        assert!(matches!(
+            escape.filter_input(prefix.clone(), 24, 3),
+            AttachInputAction::None
+        ));
+        match escape.filter_input(prefix.clone(), 24, 3) {
+            AttachInputAction::Forward(bytes) => assert_eq!(bytes, prefix),
+            other => panic!("expected forwarded multi-byte prefix, got {other:?}"),
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn attach_escape_preserves_escape_sequences_when_escape_is_the_prefix() {
+        let mut escape = AttachEscapeState::new(vec![0x1b]).unwrap();
+        match escape.filter_input(b"\x1b[A".to_vec(), 24, 3) {
+            AttachInputAction::Forward(bytes) => assert_eq!(bytes, b"\x1b[A"),
+            other => panic!("expected forwarded cursor sequence, got {other:?}"),
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn attach_escape_turns_wheel_into_scroll_action() {
-        let mut escape = AttachEscapeState::new(0x01);
+        let mut escape = AttachEscapeState::new(vec![0x01]).unwrap();
         match escape.filter_input(b"\x1b[<64;11;6M".to_vec(), 24, 7) {
             AttachInputAction::Scroll {
                 source,
@@ -2570,7 +2675,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn attach_escape_swallows_non_wheel_mouse_reports() {
-        let mut escape = AttachEscapeState::new(0x01);
+        let mut escape = AttachEscapeState::new(vec![0x01]).unwrap();
         assert!(matches!(
             escape.filter_input(b"\x1b[<0;11;6M".to_vec(), 24, 7),
             AttachInputAction::None
@@ -2580,7 +2685,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn attach_escape_turns_plain_page_keys_into_scroll_actions() {
-        let mut escape = AttachEscapeState::new(0x01);
+        let mut escape = AttachEscapeState::new(vec![0x01]).unwrap();
         match escape.filter_input(b"\x1b[5~".to_vec(), 12, 3) {
             AttachInputAction::Scroll {
                 source,
@@ -2623,7 +2728,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn attach_escape_forwards_modified_page_key() {
-        let mut escape = AttachEscapeState::new(0x01);
+        let mut escape = AttachEscapeState::new(vec![0x01]).unwrap();
         match escape.filter_input(b"\x1b[5;5~".to_vec(), 12, 3) {
             AttachInputAction::Forward(bytes) => assert_eq!(bytes, b"\x1b[5;5~"),
             other => panic!("expected modified page key to forward, got {other:?}"),

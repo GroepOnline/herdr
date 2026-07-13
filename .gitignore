@@ -23,3 +23,7 @@ __pycache__/
 **/.wrangler/
 bun.lock
 node_modules/
+
+/.zig-cache/
+/vendor/libghostty-vt/.zig-cache/
+/vendor/libghostty-vt/zig-out/
