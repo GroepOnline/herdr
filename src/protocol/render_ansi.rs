@@ -208,9 +208,13 @@ fn compute_prof_blit_stats(
                 in_run = false;
             }
             let remaining = (frame.width - col) as usize;
-            to_skip = cell_width(cell).saturating_sub(1).min(remaining.saturating_sub(1));
+            to_skip = cell_width(cell)
+                .saturating_sub(1)
+                .min(remaining.saturating_sub(1));
             let affected_width = cmp::max(cell_width(cell), cell_width(prev_cell));
-            invalidated = cmp::max(affected_width, invalidated).saturating_sub(1).min(remaining.saturating_sub(1));
+            invalidated = cmp::max(affected_width, invalidated)
+                .saturating_sub(1)
+                .min(remaining.saturating_sub(1));
         }
     }
     stats
@@ -486,7 +490,11 @@ fn repeat_ime_anchor_after_sync() -> bool {
 /// Writes all cells in the frame (full redraw).
 fn cell_width(cell: &CellData) -> usize {
     let w = cell.symbol.width();
-    if w == 0 { 1 } else { w }
+    if w == 0 {
+        1
+    } else {
+        w
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -613,7 +621,9 @@ fn write_all_cells(writer: &mut impl Write, frame: &FrameData) {
             // Write the symbol.
             let _ = writer.write_all(cell.symbol.as_bytes());
             let remaining = (frame.width - col) as usize;
-            to_skip = cell_width(cell).saturating_sub(1).min(remaining.saturating_sub(1));
+            to_skip = cell_width(cell)
+                .saturating_sub(1)
+                .min(remaining.saturating_sub(1));
         }
     }
 

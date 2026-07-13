@@ -65,6 +65,7 @@ mod client;
 mod config;
 mod detect;
 mod events;
+mod fleet;
 mod ghostty;
 mod handoff_runtime;
 mod input;
@@ -89,6 +90,7 @@ mod selection;
 mod server;
 mod session;
 mod sound;
+pub mod template;
 mod terminal;
 mod terminal_modes;
 mod terminal_notify;
@@ -96,8 +98,6 @@ mod terminal_theme;
 mod ui;
 mod update;
 mod workspace;
-mod fleet;
-pub mod template;
 mod worktree;
 
 fn init_logging() {

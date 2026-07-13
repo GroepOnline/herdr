@@ -526,12 +526,11 @@ fn line_touches_pane(x: u16, y: u16, info: &PaneInfo, pane_gaps: bool) -> bool {
         || (x == shared_right && y == shared_bottom)
 }
 
-
 /// Fleet Ops Bar — compact status line at bottom of each pane border.
 /// Shows agent | state | git branch | host when available.
 fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame: &mut Frame) {
-    use crate::fleet::FleetOpsMetadata;
     use crate::detect::AgentState;
+    use crate::fleet::FleetOpsMetadata;
 
     let buf = frame.buffer_mut();
     let area = buf.area;
@@ -541,8 +540,12 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
             continue;
         }
 
-        let Some(pane) = ws.pane_state(info.id) else { continue; };
-        let Some(term) = app.terminals.get(&pane.attached_terminal_id) else { continue; };
+        let Some(pane) = ws.pane_state(info.id) else {
+            continue;
+        };
+        let Some(term) = app.terminals.get(&pane.attached_terminal_id) else {
+            continue;
+        };
 
         let agent_name = term.agent_name.as_deref().unwrap_or("shell");
         let label = term.manual_label.as_deref();
@@ -551,7 +554,11 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
             .or_else(|_| std::env::var("HOSTNAME"))
             .unwrap_or_default();
 
-        let host_str = if host.is_empty() { None } else { Some(host.as_str()) };
+        let host_str = if host.is_empty() {
+            None
+        } else {
+            Some(host.as_str())
+        };
 
         let meta = FleetOpsMetadata::from_terminal(term, host_str.unwrap_or("local"));
         let bar_text = meta.render_bar(agent_name, state, label);
@@ -559,7 +566,10 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
         // Truncate to pane width - 2 (borders)
         let max_len = (info.rect.width.saturating_sub(2)) as usize;
         let display: String = if bar_text.len() > max_len {
-            format!("{}...", &bar_text[..max_len.saturating_sub(3).min(bar_text.len())])
+            format!(
+                "{}...",
+                &bar_text[..max_len.saturating_sub(3).min(bar_text.len())]
+            )
         } else {
             bar_text
         };
@@ -568,7 +578,11 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
             continue;
         }
 
-        let y = info.rect.y.saturating_add(info.rect.height).saturating_sub(1);
+        let y = info
+            .rect
+            .y
+            .saturating_add(info.rect.height)
+            .saturating_sub(1);
         if y < area.y || y >= area.y.saturating_add(area.height) {
             continue;
         }
@@ -597,7 +611,6 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
         buf.set_stringn(start_x, y, &truncated, max_render, style);
     }
 }
-
 
 fn render_pane_border_titles(app: &AppState, ws: &crate::workspace::Workspace, frame: &mut Frame) {
     let buf = frame.buffer_mut();
