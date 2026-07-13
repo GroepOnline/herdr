@@ -1,7 +1,7 @@
 //! Pure state mutations on AppState.
 //! These don't need channels, async, or PTY runtime.
 
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::detect::{Agent, AgentState};
 use crate::events::AppEvent;
