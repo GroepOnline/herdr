@@ -1,36 +1,48 @@
-# OnlineChefGroep/herdr-private - Downstream Distribution
+# OnlineChefGroep/herdr — downstream distribution
 
-Thin downstream distribution of [ogulcancelik/herdr](https://github.com/ogulcancelik/herdr).
-NOT a standalone fork.
+Maintained public distribution of Herdr for OnlineChefGroep agent operations. This repository carries downstream product, agent-detection, gateway, fleet-control, packaging, and release changes that are validated independently before publication.
 
-## Baseline (2026-07-12)
+## v0.7.4 release baseline
 
-- Private HEAD: bc30461
-- Upstream base: f36d804
-- Current version: 0.7.1
-- Target version: 0.7.3
-- Downstream commits: 2
-- Behind upstream master: 138
-- Toolchain: Rust 1.96.1, Zig 0.15.2, Bun 1.3+
+- Release branch: `release/v0.7.4`
+- Target branch: `master`
+- Package version: `0.7.4`
+- Toolchain: stable Rust, Zig `0.15.2`, Node.js `>=18`
+- npm package: `onlinechefgroep-herdr`
+- Release assets: Linux x86_64/arm64 and macOS x86_64/arm64
+- Windows prebuilt: not published for v0.7.4
 
-## Downstream Patches
+## Downstream patches
 
-### PATCH-001: Custom agent manifests (freebuff, junie, openclaude)
-- ID: chef-agents-v1
-- Status: 2 commits on f36d804
-- Test: manual only
-- Upstream: not submitted
+### Agent and operator support
 
-### PATCH-002: Default prefix Ctrl+A
-- ID: chef-prefix-v1
-- Plan: move to config profile (Phase 3)
+- Agent manifests for `freebuff`, `junie`, and `openclaude`
+- Fleet Ops Bar, fleet/plugin settings, workspace templates, and gateway API/SSE support
 
-## Sync
-- Rebase on upstream stable within 1 week
-- Max downstream delta: less than 10 commits
-## NPM Package (2026-07-12)
-- Name: onlinechefgroep-herdr
-- Directory: npm/
-- Wrapper: npm/bin/herdr.js (cross-platform binary launcher)
-- Postinstall: npm/install.js (downloads binary from GitHub Releases)
-- Publish: cd npm && npm publish --access public
+### Prefix and direct-attach behavior
+
+- Default prefix is `ctrl+a`
+- Direct attach uses the configured prefix without silently falling back
+- Single-byte and multi-byte terminal sequences are preserved, including split input reads and literal doubled-prefix forwarding
+
+### Distribution and release controls
+
+- Cargo, npm, installer, changelog, and release metadata are version-aligned
+- Release manifest generation reads `OnlineChefGroep/herdr`, not the upstream repository
+- CI builds the exact four artifacts produced by the release workflow
+- macOS uses the patched Homebrew Zig 0.15 build path used by release CI
+- Local Zig caches and build output are excluded from Git
+
+## Release procedure
+
+1. Merge the validated release pull request into `master`.
+2. Create tag `v0.7.4` on the merge commit.
+3. `release.yml` builds and publishes the four GitHub release assets.
+4. The published release triggers `publish-distribution.yml`, which verifies all assets before publishing npm.
+5. Update the Homebrew formula URL and SHA-256 values after the immutable release assets exist.
+
+## Sync policy
+
+- Keep downstream changes explicit and covered by CI.
+- Reconcile upstream changes on a dedicated sync branch; do not mix upstream sync work into a release closeout.
+- Never reuse upstream binaries or checksums for an OnlineChefGroep release.
