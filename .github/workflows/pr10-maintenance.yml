@@ -57,6 +57,11 @@ jobs:
               "    r'''        let mut prefix_tab = crate::input::encode_terminal_key(",
               1,
           )
+          text = text.replace(
+              'assert "attach_prefix_byte" not in client_path.read_text(encoding="utf-8")',
+              'assert "fn attach_prefix_byte(" not in client_path.read_text(encoding="utf-8")',
+              1,
+          )
           path.write_text(text, encoding="utf-8")
           PY
 
