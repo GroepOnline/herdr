@@ -12,6 +12,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   RUSTFLAGS: "-D warnings"
 
 jobs:
@@ -38,6 +39,26 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Normalize remediation script literals
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path(".github/maintainer/patch_pr10.py")
+          text = path.read_text(encoding="utf-8")
+          text = text.replace(
+              "    '''        // Default prefix is ctrl+a (0x01), not ctrl+b.",
+              "    r'''        // Default prefix is ctrl+a (0x01), not ctrl+b.",
+              1,
+          )
+          text = text.replace(
+              "    '''        let mut prefix_tab = crate::input::encode_terminal_key(",
+              "    r'''        let mut prefix_tab = crate::input::encode_terminal_key(",
+              1,
+          )
+          path.write_text(text, encoding="utf-8")
+          PY
 
       - name: Apply audited remediation
         run: python3 .github/maintainer/patch_pr10.py
