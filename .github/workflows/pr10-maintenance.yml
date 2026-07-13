@@ -105,6 +105,12 @@ jobs:
           path.write_text(text.replace(old, new, 1), encoding="utf-8")
           PY
 
+      - name: Ignore local Zig caches
+        run: |
+          grep -qxF '/.zig-cache/' .gitignore || printf '\n/.zig-cache/\n' >> .gitignore
+          grep -qxF '/vendor/libghostty-vt/.zig-cache/' .gitignore || printf '/vendor/libghostty-vt/.zig-cache/\n' >> .gitignore
+          grep -qxF '/vendor/libghostty-vt/zig-out/' .gitignore || printf '/vendor/libghostty-vt/zig-out/\n' >> .gitignore
+
       - name: Format
         run: cargo fmt --all
 
@@ -130,11 +136,18 @@ jobs:
       - name: Verify patch cleanliness
         run: git diff --check
 
-      - name: Commit remediation
+      - name: Commit source remediation
         run: |
-          git rm -f .github/workflows/pr10-maintenance.yml .github/maintainer/patch_pr10.py
-          touch .github/maintainer/pr10-applied
-          git add -A
+          git add \
+            .gitignore \
+            CHANGELOG.md \
+            npm/package.json \
+            npm/README.md \
+            scripts/changelog.py \
+            src/app/mod.rs \
+            src/bin/herdr-gateway.rs \
+            src/client/mod.rs \
+            src/fleet/ops.rs
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "fix: harden v0.7.4 release candidate"
