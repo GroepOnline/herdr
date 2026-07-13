@@ -50,6 +50,9 @@ jobs:
             experimental-features = nix-command flakes
             always-allow-substitutes = true
 
+      - name: Magic Nix Cache
+        uses: determinate-systems/magic-nix-cache-action@main
+
       - name: Run Nix flake check
         run: |
           nix flake check --print-build-logs
