@@ -35,58 +35,27 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          target_expr = "$" + "{{ matrix.target }}"
+          target_expr = chr(36) + "{{ matrix.target }}"
+          needle = f"          targets: {target_expr}\n\n"
+          insertion = (
+              needle
+              + "      - name: Install Rust target\n"
+              + f'        run: rustup target add "{target_expr}"\n\n'
+          )
 
-          replacements = {
-              ".github/workflows/ci.yml": (
-                  """      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-                  with:
-                    targets: """ + target_expr + """
-
-                - name: Install Zig
-          """,
-                  """      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-                  with:
-                    targets: """ + target_expr + """
-
-                - name: Install Rust target
-                  run: rustup target add \""" + target_expr + """\"
-
-                - name: Install Zig
-          """,
-              ),
-              ".github/workflows/release.yml": (
-                  """      - name: Install Rust
-                  uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-                  with:
-                    targets: """ + target_expr + """
-
-                - name: Install Zig
-          """,
-                  """      - name: Install Rust
-                  uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-                  with:
-                    targets: """ + target_expr + """
-
-                - name: Install Rust target
-                  run: rustup target add \""" + target_expr + """\"
-
-                - name: Install Zig
-          """,
-              ),
-          }
-
-          for filename, (old, new) in replacements.items():
+          for filename in (
+              ".github/workflows/ci.yml",
+              ".github/workflows/release.yml",
+          ):
               path = Path(filename)
               text = path.read_text(encoding="utf-8")
-              if text.count(old) != 1:
+              if text.count(needle) != 1:
                   raise SystemExit(f"{filename}: expected exactly one target block")
-              path.write_text(text.replace(old, new, 1), encoding="utf-8")
-
-          for filename in replacements:
-              text = Path(filename).read_text(encoding="utf-8")
-              if text.count('run: rustup target add "' + target_expr + '"') != 1:
+              updated = text.replace(needle, insertion, 1)
+              expected = f'rustup target add "{target_expr}"'
+              if updated.count(expected) != 1:
                   raise SystemExit(f"{filename}: explicit target install missing or duplicated")
+              path.write_text(updated, encoding="utf-8")
           PY
 
       - name: Validate workflow diffs
