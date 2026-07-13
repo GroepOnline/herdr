@@ -1,0 +1,78 @@
+name: PR 10 maintenance
+
+on:
+  push:
+    branches:
+      - release/v0.7.4
+    paths:
+      - .github/workflows/pr10-maintenance.yml
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/v0.7.4
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.15.2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Apply audited remediation
+        run: python3 .github/maintainer/patch_pr10.py
+
+      - name: Format
+        run: cargo fmt --all
+
+      - name: Validate JavaScript and Python
+        run: |
+          node --check npm/install.js
+          node --check npm/bin/herdr.js
+          python3 -m py_compile scripts/changelog.py
+          python3 scripts/changelog.py validate-product-announcement
+
+      - name: Check all targets
+        run: cargo check --all-targets --locked
+
+      - name: Test direct attach prefix handling
+        run: cargo test --locked attach_escape
+
+      - name: Test prefix routing
+        run: cargo test --locked route_client_input_prefix_tab_dispatches_global_last_pane
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Verify patch cleanliness
+        run: git diff --check
+
+      - name: Commit remediation
+        run: |
+          git rm .github/workflows/pr10-maintenance.yml .github/maintainer/patch_pr10.py
+          touch .github/maintainer/pr10-applied
+          git add -A
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: harden v0.7.4 release candidate"
+          git push origin HEAD:release/v0.7.4
