@@ -132,7 +132,7 @@ jobs:
 
       - name: Commit remediation
         run: |
-          git rm .github/workflows/pr10-maintenance.yml .github/maintainer/patch_pr10.py
+          git rm -f .github/workflows/pr10-maintenance.yml .github/maintainer/patch_pr10.py
           touch .github/maintainer/pr10-applied
           git add -A
           git config user.name "github-actions[bot]"
