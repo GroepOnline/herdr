@@ -304,6 +304,7 @@ impl App {
         changed |= self.clear_due_selection_highlight(now);
 
         self.start_git_status_refresh_if_due(now);
+        self.start_github_status_refresh_if_due(now);
 
         if self
             .next_auto_update_check
@@ -531,6 +532,80 @@ impl App {
         std::thread::spawn(move || crate::detect::manifest_update::auto_update(manifest_update_tx));
     }
 
+    pub(crate) fn start_github_status_refresh_if_due(&mut self, now: Instant) {
+        let Some(deadline) = self.github_refresh_deadline() else {
+            return;
+        };
+
+        if now < deadline {
+            return;
+        }
+
+        let workspaces = self.workspace_git_refresh_items();
+        if workspaces.is_empty() {
+            self.last_github_remote_status_refresh = now;
+            return;
+        }
+
+        self.github_refresh_in_flight = true;
+        let event_tx = self.event_tx.clone();
+        std::thread::spawn(move || {
+            for ws in workspaces {
+                let pr_out = std::process::Command::new("gh")
+                    .args(["pr", "list", "--json", "number"])
+                    .current_dir(&ws.resolved_identity_cwd)
+                    .output();
+                let issue_out = std::process::Command::new("gh")
+                    .args(["issue", "list", "--json", "number"])
+                    .current_dir(&ws.resolved_identity_cwd)
+                    .output();
+
+                let mut pr_count = 0;
+                let mut issue_count = 0;
+
+                if let Ok(pr_out) = pr_out {
+                    if let Ok(v) = serde_json::from_slice::<serde_json::Value>(&pr_out.stdout) {
+                        if let Some(arr) = v.as_array() {
+                            pr_count = arr.len();
+                        }
+                    }
+                }
+
+                if let Ok(issue_out) = issue_out {
+                    if let Ok(v) = serde_json::from_slice::<serde_json::Value>(&issue_out.stdout) {
+                        if let Some(arr) = v.as_array() {
+                            issue_count = arr.len();
+                        }
+                    }
+                }
+
+                let _ = event_tx.blocking_send(AppEvent::GithubStatusRefreshed {
+                    workspace_id: ws.workspace_id,
+                    status: crate::workspace::GithubStatus {
+                        pr_count,
+                        issue_count,
+                    },
+                });
+            }
+        });
+    }
+
+    pub(crate) fn mark_github_status_refresh_due(&mut self, now: Instant) {
+        if self.github_refresh_in_flight {
+            self.github_refresh_due_after_in_flight = true;
+            return;
+        }
+        self.last_github_remote_status_refresh = now
+            .checked_sub(super::GITHUB_REMOTE_STATUS_REFRESH_INTERVAL)
+            .unwrap_or(now);
+        self.github_refresh_due_after_in_flight = false;
+    }
+
+    pub(crate) fn github_refresh_deadline(&self) -> Option<Instant> {
+        (!self.github_refresh_in_flight && !self.state.workspaces.is_empty())
+            .then_some(self.last_github_remote_status_refresh + super::GITHUB_REMOTE_STATUS_REFRESH_INTERVAL)
+    }
+
     pub(crate) fn start_git_status_refresh_if_due(&mut self, now: Instant) {
         let Some(deadline) = self.git_refresh_deadline() else {
             return;
@@ -613,6 +688,9 @@ impl App {
             self.next_animation_tick,
             include_git_refresh
                 .then(|| self.git_refresh_deadline())
+                .flatten(),
+            include_git_refresh
+                .then(|| self.github_refresh_deadline())
                 .flatten(),
             self.next_auto_update_check,
             self.next_agent_manifest_update_check,
