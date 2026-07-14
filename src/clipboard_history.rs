@@ -25,8 +25,7 @@ struct Entry {
 }
 
 /// One row returned to callers.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct ClipboardEntry {
     pub seq: u64,
     pub timestamp: u64,
@@ -143,7 +142,6 @@ impl ClipboardHistory {
     }
 
     /// Return up to `limit` most-recent entries, newest first.
-    #[allow(dead_code)]
     pub fn recent(&self, limit: usize) -> Vec<ClipboardEntry> {
         let read_tx = match self.db.begin_read() {
             Ok(tx) => tx,
@@ -175,7 +173,6 @@ impl ClipboardHistory {
         rows
     }
 
-    #[allow(dead_code)]
     pub fn clear(&self) {
         if let Ok(write_tx) = self.db.begin_write() {
             if let Ok(mut table) = write_tx.open_table(TABLE) {
@@ -216,6 +213,23 @@ pub fn init(config: &Config) {
 pub fn record_clipboard(content: &[u8]) {
     if let Some(Some(history)) = HISTORY.get() {
         history.record(content, "pane");
+    }
+}
+
+/// Return up to `limit` most-recent clipboard entries (newest first), if the
+/// history store is enabled. Empty when disabled or not yet initialised.
+pub fn recent_global(limit: usize) -> Vec<ClipboardEntry> {
+    HISTORY
+        .get()
+        .and_then(|opt| opt.as_ref())
+        .map(|history| history.recent(limit))
+        .unwrap_or_default()
+}
+
+/// Clear the clipboard history if the store is enabled.
+pub fn clear_global() {
+    if let Some(Some(history)) = HISTORY.get() {
+        history.clear();
     }
 }
 

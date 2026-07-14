@@ -495,6 +495,11 @@ impl App {
     }
 
     fn handle_pane_double_click(&mut self, mouse: MouseEvent) -> bool {
+        if !self.state.copy_on_select {
+            self.last_pane_click = None;
+            return false;
+        }
+
         // A pane press stops being a double-click candidate once it becomes
         // a drag or completes as a real text selection.
         match mouse.kind {

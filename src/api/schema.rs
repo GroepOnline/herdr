@@ -233,6 +233,10 @@ pub enum Method {
     PluginPaneFocus(PluginPaneFocusParams),
     #[serde(rename = "plugin.pane.close")]
     PluginPaneClose(PluginPaneCloseParams),
+    #[serde(rename = "clipboard.list")]
+    ClipboardList(ClipboardListParams),
+    #[serde(rename = "clipboard.clear")]
+    ClipboardClear(EmptyParams),
 }
 
 #[cfg(test)]
