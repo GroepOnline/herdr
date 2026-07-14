@@ -88,6 +88,7 @@ pub fn is_reserved_native_state_source(source: &str, agent: &str) -> bool {
             | ("herdr:droid", "droid")
             | ("herdr:qodercli", "qodercli")
             | ("herdr:cursor", "cursor")
+            | ("herdr:opencode", "opencode")
     )
 }
 
