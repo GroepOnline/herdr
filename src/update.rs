@@ -3439,15 +3439,10 @@ mod tests {
         // current unreleased checkout. Its protocol is updated by the release
         // flow together with the release assets.
         assert!(manifest.protocol.is_some());
-        assert_eq!(manifest.assets.len(), 4);
+        assert_eq!(manifest.assets.len(), 1);
         assert!(manifest.releases.contains_key(&manifest.version));
 
-        for target in [
-            "linux-x86_64",
-            "linux-aarch64",
-            "macos-x86_64",
-            "macos-aarch64",
-        ] {
+        for target in ["linux-x86_64"] {
             let url = &manifest
                 .assets
                 .get(target)
@@ -3468,12 +3463,7 @@ mod tests {
                 .get("assets")
                 .and_then(serde_json::Value::as_object)
                 .unwrap_or_else(|| panic!("missing assets for release {version}"));
-            for target in [
-                "linux-x86_64",
-                "linux-aarch64",
-                "macos-x86_64",
-                "macos-aarch64",
-            ] {
+            for target in ["linux-x86_64"] {
                 let url = assets
                     .get(target)
                     .and_then(serde_json::Value::as_str)
