@@ -55,3 +55,26 @@ priority = 90
 region = "bottom_non_empty_lines(8)"
 visible_working = true
 line_regex = ['^\s*(⬡|⬢|[\u2800-\u28FF]+)\s+\p{Alphabetic}+\w*ing\b']
+
+[[rules]]
+id = "cursor_tool_working"
+state = "working"
+priority = 92
+region = "bottom_non_empty_lines(6)"
+visible_working = true
+any = [
+  { line_regex = ['(?i)(running|executing|applying)\s+(command|tool|edit)'] },
+  { line_regex = ['(?i)(ruff|pytest|uv\s+run)'] },
+  { line_regex = ['(?i)utrecht\s+(parse|normalize|index|embed|eval|ask|serve)'] },
+]
+
+[[rules]]
+id = "cursor_fleet_ssh"
+state = "working"
+priority = 91
+region = "bottom_non_empty_lines(4)"
+visible_working = true
+any = [
+  { line_regex = ['(?i)ssh\s+\w+.*--'] },
+  { line_regex = ['(?i)(fleet|probe|mesh)\s+(status|check|run)'] },
+]
