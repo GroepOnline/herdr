@@ -7,12 +7,14 @@ on:
       - '**.md'
       - 'website/**'
       - 'docs/**'
+      - '.github/workflows/website.yml'
   pull_request:
     branches: [master, main]
     paths-ignore:
       - '**.md'
       - 'website/**'
       - 'docs/**'
+      - '.github/workflows/website.yml'
 
 permissions:
   contents: read
