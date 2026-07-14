@@ -386,10 +386,26 @@ fn render_settings_ui(app: &AppState, frame: &mut Frame, area: Rect) {
 
     let selected = app.settings.list.selected;
     let ui_toggles: &[(bool, &str, &str)] = &[
-        (app.pane_borders_enabled(), "pane borders", "draw borders around split panes"),
-        (app.pane_gaps_enabled(), "pane gaps", "keep split panes visually separated"),
-        (app.agent_border_labels_enabled(), "agent labels", "show agent names in pane borders"),
-        (app.hide_tab_bar_when_single_tab_enabled(), "hide tab bar", "hide tab row when only one tab"),
+        (
+            app.pane_borders_enabled(),
+            "pane borders",
+            "draw borders around split panes",
+        ),
+        (
+            app.pane_gaps_enabled(),
+            "pane gaps",
+            "keep split panes visually separated",
+        ),
+        (
+            app.agent_border_labels_enabled(),
+            "agent labels",
+            "show agent names in pane borders",
+        ),
+        (
+            app.hide_tab_bar_when_single_tab_enabled(),
+            "hide tab bar",
+            "hide tab row when only one tab",
+        ),
     ];
 
     // Render toggle rows.
@@ -433,7 +449,10 @@ fn render_settings_ui(app: &AppState, frame: &mut Frame, area: Rect) {
 
     let all = SpinnerStyle::ALL;
     let spinner_selected = selected.saturating_sub(UI_SPINNER_OFFSET);
-    let current_idx = all.iter().position(|&s| s == app.spinner_style).unwrap_or(0);
+    let current_idx = all
+        .iter()
+        .position(|&s| s == app.spinner_style)
+        .unwrap_or(0);
 
     let visible_rows = grid_area.height as usize;
     let selected_row = spinner_selected / 2;
@@ -512,8 +531,7 @@ fn render_settings_sound(app: &AppState, frame: &mut Frame, area: Rect) {
         Style::default().fg(p.subtext0)
     };
     frame.render_widget(
-        Paragraph::new(format!(" {sound_marker} sound alerts"))
-            .style(sound_style),
+        Paragraph::new(format!(" {sound_marker} sound alerts")).style(sound_style),
         Rect::new(list_area.x, list_area.y, list_area.width, 1),
     );
 
@@ -527,10 +545,7 @@ fn render_settings_sound(app: &AppState, frame: &mut Frame, area: Rect) {
     // Toast delivery options.
     let toast_label = "notification popups";
     frame.render_widget(
-        Paragraph::new(Span::styled(
-            toast_label,
-            Style::default().fg(p.overlay1),
-        )),
+        Paragraph::new(Span::styled(toast_label, Style::default().fg(p.overlay1))),
         Rect::new(list_area.x, list_area.y + 2, list_area.width, 1),
     );
 
@@ -555,8 +570,7 @@ fn render_settings_sound(app: &AppState, frame: &mut Frame, area: Rect) {
             Style::default().fg(p.subtext0)
         };
         frame.render_widget(
-            Paragraph::new(format!(" {marker} {label}"))
-                .style(row_style),
+            Paragraph::new(format!(" {marker} {label}")).style(row_style),
             Rect::new(
                 list_area.x,
                 list_area.y + 3 + idx as u16,
@@ -637,7 +651,14 @@ fn render_settings_system(app: &AppState, frame: &mut Frame, area: Rect) {
     ];
     frame.render_widget(
         Paragraph::new(info_lines),
-        Rect::new(list_area.x, info_y + 1, list_area.width, list_area.height.saturating_sub(ExperimentSetting::ALL.len() as u16 + 2)),
+        Rect::new(
+            list_area.x,
+            info_y + 1,
+            list_area.width,
+            list_area
+                .height
+                .saturating_sub(ExperimentSetting::ALL.len() as u16 + 2),
+        ),
     );
 }
 

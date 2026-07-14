@@ -256,10 +256,7 @@ impl App {
 
     /// Apply a pane layout template to the current tab by performing a sequence
     /// of splits. Leaves settings mode first so the user sees the result.
-    pub(super) fn apply_pane_template(
-        &mut self,
-        template: crate::pane_template::PaneTemplateId,
-    ) {
+    pub(super) fn apply_pane_template(&mut self, template: crate::pane_template::PaneTemplateId) {
         use crate::api::schema::SplitDirection;
         use crate::layout::NavDirection;
         use crate::pane_template::PaneTemplateId as T;

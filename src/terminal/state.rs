@@ -3107,13 +3107,7 @@ mod tests {
             Instant::now(),
         );
         // Hook reported idle, then stopped updating.
-        terminal.set_hook_authority(
-            "herdr:pi".into(),
-            "pi".into(),
-            AgentState::Idle,
-            None,
-            None,
-        );
+        terminal.set_hook_authority("herdr:pi".into(), "pi".into(), AgentState::Idle, None, None);
         // Backdate the authority so it is stale relative to "now".
         terminal.hook_authority.as_mut().unwrap().reported_at =
             Instant::now() - Duration::from_secs(60);

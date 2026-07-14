@@ -4,8 +4,8 @@ use ratatui::layout::Rect;
 use crate::{
     app::{
         state::{
-            AppState, ExperimentSetting, SettingsSection, THEME_NAMES,
-            UI_SPINNER_OFFSET, UI_TOGGLE_COUNT,
+            AppState, ExperimentSetting, SettingsSection, THEME_NAMES, UI_SPINNER_OFFSET,
+            UI_TOGGLE_COUNT,
         },
         App, Mode,
     },
@@ -67,9 +67,7 @@ impl App {
                     self.save_switch_ascii_input_source_in_prefix(enabled)
                 }
                 SettingsAction::SaveSpinnerStyle(style) => self.save_spinner_style(style),
-                SettingsAction::ApplyPaneTemplate(template) => {
-                    self.apply_pane_template(template)
-                }
+                SettingsAction::ApplyPaneTemplate(template) => self.apply_pane_template(template),
                 SettingsAction::InstallRecommendedIntegrations => {
                     self.install_recommended_integrations()
                 }
@@ -218,19 +216,19 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
                 }
             }
             KeyCode::Left | KeyCode::Char('h') => {
-                state.settings.list.selected =
-                    state.settings.list.selected.saturating_sub(1);
+                state.settings.list.selected = state.settings.list.selected.saturating_sub(1);
             }
             KeyCode::Right | KeyCode::Char('l') => {
                 let max = ui_total_items() - 1;
-                state.settings.list.selected =
-                    (state.settings.list.selected + 1).min(max);
+                state.settings.list.selected = (state.settings.list.selected + 1).min(max);
             }
             KeyCode::Enter | KeyCode::Char(' ') => {
                 let s = state.settings.list.selected;
                 if s < UI_SPINNER_OFFSET {
                     return match s {
-                        0 => Some(SettingsAction::SavePaneBorders(!state.pane_borders_enabled())),
+                        0 => Some(SettingsAction::SavePaneBorders(
+                            !state.pane_borders_enabled(),
+                        )),
                         1 => Some(SettingsAction::SavePaneGaps(!state.pane_gaps_enabled())),
                         2 => Some(SettingsAction::SaveAgentBorderLabels(
                             !state.agent_border_labels_enabled(),
@@ -331,7 +329,10 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
                 state.settings.list.move_prev();
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                state.settings.list.move_next(crate::pane_template::PaneTemplateId::ALL.len());
+                state
+                    .settings
+                    .list
+                    .move_next(crate::pane_template::PaneTemplateId::ALL.len());
             }
             KeyCode::Enter | KeyCode::Char(' ') => {
                 return crate::pane_template::PaneTemplateId::ALL
@@ -499,9 +500,7 @@ impl AppState {
             }
             SettingsSection::System => {
                 let list_y = area.y + 3;
-                if row >= list_y
-                    && row < list_y + ExperimentSetting::ALL.len() as u16
-                {
+                if row >= list_y && row < list_y + ExperimentSetting::ALL.len() as u16 {
                     Some((row - list_y) as usize)
                 } else {
                     None
@@ -797,7 +796,6 @@ mod tests {
         app.state.switch_ascii_input_source_in_prefix = false;
         open_settings_at(&mut app.state, SettingsSection::System);
 
-        let area = app.state.settings_content_rect();
         // Navigate down to the second experiment.
         update_settings_state(
             &mut app.state,
