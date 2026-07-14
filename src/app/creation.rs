@@ -519,3 +519,40 @@ fn terminal_agent_session_info(
             value: session.session_ref.value.clone(),
         })
 }
+
+impl App {
+    pub(crate) fn create_workspace_argv_command_with_launch_env(
+        &mut self,
+        initial_cwd: PathBuf,
+        focus: bool,
+        extra_env: Vec<(String, String)>,
+        argv: &[String],
+    ) -> std::io::Result<usize> {
+        let (rows, cols) = self.state.estimate_pane_size();
+        let (ws, terminal, runtime) = Workspace::new_argv_command_with_extra_env(
+            initial_cwd,
+            rows,
+            cols,
+            argv,
+            self.state.pane_scrollback_limit_bytes,
+            self.state.host_terminal_theme,
+            self.event_tx.clone(),
+            self.render_notify.clone(),
+            self.render_dirty.clone(),
+            extra_env,
+        )?;
+        self.terminal_runtimes.insert(terminal.id.clone(), runtime);
+        self.state.terminals.insert(terminal.id.clone(), terminal);
+        self.state.workspaces.push(ws);
+        let idx = self.state.workspaces.len() - 1;
+        self.state
+            .remove_alias_shadowed_by_new_pane(self.state.workspaces[idx].tabs[0].root_pane);
+        let workspace_id = self.state.workspaces[idx].id.clone();
+        let root_pane = self.state.workspaces[idx].tabs[0].root_pane.raw();
+        crate::logging::workspace_created(&workspace_id, root_pane);
+        if focus || self.state.active.is_none() {
+            self.state.switch_workspace(idx);
+        }
+        Ok(idx)
+    }
+}

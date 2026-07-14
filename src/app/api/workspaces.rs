@@ -51,7 +51,10 @@ impl App {
             Ok(env) => env,
             Err((code, message)) => return encode_error(id, &code, message),
         };
-        match self.create_workspace_with_launch_env(cwd, params.focus, extra_env) {
+        match match params.command {
+            Some(command) => self.create_workspace_argv_command_with_launch_env(cwd, params.focus, extra_env, &command),
+            None => self.create_workspace_with_launch_env(cwd, params.focus, extra_env),
+        } {
             Ok(index) => {
                 if let Some(label) = params.label {
                     if let Some(workspace) = self.state.workspaces.get_mut(index) {
