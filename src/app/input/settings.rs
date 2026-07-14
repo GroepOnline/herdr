@@ -154,22 +154,32 @@ fn apply_settings(state: &mut AppState) -> Option<SettingsAction> {
 pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Option<SettingsAction> {
     match state.settings.section {
         SettingsSection::Appearance => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => state.settings.list.move_prev(),
-            KeyCode::Down | KeyCode::Char('j') => state
-                .settings
-                .list
-                .move_next(crate::config::SpinnerStyle::ALL.len()),
+            KeyCode::Up | KeyCode::Char('k') => {
+                let new = state.settings.list.selected.saturating_sub(2);
+                state.settings.list.selected = new;
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                let max = crate::config::SpinnerStyle::ALL.len() - 1;
+                state.settings.list.selected = (state.settings.list.selected + 2).min(max);
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                state.settings.list.selected = state.settings.list.selected.saturating_sub(1);
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                let max = crate::config::SpinnerStyle::ALL.len() - 1;
+                state.settings.list.selected = (state.settings.list.selected + 1).min(max);
+            }
             KeyCode::Enter | KeyCode::Char(' ') => {
                 return crate::config::SpinnerStyle::ALL
                     .get(state.settings.list.selected)
                     .copied()
                     .map(SettingsAction::SaveSpinnerStyle);
             }
-            KeyCode::BackTab | KeyCode::Left | KeyCode::Char('h') => {
+            KeyCode::BackTab => {
                 state.settings.section = SettingsSection::PaneLabels;
                 state.settings.list.selected = usize::from(!state.agent_border_labels_enabled());
             }
-            KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => {
+            KeyCode::Tab => {
                 state.settings.section = SettingsSection::Fleet;
                 state.settings.list.selected = 0;
             }
