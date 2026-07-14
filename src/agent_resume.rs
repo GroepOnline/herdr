@@ -253,7 +253,7 @@ mod tests {
         assert!(is_reserved_native_state_source("herdr:codex", "codex"));
         assert!(is_reserved_native_state_source("herdr:devin", "devin"));
         assert!(!is_reserved_native_state_source("herdr:kimi", "kimi"));
-        assert!(!is_reserved_native_state_source(
+        assert!(is_reserved_native_state_source(
             "herdr:opencode",
             "opencode"
         ));
