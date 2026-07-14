@@ -41,7 +41,8 @@ pub(super) fn command() -> Command {
         .subcommand(terminal_command())
         .subcommand(session_command())
         .subcommand(integration_command())
-        .subcommand(plugin_command());
+        .subcommand(plugin_command())
+        .subcommand(browser_command());
     configure_help(command, true)
 }
 
@@ -108,6 +109,17 @@ fn completion_command() -> Command {
                 .required(true)
                 .value_parser(super::completion::SUPPORTED_SHELLS)
                 .help("Shell to generate completions for"),
+        )
+}
+
+fn browser_command() -> Command {
+    Command::new("browser")
+        .about("Render a webpage in the terminal using headless chrome and viuer")
+        .arg(
+            Arg::new("url")
+                .value_name("URL")
+                .required(true)
+                .help("URL to render"),
         )
 }
 

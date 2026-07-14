@@ -51,6 +51,7 @@ impl App {
             focus,
             label,
             env,
+            command,
         } = params;
         let ws_idx = if let Some(workspace_id) = workspace_id {
             let Some(ws_idx) = self.parse_workspace_id(&workspace_id) else {
@@ -79,7 +80,7 @@ impl App {
             .get_mut(ws_idx)
             .ok_or_else(|| std::io::Error::other("workspace disappeared"))
             .and_then(|ws| {
-                match params.command.as_deref() {
+                match command.as_deref() {
                     Some(argv) => ws.create_tab_argv_command(
                         rows,
                         cols,

@@ -114,7 +114,7 @@ fn tab_create(args: &[String]) -> std::io::Result<i32> {
         }
     }
 
-    super::runtime::tab_create(TabCreateParams {
+    super::runtime::tab_create(TabCreateParams { command: None,
         workspace_id,
         cwd,
         focus,

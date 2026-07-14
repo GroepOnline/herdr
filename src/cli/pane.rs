@@ -534,6 +534,7 @@ fn parse_pane_split_args(
     let mut ratio = None;
     let mut cwd = None;
     let mut focus = false;
+    let mut command = None;
 
     let mut index = 0;
     if args
@@ -592,6 +593,14 @@ fn parse_pane_split_args(
                 focus = false;
                 index += 1;
             }
+            "--argv" | "--command" => {
+                let rest = args[index + 1..].to_vec();
+                if rest.is_empty() {
+                    return Err("missing value for --argv".into());
+                }
+                command = Some(rest);
+                break;
+            }
             "--env" => {
                 let Some(value) = args.get(index + 1) else {
                     return Err("missing value for --env".into());
@@ -619,6 +628,7 @@ fn parse_pane_split_args(
         cwd,
         focus,
         env,
+        command,
     })
 }
 

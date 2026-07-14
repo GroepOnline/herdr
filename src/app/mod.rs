@@ -937,7 +937,7 @@ impl App {
                 self.state.request_new_workspace = false;
                 self.runtime_workspace_create(
                     "tui.workspace.create",
-                    crate::api::schema::WorkspaceCreateParams {
+                    crate::api::schema::WorkspaceCreateParams { command: None,
                         cwd: None,
                         focus: true,
                         label: None,
@@ -952,7 +952,7 @@ impl App {
                 let label = self.state.requested_new_tab_name.take();
                 self.runtime_tab_create(
                     "tui.tab.create",
-                    crate::api::schema::TabCreateParams {
+                    crate::api::schema::TabCreateParams { command: None,
                         workspace_id: None,
                         cwd: None,
                         focus: true,
@@ -976,7 +976,7 @@ impl App {
             if let Some(cwd) = self.state.request_new_workspace_cwd.take() {
                 self.runtime_workspace_create(
                     "tui.workspace.create_cwd",
-                    crate::api::schema::WorkspaceCreateParams {
+                    crate::api::schema::WorkspaceCreateParams { command: None,
                         cwd: Some(cwd.display().to_string()),
                         focus: true,
                         label: None,

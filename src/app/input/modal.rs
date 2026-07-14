@@ -975,7 +975,7 @@ impl App {
                 };
                 self.runtime_tab_create(
                     "tui.tab.create_named",
-                    crate::api::schema::TabCreateParams {
+                    crate::api::schema::TabCreateParams { command: None,
                         workspace_id: None,
                         cwd: None,
                         focus: true,
