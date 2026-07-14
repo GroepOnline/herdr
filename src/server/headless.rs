@@ -4954,8 +4954,8 @@ next_tab = ""
             writer,
         }));
         server.app.state.mode = crate::app::Mode::Settings;
-        server.app.state.settings.section = crate::app::state::SettingsSection::Toast;
-        server.app.state.settings.list.selected = 1;
+        server.app.state.settings.section = crate::app::state::SettingsSection::Sound;
+        server.app.state.settings.list.selected = 2;
 
         assert!(server.handle_server_event(ServerEvent::ClientInput {
             client_id: 1,
@@ -5029,8 +5029,8 @@ next_tab = ""
             writer: writer_a,
         }));
         server.app.state.mode = crate::app::Mode::Settings;
-        server.app.state.settings.section = crate::app::state::SettingsSection::Toast;
-        server.app.state.settings.list.selected = 1;
+        server.app.state.settings.section = crate::app::state::SettingsSection::Sound;
+        server.app.state.settings.list.selected = 2;
 
         assert!(server.handle_server_event(ServerEvent::ClientInput {
             client_id: 1,

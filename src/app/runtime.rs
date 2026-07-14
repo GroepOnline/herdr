@@ -293,7 +293,7 @@ impl App {
             // even when no working agent drives spinner_tick.
             if self.state.mode == crate::app::Mode::Settings
                 && self.state.settings.section
-                    == crate::app::state::SettingsSection::Appearance
+                    == crate::app::state::SettingsSection::Ui
             {
                 self.state.settings.preview_tick =
                     self.state.settings.preview_tick.wrapping_add(1);

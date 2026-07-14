@@ -8,11 +8,11 @@ use ratatui::{
 
 use super::widgets::{
     action_button_row_rects, centered_popup_rect, modal_stack_areas, panel_contrast_fg,
-    render_action_button, render_modal_choice_list, render_panel_shell, ActionButtonSpec,
+    render_action_button, render_panel_shell, ActionButtonSpec,
 };
 use crate::{
     app::{
-        state::{ExperimentSetting, Palette},
+        state::{ExperimentSetting, UI_SPINNER_OFFSET},
         AppState,
     },
     config::ToastDelivery,
@@ -24,7 +24,8 @@ pub(crate) const SETTINGS_POPUP_BASE_HEIGHT: u16 = 22;
 pub(crate) fn settings_popup_height(app: &AppState) -> u16 {
     use crate::app::state::SettingsSection;
     match app.settings.section {
-        SettingsSection::Appearance => 30, // taller for 2-column spinner grid
+        SettingsSection::Ui => 30, // taller for toggles + 2-column spinner grid
+        SettingsSection::Templates => 28, // taller for template previews
         SettingsSection::Integrations => {
             let list_rows = app.integration_recommendations.len().max(1) as u16;
             let footer_rows = integrations_footer_height(app, SETTINGS_POPUP_WIDTH - 2);
@@ -113,80 +114,17 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
         SettingsSection::Theme => {
             render_settings_theme(app, frame, content_area);
         }
+        SettingsSection::Ui => {
+            render_settings_ui(app, frame, content_area);
+        }
         SettingsSection::Sound => {
-            render_settings_toggle(
-                frame,
-                content_area,
-                p,
-                "sound alerts",
-                "play sounds when agents change state in background",
-                app.sound_enabled(),
-                app.settings.list.selected,
-            );
+            render_settings_sound(app, frame, content_area);
         }
-        SettingsSection::Toast => {
-            render_modal_choice_list(
-                frame,
-                content_area,
-                "notification popups",
-                "choose where background popup notifications should appear",
-                &[
-                    ("off", ToastDelivery::Off),
-                    ("inside herdr", ToastDelivery::Herdr),
-                    ("via terminal", ToastDelivery::Terminal),
-                    ("via system", ToastDelivery::System),
-                ],
-                app.toast_delivery(),
-                app.settings.list.selected,
-                p,
-                2,
-            );
+        SettingsSection::System => {
+            render_settings_system(app, frame, content_area);
         }
-        SettingsSection::PaneLabels => {
-            render_settings_toggle(
-                frame,
-                content_area,
-                p,
-                "agent border labels",
-                "show detected agent names in split pane borders",
-                app.agent_border_labels_enabled(),
-                app.settings.list.selected,
-            );
-        }
-        SettingsSection::Appearance => {
-            render_settings_appearance(app, frame, content_area);
-        }
-        SettingsSection::Fleet => {
-            render_settings_info(
-                frame,
-                content_area,
-                p,
-                "CHEF Fleet Operations",
-                &[
-                    "fleet ops bar shows per-pane agent metadata",
-                    "configure via: src/fleet/ops.rs",
-                    "plugins: linear, github, fleet-health, cloudflare, kater-bridge",
-                    "API gateway: http://127.0.0.1:7777 (systemd: herdr-gateway)",
-                ],
-            );
-        }
-        SettingsSection::Plugins => {
-            render_settings_info(
-                frame,
-                content_area,
-                p,
-                "Plugin Marketplace",
-                &[
-                    "install plugins: herdr plugin install <id>",
-                    "marketplace: github.com/OnlineChefGroep/herdr-plugins",
-                    "available: linear-context, github-status, fleet-health,",
-                    "           cloudflare-tunnel, session-park, kater-bridge",
-                    "settings prefix+S opens this overlay",
-                ],
-            );
-        }
-        SettingsSection::Experiments => {
-            render_settings_experiments(app, frame, content_area);
+        SettingsSection::Templates => {
+            render_settings_templates(app, frame, content_area);
         }
         SettingsSection::Integrations => {
             render_settings_integrations(app, frame, content_area);
@@ -427,48 +365,8 @@ fn render_settings_theme(app: &AppState, frame: &mut Frame, area: Rect) {
     frame.render_stateful_widget(list, area, &mut state);
 }
 
-fn render_settings_info(
-    frame: &mut Frame,
-    area: Rect,
-    p: &crate::app::state::Palette,
-    title: &str,
-    lines: &[&str],
-) {
-    let mut text = Vec::new();
-    text.push(Line::from(Span::styled(
-        title,
-        Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
-    )));
-    text.push(Line::from(""));
-    for line in lines {
-        text.push(Line::from(Span::styled(*line, Style::default().fg(p.text))));
-    }
-    frame.render_widget(Paragraph::new(text), area);
-}
-
-fn render_settings_toggle(
-    frame: &mut Frame,
-    area: Rect,
-    p: &Palette,
-    title: &str,
-    description: &str,
-    current_value: bool,
-    selected_idx: usize,
-) {
-    render_modal_choice_list(
-        frame,
-        area,
-        title,
-        description,
-        &[("on", true), ("off", false)],
-        current_value,
-        selected_idx,
-        p,
-        1,
-    );
-}
-
-fn render_settings_appearance(app: &AppState, frame: &mut Frame, area: Rect) {
+/// Ui tab: toggle rows + spinner grid.
+fn render_settings_ui(app: &AppState, frame: &mut Frame, area: Rect) {
     use crate::config::SpinnerStyle;
     let p = &app.palette;
 
@@ -482,24 +380,70 @@ fn render_settings_appearance(app: &AppState, frame: &mut Frame, area: Rect) {
     super::widgets::render_modal_description(
         frame,
         desc_area,
-        "choose a spinner animation style for working agents",
+        "ui options and spinner animation style",
         Style::default().fg(p.overlay1),
     );
 
+    let selected = app.settings.list.selected;
+    let ui_toggles: &[(bool, &str, &str)] = &[
+        (app.pane_borders_enabled(), "pane borders", "draw borders around split panes"),
+        (app.pane_gaps_enabled(), "pane gaps", "keep split panes visually separated"),
+        (app.agent_border_labels_enabled(), "agent labels", "show agent names in pane borders"),
+        (app.hide_tab_bar_when_single_tab_enabled(), "hide tab bar", "hide tab row when only one tab"),
+    ];
+
+    // Render toggle rows.
+    for (idx, (enabled, title, desc)) in ui_toggles.iter().enumerate() {
+        let is_sel = selected == idx;
+        let marker = if *enabled { "[✓]" } else { "[ ]" };
+        let row_style = if is_sel {
+            Style::default()
+                .bg(p.surface0)
+                .fg(p.text)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(p.subtext0)
+        };
+        let line = Line::from(vec![
+            Span::styled(format!(" {marker} "), row_style),
+            Span::styled(*title, row_style),
+            Span::styled(format!("  — {desc}"), Style::default().fg(p.overlay1)),
+        ]);
+        frame.render_widget(
+            Paragraph::new(line),
+            Rect::new(list_area.x, list_area.y + idx as u16, list_area.width, 1),
+        );
+    }
+
+    // Separator.
+    let sep_y = list_area.y + ui_toggles.len() as u16;
+    let sep = "─".repeat(list_area.width as usize);
+    frame.render_widget(
+        Paragraph::new(Span::styled(&sep, Style::default().fg(p.surface0))),
+        Rect::new(list_area.x, sep_y, list_area.width, 1),
+    );
+
+    // Spinner grid below the toggles.
+    let grid_area = Rect::new(
+        list_area.x,
+        sep_y + 1,
+        list_area.width,
+        list_area.height.saturating_sub(ui_toggles.len() as u16 + 1),
+    );
+
     let all = SpinnerStyle::ALL;
-    let total = all.len();
-    let selected = app.settings.list.selected.min(total.saturating_sub(1));
+    let spinner_selected = selected.saturating_sub(UI_SPINNER_OFFSET);
     let current_idx = all.iter().position(|&s| s == app.spinner_style).unwrap_or(0);
 
-    let visible_rows = list_area.height as usize;
-    let selected_row = selected / 2;
+    let visible_rows = grid_area.height as usize;
+    let selected_row = spinner_selected / 2;
     let scroll = if selected_row >= visible_rows {
         selected_row - visible_rows + 1
     } else {
         0
     };
 
-    let col_width = (list_area.width as usize / 2).max(20);
+    let col_width = (grid_area.width as usize / 2).max(20);
     let tick = app.settings.preview_tick;
 
     for (idx, &style) in all.iter().enumerate() {
@@ -508,13 +452,10 @@ fn render_settings_appearance(app: &AppState, frame: &mut Frame, area: Rect) {
         if visible_idx >= visible_rows {
             break;
         }
-        if idx % 2 == 0 && visible_idx == 0 && scroll > 0 {
-            // first visible row: only render if at least one of its items is in range
-        }
         let col = idx % 2;
-        let x = list_area.x + col as u16 * col_width as u16;
-        let y = list_area.y + visible_idx as u16;
-        let is_selected = idx == selected;
+        let x = grid_area.x + col as u16 * col_width as u16;
+        let y = grid_area.y + visible_idx as u16;
+        let is_selected = idx == spinner_selected;
         let is_current = idx == current_idx;
         let preview_frame =
             style.frames()[(tick as usize / style.speed_divisor() as usize) % style.frames().len()];
@@ -540,7 +481,8 @@ fn render_settings_appearance(app: &AppState, frame: &mut Frame, area: Rect) {
     }
 }
 
-fn render_settings_experiments(app: &AppState, frame: &mut Frame, area: Rect) {
+/// Sound tab: sound toggle + toast delivery options.
+fn render_settings_sound(app: &AppState, frame: &mut Frame, area: Rect) {
     let p = &app.palette;
     let [desc_area, _, list_area] = Layout::vertical([
         Constraint::Length(2),
@@ -552,13 +494,102 @@ fn render_settings_experiments(app: &AppState, frame: &mut Frame, area: Rect) {
     super::widgets::render_modal_description(
         frame,
         desc_area,
-        "optional features that are off by default",
+        "sound alerts and notification popups",
         Style::default().fg(p.overlay1),
     );
 
+    let selected = app.settings.list.selected;
+
+    // Sound toggle.
+    let sound_on = app.sound_enabled();
+    let sound_marker = if sound_on { "[✓]" } else { "[ ]" };
+    let sound_style = if selected == 0 {
+        Style::default()
+            .bg(p.surface0)
+            .fg(p.text)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(p.subtext0)
+    };
+    frame.render_widget(
+        Paragraph::new(format!(" {sound_marker} sound alerts"))
+            .style(sound_style),
+        Rect::new(list_area.x, list_area.y, list_area.width, 1),
+    );
+
+    // Separator.
+    let sep = "─".repeat(list_area.width as usize);
+    frame.render_widget(
+        Paragraph::new(Span::styled(&sep, Style::default().fg(p.surface0))),
+        Rect::new(list_area.x, list_area.y + 1, list_area.width, 1),
+    );
+
+    // Toast delivery options.
+    let toast_label = "notification popups";
+    frame.render_widget(
+        Paragraph::new(Span::styled(
+            toast_label,
+            Style::default().fg(p.overlay1),
+        )),
+        Rect::new(list_area.x, list_area.y + 2, list_area.width, 1),
+    );
+
+    let toast_options = [
+        ("off", ToastDelivery::Off),
+        ("inside herdr", ToastDelivery::Herdr),
+        ("via terminal", ToastDelivery::Terminal),
+        ("via system", ToastDelivery::System),
+    ];
+    let current_delivery = app.toast_delivery();
+    for (idx, (label, delivery)) in toast_options.iter().enumerate() {
+        let list_idx = 1 + idx;
+        let is_sel = selected == list_idx;
+        let is_current = *delivery == current_delivery;
+        let marker = if is_current { "✓" } else { " " };
+        let row_style = if is_sel {
+            Style::default()
+                .bg(p.surface0)
+                .fg(p.text)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(p.subtext0)
+        };
+        frame.render_widget(
+            Paragraph::new(format!(" {marker} {label}"))
+                .style(row_style),
+            Rect::new(
+                list_area.x,
+                list_area.y + 3 + idx as u16,
+                list_area.width,
+                1,
+            ),
+        );
+    }
+}
+
+/// System tab: experiments + fleet/plugins info.
+fn render_settings_system(app: &AppState, frame: &mut Frame, area: Rect) {
+    let p = &app.palette;
+    let [desc_area, _, list_area] = Layout::vertical([
+        Constraint::Length(2),
+        Constraint::Length(1),
+        Constraint::Min(1),
+    ])
+    .areas::<3>(area);
+
+    super::widgets::render_modal_description(
+        frame,
+        desc_area,
+        "experiments and system info",
+        Style::default().fg(p.overlay1),
+    );
+
+    let selected = app.settings.list.selected;
+
+    // Experiment toggles.
     for (idx, setting) in ExperimentSetting::ALL.iter().copied().enumerate() {
         let marker = if setting.enabled(app) { "[✓]" } else { "[ ]" };
-        let style = if app.settings.list.selected == idx {
+        let style = if selected == idx {
             Style::default()
                 .bg(p.surface0)
                 .fg(p.text)
@@ -572,6 +603,113 @@ fn render_settings_experiments(app: &AppState, frame: &mut Frame, area: Rect) {
             row,
         );
     }
+
+    // Separator + info text.
+    let info_y = list_area.y + ExperimentSetting::ALL.len() as u16 + 1;
+    let sep = "─".repeat(list_area.width as usize);
+    frame.render_widget(
+        Paragraph::new(Span::styled(&sep, Style::default().fg(p.surface0))),
+        Rect::new(list_area.x, info_y, list_area.width, 1),
+    );
+
+    let info_lines = vec![
+        Line::from(Span::styled(
+            "CHEF Fleet Operations",
+            Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            "fleet ops bar shows per-pane agent metadata",
+            Style::default().fg(p.subtext0),
+        )),
+        Line::from(Span::styled(
+            "plugins: linear, github, fleet-health, cloudflare",
+            Style::default().fg(p.subtext0),
+        )),
+        Line::from(""),
+        Line::from(Span::styled(
+            "Plugin Marketplace",
+            Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            "install: herdr plugin install <id>",
+            Style::default().fg(p.subtext0),
+        )),
+    ];
+    frame.render_widget(
+        Paragraph::new(info_lines),
+        Rect::new(list_area.x, info_y + 1, list_area.width, list_area.height.saturating_sub(ExperimentSetting::ALL.len() as u16 + 2)),
+    );
+}
+
+/// Templates tab: pane layout templates.
+fn render_settings_templates(app: &AppState, frame: &mut Frame, area: Rect) {
+    use crate::pane_template::PaneTemplateId;
+    let p = &app.palette;
+    let [desc_area, _, list_area] = Layout::vertical([
+        Constraint::Length(2),
+        Constraint::Length(1),
+        Constraint::Min(1),
+    ])
+    .areas::<3>(area);
+
+    super::widgets::render_modal_description(
+        frame,
+        desc_area,
+        "apply a pane layout template to the current tab",
+        Style::default().fg(p.overlay1),
+    );
+
+    let selected = app.settings.list.selected;
+    let templates = PaneTemplateId::ALL;
+    let col_width = (list_area.width as usize / 2).max(20);
+
+    for (idx, &id) in templates.iter().enumerate() {
+        let tmpl = id.template();
+        let is_sel = idx == selected;
+        let col = idx % 2;
+        let row = idx / 2;
+        let x = list_area.x + col as u16 * col_width as u16;
+        let y = list_area.y + row as u16;
+        if y >= list_area.y + list_area.height {
+            break;
+        }
+
+        let row_style = if is_sel {
+            Style::default()
+                .bg(p.surface0)
+                .fg(p.text)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(p.subtext0)
+        };
+
+        // Name line.
+        frame.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled("  ", row_style),
+                Span::styled(tmpl.name, row_style),
+            ])),
+            Rect::new(x, y, col_width as u16, 1),
+        );
+        // Description line.
+        frame.render_widget(
+            Paragraph::new(Span::styled(
+                format!("  {}", tmpl.description),
+                Style::default().fg(p.overlay1),
+            )),
+            Rect::new(x, y + 1, col_width as u16, 1),
+        );
+        // Preview lines.
+        for (line_idx, preview_line) in tmpl.preview.lines().enumerate() {
+            frame.render_widget(
+                Paragraph::new(Span::styled(
+                    format!("  {}", preview_line),
+                    Style::default().fg(p.subtext0),
+                )),
+                Rect::new(x, y + 2 + line_idx as u16, col_width as u16, 1),
+            );
+        }
+    }
 }
 
 #[cfg(test)]
@@ -584,7 +722,7 @@ mod tests {
     fn experiments_pane_history_uses_settings_checkmark_marker() {
         let mut app = AppState::test_new();
         app.pane_history_persistence = true;
-        app.settings.section = SettingsSection::Experiments;
+        app.settings.section = SettingsSection::System;
         app.settings.list.selected = 0;
         app.mode = Mode::Settings;
 
@@ -610,7 +748,7 @@ mod tests {
     fn experiments_pane_history_keeps_empty_checkbox_marker_when_disabled() {
         let mut app = AppState::test_new();
         app.pane_history_persistence = false;
-        app.settings.section = SettingsSection::Experiments;
+        app.settings.section = SettingsSection::System;
         app.settings.list.selected = 0;
         app.mode = Mode::Settings;
 
@@ -635,7 +773,7 @@ mod tests {
     fn experiments_renders_switch_ascii_input_source_row() {
         let mut app = AppState::test_new();
         app.switch_ascii_input_source_in_prefix = true;
-        app.settings.section = SettingsSection::Experiments;
+        app.settings.section = SettingsSection::System;
         app.settings.list.selected = 1;
         app.mode = Mode::Settings;
 
