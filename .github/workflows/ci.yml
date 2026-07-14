@@ -19,6 +19,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -33,6 +37,7 @@ jobs:
   check:
     name: Check & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -44,6 +49,11 @@ jobs:
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+
+      - name: Install Rust tools
+        uses: taiki-e/install-action@fd2f5e3d644b484055ebf4268f474c565f148f25 # v2.81.9
+        with:
+          tool: cargo-nextest
 
       - name: Install Zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
@@ -92,8 +102,13 @@ jobs:
       - name: Cargo check
         run: cargo check --all-targets --locked
 
-      - name: Cargo test
-        run: cargo test --all --locked -- --skip graphics_bytes_are_written_after_blit_with_saved_cursor --skip foreground_client_applies_client_keybindings --skip invalid_server_keybindings_apply_valid_subset_after_settings_save_without_caching_local_keybindings --skip local_keybinding_client_keeps_local_keybindings_after_settings_save --skip pane_border_renderer_places_adjacent_cjk_by_display_width
+      - name: Cargo nextest
+        run: cargo nextest run --workspace --locked \
+          --skip graphics_bytes_are_written_after_blit_with_saved_cursor \
+          --skip foreground_client_applies_client_keybindings \
+          --skip invalid_server_keybindings_apply_valid_subset_after_settings_save_without_caching_local_keybindings \
+          --skip local_keybinding_client_keeps_local_keybindings_after_settings_save \
+          --skip pane_border_renderer_places_adjacent_cjk_by_display_width
 
       - name: Cargo clippy
         run: cargo clippy --all-targets --locked -- -D warnings
@@ -101,6 +116,7 @@ jobs:
   release-build:
     name: Release build (${{ matrix.target }})
     needs: check
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -159,7 +175,7 @@ jobs:
         run: rm -rf .zig-cache vendor/libghostty-vt/.zig-cache vendor/libghostty-vt/zig-out
 
       - name: Build exact release artifact
-        run: cargo build --release --locked --target ${{ matrix.target }}
+        run: cargo build --release --locked --target ${{ matrix.target }} --config profile.release.lto=false
 
       - name: Stage artifact
         run: cp target/${{ matrix.target }}/release/herdr ${{ matrix.artifact }}
