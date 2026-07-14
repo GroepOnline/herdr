@@ -549,43 +549,129 @@ impl App {
 
         self.github_refresh_in_flight = true;
         let event_tx = self.event_tx.clone();
-        std::thread::spawn(move || {
-            for ws in workspaces {
-                let pr_out = std::process::Command::new("gh")
-                    .args(["pr", "list", "--json", "number"])
-                    .current_dir(&ws.resolved_identity_cwd)
-                    .output();
-                let issue_out = std::process::Command::new("gh")
-                    .args(["issue", "list", "--json", "number"])
-                    .current_dir(&ws.resolved_identity_cwd)
-                    .output();
+        tokio::spawn(async move {
+            let client = reqwest::Client::new();
 
+            let token = std::env::var("HOME")
+                .ok()
+                .and_then(|home| {
+                    let hosts_path = std::path::Path::new(&home).join(".config/gh/hosts.yml");
+                    let content = std::fs::read_to_string(hosts_path).ok()?;
+                    for line in content.lines() {
+                        let line = line.trim();
+                        if line.starts_with("oauth_token:") {
+                            return Some(
+                                line.trim_start_matches("oauth_token:").trim().to_string(),
+                            );
+                        }
+                    }
+                    None
+                })
+                .unwrap_or_default();
+
+            for ws in workspaces {
                 let mut pr_count = 0;
                 let mut issue_count = 0;
 
-                if let Ok(pr_out) = pr_out {
-                    if let Ok(v) = serde_json::from_slice::<serde_json::Value>(&pr_out.stdout) {
-                        if let Some(arr) = v.as_array() {
-                            pr_count = arr.len();
+                let mut repo = None;
+                let mut root = ws.resolved_identity_cwd.clone();
+                let mut found_config = None;
+                while let Some(parent) = root.parent() {
+                    let config_path = root.join(".git/config");
+                    if config_path.exists() {
+                        found_config = Some(config_path);
+                        break;
+                    }
+                    if root == parent {
+                        break;
+                    }
+                    root = parent.to_path_buf();
+                }
+
+                if let Some(config_path) = found_config {
+                    if let Ok(content) = std::fs::read_to_string(config_path) {
+                        let mut in_origin = false;
+                        for line in content.lines() {
+                            let line = line.trim();
+                            if line == "[remote \"origin\"]" {
+                                in_origin = true;
+                            } else if line.starts_with("[") {
+                                in_origin = false;
+                            } else if in_origin && line.starts_with("url = ") {
+                                let url =
+                                    line.trim_start_matches("url = ").trim_end_matches(".git");
+                                let parts: Vec<&str> = if url.contains("github.com:") {
+                                    url.split("github.com:").collect()
+                                } else if url.contains("github.com/") {
+                                    url.split("github.com/").collect()
+                                } else {
+                                    vec![]
+                                };
+                                if parts.len() == 2 {
+                                    let path_parts: Vec<&str> = parts[1].split("/").collect();
+                                    if path_parts.len() >= 2 {
+                                        repo = Some((
+                                            path_parts[0].to_string(),
+                                            path_parts[1].to_string(),
+                                        ));
+                                    }
+                                }
+                                break;
+                            }
                         }
                     }
                 }
 
-                if let Ok(issue_out) = issue_out {
-                    if let Ok(v) = serde_json::from_slice::<serde_json::Value>(&issue_out.stdout) {
-                        if let Some(arr) = v.as_array() {
-                            issue_count = arr.len();
+                if let Some((owner, repo_name)) = repo {
+                    let mut pr_req = client
+                        .get(format!(
+                            "https://api.github.com/repos/{}/{}/pulls?state=open",
+                            owner, repo_name
+                        ))
+                        .header("User-Agent", "herdr-agent");
+                    if !token.is_empty() {
+                        pr_req = pr_req.header("Authorization", format!("Bearer {}", token));
+                    }
+                    if let Ok(resp) = pr_req.send().await {
+                        if let Ok(v) = resp.json::<serde_json::Value>().await {
+                            if let Some(arr) = v.as_array() {
+                                pr_count = arr.len();
+                            }
+                        }
+                    }
+
+                    let mut issue_req = client
+                        .get(format!(
+                            "https://api.github.com/repos/{}/{}/issues?state=open",
+                            owner, repo_name
+                        ))
+                        .header("User-Agent", "herdr-agent");
+                    if !token.is_empty() {
+                        issue_req = issue_req.header("Authorization", format!("Bearer {}", token));
+                    }
+                    if let Ok(resp) = issue_req.send().await {
+                        if let Ok(v) = resp.json::<serde_json::Value>().await {
+                            if let Some(arr) = v.as_array() {
+                                issue_count = arr
+                                    .iter()
+                                    .filter(|i| {
+                                        !i.as_object().unwrap().contains_key("pull_request")
+                                    })
+                                    .count();
+                            }
                         }
                     }
                 }
 
-                let _ = event_tx.blocking_send(AppEvent::GithubStatusRefreshed {
-                    workspace_id: ws.workspace_id,
-                    status: crate::workspace::GithubStatus {
-                        pr_count,
-                        issue_count,
-                    },
-                });
+                let _ = event_tx
+                    .send(AppEvent::GithubStatusRefreshed {
+                        workspace_id: ws.workspace_id,
+                        status: crate::workspace::GithubStatus {
+                            pr_count,
+                            issue_count,
+                        },
+                    })
+                    .await;
             }
         });
     }
@@ -602,8 +688,9 @@ impl App {
     }
 
     pub(crate) fn github_refresh_deadline(&self) -> Option<Instant> {
-        (!self.github_refresh_in_flight && !self.state.workspaces.is_empty())
-            .then_some(self.last_github_remote_status_refresh + super::GITHUB_REMOTE_STATUS_REFRESH_INTERVAL)
+        (!self.github_refresh_in_flight && !self.state.workspaces.is_empty()).then_some(
+            self.last_github_remote_status_refresh + super::GITHUB_REMOTE_STATUS_REFRESH_INTERVAL,
+        )
     }
 
     pub(crate) fn start_git_status_refresh_if_due(&mut self, now: Instant) {
