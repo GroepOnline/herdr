@@ -25,6 +25,38 @@ pub(super) fn render_panel_shell(
         .style(Style::default().bg(bg));
     let inner = block.inner(area);
     frame.render_widget(Clear, area);
+
+    let buf = frame.buffer_mut();
+    let shadow_color = Color::Black; // shadow base color
+
+    // Right shadow
+    let right_x = area.x.saturating_add(area.width);
+    if right_x < buf.area.width {
+        let start_y = area.y.saturating_add(1);
+        let end_y = area.y.saturating_add(area.height).saturating_add(1).min(buf.area.height);
+        for y in start_y..end_y {
+            let cell = &mut buf[(right_x, y)];
+            cell.set_bg(shadow_color);
+        }
+    }
+
+    // Bottom shadow
+    let bottom_y = area.y.saturating_add(area.height);
+    if bottom_y < buf.area.height {
+        let start_x = area.x.saturating_add(1);
+        let end_x = right_x.min(buf.area.width);
+        for x in start_x..end_x {
+            let cell = &mut buf[(x, bottom_y)];
+            cell.set_bg(shadow_color);
+        }
+    }
+
+    // Bottom right corner corner-case
+    if right_x < buf.area.width && bottom_y < buf.area.height {
+        let cell = &mut buf[(right_x, bottom_y)];
+        cell.set_bg(shadow_color);
+    }
+
     frame.render_widget(block, area);
     Some(inner)
 }

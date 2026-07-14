@@ -466,7 +466,7 @@ fn render_pane_borders(
         let focused = pane_infos
             .iter()
             .any(|info| info.is_focused && line_touches_pane(x, y, info, app.pane_gaps));
-        let symbol = line_cell_symbol(line);
+        let symbol = line_cell_symbol(line, focused);
         if symbol.is_empty() {
             continue;
         }
@@ -641,22 +641,68 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
         };
 
         let meta = FleetOpsMetadata::from_terminal(term, host_str.unwrap_or("local"));
-        let bar_text = meta.render_bar(agent_name, state, label);
+        
+        let display_name = label.unwrap_or(agent_name);
+        
+        let state_str = match state {
+            AgentState::Idle => "idle",
+            AgentState::Working => "working",
+            AgentState::Blocked => "blocked",
+            AgentState::Unknown => "unknown",
+        };
 
-        // Truncate to pane width - 2 (borders), by display width so multibyte
-        // (e.g. CJK) glyphs are never sliced on a non-char boundary.
-        let max_len = (info.rect.width.saturating_sub(2)) as usize;
-        let display = truncate_end(&bar_text, max_len);
+        let state_bg = match state {
+            AgentState::Blocked => app.palette.red,
+            AgentState::Working => app.palette.accent,
+            AgentState::Idle => app.palette.overlay0,
+            AgentState::Unknown => app.palette.overlay0,
+        };
 
-        if display.is_empty() {
-            continue;
+        let mut spans = Vec::new();
+
+        spans.push(Span::styled(
+            format!(" {} ", display_name),
+            Style::default().bg(app.palette.accent).fg(panel_contrast_fg(&app.palette)).add_modifier(Modifier::BOLD)
+        ));
+
+        spans.push(Span::styled(
+            format!(" {} ", state_str),
+            Style::default().bg(state_bg).fg(panel_contrast_fg(&app.palette)).add_modifier(Modifier::BOLD)
+        ));
+
+        if let Some(repo) = &meta.repo {
+            let git_info = match (&meta.branch, &meta.worktree) {
+                (Some(br), Some(wt)) => format!("{}:{} ({})", repo, br, wt),
+                (Some(br), None) => format!("{}:{}", repo, br),
+                (None, _) => repo.clone(),
+            };
+            spans.push(Span::styled(
+                format!(" {} ", git_info),
+                Style::default().bg(app.palette.surface1).fg(app.palette.text)
+            ));
         }
 
-        let y = info
-            .rect
-            .y
-            .saturating_add(info.rect.height)
-            .saturating_sub(1);
+        if let Some(model) = &meta.model {
+            let provider = meta.provider.as_deref().unwrap_or("");
+            let m = if provider.is_empty() {
+                model.clone()
+            } else {
+                format!("{}/{}", provider, model)
+            };
+            spans.push(Span::styled(
+                format!(" {} ", m),
+                Style::default().bg(app.palette.surface0).fg(app.palette.text)
+            ));
+        }
+
+        spans.push(Span::styled(
+            format!(" {} ", meta.host),
+            Style::default().fg(app.palette.overlay0)
+        ));
+
+        let line = Line::from(spans);
+
+        let y = info.rect.y.saturating_add(info.rect.height).saturating_sub(1);
         if y < area.y || y >= area.y.saturating_add(area.height) {
             continue;
         }
@@ -672,17 +718,11 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
             continue;
         }
 
-        let color = match state {
-            AgentState::Blocked => app.palette.red,
-            AgentState::Working => app.palette.accent,
-            AgentState::Idle => app.palette.overlay0,
-            AgentState::Unknown => app.palette.overlay0,
-        };
-
-        let style = Style::default().fg(color);
-        let max_render = end_x.saturating_sub(start_x) as usize;
-        let truncated = truncate_end(&display, max_render);
-        buf.set_stringn(start_x, y, &truncated, max_render, style);
+        let max_render = end_x.saturating_sub(start_x);
+        let line_width = line.width() as u16;
+        let render_width = line_width.min(max_render);
+        let bar_area = Rect::new(start_x, y, render_width, 1);
+        frame.render_widget(Paragraph::new(line), bar_area);
     }
 }
 
@@ -740,24 +780,45 @@ fn render_pane_border_titles(
     }
 }
 
-fn line_cell_symbol(line: LineCell) -> &'static str {
-    match (line.up, line.down, line.left, line.right) {
-        (true, true, true, true) => "┼",
-        (true, true, true, false) => "┤",
-        (true, true, false, true) => "├",
-        (true, false, true, true) => "┴",
-        (false, true, true, true) => "┬",
-        (true, true, false, false) | (true, false, false, false) | (false, true, false, false) => {
-            "│"
+fn line_cell_symbol(line: LineCell, focused: bool) -> &'static str {
+    if focused {
+        match (line.up, line.down, line.left, line.right) {
+            (true, true, true, true) => "╋",
+            (true, true, true, false) => "┫",
+            (true, true, false, true) => "┣",
+            (true, false, true, true) => "┻",
+            (false, true, true, true) => "┳",
+            (true, true, false, false) | (true, false, false, false) | (false, true, false, false) => {
+                "┃"
+            }
+            (false, false, true, true) | (false, false, true, false) | (false, false, false, true) => {
+                "━"
+            }
+            (false, true, false, true) => "┏",
+            (false, true, true, false) => "┓",
+            (true, false, false, true) => "┗",
+            (true, false, true, false) => "┛",
+            _ => "",
         }
-        (false, false, true, true) | (false, false, true, false) | (false, false, false, true) => {
-            "─"
+    } else {
+        match (line.up, line.down, line.left, line.right) {
+            (true, true, true, true) => "┼",
+            (true, true, true, false) => "┤",
+            (true, true, false, true) => "├",
+            (true, false, true, true) => "┴",
+            (false, true, true, true) => "┬",
+            (true, true, false, false) | (true, false, false, false) | (false, true, false, false) => {
+                "│"
+            }
+            (false, false, true, true) | (false, false, true, false) | (false, false, false, true) => {
+                "─"
+            }
+            (false, true, false, true) => "┌",
+            (false, true, true, false) => "┐",
+            (true, false, false, true) => "└",
+            (true, false, true, false) => "┘",
+            _ => "",
         }
-        (false, true, false, true) => "┌",
-        (false, true, true, false) => "┐",
-        (true, false, false, true) => "└",
-        (true, false, true, false) => "┘",
-        _ => "",
     }
 }
 
