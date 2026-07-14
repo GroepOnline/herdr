@@ -75,6 +75,7 @@ mod kitty_graphics;
 mod layout;
 mod logging;
 mod pane;
+mod pane_template;
 mod persist;
 mod platform;
 mod plugin_command;
