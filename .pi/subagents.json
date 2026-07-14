@@ -1,0 +1,15 @@
+{
+  "maxConcurrent": 4,
+  "defaultMaxTurns": 0,
+  "graceTurns": 5,
+  "defaultJoinMode": "smart",
+  "schedulingEnabled": true,
+  "tracingEnabled": true,
+  "animationStyle": "braille",
+  "uiStyle": "premium",
+  "orchestrationMode": "single",
+  "dashboardRefreshInterval": 750,
+  "sessionMaxSpawns": 0,
+  "sessionMaxTurns": 0,
+  "promptCompressionLevel": "balanced"
+}

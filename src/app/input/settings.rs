@@ -148,7 +148,6 @@ fn apply_settings(state: &mut AppState) -> Option<SettingsAction> {
             Some(SettingsAction::InstallRecommendedIntegrations)
         }
         SettingsSection::Integrations => None,
-        SettingsSection::Templates => None,
         _ => {
             super::modal::leave_modal(state);
             None
@@ -202,6 +201,9 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
                 let s = state.settings.list.selected;
                 if s >= UI_SPINNER_OFFSET + 2 {
                     state.settings.list.selected = s - 2;
+                } else if s >= UI_SPINNER_OFFSET {
+                    // First spinner row: jump to last toggle.
+                    state.settings.list.selected = UI_SPINNER_OFFSET - 1;
                 } else {
                     state.settings.list.selected = s.saturating_sub(1);
                 }
