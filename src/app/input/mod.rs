@@ -325,12 +325,8 @@ impl App {
                         SettingsAction::SaveAgentBorderLabels(enabled) => {
                             self.save_agent_border_labels(enabled)
                         }
-                        SettingsAction::SavePaneBorders(enabled) => {
-                            self.save_pane_borders(enabled)
-                        }
-                        SettingsAction::SavePaneGaps(enabled) => {
-                            self.save_pane_gaps(enabled)
-                        }
+                        SettingsAction::SavePaneBorders(enabled) => self.save_pane_borders(enabled),
+                        SettingsAction::SavePaneGaps(enabled) => self.save_pane_gaps(enabled),
                         SettingsAction::SaveHideTabBarWhenSingleTab(enabled) => {
                             self.save_hide_tab_bar_when_single_tab(enabled)
                         }
