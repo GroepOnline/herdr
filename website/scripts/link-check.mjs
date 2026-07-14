@@ -6,10 +6,11 @@
  * that every internal link (starting with "/") resolves to a generated
  * page or static asset.  Anchor-only links and external links are skipped.
  */
-import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const DIST = new URL("../dist/", import.meta.url).pathname;
+const DIST = fileURLToPath(new URL("../dist/", import.meta.url));
 
 function walkHtml(dir) {
   const results = [];
@@ -53,11 +54,11 @@ function collectPaths(dir, base = "") {
 const files = walkHtml(DIST);
 const validPaths = collectPaths(DIST);
 
-const HREF_RE = /href="([^"]+)"/gi;
+const HREF_RE = /<a\b[^>]*\shref=["']([^"']+)["'][^>]*>/gi;
 const broken = [];
 
 for (const file of files) {
-  const rel = relative(DIST, file);
+  const rel = relative(DIST, file).replaceAll("\\", "/");
   // Pages under docs/preview/ are generated from docs/next/ by prepare-docs.mjs.
   // Their locale path structure does not match Starlight's routing; link
   // integrity for preview docs is verified in the prepare-docs script.
@@ -79,8 +80,12 @@ for (const file of files) {
       continue;
     }
 
-    // Strip query strings and anchors.
-    href = href.split(/[?#]/)[0];
+    // Strip query strings and anchors, then decode percent-encoding.
+    try {
+      href = decodeURIComponent(href.split(/[?#]/)[0]);
+    } catch {
+      continue;
+    }
 
     // Skip empty after stripping.
     if (!href) continue;
@@ -90,7 +95,7 @@ for (const file of files) {
 
     const found = candidates.some((c) => validPaths.has(c));
     if (!found) {
-      broken.push({ file: relative(DIST, file), href });
+      broken.push({ file: rel, href });
     }
   }
 }

@@ -16,8 +16,9 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const DIST = new URL("../dist/", import.meta.url).pathname;
+const DIST = fileURLToPath(new URL("../dist/", import.meta.url));
 
 const STALE_PATTERNS = [
   { pattern: "herdr.dev", label: "old canonical domain" },
@@ -47,7 +48,7 @@ const files = walkHtml(DIST);
 const findings = [];
 
 for (const file of files) {
-  const rel = relative(DIST, file);
+  const rel = relative(DIST, file).replaceAll("\\", "/");
   if (EXEMPT_SUBSTRINGS.some((s) => rel.includes(s))) continue;
 
   const html = readFileSync(file, "utf8");
