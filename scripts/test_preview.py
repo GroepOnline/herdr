@@ -8,6 +8,7 @@ from pathlib import Path
 
 import scripts.conventional_commits as conventional_commits
 import scripts.preview as preview
+from scripts.changelog import DEFAULT_RELEASE_REPO
 
 
 class PreviewNotesTests(unittest.TestCase):
@@ -31,7 +32,7 @@ class PreviewNotesTests(unittest.TestCase):
             notes = "Preview notes\n"
             content = preview.build_manifest(
                 output=output,
-                repo="ogulcancelik/herdr",
+                repo=DEFAULT_RELEASE_REPO,
                 tag="preview-2026-06-02-abcdef123456",
                 build_id="2026-06-02-abcdef123456",
                 commit="abcdef1234567890",
@@ -51,7 +52,7 @@ class PreviewNotesTests(unittest.TestCase):
             )
             self.assertEqual(
                 data["assets"]["windows-x86_64"]["url"],
-                "https://github.com/ogulcancelik/herdr/releases/download/preview-2026-06-02-abcdef123456/herdr-windows-x86_64.exe",
+                f"https://github.com/{DEFAULT_RELEASE_REPO}/releases/download/preview-2026-06-02-abcdef123456/herdr-windows-x86_64.exe",
             )
             self.assertIn("2026-06-02-abcdef123456", data["builds"])
 

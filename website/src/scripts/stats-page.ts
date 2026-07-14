@@ -1,8 +1,10 @@
 // Client renderer for /stats/. Fetches the public stats snapshot from R2 and
 // renders every number and chart client-side, so the static page never goes stale.
 
+import { FORK_GITHUB_API_URL } from "../lib/fork-repo";
+
 const STATS_URL = "https://assets.herdr.dev/stats/stats.json";
-const REPO_API_URL = "https://api.github.com/repos/ogulcancelik/herdr";
+const REPO_API_URL = FORK_GITHUB_API_URL;
 
 const LINE_H = 320;
 const BAR_W = 420;

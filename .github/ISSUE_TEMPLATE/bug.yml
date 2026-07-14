@@ -4,9 +4,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Before you start:** Read [CONTRIBUTING.md](https://github.com/ogulcancelik/herdr/blob/master/CONTRIBUTING.md).
+        **Before you start:** Read [CONTRIBUTING.md](https://github.com/OnlineChefGroep/herdr/blob/master/CONTRIBUTING.md).
 
-        Issues are only for reproducible bugs and maintainer-created or maintainer-converted work items. Feature requests, ideas, questions, contribution proposals, and direction checks belong in [Discussions](https://github.com/ogulcancelik/herdr/discussions).
+        Issues are only for reproducible bugs and maintainer-created or maintainer-converted work items. Feature requests, ideas, questions, contribution proposals, and direction checks belong in [Discussions](https://github.com/OnlineChefGroep/herdr/discussions).
 
         New PRs from unapproved contributors are auto-closed by default. Do not open a PR unless a maintainer has approved the work and approved you to contribute.
 
