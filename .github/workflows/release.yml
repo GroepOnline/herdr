@@ -33,9 +33,7 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
 
       - name: Run Nix flake check
-        run: |
-          nix flake check --print-build-logs
-          nix flake check --all-systems --no-build --print-build-logs
+        run: nix flake check --print-build-logs
 
   build:
     permissions:
@@ -46,21 +44,6 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             name: herdr-linux-x86_64
-            libghostty_vt_optimize: ReleaseFast
-            libghostty_vt_simd: 'true'
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
-            name: herdr-linux-aarch64
-            libghostty_vt_optimize: ReleaseFast
-            libghostty_vt_simd: 'true'
-          - target: x86_64-apple-darwin
-            os: macos-latest
-            name: herdr-macos-x86_64
-            libghostty_vt_optimize: ReleaseFast
-            libghostty_vt_simd: 'true'
-          - target: aarch64-apple-darwin
-            os: macos-latest
-            name: herdr-macos-aarch64
             libghostty_vt_optimize: ReleaseFast
             libghostty_vt_simd: 'true'
 
@@ -110,15 +93,7 @@ jobs:
         run: |
           sudo find /etc/apt/sources.list.d -type f \( -iname '*microsoft*' -o -iname '*azure-cli*' \) -print -delete
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build musl-tools gcc-aarch64-linux-gnu crossbuild-essential-arm64
-
-      - name: Install macOS build tools
-        if: runner.os == 'macOS'
-        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install cmake ninja
-
-      - name: Set Linux aarch64 linker
-        if: matrix.target == 'aarch64-unknown-linux-musl'
-        run: echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          sudo apt-get install -y cmake ninja-build musl-tools
 
       - name: Cache Rust artifacts
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
@@ -175,9 +150,6 @@ jobs:
         with:
           files: |
             herdr-linux-x86_64/herdr-linux-x86_64
-            herdr-linux-aarch64/herdr-linux-aarch64
-            herdr-macos-x86_64/herdr-macos-x86_64
-            herdr-macos-aarch64/herdr-macos-aarch64
           body_path: RELEASE_NOTES.md
 
   close-released-issues:
@@ -197,7 +169,7 @@ jobs:
       - name: Close issues referenced by released commits
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.KANGAL_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           NEXT_RELEASE_LABEL: pending-release
           LEGACY_NEXT_RELEASE_LABEL: included-in-next-release
           PREVIEW_RELEASED_LABEL: preview-released

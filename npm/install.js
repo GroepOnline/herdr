@@ -15,22 +15,15 @@ if (existsSync(BINARY_PATH)) {
   process.exit(0);
 }
 
-const platformMap = {
-  "linux-x64": "herdr-linux-x86_64",
-  "linux-arm64": "herdr-linux-aarch64",
-  "darwin-x64": "herdr-macos-x86_64",
-  "darwin-arm64": "herdr-macos-aarch64",
-};
-
-const arch = os.arch() === "arm64" ? "arm64" : "x64";
-const platform = os.platform() + "-" + arch;
-const asset = platformMap[platform];
-
-if (!asset) {
-  console.error("No prebuilt binary for " + platform);
+if (os.platform() !== "linux" || os.arch() !== "x64") {
+  console.error("No prebuilt binary for " + os.platform() + "-" + os.arch());
+  console.error("This distribution ships linux-x86_64 only.");
   console.error("Build from source: git clone https://github.com/" + REPO);
   process.exit(1);
 }
+
+const asset = "herdr-linux-x86_64";
+const platform = "linux-x64";
 
 const url = "https://github.com/" + REPO + "/releases/download/v" + VERSION + "/" + asset;
 console.log("Downloading herdr " + VERSION + " (" + platform + ")...");

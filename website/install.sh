@@ -13,19 +13,17 @@ main() {
     echo "      II  II"
     echo ""
 
-    # detect platform
+    # detect platform (OnlineChefGroep fork: linux x86_64 only)
     OS="$(uname -s)"
     case "$OS" in
         Linux)  os="linux" ;;
-        Darwin) os="macos" ;;
-        *)      err "unsupported OS: $OS" ;;
+        *)      err "unsupported OS: $OS (linux x86_64 only)" ;;
     esac
 
     ARCH="$(uname -m)"
     case "$ARCH" in
         x86_64|amd64)   arch="x86_64" ;;
-        aarch64|arm64)  arch="aarch64" ;;
-        *)              err "unsupported architecture: $ARCH" ;;
+        *)              err "unsupported architecture: $ARCH (linux x86_64 only)" ;;
     esac
 
     log "detected ${os}/${arch}"

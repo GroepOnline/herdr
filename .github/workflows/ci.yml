@@ -71,7 +71,7 @@ jobs:
           npm_readme = Path("npm/README.md").read_text(encoding="utf-8")
 
           assert package["version"] == version
-          assert package["os"] == ["linux", "darwin"]
+          assert package["os"] == ["linux"]
           assert f'const VERSION = "{version}";' in installer
           assert f"## [{version}]" in changelog
           assert 'env!("CARGO_PKG_VERSION")' in gateway
@@ -100,15 +100,6 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             artifact: herdr-linux-x86_64
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
-            artifact: herdr-linux-aarch64
-          - target: x86_64-apple-darwin
-            os: macos-latest
-            artifact: herdr-macos-x86_64
-          - target: aarch64-apple-darwin
-            os: macos-latest
-            artifact: herdr-macos-aarch64
     runs-on: ${{ matrix.os }}
     env:
       LIBGHOSTTY_VT_OPTIMIZE: ReleaseFast
@@ -142,15 +133,7 @@ jobs:
         run: |
           sudo find /etc/apt/sources.list.d -type f \( -iname '*microsoft*' -o -iname '*azure-cli*' \) -print -delete
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build musl-tools gcc-aarch64-linux-gnu crossbuild-essential-arm64
-
-      - name: Install macOS build tools
-        if: runner.os == 'macOS'
-        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install cmake ninja
-
-      - name: Set Linux aarch64 linker
-        if: matrix.target == 'aarch64-unknown-linux-musl'
-        run: echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+          sudo apt-get install -y cmake ninja-build musl-tools
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:

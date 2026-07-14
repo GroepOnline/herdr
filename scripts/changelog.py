@@ -19,12 +19,7 @@ DEFAULT_RELEASE_REPO = "OnlineChefGroep/herdr"
 DEFAULT_LATEST_JSON_PATH = Path("website/latest.json")
 DEFAULT_PRODUCT_ANNOUNCEMENT_PATH = Path("docs/next/product-announcement.json")
 PROTOCOL_SOURCE_PATH = Path("src/protocol/wire.rs")
-ASSET_TARGETS = (
-    "linux-x86_64",
-    "linux-aarch64",
-    "macos-x86_64",
-    "macos-aarch64",
-)
+ASSET_TARGETS = ("linux-x86_64",)
 EXPECTED_ASSET_NAMES = {target: f"herdr-{target}" for target in ASSET_TARGETS}
 
 

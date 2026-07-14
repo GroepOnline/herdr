@@ -43,7 +43,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          for asset in herdr-linux-x86_64 herdr-linux-aarch64 herdr-macos-x86_64 herdr-macos-aarch64; do
+          for asset in herdr-linux-x86_64; do
             gh release view "v${VERSION}" -R "${{ github.repository }}" --json assets \
               --jq '.assets[].name' | grep -Fx "$asset" >/dev/null \
               || { echo "missing release asset: $asset"; exit 1; }

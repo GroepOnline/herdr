@@ -3,20 +3,14 @@
   "protocol": 16,
   "notes": "OnlineChefGroep fork release \u2014 first build shipped from `OnlineChefGroep/herdr` CI (not upstream binaries).\n\n### Added\n\n- Agent detection for `freebuff`, `junie`, and `openclaude`.\n- `herdr-gateway` HTTP API with SSE event streaming (`:7777`).\n- Fleet Ops Bar, Fleet/Plugins settings tabs, and workspace templates (`dev`, `incident`).\n- Spinner appearance settings with live preview (76 styles).\n- GitHub Actions CI (check, test, cross-build).\n- npm package `onlinechefgroep-herdr` and Homebrew tap `OnlineChefGroep/tap`.\n\n### Fixed\n\n- Direct attach (`herdr terminal attach`) now uses configured `keys.prefix` for detach and literal-prefix forwarding (default `ctrl+a`).\n- Prefix routing test updated for `ctrl+a` default.\n- Direct attach preserves single- and multi-byte configured prefixes without silently falling back to `ctrl+a`.\n- Gateway health reports the Cargo package version and actual process uptime.\n- Release manifest generation now reads releases from `OnlineChefGroep/herdr`.\n- npm no longer advertises an unsupported Windows prebuilt and its packaged README is clean.\n\n### Changed\n\n- Distribution binaries publish from `OnlineChefGroep/herdr` releases (replacing upstream-seeded v0.7.3 assets).\n- CI uses the same patched Zig path as release builds on macOS and gates only supported release platforms.",
   "assets": {
-    "linux-x86_64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.4/herdr-linux-x86_64",
-    "linux-aarch64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.4/herdr-linux-aarch64",
-    "macos-x86_64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.4/herdr-macos-x86_64",
-    "macos-aarch64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.4/herdr-macos-aarch64"
+    "linux-x86_64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.4/herdr-linux-x86_64"
   },
   "releases": {
     "0.7.4": {
       "notes": "OnlineChefGroep fork release \u2014 first build shipped from `OnlineChefGroep/herdr` CI (not upstream binaries).\n\n### Added\n\n- Agent detection for `freebuff`, `junie`, and `openclaude`.\n- `herdr-gateway` HTTP API with SSE event streaming (`:7777`).\n- Fleet Ops Bar, Fleet/Plugins settings tabs, and workspace templates (`dev`, `incident`).\n- Spinner appearance settings with live preview (76 styles).\n- GitHub Actions CI (check, test, cross-build).\n- npm package `onlinechefgroep-herdr` and Homebrew tap `OnlineChefGroep/tap`.\n\n### Fixed\n\n- Direct attach (`herdr terminal attach`) now uses configured `keys.prefix` for detach and literal-prefix forwarding (default `ctrl+a`).\n- Prefix routing test updated for `ctrl+a` default.\n- Direct attach preserves single- and multi-byte configured prefixes without silently falling back to `ctrl+a`.\n- Gateway health reports the Cargo package version and actual process uptime.\n- Release manifest generation now reads releases from `OnlineChefGroep/herdr`.\n- npm no longer advertises an unsupported Windows prebuilt and its packaged README is clean.\n\n### Changed\n\n- Distribution binaries publish from `OnlineChefGroep/herdr` releases (replacing upstream-seeded v0.7.3 assets).\n- CI uses the same patched Zig path as release builds on macOS and gates only supported release platforms.",
       "protocol": 16,
       "assets": {
-        "linux-x86_64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.4/herdr-linux-x86_64",
-        "linux-aarch64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.4/herdr-linux-aarch64",
-        "macos-x86_64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.4/herdr-macos-x86_64",
-        "macos-aarch64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.4/herdr-macos-aarch64"
+        "linux-x86_64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.4/herdr-linux-x86_64"
       }
     },
     "0.7.2": {
