@@ -197,7 +197,7 @@ jobs:
       - name: Close issues referenced by released commits
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.KANGAL_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           NEXT_RELEASE_LABEL: pending-release
           LEGACY_NEXT_RELEASE_LABEL: included-in-next-release
           PREVIEW_RELEASED_LABEL: preview-released

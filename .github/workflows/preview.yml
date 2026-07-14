@@ -357,19 +357,19 @@ jobs:
 
       - name: Commit preview manifest
         env:
-          KANGAL_GITHUB_TOKEN: ${{ secrets.KANGAL_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name "kangal-bot"
-          git config user.email "285672167+kangal-bot@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add website/preview.json
           git diff --cached --quiet || git commit -m "docs: update preview manifest"
-          git push "https://x-access-token:${KANGAL_GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:master
+          git push origin HEAD:master
 
       - name: Mark preview-released issues
         continue-on-error: true
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.KANGAL_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           PREVIEW_RELEASED_LABEL: preview-released
         run: |
           set -euo pipefail
