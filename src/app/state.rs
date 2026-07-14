@@ -1033,6 +1033,9 @@ pub struct SettingsState {
     pub original_palette: Option<Palette>,
     /// The theme name before opening settings.
     pub original_theme: Option<String>,
+    /// Independent tick for the Appearance spinner preview so it animates
+    /// even when no working agent drives `spinner_tick`.
+    pub preview_tick: u32,
 }
 
 pub(crate) enum DragTarget {
@@ -1801,6 +1804,7 @@ impl AppState {
                 list: SelectionListState::new(0),
                 original_palette: None,
                 original_theme: None,
+                preview_tick: 0,
             },
             integration_recommendations: Vec::new(),
             agent_manifest_summaries: Vec::new(),

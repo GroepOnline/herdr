@@ -22,14 +22,18 @@ pub(crate) const SETTINGS_POPUP_WIDTH: u16 = 76;
 pub(crate) const SETTINGS_POPUP_BASE_HEIGHT: u16 = 22;
 
 pub(crate) fn settings_popup_height(app: &AppState) -> u16 {
-    if app.settings.section != crate::app::state::SettingsSection::Integrations {
-        return SETTINGS_POPUP_BASE_HEIGHT;
+    use crate::app::state::SettingsSection;
+    match app.settings.section {
+        SettingsSection::Appearance => 30, // taller for 2-column spinner grid
+        SettingsSection::Integrations => {
+            let list_rows = app.integration_recommendations.len().max(1) as u16;
+            let footer_rows = integrations_footer_height(app, SETTINGS_POPUP_WIDTH - 2);
+            // borders 2 + header 3 + stack gaps 2 + modal footer 2
+            // + section title 1 + description 2 + spacers 2
+            (14 + list_rows + footer_rows).max(SETTINGS_POPUP_BASE_HEIGHT)
+        }
+        _ => SETTINGS_POPUP_BASE_HEIGHT,
     }
-    let list_rows = app.integration_recommendations.len().max(1) as u16;
-    let footer_rows = integrations_footer_height(app, SETTINGS_POPUP_WIDTH - 2);
-    // borders 2 + header 3 + stack gaps 2 + modal footer 2
-    // + section title 1 + description 2 + spacers 2
-    (14 + list_rows + footer_rows).max(SETTINGS_POPUP_BASE_HEIGHT)
 }
 
 pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: Rect) {
@@ -482,29 +486,35 @@ fn render_settings_appearance(app: &AppState, frame: &mut Frame, area: Rect) {
         Style::default().fg(p.overlay1),
     );
 
-    let current_idx = SpinnerStyle::ALL
-        .iter()
-        .position(|&s| s == app.spinner_style)
-        .unwrap_or(0);
-    let scroll = if app.settings.list.selected >= list_area.height as usize {
-        app.settings.list.selected - list_area.height as usize + 1
+    let all = SpinnerStyle::ALL;
+    let total = all.len();
+    let selected = app.settings.list.selected.min(total.saturating_sub(1));
+    let current_idx = all.iter().position(|&s| s == app.spinner_style).unwrap_or(0);
+
+    let visible_rows = list_area.height as usize;
+    let selected_row = selected / 2;
+    let scroll = if selected_row >= visible_rows {
+        selected_row - visible_rows + 1
     } else {
         0
     };
 
     let col_width = (list_area.width as usize / 2).max(20);
-    let tick = app.spinner_tick;
+    let tick = app.settings.preview_tick;
 
-    for (idx, &style) in SpinnerStyle::ALL.iter().enumerate() {
-        let visible_idx = idx.saturating_sub(scroll);
-        if visible_idx >= list_area.height as usize {
+    for (idx, &style) in all.iter().enumerate() {
+        let visible_row = idx / 2;
+        let visible_idx = visible_row.saturating_sub(scroll);
+        if visible_idx >= visible_rows {
             break;
         }
-        let col = visible_idx % 2;
-        let row = visible_idx / 2;
+        if idx % 2 == 0 && visible_idx == 0 && scroll > 0 {
+            // first visible row: only render if at least one of its items is in range
+        }
+        let col = idx % 2;
         let x = list_area.x + col as u16 * col_width as u16;
-        let y = list_area.y + row as u16;
-        let is_selected = idx == app.settings.list.selected;
+        let y = list_area.y + visible_idx as u16;
+        let is_selected = idx == selected;
         let is_current = idx == current_idx;
         let preview_frame =
             style.frames()[(tick as usize / style.speed_divisor() as usize) % style.frames().len()];
