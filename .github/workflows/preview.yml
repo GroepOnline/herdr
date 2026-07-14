@@ -288,12 +288,26 @@ jobs:
             --retain 30
 
       - name: Commit preview manifest
+<<<<<<< HEAD
+||||||| a416fcc
+        env:
+          KANGAL_GITHUB_TOKEN: ${{ secrets.KANGAL_GITHUB_TOKEN }}
+=======
+        env:
+          GH_TOKEN: ${{ github.token }}
+>>>>>>> origin/master
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add website/preview.json
           git diff --cached --quiet || git commit -m "docs: update preview manifest"
+<<<<<<< HEAD
           git push origin master
+||||||| a416fcc
+          git push "https://x-access-token:${KANGAL_GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:master
+=======
+          git push origin HEAD:master
+>>>>>>> origin/master
 
       - name: Mark preview-released issues
         continue-on-error: true

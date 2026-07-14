@@ -11,6 +11,7 @@ from scripts.changelog import (
     build_latest_json,
     canonicalize_manifest,
     DEFAULT_PRODUCT_ANNOUNCEMENT_PATH,
+    DEFAULT_RELEASE_REPO,
     default_release_assets,
     ensure_current_release_assets_are_mirrored,
     ensure_manifest_is_outdated,
@@ -76,7 +77,19 @@ class ChangelogScriptTests(unittest.TestCase):
         self.assertEqual(
             manifest["assets"],
             {
+<<<<<<< HEAD
                 "linux-x86_64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.1.1/herdr-linux-x86_64",
+||||||| a416fcc
+                "linux-x86_64": "https://github.com/ogulcancelik/herdr/releases/download/v0.1.1/herdr-linux-x86_64",
+                "linux-aarch64": "https://github.com/ogulcancelik/herdr/releases/download/v0.1.1/herdr-linux-aarch64",
+                "macos-x86_64": "https://github.com/ogulcancelik/herdr/releases/download/v0.1.1/herdr-macos-x86_64",
+                "macos-aarch64": "https://github.com/ogulcancelik/herdr/releases/download/v0.1.1/herdr-macos-aarch64",
+=======
+                "linux-x86_64": f"https://github.com/{DEFAULT_RELEASE_REPO}/releases/download/v0.1.1/herdr-linux-x86_64",
+                "linux-aarch64": f"https://github.com/{DEFAULT_RELEASE_REPO}/releases/download/v0.1.1/herdr-linux-aarch64",
+                "macos-x86_64": f"https://github.com/{DEFAULT_RELEASE_REPO}/releases/download/v0.1.1/herdr-macos-x86_64",
+                "macos-aarch64": f"https://github.com/{DEFAULT_RELEASE_REPO}/releases/download/v0.1.1/herdr-macos-aarch64",
+>>>>>>> origin/master
             },
         )
         self.assertEqual(manifest["releases"]["0.1.1"]["assets"], manifest["assets"])
