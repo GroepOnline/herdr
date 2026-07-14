@@ -67,6 +67,7 @@ mod detect;
 mod events;
 mod fleet;
 mod ghostty;
+mod clipboard_history;
 mod handoff_runtime;
 mod input;
 mod integration;
@@ -504,6 +505,7 @@ fn main() -> io::Result<()> {
     // Hidden client mode: connect to an existing server's client socket.
     if args.get(1).map(|s| s.as_str()) == Some("client") {
         let loaded_config = config::Config::load();
+        clipboard_history::init(&loaded_config.config);
         exit_if_nested_disabled(&loaded_config.config);
         return client::run_client();
     }
@@ -709,6 +711,7 @@ fn main() -> io::Result<()> {
     }
 
     let loaded_config = config::Config::load();
+    clipboard_history::init(&loaded_config.config);
     exit_if_nested_disabled(&loaded_config.config);
 
     let no_session = args.iter().any(|a| a == "--no-session");
