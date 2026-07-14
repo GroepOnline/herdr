@@ -473,7 +473,11 @@ fn render_pane_borders(
         let cell = &mut buf[(x, y)];
         cell.set_symbol(symbol);
         let color = if focused {
-            app.palette.accent
+            let t = ((app.spinner_tick as f32 * 0.05).sin() * 0.5 + 0.5);
+            let r = (0.0 * (1. - t) + 170.0 * t) as u8;
+            let g = (255.0 * (1. - t) + 0.0 * t) as u8;
+            let b = (255.0 * (1. - t) + 255.0 * t) as u8;
+            Color::Rgb(r, g, b)
         } else {
             app.palette.overlay0
         };
@@ -726,6 +730,35 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
     }
 }
 
+
+fn animated_gradient_border_title(title: &str, tick: u32) -> Line<'static> {
+    let t = ((tick as f32 * 0.05).sin() * 0.5 + 0.5); // pulses 0.0 to 1.0
+    
+    // Cyberpunk Neon Cyan to Neon Purple
+    let c1 = (0, 255, 255);
+    let c2 = (170, 0, 255);
+    
+    let r1 = (c1.0 as f32 * t + c2.0 as f32 * (1. - t)) as u8;
+    let g1 = (c1.1 as f32 * t + c2.1 as f32 * (1. - t)) as u8;
+    let b1 = (c1.2 as f32 * t + c2.2 as f32 * (1. - t)) as u8;
+
+    let r2 = (c2.0 as f32 * t + c1.0 as f32 * (1. - t)) as u8;
+    let g2 = (c2.1 as f32 * t + c1.1 as f32 * (1. - t)) as u8;
+    let b2 = (c2.2 as f32 * t + c1.2 as f32 * (1. - t)) as u8;
+
+    let chars: Vec<char> = title.chars().collect();
+    let len = chars.len();
+    let mut spans = Vec::with_capacity(len);
+    for (i, c) in chars.into_iter().enumerate() {
+        let pct = if len > 1 { i as f32 / (len - 1) as f32 } else { 0.5 };
+        let r = (r1 as f32 * (1. - pct) + r2 as f32 * pct) as u8;
+        let g = (g1 as f32 * (1. - pct) + g2 as f32 * pct) as u8;
+        let b = (b1 as f32 * (1. - pct) + b2 as f32 * pct) as u8;
+        spans.push(Span::styled(c.to_string(), Style::default().fg(Color::Rgb(r, g, b)).add_modifier(Modifier::BOLD)));
+    }
+    Line::from(spans)
+}
+
 fn render_pane_border_titles(
     app: &AppState,
     ws: &crate::workspace::Workspace,
@@ -760,23 +793,24 @@ fn render_pane_border_titles(
         if start_x >= end_x {
             continue;
         }
-        let color = if info.is_focused {
-            app.palette.accent
-        } else {
-            app.palette.overlay0
-        };
-        let mut style = Style::default().fg(color);
-        if info.is_focused {
-            style = style.add_modifier(Modifier::BOLD);
-        }
+        
         let max_len = end_x.saturating_sub(start_x) as usize;
-        for dx in 0..max_len {
-            let x = start_x + dx as u16;
-            if x < area.x + area.width {
-                buf[(x, y)].set_style(Style::default());
+        
+        if info.is_focused {
+            let line = animated_gradient_border_title(&title, app.spinner_tick);
+            let bar_area = Rect::new(start_x, y, max_len as u16, 1);
+            frame.render_widget(Paragraph::new(line), bar_area);
+        } else {
+            let color = app.palette.overlay0;
+            let style = Style::default().fg(color);
+            for dx in 0..max_len {
+                let x = start_x + dx as u16;
+                if x < area.x + area.width {
+                    buf[(x, y)].set_style(Style::default());
+                }
             }
+            buf.set_stringn(start_x, y, title, max_len, style);
         }
-        buf.set_stringn(start_x, y, title, max_len, style);
     }
 }
 

@@ -22,11 +22,31 @@ pub(super) fn render_panel_shell(
         .borders(Borders::ALL)
         .border_style(Style::default().fg(border_color))
         .border_set(ratatui::symbols::border::PLAIN)
-        .style(Style::default().bg(bg));
-    let inner = block.inner(area);
-    frame.render_widget(Clear, area);
+        .style(Style::default()); // remove bg fill so we can do custom glassmorphism
 
+    let inner = block.inner(area);
     let buf = frame.buffer_mut();
+
+    // TRUE GLASSMORPHIC OVERLAY
+    for y in area.y..area.y + area.height {
+        for x in area.x..area.x + area.width {
+            if x < buf.area.width && y < buf.area.height {
+                let cell = &mut buf[(x, y)];
+                if x >= inner.x && x < inner.x + inner.width && y >= inner.y && y < inner.y + inner.height {
+                    // Inner area: Frosting effect
+                    // Keep the underlying text but dim it
+                    let style = cell.style();
+                    cell.set_style(style.add_modifier(Modifier::DIM));
+                    // Apply a premium dark glassy tint to the background
+                    cell.set_bg(Color::Rgb(15, 15, 25));
+                } else {
+                    // Border area: clear the background for the border
+                    cell.set_bg(Color::Reset);
+                }
+            }
+        }
+    }
+
     let shadow_color = Color::Black; // shadow base color
 
     // Right shadow

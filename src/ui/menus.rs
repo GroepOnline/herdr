@@ -1,4 +1,5 @@
 use ratatui::{
+    style::Color,
     layout::{Alignment, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
@@ -20,10 +21,14 @@ fn keybind_label(bindings: &crate::config::ActionKeybinds) -> String {
 }
 
 fn render_bottom_bar(frame: &mut Frame, area: Rect, line: Line<'_>, bg: ratatui::style::Color) {
-    frame.render_widget(Clear, area);
     let buf = frame.buffer_mut();
     for x in area.x..area.x + area.width {
-        buf[(x, area.y)].set_style(Style::default().bg(bg));
+        if x < buf.area.width && area.y < buf.area.height {
+            let cell = &mut buf[(x, area.y)];
+            let style = cell.style();
+            cell.set_style(style.add_modifier(Modifier::DIM));
+            cell.set_bg(Color::Rgb(15, 15, 25)); // Glassy tint matching panel shell
+        }
     }
     frame.render_widget(Paragraph::new(line), area);
 }
