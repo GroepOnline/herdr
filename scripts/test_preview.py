@@ -71,7 +71,7 @@ class PreviewNotesTests(unittest.TestCase):
             ]
         )
         with mock.patch.object(preview, "run_git", return_value=output):
-            self.assertEqual(preview.latest_publishable_commit("origin/master"), "release")
+            self.assertEqual(preview.latest_publishable_commit("origin/main"), "release")
 
     def test_preview_range_base_advances_to_stable_tag(self):
         with (

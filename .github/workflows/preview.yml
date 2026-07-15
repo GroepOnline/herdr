@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       commit:
-        description: Optional master commit SHA to publish
+        description: Optional main commit SHA to publish
         required: false
         type: string
 
@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          ref: master
+          ref: main
           fetch-depth: 0
           persist-credentials: false
 
@@ -45,16 +45,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin master --tags
+          git fetch origin main --tags
           requested="${{ github.event.inputs.commit || '' }}"
           if [ -n "$requested" ]; then
             commit="$(git rev-parse "$requested^{commit}")"
-            if ! git merge-base --is-ancestor "$commit" origin/master; then
-              echo "error: requested commit $commit is not reachable from origin/master" >&2
+            if ! git merge-base --is-ancestor "$commit" origin/main; then
+              echo "error: requested commit $commit is not reachable from origin/main" >&2
               exit 1
             fi
           else
-            commit="$(python3 scripts/preview.py select-commit --ref origin/master)"
+            commit="$(python3 scripts/preview.py select-commit --ref origin/main)"
           fi
           current_preview="$(python3 scripts/preview.py current-commit --manifest website/preview.json || true)"
           if [ "$current_preview" = "$commit" ]; then
@@ -279,7 +279,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          ref: master
+          ref: main
           fetch-depth: 0
           persist-credentials: false
 
@@ -360,7 +360,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add website/preview.json
           git diff --cached --quiet || git commit -m "docs: update preview manifest"
-          git push origin HEAD:master
+          git push origin HEAD:main
 
       - name: Mark preview-released issues
         continue-on-error: true
