@@ -35,7 +35,6 @@ jobs:
       - name: Run Nix flake check
         run: |
           nix flake check --print-build-logs
-          nix flake check --all-systems --no-build --print-build-logs
 
   build:
     permissions:
@@ -51,16 +50,6 @@ jobs:
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             name: herdr-linux-aarch64
-            libghostty_vt_optimize: ReleaseFast
-            libghostty_vt_simd: 'true'
-          - target: x86_64-apple-darwin
-            os: macos-latest
-            name: herdr-macos-x86_64
-            libghostty_vt_optimize: ReleaseFast
-            libghostty_vt_simd: 'true'
-          - target: aarch64-apple-darwin
-            os: macos-latest
-            name: herdr-macos-aarch64
             libghostty_vt_optimize: ReleaseFast
             libghostty_vt_simd: 'true'
 
@@ -111,10 +100,6 @@ jobs:
           sudo find /etc/apt/sources.list.d -type f \( -iname '*microsoft*' -o -iname '*azure-cli*' \) -print -delete
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build musl-tools gcc-aarch64-linux-gnu crossbuild-essential-arm64
-
-      - name: Install macOS build tools
-        if: runner.os == 'macOS'
-        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install cmake ninja
 
       - name: Set Linux aarch64 linker
         if: matrix.target == 'aarch64-unknown-linux-musl'
@@ -176,8 +161,6 @@ jobs:
           files: |
             herdr-linux-x86_64/herdr-linux-x86_64
             herdr-linux-aarch64/herdr-linux-aarch64
-            herdr-macos-x86_64/herdr-macos-x86_64
-            herdr-macos-aarch64/herdr-macos-aarch64
           body_path: RELEASE_NOTES.md
 
   close-released-issues:
