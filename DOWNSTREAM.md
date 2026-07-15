@@ -5,7 +5,7 @@ Maintained public distribution of Herdr for OnlineChefGroep agent operations. Th
 ## v0.7.4 release baseline
 
 - Release branch: `release/v0.7.4`
-- Target branch: `master`
+- Target branch: `main`
 - Package version: `0.7.4`
 - Toolchain: stable Rust, Zig `0.15.2`, Node.js `>=18`
 - npm package: `onlinechefgroep-herdr`
@@ -35,7 +35,7 @@ Maintained public distribution of Herdr for OnlineChefGroep agent operations. Th
 
 ## Release procedure
 
-1. Merge the validated release pull request into `master`.
+1. Merge the validated release pull request into `main`.
 2. Create tag `v0.7.4` on the merge commit.
 3. `release.yml` builds and publishes the four GitHub release assets.
 4. The published release triggers `publish-distribution.yml`, which verifies all assets before publishing npm.

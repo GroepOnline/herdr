@@ -8,7 +8,7 @@ execSync("git fetch upstream --tags", { stdio: "inherit" });
 execSync(`git checkout -b sync/${target} upstream/${target} || git checkout sync/${target}`, { stdio: "inherit" });
 
 // Cherry-pick downstream patches
-const downstreamCommits = execSync("git rev-list --reverse HEAD..origin/master", { encoding: "utf8" }).trim().split("\n").filter(Boolean);
+const downstreamCommits = execSync("git rev-list --reverse HEAD..origin/main", { encoding: "utf8" }).trim().split("\n").filter(Boolean);
 console.log(`Cherry-picking ${downstreamCommits.length} downstream commits...`);
 
 for (const commit of downstreamCommits) {
@@ -20,4 +20,4 @@ for (const commit of downstreamCommits) {
   }
 }
 
-console.log("Sync complete. Run tests then merge to master.");
+console.log("Sync complete. Run tests then merge to main.");
