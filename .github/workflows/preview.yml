@@ -127,12 +127,6 @@ jobs:
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             name: herdr-linux-aarch64
-          - target: x86_64-apple-darwin
-            os: macos-latest
-            name: herdr-macos-x86_64
-          - target: aarch64-apple-darwin
-            os: macos-latest
-            name: herdr-macos-aarch64
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             name: herdr-windows-x86_64.exe
@@ -337,8 +331,6 @@ jobs:
           files: |
             artifacts/herdr-linux-x86_64/herdr-linux-x86_64
             artifacts/herdr-linux-aarch64/herdr-linux-aarch64
-            artifacts/herdr-macos-x86_64/herdr-macos-x86_64
-            artifacts/herdr-macos-aarch64/herdr-macos-aarch64
             artifacts/herdr-windows-x86_64.exe/herdr-windows-x86_64.exe
 
       - name: Update preview manifest
