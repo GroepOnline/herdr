@@ -5,7 +5,7 @@ Status: Accepted
 
 ## Context
 
-OnlineChefGroep/herdr is a downstream fork of ogulcancelik/herdr v0.7.3.
+OnlineChefGroep/herdr is a downstream fork of OnlineChefGroep/herdr v0.7.3.
 Upstream provides terminal multiplexing, AI agent detection, session
 snapshots, and plugin infrastructure. We need operational fleet
 capabilities (agent metadata, crash recovery, API gateway, Linear/GitHub
@@ -49,7 +49,7 @@ where already patched (rendering, update isolation).
 3. **Read-only by default.** API gateway serves read endpoints without
    auth. Mutations require explicit scopes.
 
-4. **No herdr.dev runtime dependency.** Update channel isolated via
+4. **No herdr.chefgroep.nl runtime dependency.** Update channel isolated via
    HERDR_UPDATE_BASE_URL. No runtime downloads from upstream.
 
 5. **Claim nothing about reboot survival.** Crash recovery restores

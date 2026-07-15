@@ -12,7 +12,7 @@ The goal of the beta is to learn from real use: install success, pane reliabilit
 Install native Windows beta builds with PowerShell:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://herdr.dev/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps1 | iex"
 ```
 
 Windows beta builds ship only through the preview channel. Herdr defaults to preview on Windows without changing your config. The installer stores releases under `%USERPROFILE%\.herdr\packages\standalone\releases`, points `%LOCALAPPDATA%\Programs\Herdr\bin` at the current release, and keeps a small number of older releases so running processes do not block updates.

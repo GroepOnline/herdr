@@ -314,7 +314,7 @@ Worktree 命令也发出生命周期事件。`worktree.create` 发出 `workspace
 `plugin.link` 也接受可选的 `source` 元数据。CLI 从 GitHub 安装时使用它,让 `plugin.list` 能显示来源、请求的 ref、解析的 commit 和托管检出路径:
 
 ```json
-{"id":"req_plugin_link","method":"plugin.link","params":{"path":"/managed/plugin/herdr-plugin.toml","enabled":true,"source":{"kind":"github","owner":"ogulcancelik","repo":"herdr-plugin-examples","subdir":"worktree-bootstrap","requested_ref":"main","resolved_commit":"abc123","managed_path":"/data/plugins/github/<managed-checkout>","installed_unix_ms":1780000000000}}}
+{"id":"req_plugin_link","method":"plugin.link","params":{"path":"/managed/plugin/herdr-plugin.toml","enabled":true,"source":{"kind":"github","owner":"OnlineChefGroep","repo":"herdr-plugin-examples","subdir":"worktree-bootstrap","requested_ref":"main","resolved_commit":"abc123","managed_path":"/data/plugins/github/<managed-checkout>","installed_unix_ms":1780000000000}}}
 ```
 
 路径可以是包含 `herdr-plugin.toml` 的插件目录,或直接指向清单的路径。清单结构如下:

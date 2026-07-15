@@ -314,7 +314,7 @@ worktree コマンドはライフサイクルイベントも発行します。`w
 `plugin.link` は任意の `source` メタデータも受け付けます。CLI は GitHub からインストールするときにこれを使い、`plugin.list` が出自、要求された ref、解決されたコミット、管理チェックアウトのパスを表示できるようにします:
 
 ```json
-{"id":"req_plugin_link","method":"plugin.link","params":{"path":"/managed/plugin/herdr-plugin.toml","enabled":true,"source":{"kind":"github","owner":"ogulcancelik","repo":"herdr-plugin-examples","subdir":"worktree-bootstrap","requested_ref":"main","resolved_commit":"abc123","managed_path":"/data/plugins/github/<managed-checkout>","installed_unix_ms":1780000000000}}}
+{"id":"req_plugin_link","method":"plugin.link","params":{"path":"/managed/plugin/herdr-plugin.toml","enabled":true,"source":{"kind":"github","owner":"OnlineChefGroep","repo":"herdr-plugin-examples","subdir":"worktree-bootstrap","requested_ref":"main","resolved_commit":"abc123","managed_path":"/data/plugins/github/<managed-checkout>","installed_unix_ms":1780000000000}}}
 ```
 
 パスは `herdr-plugin.toml` を含むプラグインディレクトリでも、マニフェストへの直接パスでも構いません。マニフェストの形式は次のとおりです:

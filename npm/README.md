@@ -2,7 +2,7 @@
 
 Herdr - fast terminal multiplexer with AI agent detection.
 
-OnlineChefGroep distribution of [ogulcancelik/herdr](https://github.com/ogulcancelik/herdr).
+OnlineChefGroep distribution of [OnlineChefGroep/herdr](https://github.com/OnlineChefGroep/herdr).
 
 ## Install
 
@@ -45,4 +45,4 @@ cargo build --release
 
 ## License
 
-MIT - see [LICENSE](https://github.com/OnlineChefGroep/herdr/blob/master/LICENSE)
+MIT - see [LICENSE](https://github.com/OnlineChefGroep/herdr/blob/main/LICENSE)

@@ -4,8 +4,8 @@ herdr is independent, open source, and built full-time.
 Every sponsorship goes directly toward development, stability, and reaching herdr's
 goal of becoming the runtime for coding agents.
 
-→ Sponsor: https://github.com/sponsors/ogulcancelik
-→ Enterprise / partnership: hey@herdr.dev
+→ Sponsor: https://github.com/OnlineChefGroep
+→ Enterprise / partnership: joep@chefgroep.nl
 
 ## Tiers
 
@@ -13,9 +13,9 @@ goal of becoming the runtime for coding agents.
 |------|--------|-------------|
 | Backer | $25/mo | Name + link in this file |
 | Gold | $500/mo | Logo in README |
-| Platinum | $2,500/mo | Logo in README and on herdr.dev |
-| Lead Sponsor | $5,000/mo | Top logo — README and herdr.dev hero placement |
-| Enterprise | custom | hey@herdr.dev |
+| Platinum | $2,500/mo | Logo in README and on herdr.chefgroep.nl |
+| Lead Sponsor | $5,000/mo | Top logo — README and herdr.chefgroep.nl hero placement |
+| Enterprise | custom | joep@chefgroep.nl |
 
 GitHub also allows a custom amount, so a sponsor lands in the tier their amount
 qualifies for.

@@ -9,10 +9,6 @@
  *   - hey@herdr.dev             (old contact email)
  *
  * Historical changelog entries are exempt.
- *
- * This check is non-blocking in CI until the rebrand PRs (3B/3C) land.
- * Once the rebrand is complete, remove the `continue-on-error` from the
- * website workflow to make this a hard gate.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -64,10 +60,7 @@ if (findings.length > 0) {
   for (const { file, pattern, label } of findings) {
     console.error(`  ${file}: "${pattern}" (${label})`);
   }
-  console.error(
-    "\n  These references will be replaced by the rebrand PRs (3B/3C).\n" +
-      "  This check is non-blocking until then.\n",
-  );
+  console.error("");
   process.exit(1);
 } else {
   console.log("  No stale upstream references found.");
