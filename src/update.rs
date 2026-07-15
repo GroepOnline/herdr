@@ -1,6 +1,6 @@
 //! Self-update mechanism.
 //!
-//! Checks the hosted herdr.dev update manifest for newer versions.
+//! Checks the hosted herdr.chefgroep.nl update manifest for newer versions.
 //! Manual `herdr update` downloads and installs the binary.
 //! Background checks only surface availability and release notes.
 //! Uses `curl` as a subprocess for HTTP — no additional Rust HTTP dependencies.
@@ -23,8 +23,8 @@ use std::time::{Duration, Instant};
 use interprocess::local_socket::traits::Stream as _;
 use serde::{Deserialize, Deserializer};
 
-const STABLE_UPDATE_MANIFEST_URL: &str = "https://herdr.dev/latest.json";
-const PREVIEW_UPDATE_MANIFEST_URL: &str = "https://herdr.dev/preview.json";
+const STABLE_UPDATE_MANIFEST_URL: &str = "https://herdr.chefgroep.nl/latest.json";
+const PREVIEW_UPDATE_MANIFEST_URL: &str = "https://herdr.chefgroep.nl/preview.json";
 
 fn stable_update_url() -> String {
     std::env::var("HERDR_UPDATE_BASE_URL")
@@ -647,7 +647,7 @@ fn install_windows_update_with_installer(channel: UpdateChannel) -> Result<(), S
             "-ExecutionPolicy",
             "Bypass",
             "-Command",
-            "irm https://herdr.dev/install.ps1 | iex",
+            "irm https://herdr.chefgroep.nl/install.ps1 | iex",
         ])
         .env("HERDR_CHANNEL", channel.as_str())
         // Drop any inherited PSModulePath. When herdr is launched from

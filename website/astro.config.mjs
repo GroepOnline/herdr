@@ -1,7 +1,8 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import { PRODUCT_GITHUB_REPO, PRODUCT_SITE_URL, productGitHubUrl } from './src/config/product.ts';
 
-const repoBlob = 'https://github.com/ogulcancelik/herdr/blob/master/';
+const repoBlob = `${productGitHubUrl('/blob/main/')}`;
 
 function rewriteHerdrLinks() {
   const docsLinks = new Map([
@@ -48,7 +49,7 @@ function walk(node, visitor) {
 }
 
 export default defineConfig({
-  site: 'https://herdr.dev',
+  site: PRODUCT_SITE_URL,
   redirects: {
     '/ja': '/ja/docs/',
     '/zh-cn': '/zh-cn/docs/',
@@ -68,7 +69,7 @@ export default defineConfig({
         {
           icon: 'github',
           label: 'GitHub',
-          href: 'https://github.com/ogulcancelik/herdr',
+          href: productGitHubUrl(),
         },
       ],
       components: {
@@ -113,7 +114,7 @@ export default defineConfig({
         },
         {
           tag: 'meta',
-          attrs: { property: 'og:image', content: 'https://herdr.dev/assets/og-card-v8.png' },
+          attrs: { property: 'og:image', content: `${PRODUCT_SITE_URL}/assets/og-card-v8.png` },
         },
         { tag: 'meta', attrs: { property: 'og:image:width', content: '1200' } },
         { tag: 'meta', attrs: { property: 'og:image:height', content: '630' } },
@@ -126,7 +127,7 @@ export default defineConfig({
         },
         {
           tag: 'meta',
-          attrs: { name: 'twitter:image', content: 'https://herdr.dev/assets/og-card-v8.png' },
+          attrs: { name: 'twitter:image', content: `${PRODUCT_SITE_URL}/assets/og-card-v8.png` },
         },
         {
           tag: 'meta',
@@ -137,7 +138,7 @@ export default defineConfig({
         },
       ],
       editLink: {
-        baseUrl: 'https://github.com/ogulcancelik/herdr/edit/master/',
+        baseUrl: `${productGitHubUrl('/edit/main/')}`,
       },
       lastUpdated: true,
       disable404Route: true,

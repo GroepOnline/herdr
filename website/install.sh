@@ -2,14 +2,14 @@
 set -eu
 
 BIN="herdr"
-MANIFEST_URL="https://herdr.dev/latest.json"
+MANIFEST_URL="https://herdr.chefgroep.nl/latest.json"
 INSTALL_DIR="${HERDR_INSTALL_DIR:-$HOME/.local/bin}"
 
 main() {
     echo ""
     echo "      ,ww"
     echo "     wWWWWWWW_)  herdr installer"
-    echo "     \`WWWWWW'    herdr.dev"
+    echo "     \`WWWWWW'    herdr.chefgroep.nl"
     echo "      II  II"
     echo ""
 
