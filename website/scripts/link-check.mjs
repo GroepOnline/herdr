@@ -84,6 +84,7 @@ for (const file of files) {
     try {
       href = decodeURIComponent(href.split(/[?#]/)[0]);
     } catch {
+      broken.push({ file: rel, href: match[1] });
       continue;
     }
 
