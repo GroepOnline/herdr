@@ -5,8 +5,8 @@
   "scripts": {
     "prepare-docs": "node scripts/prepare-docs.mjs",
     "dev": "node scripts/prepare-docs.mjs && astro dev",
-    "test": "bun test src/docs-path.test.ts",
-    "build": "bun run test && node scripts/prepare-docs.mjs && astro build",
+    "test": "node --experimental-strip-types --test src/docs-path.test.ts",
+    "build": "npm test && node scripts/prepare-docs.mjs && astro build",
     "preview": "astro preview",
     "test:e2e": "playwright test"
   },
