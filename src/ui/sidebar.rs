@@ -1369,7 +1369,13 @@ fn render_agent_detail(
             Style::default().fg(label_color).add_modifier(Modifier::DIM)
         };
         let agent_style = Style::default().fg(p.overlay0).add_modifier(Modifier::DIM);
-        let state_icon = agent_icon(detail.state, detail.seen, app.spinner_tick, p);
+        let state_icon = agent_icon(
+            detail.state,
+            detail.seen,
+            app.spinner_tick,
+            app.spinner_style,
+            p,
+        );
 
         for (row_index, resolved) in rows.iter().take(height as usize).enumerate() {
             let mut spans = vec![Span::raw(if row_index == 0 { " " } else { "   " })];
