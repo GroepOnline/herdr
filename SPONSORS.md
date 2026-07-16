@@ -1,6 +1,6 @@
 # Sponsors
 
-herdr is independent, open source, and built full-time with no revenue behind it.
+herdr is independent, open source, and built full-time.
 Every sponsorship goes directly toward development, stability, and reaching herdr's
 goal of becoming the runtime for coding agents.
 
@@ -32,7 +32,7 @@ qualifies for.
 
 ## Gold
 
-<!-- gold sponsors render here -->
+- [Terminal Trove](https://terminaltrove.com/)
 
 ## Backers
 
