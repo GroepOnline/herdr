@@ -414,7 +414,11 @@ fn server_ptmx_fd_count(pid: u32) -> usize {
     entries
         .filter_map(Result::ok)
         .filter_map(|entry| fs::read_link(entry.path()).ok())
-        .filter(|target| target == Path::new("/dev/ptmx"))
+        // `/dev/ptmx` is a real device node on some systems and a symlink to
+        // `/dev/pts/ptmx` on others (e.g. many containers). When it is a
+        // symlink, an opened master fd canonicalizes to `/dev/pts/ptmx`, so
+        // accept both spellings to keep this check portable.
+        .filter(|target| target == Path::new("/dev/ptmx") || target == Path::new("/dev/pts/ptmx"))
         .count()
 }
 

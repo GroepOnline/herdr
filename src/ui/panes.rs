@@ -645,16 +645,10 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
         let meta = FleetOpsMetadata::from_terminal(term, host_str.unwrap_or("local"));
         let bar_text = meta.render_bar(agent_name, state, label);
 
-        // Truncate to pane width - 2 (borders)
+        // Truncate to pane width - 2 (borders), by display width so multibyte
+        // (e.g. CJK) glyphs are never sliced on a non-char boundary.
         let max_len = (info.rect.width.saturating_sub(2)) as usize;
-        let display: String = if bar_text.len() > max_len {
-            format!(
-                "{}...",
-                &bar_text[..max_len.saturating_sub(3).min(bar_text.len())]
-            )
-        } else {
-            bar_text
-        };
+        let display = truncate_end(&bar_text, max_len);
 
         if display.is_empty() {
             continue;
@@ -689,7 +683,7 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
 
         let style = Style::default().fg(color);
         let max_render = end_x.saturating_sub(start_x) as usize;
-        let truncated: String = display.chars().take(max_render).collect();
+        let truncated = truncate_end(&display, max_render);
         buf.set_stringn(start_x, y, &truncated, max_render, style);
     }
 }
