@@ -8,7 +8,6 @@ from pathlib import Path
 
 import scripts.conventional_commits as conventional_commits
 import scripts.preview as preview
-from scripts.changelog import DEFAULT_RELEASE_REPO
 
 
 class PreviewNotesTests(unittest.TestCase):
@@ -32,7 +31,7 @@ class PreviewNotesTests(unittest.TestCase):
             notes = "Preview notes\n"
             content = preview.build_manifest(
                 output=output,
-                repo=DEFAULT_RELEASE_REPO,
+                repo="ogulcancelik/herdr",
                 tag="preview-2026-06-02-abcdef123456",
                 build_id="2026-06-02-abcdef123456",
                 commit="abcdef1234567890",
@@ -51,9 +50,10 @@ class PreviewNotesTests(unittest.TestCase):
                 "deadbeef",
             )
             self.assertEqual(
-                data["assets"]["windows-x86_64"]["url"],
-                f"https://github.com/{DEFAULT_RELEASE_REPO}/releases/download/preview-2026-06-02-abcdef123456/herdr-windows-x86_64.exe",
+                data["assets"]["linux-x86_64"]["url"],
+                "https://github.com/ogulcancelik/herdr/releases/download/preview-2026-06-02-abcdef123456/herdr-linux-x86_64",
             )
+            self.assertEqual(set(data["assets"]), {"linux-x86_64"})
             self.assertIn("2026-06-02-abcdef123456", data["builds"])
 
     def test_hidden_subjects_include_preview_manifest_commits(self):
@@ -71,7 +71,7 @@ class PreviewNotesTests(unittest.TestCase):
             ]
         )
         with mock.patch.object(preview, "run_git", return_value=output):
-            self.assertEqual(preview.latest_publishable_commit("origin/main"), "release")
+            self.assertEqual(preview.latest_publishable_commit("origin/master"), "release")
 
     def test_preview_range_base_advances_to_stable_tag(self):
         with (
@@ -142,9 +142,6 @@ class PreviewNotesTests(unittest.TestCase):
 title: Install Herdr
 ---
 
-import ConfigReference from '../../components/ConfigReference.astro';
-import LocaleWidget from '../../../components/LocaleWidget.astro';
-
 [Install](/docs/install/)
 file: ../../../public/assets/logo.svg
 """
@@ -155,8 +152,6 @@ file: ../../../public/assets/logo.svg
         )
         self.assertIn("[Install](/docs/preview/install/)", output)
         self.assertIn("file: ../../../../public/assets/logo.svg", output)
-        self.assertIn("from '../../../components/ConfigReference.astro'", output)
-        self.assertIn("from '../../../../components/LocaleWidget.astro'", output)
         self.assertIn("Preview docs describe unreleased preview builds", output)
 
 

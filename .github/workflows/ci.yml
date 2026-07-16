@@ -2,42 +2,30 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
     paths-ignore:
       - '**.md'
       - 'website/**'
       - 'docs/**'
-      - '.github/workflows/website.yml'
   pull_request:
-    branches: [main]
+    branches: [master, main]
     paths-ignore:
       - '**.md'
       - 'website/**'
       - 'docs/**'
-      - '.github/workflows/website.yml'
 
 permissions:
   contents: read
-
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   RUSTFLAGS: "-D warnings"
-  RUST_TOOLCHAIN_VERSION: 1.96.1
-
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 
 jobs:
   check:
     name: Check & Test
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -45,15 +33,9 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
-          toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-
-      - name: Install Rust tools
-        uses: taiki-e/install-action@fd2f5e3d644b484055ebf4268f474c565f148f25 # v2.81.9
-        with:
-          tool: cargo-nextest
 
       - name: Install Zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
@@ -89,7 +71,7 @@ jobs:
           npm_readme = Path("npm/README.md").read_text(encoding="utf-8")
 
           assert package["version"] == version
-          assert package["os"] == ["linux", "darwin"]
+          assert package["os"] == ["linux"]
           assert f'const VERSION = "{version}";' in installer
           assert f"## [{version}]" in changelog
           assert 'env!("CARGO_PKG_VERSION")' in gateway
@@ -102,14 +84,8 @@ jobs:
       - name: Cargo check
         run: cargo check --all-targets --locked
 
-      - name: Cargo nextest
-        run: |
-          cargo nextest run --workspace --locked -- \
-            --skip graphics_bytes_are_written_after_blit_with_saved_cursor \
-            --skip foreground_client_applies_client_keybindings \
-            --skip invalid_server_keybindings_apply_valid_subset_after_settings_save_without_caching_local_keybindings \
-            --skip local_keybinding_client_keeps_local_keybindings_after_settings_save \
-            --skip pane_border_renderer_places_adjacent_cjk_by_display_width
+      - name: Cargo test
+        run: cargo test --all --locked -- --skip graphics_bytes_are_written_after_blit_with_saved_cursor --skip foreground_client_applies_client_keybindings --skip invalid_server_keybindings_apply_valid_subset_after_settings_save_without_caching_local_keybindings --skip local_keybinding_client_keeps_local_keybindings_after_settings_save --skip pane_border_renderer_places_adjacent_cjk_by_display_width
 
       - name: Cargo clippy
         run: cargo clippy --all-targets --locked -- -D warnings
@@ -117,7 +93,6 @@ jobs:
   release-build:
     name: Release build (${{ matrix.target }})
     needs: check
-    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -125,9 +100,6 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             artifact: herdr-linux-x86_64
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
-            artifact: herdr-linux-aarch64
     runs-on: ${{ matrix.os }}
     env:
       LIBGHOSTTY_VT_OPTIMIZE: ReleaseFast
@@ -139,7 +111,6 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
-          toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
           targets: ${{ matrix.target }}
 
       - name: Install Rust target
@@ -162,11 +133,7 @@ jobs:
         run: |
           sudo find /etc/apt/sources.list.d -type f \( -iname '*microsoft*' -o -iname '*azure-cli*' \) -print -delete
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build musl-tools gcc-aarch64-linux-gnu crossbuild-essential-arm64
-
-      - name: Set Linux aarch64 linker
-        if: matrix.target == 'aarch64-unknown-linux-musl'
-        run: echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+          sudo apt-get install -y cmake ninja-build musl-tools
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
@@ -176,7 +143,7 @@ jobs:
         run: rm -rf .zig-cache vendor/libghostty-vt/.zig-cache vendor/libghostty-vt/zig-out
 
       - name: Build exact release artifact
-        run: cargo build --release --locked --target ${{ matrix.target }} --config profile.release.lto=false
+        run: cargo build --release --locked --target ${{ matrix.target }}
 
       - name: Stage artifact
         run: cp target/${{ matrix.target }}/release/herdr ${{ matrix.artifact }}

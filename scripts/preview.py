@@ -8,19 +8,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from scripts.changelog import DEFAULT_RELEASE_REPO
-
-ASSET_TARGETS = (
-    "linux-x86_64",
-    "linux-aarch64",
-    "macos-x86_64",
-    "macos-aarch64",
-    "windows-x86_64",
-)
-EXPECTED_ASSET_NAMES = {
-    **{target: f"herdr-{target}" for target in ASSET_TARGETS},
-    "windows-x86_64": "herdr-windows-x86_64.exe",
-}
+ASSET_TARGETS = ("linux-x86_64",)
+EXPECTED_ASSET_NAMES = {target: f"herdr-{target}" for target in ASSET_TARGETS}
 HIDDEN_SUBJECTS = (
     "docs: update website manifest",
     "docs: update preview manifest",
@@ -139,7 +128,7 @@ def build_notes(previous: str, commit: str, build_id: str, base_version: str, re
     lines = [
         f"Preview build {build_id}",
         "",
-        f"Built from `{short}` on `main`.",
+        f"Built from `{short}` on `master`.",
         f"Base stable: v{normalize_version(base_version)}",
         f"Compare: {compare}",
         "",
@@ -161,7 +150,7 @@ def build_notes(previous: str, commit: str, build_id: str, base_version: str, re
         lines.append("")
 
     if not wrote:
-        lines.extend(["### Changed", "- Rebuilt preview from the current main branch.", ""])
+        lines.extend(["### Changed", "- Rebuilt preview from the current master branch.", ""])
 
     return "\n".join(lines).rstrip() + "\n"
 
@@ -297,13 +286,13 @@ def main() -> int:
     notes.add_argument("--commit", required=True)
     notes.add_argument("--build-id", required=True)
     notes.add_argument("--base-version", required=True)
-    notes.add_argument("--repo", default=DEFAULT_RELEASE_REPO)
+    notes.add_argument("--repo", default="ogulcancelik/herdr")
     notes.add_argument("--output", required=True)
     notes.set_defaults(func=cmd_notes)
 
     manifest = sub.add_parser("manifest")
     manifest.add_argument("--output", default="website/preview.json")
-    manifest.add_argument("--repo", default=DEFAULT_RELEASE_REPO)
+    manifest.add_argument("--repo", default="ogulcancelik/herdr")
     manifest.add_argument("--tag", required=True)
     manifest.add_argument("--build-id", required=True)
     manifest.add_argument("--commit", required=True)
@@ -320,7 +309,7 @@ def main() -> int:
     current.set_defaults(func=cmd_current_commit)
 
     select = sub.add_parser("select-commit")
-    select.add_argument("--ref", default="origin/main")
+    select.add_argument("--ref", default="origin/master")
     select.set_defaults(func=cmd_select_commit)
 
     range_base = sub.add_parser("range-base")

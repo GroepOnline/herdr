@@ -11,21 +11,15 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from scripts.product_config import DEFAULT_LIVE_MANIFEST_URL, PRODUCT_GITHUB_REPO
-
-DEFAULT_RELEASE_REPO = PRODUCT_GITHUB_REPO
-DEFAULT_LATEST_JSON_PATH = Path("website/latest.json")
-DEFAULT_PRODUCT_ANNOUNCEMENT_PATH = Path("docs/next/product-announcement.json")
-PROTOCOL_SOURCE_PATH = Path("src/protocol/wire.rs")
+DEFAULT_LIVE_MANIFEST_URL = "https://herdr.dev/latest.json"
 
 SECTION_RE = re.compile(r"^##\s+(?:\[(?P<bracketed>[^\]]+)\]|(?P<plain>.+?))\s*$", re.MULTILINE)
 VERSION_WITH_DATE_RE = re.compile(r"^(?P<version>.+?)\s+-\s+\d{4}-\d{2}-\d{2}$")
-ASSET_TARGETS = (
-    "linux-x86_64",
-    "linux-aarch64",
-    "macos-x86_64",
-    "macos-aarch64",
-)
+DEFAULT_RELEASE_REPO = "OnlineChefGroep/herdr"
+DEFAULT_LATEST_JSON_PATH = Path("website/latest.json")
+DEFAULT_PRODUCT_ANNOUNCEMENT_PATH = Path("docs/next/product-announcement.json")
+PROTOCOL_SOURCE_PATH = Path("src/protocol/wire.rs")
+ASSET_TARGETS = ("linux-x86_64",)
 EXPECTED_ASSET_NAMES = {target: f"herdr-{target}" for target in ASSET_TARGETS}
 
 

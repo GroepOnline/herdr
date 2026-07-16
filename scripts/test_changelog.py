@@ -78,9 +78,6 @@ class ChangelogScriptTests(unittest.TestCase):
             manifest["assets"],
             {
                 "linux-x86_64": f"https://github.com/{DEFAULT_RELEASE_REPO}/releases/download/v0.1.1/herdr-linux-x86_64",
-                "linux-aarch64": f"https://github.com/{DEFAULT_RELEASE_REPO}/releases/download/v0.1.1/herdr-linux-aarch64",
-                "macos-x86_64": f"https://github.com/{DEFAULT_RELEASE_REPO}/releases/download/v0.1.1/herdr-macos-x86_64",
-                "macos-aarch64": f"https://github.com/{DEFAULT_RELEASE_REPO}/releases/download/v0.1.1/herdr-macos-aarch64",
             },
         )
         self.assertEqual(manifest["releases"]["0.1.1"]["assets"], manifest["assets"])
@@ -306,9 +303,6 @@ class ChangelogScriptTests(unittest.TestCase):
                 "notes": "### Fixed\n- One",
                 "assets": {
                     "linux-x86_64": "https://example.com/linux-x86_64",
-                    "linux-aarch64": "https://example.com/linux-aarch64",
-                    "macos-x86_64": "https://example.com/macos-x86_64",
-                    "macos-aarch64": "https://example.com/macos-aarch64",
                 },
             },
         )
@@ -334,18 +328,14 @@ class ChangelogScriptTests(unittest.TestCase):
         self.assertEqual(manifest["protocol"], 42)
 
     def test_manifest_from_release_payload_rejects_missing_asset(self) -> None:
-        with self.assertRaisesRegex(ChangelogError, "missing asset herdr-macos-aarch64"):
+        with self.assertRaisesRegex(ChangelogError, "missing asset herdr-linux-x86_64"):
             manifest_from_release_payload(
                 {
                     "tagName": "v0.1.1",
                     "isDraft": False,
                     "isPrerelease": False,
                     "body": "### Fixed\n- One\n",
-                    "assets": [
-                        {"name": "herdr-linux-x86_64", "url": "https://example.com/linux-x86_64"},
-                        {"name": "herdr-linux-aarch64", "url": "https://example.com/linux-aarch64"},
-                        {"name": "herdr-macos-x86_64", "url": "https://example.com/macos-x86_64"},
-                    ],
+                    "assets": [],
                 },
                 "0.1.1",
             )
@@ -361,17 +351,13 @@ class ChangelogScriptTests(unittest.TestCase):
         ensure_manifest_is_outdated({"version": "0.1.0"}, "0.1.1")
 
     def test_canonicalize_manifest_requires_all_asset_targets(self) -> None:
-        with self.assertRaisesRegex(ChangelogError, "missing asset URL for macos-aarch64"):
+        with self.assertRaisesRegex(ChangelogError, "missing asset URL for linux-x86_64"):
             canonicalize_manifest(
                 {
                     "version": "0.1.1",
                     "protocol": read_protocol_version(),
                     "notes": "### Fixed\n- One",
-                    "assets": {
-                        "linux-x86_64": "https://example.com/linux-x86_64",
-                        "linux-aarch64": "https://example.com/linux-aarch64",
-                        "macos-x86_64": "https://example.com/macos-x86_64",
-                    },
+                    "assets": {},
                 },
                 "test manifest",
             )
@@ -383,9 +369,6 @@ class ChangelogScriptTests(unittest.TestCase):
             "notes": "\n### Fixed\n- One\n",
             "assets": {
                 "linux-x86_64": " https://example.com/linux-x86_64 ",
-                "linux-aarch64": "https://example.com/linux-aarch64",
-                "macos-x86_64": "https://example.com/macos-x86_64",
-                "macos-aarch64": "https://example.com/macos-aarch64",
             },
         }
         expected = {
@@ -394,9 +377,6 @@ class ChangelogScriptTests(unittest.TestCase):
             "notes": "### Fixed\n- One",
             "assets": {
                 "linux-x86_64": "https://example.com/linux-x86_64",
-                "linux-aarch64": "https://example.com/linux-aarch64",
-                "macos-x86_64": "https://example.com/macos-x86_64",
-                "macos-aarch64": "https://example.com/macos-aarch64",
             },
         }
 
@@ -448,9 +428,6 @@ class ChangelogScriptTests(unittest.TestCase):
                     "notes": "### Fixed\n- Different",
                     "assets": {
                         "linux-x86_64": "https://example.com/linux-x86_64",
-                        "linux-aarch64": "https://example.com/linux-aarch64",
-                        "macos-x86_64": "https://example.com/macos-x86_64",
-                        "macos-aarch64": "https://example.com/macos-aarch64",
                     },
                 },
                 {
@@ -459,9 +436,6 @@ class ChangelogScriptTests(unittest.TestCase):
                     "notes": "### Fixed\n- One",
                     "assets": {
                         "linux-x86_64": "https://example.com/linux-x86_64",
-                        "linux-aarch64": "https://example.com/linux-aarch64",
-                        "macos-x86_64": "https://example.com/macos-x86_64",
-                        "macos-aarch64": "https://example.com/macos-aarch64",
                     },
                 },
                 "test manifest",

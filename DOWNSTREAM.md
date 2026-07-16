@@ -9,8 +9,9 @@ Maintained public distribution of Herdr for OnlineChefGroep agent operations. Th
 - Package version: `0.7.4`
 - Toolchain: stable Rust, Zig `0.15.2`, Node.js `>=18`
 - npm package: `onlinechefgroep-herdr`
-- Release assets: Linux x86_64/arm64 and macOS x86_64/arm64
-- Windows prebuilt: not published for v0.7.4
+- Release assets: Linux x86_64 only (Debian/amd64 fleet)
+- Windows prebuilt: not published
+- macOS / ARM64: not published by this fork
 
 ## Downstream patches
 
@@ -29,15 +30,14 @@ Maintained public distribution of Herdr for OnlineChefGroep agent operations. Th
 
 - Cargo, npm, installer, changelog, and release metadata are version-aligned
 - Release manifest generation reads `OnlineChefGroep/herdr`, not the upstream repository
-- CI builds the exact four artifacts produced by the release workflow
-- macOS uses the patched Homebrew Zig 0.15 build path used by release CI
+- CI builds the single linux-x86_64 artifact produced by the release workflow
 - Local Zig caches and build output are excluded from Git
 
 ## Release procedure
 
 1. Merge the validated release pull request into `main`.
 2. Create tag `v0.7.4` on the merge commit.
-3. `release.yml` builds and publishes the four GitHub release assets.
+3. `release.yml` builds and publishes the linux-x86_64 GitHub release asset.
 4. The published release triggers `publish-distribution.yml`, which verifies all assets before publishing npm.
 5. Update the Homebrew formula URL and SHA-256 values after the immutable release assets exist.
 
