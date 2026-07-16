@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/OnlineChefGroep/herdr.git"
   },
-  "homepage": "https://github.com/OnlineChefGroep/herdr",
+  "homepage": "https://herdr.chefgroep.nl",
   "keywords": [
     "terminal",
     "multiplexer",
@@ -31,7 +31,6 @@
     "node": ">=18"
   },
   "os": [
-    "linux",
-    "darwin"
+    "linux"
   ]
 }

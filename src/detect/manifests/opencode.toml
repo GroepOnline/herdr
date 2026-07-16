@@ -35,3 +35,48 @@ priority = 100
 region = "whole_recent"
 visible_working = true
 regex = ['(■|⬝){4,}']
+
+[[rules]]
+id = "pipeline_working"
+state = "working"
+priority = 95
+region = "bottom_non_empty_lines(8)"
+visible_working = true
+any = [
+  { line_regex = ['(?i)(parse|normalize|index|embed|eval|ingest).*\.{3}'] },
+  { line_regex = ['(?i)utrecht\s+(parse|normalize|index|embed|eval|ask|serve)'] },
+  { line_regex = ['(?i)(pipeline|cmd|command)\s+(run|exec|start)'] },
+]
+
+[[rules]]
+id = "fleet_ssh_working"
+state = "working"
+priority = 93
+region = "bottom_non_empty_lines(6)"
+visible_working = true
+any = [
+  { line_regex = ['(?i)ssh\s+\w+.*--'] },
+  { line_regex = ['(?i)(fleet|probe|mesh|scan)'] },
+]
+
+[[rules]]
+id = "ruff_lint_working"
+state = "working"
+priority = 92
+region = "bottom_non_empty_lines(4)"
+visible_working = true
+any = [
+  { line_regex = ['(?i)ruff\s+check'] },
+  { line_regex = ['(?i)uv\s+run\s+ruff'] },
+]
+
+[[rules]]
+id = "eval_gate_working"
+state = "working"
+priority = 91
+region = "bottom_non_empty_lines(6)"
+visible_working = true
+any = [
+  { line_regex = ['(?i)(eval|gate|baseline|threshold)'] },
+  { line_regex = ['(?i)test\.py\s+(fast|pr|integration)'] },
+]

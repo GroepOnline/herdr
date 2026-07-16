@@ -5,3 +5,4 @@ dist/
 src/content/docs/preview/
 test-results/
 playwright-report/
+src/data/config-reference-preview.json

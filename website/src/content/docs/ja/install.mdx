@@ -10,16 +10,16 @@ Herdr は Linux と macOS 向けに安定版バイナリを提供しています
 Linux または macOS では次を実行します:
 
 ```bash
-curl -fsSL https://herdr.dev/install.sh | sh
+curl -fsSL https://herdr.chefgroep.nl/install.sh | sh
 ```
 
 Windows プレビューベータでは、プレビューチャンネルをインストールします:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://herdr.dev/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps1 | iex"
 ```
 
-インストーラーはプラットフォームに合ったリリースバイナリをダウンロードして PATH 上に配置します。Windows インストーラーはデフォルトでプレビューを使い、そのチャンネルを Herdr の設定に書き込み、バージョン付きインストールフォルダーを使い、`current` ジャンクションを更新します。そのため、アップデート時に実行中の `herdr.exe` を上書きする必要がありません。
+インストーラーはプラットフォームに合ったリリースバイナリをダウンロードして PATH 上に配置します。Windows では Herdr が設定を変更せずにデフォルトでプレビューを使います。インストーラーはバージョン付きインストールフォルダーを使い、`current` ジャンクションを更新します。そのため、アップデート時に実行中の `herdr.exe` を上書きする必要がありません。
 
 ## Homebrew でインストール
 
@@ -37,16 +37,16 @@ brew install herdr
 mise use -g herdr
 ```
 
-mise が `herdr not found in mise tool registry` と報告する場合は、mise をアップデートして再試行してください。古い mise は Herdr のレジストリ登録より前のバージョンです。一時的な回避策として `mise use -g github:ogulcancelik/herdr` も使えます。
+mise が `herdr not found in mise tool registry` と報告する場合は、mise をアップデートして再試行してください。古い mise は Herdr のレジストリ登録より前のバージョンです。一時的な回避策として `mise use -g github:OnlineChefGroep/herdr` も使えます。
 
 ## Nix でインストール
 
 すでに Nix を使っている場合、Herdr はソースからビルドする flake を提供しています:
 
 ```bash
-nix run github:ogulcancelik/herdr/v0.x.y
-nix build github:ogulcancelik/herdr/v0.x.y
-nix profile install github:ogulcancelik/herdr/v0.x.y
+nix run github:OnlineChefGroep/herdr/v0.x.y
+nix build github:OnlineChefGroep/herdr/v0.x.y
+nix profile install github:OnlineChefGroep/herdr/v0.x.y
 ```
 
 `v0.x.y` は最新のリリースタグに置き換えてください。タグを省略すると `master` を追跡できますが、通常のインストールにはリリースタグを推奨します。
@@ -54,7 +54,7 @@ nix profile install github:ogulcancelik/herdr/v0.x.y
 flake は開発用シェルも公開しています:
 
 ```bash
-nix develop github:ogulcancelik/herdr
+nix develop github:OnlineChefGroep/herdr
 ```
 
 アップデートは、Herdr のインストールに使ったのと同じ Nix ワークフローで行います。プロファイルインストールの場合は、プロファイルのエントリを一覧して Herdr のエントリをアップグレードします:
@@ -72,7 +72,7 @@ nix flake update herdr
 
 ## 手動でダウンロード
 
-[GitHub releases](https://github.com/ogulcancelik/herdr/releases) からバイナリをダウンロードすることもできます。
+[GitHub releases](https://github.com/OnlineChefGroep/herdr/releases) からバイナリをダウンロードすることもできます。
 
 システムに合ったアセットを選んでください:
 

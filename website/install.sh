@@ -2,30 +2,28 @@
 set -eu
 
 BIN="herdr"
-MANIFEST_URL="https://herdr.dev/latest.json"
+MANIFEST_URL="https://herdr.chefgroep.nl/latest.json"
 INSTALL_DIR="${HERDR_INSTALL_DIR:-$HOME/.local/bin}"
 
 main() {
     echo ""
     echo "      ,ww"
     echo "     wWWWWWWW_)  herdr installer"
-    echo "     \`WWWWWW'    herdr.dev"
+    echo "     \`WWWWWW'    herdr.chefgroep.nl"
     echo "      II  II"
     echo ""
 
-    # detect platform
+    # detect platform (OnlineChefGroep fork: linux x86_64 only)
     OS="$(uname -s)"
     case "$OS" in
         Linux)  os="linux" ;;
-        Darwin) os="macos" ;;
-        *)      err "unsupported OS: $OS" ;;
+        *)      err "unsupported OS: $OS (linux x86_64 only)" ;;
     esac
 
     ARCH="$(uname -m)"
     case "$ARCH" in
         x86_64|amd64)   arch="x86_64" ;;
-        aarch64|arm64)  arch="aarch64" ;;
-        *)              err "unsupported architecture: $ARCH" ;;
+        *)              err "unsupported architecture: $ARCH (linux x86_64 only)" ;;
     esac
 
     log "detected ${os}/${arch}"

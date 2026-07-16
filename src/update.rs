@@ -1,6 +1,6 @@
 //! Self-update mechanism.
 //!
-//! Checks the hosted herdr.dev update manifest for newer versions.
+//! Checks the hosted herdr.chefgroep.nl update manifest for newer versions.
 //! Manual `herdr update` downloads and installs the binary.
 //! Background checks only surface availability and release notes.
 //! Uses `curl` as a subprocess for HTTP — no additional Rust HTTP dependencies.
@@ -23,8 +23,8 @@ use std::time::{Duration, Instant};
 use interprocess::local_socket::traits::Stream as _;
 use serde::{Deserialize, Deserializer};
 
-const STABLE_UPDATE_MANIFEST_URL: &str = "https://herdr.dev/latest.json";
-const PREVIEW_UPDATE_MANIFEST_URL: &str = "https://herdr.dev/preview.json";
+const STABLE_UPDATE_MANIFEST_URL: &str = "https://herdr.chefgroep.nl/latest.json";
+const PREVIEW_UPDATE_MANIFEST_URL: &str = "https://herdr.chefgroep.nl/preview.json";
 
 fn stable_update_url() -> String {
     std::env::var("HERDR_UPDATE_BASE_URL")
@@ -647,7 +647,7 @@ fn install_windows_update_with_installer(channel: UpdateChannel) -> Result<(), S
             "-ExecutionPolicy",
             "Bypass",
             "-Command",
-            "irm https://herdr.dev/install.ps1 | iex",
+            "irm https://herdr.chefgroep.nl/install.ps1 | iex",
         ])
         .env("HERDR_CHANNEL", channel.as_str())
         // Drop any inherited PSModulePath. When herdr is launched from
@@ -3439,54 +3439,42 @@ mod tests {
         // current unreleased checkout. Its protocol is updated by the release
         // flow together with the release assets.
         assert!(manifest.protocol.is_some());
-        assert_eq!(manifest.assets.len(), 4);
+        assert_eq!(manifest.assets.len(), 1);
         assert!(manifest.releases.contains_key(&manifest.version));
 
-        for target in [
-            "linux-x86_64",
-            "linux-aarch64",
-            "macos-x86_64",
-            "macos-aarch64",
-        ] {
-            let url = &manifest
-                .assets
-                .get(target)
-                .unwrap_or_else(|| panic!("missing asset URL for {target}"))
-                .url;
-            assert!(
-                url.contains(&format!("/releases/download/v{}/", manifest.version)),
-                "unexpected release URL for {target}: {url}"
-            );
-            assert!(
-                url.ends_with(&format!("herdr-{target}")),
-                "unexpected asset name for {target}: {url}"
-            );
-        }
+        let target = "linux-x86_64";
+        let url = &manifest
+            .assets
+            .get(target)
+            .unwrap_or_else(|| panic!("missing asset URL for {target}"))
+            .url;
+        assert!(
+            url.contains(&format!("/releases/download/v{}/", manifest.version)),
+            "unexpected release URL for {target}: {url}"
+        );
+        assert!(
+            url.ends_with(&format!("herdr-{target}")),
+            "unexpected asset name for {target}: {url}"
+        );
 
         for (version, release) in &manifest.releases {
             let assets = release
                 .get("assets")
                 .and_then(serde_json::Value::as_object)
                 .unwrap_or_else(|| panic!("missing assets for release {version}"));
-            for target in [
-                "linux-x86_64",
-                "linux-aarch64",
-                "macos-x86_64",
-                "macos-aarch64",
-            ] {
-                let url = assets
-                    .get(target)
-                    .and_then(serde_json::Value::as_str)
-                    .unwrap_or_else(|| panic!("missing asset URL for {version} {target}"));
-                assert!(
-                    url.contains(&format!("/releases/download/v{version}/")),
-                    "unexpected release URL for {version} {target}: {url}"
-                );
-                assert!(
-                    url.ends_with(&format!("herdr-{target}")),
-                    "unexpected asset name for {version} {target}: {url}"
-                );
-            }
+            let target = "linux-x86_64";
+            let url = assets
+                .get(target)
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_else(|| panic!("missing asset URL for {version} {target}"));
+            assert!(
+                url.contains(&format!("/releases/download/v{version}/")),
+                "unexpected release URL for {version} {target}: {url}"
+            );
+            assert!(
+                url.ends_with(&format!("herdr-{target}")),
+                "unexpected asset name for {version} {target}: {url}"
+            );
         }
     }
 }

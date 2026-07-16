@@ -212,8 +212,8 @@ mod tests {
     fn test_render_bar_full() {
         let meta = FleetOpsMetadata {
             repo: Some("herdr".to_string()),
-            branch: Some("master".to_string()),
-            worktree: Some("main".to_string()),
+            branch: Some("main".to_string()),
+            worktree: Some("feature".to_string()),
             model: Some("glm-5.2".to_string()),
             provider: Some("zai".to_string()),
             host: "sofie".to_string(),
@@ -226,7 +226,7 @@ mod tests {
         let bar = meta.render_bar("claude", AgentState::Working, Some("chef-bot"));
         assert!(bar.contains("chef-bot"));
         assert!(bar.contains("working"));
-        assert!(bar.contains("herdr:master (main)"));
+        assert!(bar.contains("herdr:main (feature)"));
         assert!(bar.contains("zai/glm-5.2"));
         assert!(bar.contains("#42 OK"));
         assert!(bar.contains("5m"));

@@ -21,7 +21,7 @@ this means you can:
 
 the `herdr` binary is available in your PATH. its workspace, tab, pane, and wait commands talk to the running herdr instance over a local unix socket.
 
-if you need the raw protocol or full api reference, read the [socket api docs](https://herdr.dev/docs/socket-api/).
+if you need the raw protocol or full api reference, read the [socket api docs](https://herdr.chefgroep.nl/docs/socket-api/).
 
 ## concepts
 

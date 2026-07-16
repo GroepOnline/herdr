@@ -1,5 +1,6 @@
 ---
 import { forkGitHubUrl } from '../lib/fork-repo';
+import { PRODUCT_SITE_URL } from '../config/product.ts';
 
 interface Props {
   title: string;
@@ -20,8 +21,8 @@ const {
   ogImage = '/assets/og-card-v8.png',
   ogImageAlt = 'Herdr — One terminal. The whole herd.',
 } = Astro.props;
-const canonicalUrl = new URL(canonicalPath, 'https://herdr.dev').toString();
-const ogImageUrl = new URL(ogImage, 'https://herdr.dev').toString();
+const canonicalUrl = new URL(canonicalPath, PRODUCT_SITE_URL).toString();
+const ogImageUrl = new URL(ogImage, PRODUCT_SITE_URL).toString();
 ---
 
 <!doctype html>

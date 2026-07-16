@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="https://herdr.dev">herdr.dev</a> · <a href="#install">install</a> · <a href="#quick-start">quick start</a> · <a href="#supported-agents">supported agents</a> · <a href="https://herdr.dev/docs/integrations/">integrations</a> · <a href="https://herdr.dev/docs/configuration/">configuration</a> · <a href="https://herdr.dev/docs/socket-api/">socket api</a> · <a href="#sponsors">sponsor</a>
+  <a href="https://herdr.chefgroep.nl">herdr.chefgroep.nl</a> · <a href="#install">install</a> · <a href="#quick-start">quick start</a> · <a href="#supported-agents">supported agents</a> · <a href="https://herdr.chefgroep.nl/docs/integrations/">integrations</a> · <a href="https://herdr.chefgroep.nl/docs/configuration/">configuration</a> · <a href="https://herdr.chefgroep.nl/docs/socket-api/">socket api</a> · <a href="#sponsors">sponsor</a>
 </p>
 
 ---
@@ -22,13 +22,13 @@ workspaces, tabs, panes. mouse-native: click, drag, split. every agent at a glan
 ## install
 
 ```bash
-curl -fsSL https://herdr.dev/install.sh | sh
+curl -fsSL https://herdr.chefgroep.nl/install.sh | sh
 ```
 
 on windows preview beta:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://herdr.dev/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps1 | iex"
 ```
 
 or install with homebrew:
@@ -43,9 +43,9 @@ or install with mise:
 mise use -g herdr
 ```
 
-if mise reports `herdr not found in mise tool registry`, update mise and retry. older mise versions predate the herdr registry entry; `mise use -g github:ogulcancelik/herdr` works as a temporary fallback.
+if mise reports `herdr not found in mise tool registry`, update mise and retry. older mise versions predate the herdr registry entry; `mise use -g github:OnlineChefGroep/herdr` works as a temporary fallback.
 
-or download the stable Linux/macOS binary from [releases](https://github.com/ogulcancelik/herdr/releases). Native Windows binaries are preview-only beta builds.
+or download the stable Linux/macOS binary from [releases](https://github.com/OnlineChefGroep/herdr/releases). Native Windows binaries are preview-only beta builds.
 
 ## quick start
 
@@ -81,7 +81,7 @@ Herdr notifies you when a new version is available. Run manually:
 herdr update
 ```
 
-`herdr update` is for installs managed by Herdr's own installer. Homebrew, mise, and Nix installs update through `brew upgrade herdr`, `mise upgrade herdr`, or your Nix workflow, then use the same stop-and-run-again flow if a session is still running the old server. Linux and macOS direct installs can opt into development preview builds with `herdr channel set preview` and return to stable with `herdr channel set stable`. Windows beta installs are preview-only for now. See [install docs](https://herdr.dev/docs/install/) and [session state docs](https://herdr.dev/docs/session-state/) for the full update, restart, restore, and handoff matrix.
+`herdr update` is for installs managed by Herdr's own installer. Homebrew, mise, and Nix installs update through `brew upgrade herdr`, `mise upgrade herdr`, or your Nix workflow, then use the same stop-and-run-again flow if a session is still running the old server. Linux and macOS direct installs can opt into development preview builds with `herdr channel set preview` and return to stable with `herdr channel set stable`. Windows beta installs are preview-only for now. See [install docs](https://herdr.chefgroep.nl/docs/install/) and [session state docs](https://herdr.chefgroep.nl/docs/session-state/) for the full update, restart, restore, and handoff matrix.
 
 Linux and macOS direct installs use the stable update channel by default. Windows beta installs default to preview. To test preview builds from `master` before the next stable release:
 
@@ -140,7 +140,7 @@ herdr agent attach <target>
 herdr terminal attach <terminal_id>
 ```
 
-See [persistence and remote docs](https://herdr.dev/docs/persistence-remote/) for remote keybinding, named-session, and handoff details.
+See [persistence and remote docs](https://herdr.chefgroep.nl/docs/persistence-remote/) for remote keybinding, named-session, and handoff details.
 
 ## agent awareness
 
@@ -173,10 +173,10 @@ not a gui window, not a web dashboard, not electron. herdr runs inside whatever 
 The local Unix socket lets agents create workspaces, split or zoom panes, spawn helpers, read output, and wait for state changes. Install the reusable skill with:
 
 ```bash
-npx skills add ogulcancelik/herdr --skill herdr -g
+npx skills add OnlineChefGroep/herdr --skill herdr -g
 ```
 
-Start with the [agent skill docs](https://herdr.dev/docs/agent-skill/), [socket API docs](https://herdr.dev/docs/socket-api/), and [`SKILL.md`](./SKILL.md).
+Start with the [agent skill docs](https://herdr.chefgroep.nl/docs/agent-skill/), [socket API docs](https://herdr.chefgroep.nl/docs/socket-api/), and [`SKILL.md`](./SKILL.md).
 
 ## supported agents
 
@@ -203,7 +203,7 @@ automatic detection works out of the box. process name matching plus terminal ou
 
 detected but not fully tested: gemini cli, cline.
 
-for agents outside the built-in list, herdr still works as a terminal multiplexer with workspaces, panes, and tiling. custom integrations can report agent labels over the socket api. see the [socket api docs](https://herdr.dev/docs/socket-api/).
+for agents outside the built-in list, herdr still works as a terminal multiplexer with workspaces, panes, and tiling. custom integrations can report agent labels over the socket api. see the [socket api docs](https://herdr.chefgroep.nl/docs/socket-api/).
 
 ### direct integrations
 
@@ -226,7 +226,7 @@ herdr integration install qodercli
 herdr integration install cursor
 ```
 
-see the [integrations docs](https://herdr.dev/docs/integrations/) for setup details.
+see the [integrations docs](https://herdr.chefgroep.nl/docs/integrations/) for setup details.
 
 ## keybindings
 
@@ -252,7 +252,7 @@ Press `ctrl+b` to enter prefix mode. Default actions are prefix-first and tmux-l
 | `prefix+r` | resize mode |
 | `prefix+q` | detach |
 
-Mouse is supported throughout. Resize mode uses `h`/`l` for width, `j`/`k` for height, and `esc` to exit. Full syntax, optional actions, indexed bindings, and custom command bindings live in the [configuration docs](https://herdr.dev/docs/configuration/).
+Mouse is supported throughout. Resize mode uses `h`/`l` for width, `j`/`k` for height, and `esc` to exit. Full syntax, optional actions, indexed bindings, and custom command bindings live in the [configuration docs](https://herdr.chefgroep.nl/docs/configuration/).
 
 ## configuration
 
@@ -262,17 +262,17 @@ config file: `~/.config/herdr/config.toml`
 herdr --default-config   # print full default config
 ```
 
-In-app settings cover theme, sound, and toast preferences. Herdr writes logs under `~/.config/herdr/`; in persistent session mode, `herdr-client.log` and `herdr-server.log` are usually the useful files. Full configuration and logging details live in the [configuration docs](https://herdr.dev/docs/configuration/).
+In-app settings cover theme, sound, and toast preferences. Herdr writes logs under `~/.config/herdr/`; in persistent session mode, `herdr-client.log` and `herdr-server.log` are usually the useful files. Full configuration and logging details live in the [configuration docs](https://herdr.chefgroep.nl/docs/configuration/).
 
 ## docs
 
-- [quick start](https://herdr.dev/docs/quick-start/) — first session, panes, copy, and named sessions
-- [install](https://herdr.dev/docs/install/) — install, update, Homebrew, mise, and Nix
-- [session state](https://herdr.dev/docs/session-state/) — detach, restart restore, agent restore, and live handoff
-- [configuration](https://herdr.dev/docs/configuration/) — keybindings, themes, notifications, environment variables
-- [integrations](https://herdr.dev/docs/integrations/) — pi, omp, claude code, codex, cursor agent cli, github copilot cli, droid, kimi code cli, opencode, kilo code cli, hermes, mastracode, qodercli integrations
+- [quick start](https://herdr.chefgroep.nl/docs/quick-start/) — first session, panes, copy, and named sessions
+- [install](https://herdr.chefgroep.nl/docs/install/) — install, update, Homebrew, mise, and Nix
+- [session state](https://herdr.chefgroep.nl/docs/session-state/) — detach, restart restore, agent restore, and live handoff
+- [configuration](https://herdr.chefgroep.nl/docs/configuration/) — keybindings, themes, notifications, environment variables
+- [integrations](https://herdr.chefgroep.nl/docs/integrations/) — pi, omp, claude code, codex, cursor agent cli, github copilot cli, droid, kimi code cli, opencode, kilo code cli, hermes, mastracode, qodercli integrations
 - [`SKILL.md`](./SKILL.md) — reusable agent skill
-- [socket api](https://herdr.dev/docs/socket-api/) — socket protocol and cli reference
+- [socket api](https://herdr.chefgroep.nl/docs/socket-api/) — socket protocol and cli reference
 
 ## agent instructions
 
@@ -281,7 +281,7 @@ if you are an ai agent helping with this repository, read [`AGENTS.md`](./AGENTS
 ## development
 
 ```bash
-git clone https://github.com/ogulcancelik/herdr
+git clone https://github.com/OnlineChefGroep/herdr
 cd herdr
 cargo build --release
 ./target/release/herdr
@@ -294,7 +294,7 @@ just check       # formatting, tests, and maintenance checks
 
 herdr is built full-time, in the open, with no revenue behind it. sponsoring directly funds development, stability, and the path to a real agent runtime.
 
-[**→ become a sponsor**](https://github.com/sponsors/ogulcancelik) · enterprise / partnership: hey@herdr.dev · see [SPONSORS.md](./SPONSORS.md) for tiers. thank you 🐑
+[**→ become a sponsor**](https://github.com/OnlineChefGroep) · enterprise / partnership: hey@herdr.chefgroep.nl · see [SPONSORS.md](./SPONSORS.md) for tiers. thank you 🐑
 
 ## license
 
@@ -303,4 +303,4 @@ Herdr is dual-licensed:
 1. Open source: GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later).
 2. Commercial: commercial licenses are available for organizations that cannot comply with AGPL.
 
-Contact: hey@herdr.dev
+Contact: hey@herdr.chefgroep.nl

@@ -5,8 +5,8 @@ edition = "2021"
 build = "build.rs"
 description = "terminal workspace manager for AI coding agents"
 license = "AGPL-3.0-or-later"
-repository = "https://github.com/ogulcancelik/herdr"
-homepage = "https://herdr.dev"
+repository = "https://github.com/OnlineChefGroep/herdr"
+homepage = "https://herdr.chefgroep.nl"
 keywords = ["terminal", "tui", "ai", "agents", "multiplexer"]
 categories = ["command-line-utilities"]
 include = [
@@ -58,6 +58,7 @@ windows-sys = { version = "0.61.2", features = [
     "Win32_System_Diagnostics_Debug",
     "Win32_System_Diagnostics_ToolHelp",
     "Win32_System_Console",
+    "Win32_System_JobObjects",
     "Win32_System_Kernel",
     "Win32_System_Memory",
     "Win32_System_Ole",

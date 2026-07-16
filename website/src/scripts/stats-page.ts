@@ -3,7 +3,7 @@
 
 import { FORK_GITHUB_API_URL } from "../lib/fork-repo";
 
-const STATS_URL = "https://assets.herdr.dev/stats/stats.json";
+const STATS_URL = "https://assets.herdr.chefgroep.nl/stats/stats.json";
 const REPO_API_URL = FORK_GITHUB_API_URL;
 
 const LINE_H = 320;
@@ -673,7 +673,7 @@ function render(stats: StatsJson): void {
   );
 
   // traffic
-  setText("traffic-sub", `herdr.dev traffic over the last ${stats.traffic.windowDays} days, measured by Cloudflare.`);
+  setText("traffic-sub", `herdr.chefgroep.nl traffic over the last ${stats.traffic.windowDays} days, measured by Cloudflare.`);
   setHtml(
     "rank-countries",
     rankList(

@@ -24,7 +24,7 @@ merge to master. Run with: `cargo nextest run --features chef-tests`
 
 | Test | Validates |
 |---|---|
-| test_update_url_uses_env_override | HERDR_UPDATE_BASE_URL overrides default herdr.dev URL |
+| test_update_url_uses_env_override | HERDR_UPDATE_BASE_URL overrides default herdr.chefgroep.nl URL |
 | test_update_url_falls_back_to_const | Without env, uses STABLE_UPDATE_MANIFEST_URL |
 | test_no_runtime_download_from_herdr_dev | Network calls only go to configured base URL |
 

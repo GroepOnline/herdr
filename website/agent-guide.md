@@ -1,8 +1,8 @@
 # Herdr agent guide
 
-You are reading this because a human asked you to help them understand, set up, or troubleshoot Herdr. This file gives you the concept model, the setup path, and the diagnosis recipes so you can guide them accurately. Canonical documentation lives at https://herdr.dev/docs/ — link the human there for depth, and verify any command you are unsure about against those pages instead of guessing.
+You are reading this because a human asked you to help them understand, set up, or troubleshoot Herdr. This file gives you the concept model, the setup path, and the diagnosis recipes so you can guide them accurately. Canonical documentation lives at https://herdr.chefgroep.nl/docs/ — link the human there for depth, and verify any command you are unsure about against those pages instead of guessing.
 
-If you are running *inside* a Herdr pane (the environment variable `HERDR_ENV=1` is set), Herdr also ships a skill file that teaches you to control Herdr yourself through the `herdr` CLI: https://raw.githubusercontent.com/ogulcancelik/herdr/master/SKILL.md. That file is about you operating Herdr; this file is about you teaching a human.
+If you are running *inside* a Herdr pane (the environment variable `HERDR_ENV=1` is set), Herdr also ships a skill file that teaches you to control Herdr yourself through the `herdr` CLI: https://raw.githubusercontent.com/OnlineChefGroep/herdr/master/SKILL.md. That file is about you operating Herdr; this file is about you teaching a human.
 
 ## What Herdr is
 
@@ -21,25 +21,25 @@ Teach these in this order:
 - **Agent** — a process Herdr recognizes inside a pane. States: `working`, `blocked`, `done`, `idle`, `unknown`.
 - **Modes** — terminal mode sends keys to the focused pane; prefix mode (`ctrl+b`, then one action key) sends one command to Herdr; navigate mode is a persistent navigation surface.
 
-Full concepts page: https://herdr.dev/docs/concepts/
+Full concepts page: https://herdr.chefgroep.nl/docs/concepts/
 
 ## Install
 
 Linux and macOS:
 
 ```bash
-curl -fsSL https://herdr.dev/install.sh | sh
+curl -fsSL https://herdr.chefgroep.nl/install.sh | sh
 herdr
 ```
 
 Windows preview beta:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://herdr.dev/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps1 | iex"
 herdr
 ```
 
-Homebrew, mise, and Nix installs, verification, and manual downloads: https://herdr.dev/docs/install/. Updating later is `herdr update`. Check the version with `herdr --version`.
+Homebrew, mise, and Nix installs, verification, and manual downloads: https://herdr.chefgroep.nl/docs/install/. Updating later is `herdr update`. Check the version with `herdr --version`.
 
 ## First-run walkthrough
 
@@ -48,7 +48,7 @@ First check where you are. If `HERDR_ENV=1` is set in your environment, you are 
 Walk the human through this sequence:
 
 1. `cd` into a project and run `herdr`. It launches or attaches to the default background session and creates a workspace automatically. First run shows an onboarding flow.
-2. Start their coding agent in the pane — `claude`, `codex`, or any supported agent (full list: https://herdr.dev/docs/agents/). Herdr detects it automatically; the sidebar shows its state. Installing the matching integration improves detection: `herdr integration install claude` (and similarly for other agents).
+2. Start their coding agent in the pane — `claude`, `codex`, or any supported agent (full list: https://herdr.chefgroep.nl/docs/agents/). Herdr detects it automatically; the sidebar shows its state. Installing the matching integration improves detection: `herdr integration install claude` (and similarly for other agents).
 3. Show them the mouse first: click panes and tabs to focus, drag split borders, right-click for menus, drag-select to copy. No keybindings are required to use Herdr.
 4. Split panes: right-click menu, or `prefix+v` (right) / `prefix+minus` (down). New tab: `prefix+c`.
 5. Detach with `prefix+q` (press `ctrl+b`, release, press `q`) or simply close the terminal window. Everything keeps running. Reattach later with `herdr`.
@@ -59,15 +59,15 @@ Walk the human through this sequence:
 Important framing for new users: Herdr does not require learning keybindings. The mouse covers everything. When the human wants keyboard control:
 
 - The prefix key is `ctrl+b` by default. `prefix+?` shows every active binding live.
-- The guided keyboard page — what the prefix is, which bindings to learn first, and a vetted prefix-free setup using `ctrl+alt` chords — is https://herdr.dev/docs/keyboard/. Recommend it over improvising.
+- The guided keyboard page — what the prefix is, which bindings to learn first, and a vetted prefix-free setup using `ctrl+alt` chords — is https://herdr.chefgroep.nl/docs/keyboard/. Recommend it over improvising.
 - Every binding, including the prefix itself, is configurable under `[keys]` in the config file.
 - If a direct chord does nothing, the OS or the outer terminal consumed it before Herdr could see it. The keyboard page explains which chords are safe and why.
 
 ## Install the Herdr skill into yourself
 
-Herdr ships `SKILL.md` (https://raw.githubusercontent.com/ogulcancelik/herdr/master/SKILL.md), an instruction file that teaches a coding agent to control Herdr from inside a pane — splitting panes, running commands without stealing focus, reading output, waiting on other agents.
+Herdr ships `SKILL.md` (https://raw.githubusercontent.com/OnlineChefGroep/herdr/master/SKILL.md), an instruction file that teaches a coding agent to control Herdr from inside a pane — splitting panes, running commands without stealing focus, reading output, waiting on other agents.
 
-Once the human is set up, offer to install it into your own harness so future sessions know Herdr natively. For agents supported by the open skills CLI, use `npx skills add ogulcancelik/herdr --skill herdr -g`. Agents without a skill system can paste the GitHub copy above into global custom instructions. Ask the human before writing to their config locations, and use the GitHub copy above as the source of truth.
+Once the human is set up, offer to install it into your own harness so future sessions know Herdr natively. For agents supported by the open skills CLI, use `npx skills add OnlineChefGroep/herdr --skill herdr -g`. Agents without a skill system can paste the GitHub copy above into global custom instructions. Ask the human before writing to their config locations, and use the GitHub copy above as the source of truth.
 
 ## Configuration
 
@@ -75,19 +75,19 @@ Once the human is set up, offer to install it into your own harness so future se
 - Print the full default config: `herdr --default-config`.
 - Apply edits to a running server: `herdr server reload-config` (or the global menu → reload config).
 - Main areas: `[keys]` keybindings, `[theme]` themes, `[ui]` sidebar and UI behavior, `[terminal]` shell defaults, `[update]` channel.
-- Full reference: https://herdr.dev/docs/configuration/
+- Full reference: https://herdr.chefgroep.nl/docs/configuration/
 
 ## Diagnosis recipes
 
-- **Agent not detected or wrong state:** `herdr agent list` to see what Herdr sees, `herdr agent explain <target> --json` to see why the detector classified a pane the way it did. Installing the agent's integration (`herdr integration install <name>`, status via `herdr integration status`) gives Herdr authoritative state instead of screen detection. Details: https://herdr.dev/docs/agents/ and https://herdr.dev/docs/integrations/
-- **A keybinding does nothing:** the outer terminal or desktop environment owns that chord. Point the human to https://herdr.dev/docs/keyboard/ to pick a safe one or free the chord in their terminal settings.
+- **Agent not detected or wrong state:** `herdr agent list` to see what Herdr sees, `herdr agent explain <target> --json` to see why the detector classified a pane the way it did. Installing the agent's integration (`herdr integration install <name>`, status via `herdr integration status`) gives Herdr authoritative state instead of screen detection. Details: https://herdr.chefgroep.nl/docs/agents/ and https://herdr.chefgroep.nl/docs/integrations/
+- **A keybinding does nothing:** the outer terminal or desktop environment owns that chord. Point the human to https://herdr.chefgroep.nl/docs/keyboard/ to pick a safe one or free the chord in their terminal settings.
 - **Something looks wrong at startup or with the socket API:** logs are at `~/.config/herdr/herdr.log`, `~/.config/herdr/herdr-client.log`, and `~/.config/herdr/herdr-server.log`. `herdr status`, `herdr status server`, and `herdr status client` summarize the runtime.
-- **Remote questions:** SSH to the machine and run `herdr` there (works like tmux), or attach as a thin local client with `herdr --remote <host>`. Trade-offs: https://herdr.dev/docs/how-to-work/
-- **What survives a detach, restart, or update:** https://herdr.dev/docs/session-state/
+- **Remote questions:** SSH to the machine and run `herdr` there (works like tmux), or attach as a thin local client with `herdr --remote <host>`. Trade-offs: https://herdr.chefgroep.nl/docs/how-to-work/
+- **What survives a detach, restart, or update:** https://herdr.chefgroep.nl/docs/session-state/
 
 ## Rules for you
 
 - Do not invent keybindings, config keys, or CLI flags. The ones in this file are accurate as of writing; for anything else, read the linked docs page first.
 - Teach mouse before keyboard for humans new to multiplexers.
 - Herdr is not tmux: do not give tmux commands, tmux config syntax, or `.tmux.conf` advice for Herdr questions.
-- For automation, scripting, or controlling Herdr from code, point to the CLI reference (https://herdr.dev/docs/cli-reference/) and socket API (https://herdr.dev/docs/socket-api/).
+- For automation, scripting, or controlling Herdr from code, point to the CLI reference (https://herdr.chefgroep.nl/docs/cli-reference/) and socket API (https://herdr.chefgroep.nl/docs/socket-api/).

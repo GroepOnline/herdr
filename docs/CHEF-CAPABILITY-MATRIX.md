@@ -1,6 +1,6 @@
 # CHEF Fleet Operations Layer — Capability Matrix
 
-Baseline: upstream v0.7.3 (ogulcancelik/herdr @ f36d804)
+Baseline: upstream v0.7.3 (OnlineChefGroep/herdr @ f36d804)
 Downstream: OnlineChefGroep/herdr @ master (v0.7.3-chef)
 Date: 2026-07-12
 
@@ -10,7 +10,7 @@ Date: 2026-07-12
 |---|---|---|---|
 | Semantic states (Idle/Working/Blocked/Unknown) | YES | = | Native |
 | Detection manifests | 18 built-in | +3 (freebuff, junie, openclaude) | Extended |
-| Remote manifest updates | YES (herdr.dev) | Disabled via HERDR_UPDATE_BASE_URL | Isolated |
+| Remote manifest updates | YES (herdr.chefgroep.nl) | Disabled via HERDR_UPDATE_BASE_URL | Isolated |
 | Agent labels on pane borders | YES | Config: show_agent_labels_on_pane_borders=false | Configured |
 | OSC title-based detection | YES | = | Native |
 | Regex/contains rule engine | YES (min_engine_version=2) | = | Native |
@@ -80,7 +80,7 @@ Date: 2026-07-12
 | TOML config | YES | = | Native |
 | Config profile import/export | YES | +chef.toml profile | Extended |
 | Update channel (stable/preview) | YES | +HERDR_UPDATE_BASE_URL override | Extended |
-| Auto-update from herdr.dev | YES | Disabled (isolated) | **Modified** |
+| Auto-update from herdr.chefgroep.nl | YES | Disabled (isolated) | **Modified** |
 | Hot config reload | Plugin manifests only | Phase target (not in scope) | Gap |
 | Sound config | YES (SoundConfig) | = | Native |
 | Toast notifications | YES (terminal/herdr/clipboard) | = | Native |
@@ -107,7 +107,7 @@ The following items from our earlier brainstorm are **superseded by upstream** a
 | Pane zoom | Already implemented: zoom state tracked in snapshots/restore |
 | Config hot-reload | Plugin manifest reload exists; full config reload is upstream's responsibility |
 | Amp detection manifest | Already in upstream |
-| Remote manifests | Already implemented: background herdr.dev check |
+| Remote manifests | Already implemented: background herdr.chefgroep.nl check |
 | OpenCode bridge | Already integrated: plugin install to opencode plugins dir |
 | Session restore | Already implemented: native agent-session restore + snapshot history |
 | Generic agent status bar | Upstream has border labels + semantic state; we build Fleet Ops Bar instead |

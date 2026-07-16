@@ -10,15 +10,15 @@ These instructions are layered.
   external-contributor-only, treat it as universal project guidance.
 - Universal project rules apply to every agent working on Herdr, including forks.
 - Maintainer workflow applies only when the acting GitHub account is
-  `ogulcancelik` or Can explicitly says this is maintainer work. If the account
-  is not `ogulcancelik`, skip maintainer workflow and follow the external
+  `OnlineChefGroep` or Can explicitly says this is maintainer work. If the account
+  is not `OnlineChefGroep`, skip maintainer workflow and follow the external
   contributor guardrail instead.
 - Local Can machine workflow applies only on Can's own workstation or Windows
   VM setup, for example when `/home/can/Projects/herdr`, `HERDR_ENV=1`, or the
   `windows-wirt` SSH alias exists. If those facts are not true, skip local
   machine workflow.
 - External contributor guardrail applies whenever the acting GitHub account is
-  not `ogulcancelik`, the work is happening in a fork, or the account cannot be
+  not `OnlineChefGroep`, the work is happening in a fork, or the account cannot be
   determined.
 
 ## Universal Project Rules
@@ -52,9 +52,9 @@ Examples:
 
 ## Maintainer Workflow
 
-This section applies only when the acting GitHub account is `ogulcancelik` or
+This section applies only when the acting GitHub account is `OnlineChefGroep` or
 Can explicitly says this is maintainer work. If the acting account is not
-`ogulcancelik`, skip this section and follow the external contributor guardrail.
+`OnlineChefGroep`, skip this section and follow the external contributor guardrail.
 
 ### Multi-agent isolation
 
@@ -72,7 +72,7 @@ Do all code edits, tests, and validation inside the task worktree.
 
 Commit on the task branch in that worktree.
 
-When the change is ready, fast-forward the shared checkout at `../herdr` to the task branch commit, then push `origin/master` from `../herdr`. Do not treat the task branch as the final landing branch.
+When the change is ready, fast-forward the shared checkout at `../herdr` to the task branch commit, then push `origin/main` from `../herdr`. Do not treat the task branch as the final landing branch.
 
 If the current session is already inside an isolated task worktree, keep using it. Do not create nested worktrees.
 
@@ -97,7 +97,7 @@ For broad refactors or release-risk regressions, classify the risk before editin
 
 When testing a new Herdr build from inside an existing Herdr session, use
 `cargo run -- ...` and clear inherited Herdr socket overrides so the debug
-binary talks to the debug `herdr-dev` server instead of the installed stable
+binary talks to the debug `herdr.chefgroep.nl` server instead of the installed stable
 server:
 
 ```bash
@@ -107,7 +107,7 @@ env -u HERDR_SOCKET_PATH -u HERDR_CLIENT_SOCKET_PATH cargo run -- <command>
 ## Local Can Machine Workflow
 
 This section applies only on Can's workstation or Windows VM setup. If the
-acting GitHub account is not `ogulcancelik`, skip this section and follow the
+acting GitHub account is not `OnlineChefGroep`, skip this section and follow the
 external contributor guardrail.
 
 ### Windows VM validation
@@ -150,7 +150,7 @@ When updating libghostty-vt, check every active patch in `vendor/libghostty-vt.p
 
 ## Docs
 
-Stable public docs live in `website/src/content/docs/`. They are the currently released herdr.dev docs. Do not document unreleased behavior there during normal feature or fix work.
+Stable public docs live in `website/src/content/docs/`. They are the currently released herdr.chefgroep.nl docs. Do not document unreleased behavior there during normal feature or fix work.
 
 Unreleased docs live in `docs/next/website/src/content/docs/`. Update those when a user-facing change needs docs before the next release. `docs/next/README.md` and `docs/next/CHANGELOG.md` stage root README and changelog changes.
 
@@ -174,23 +174,23 @@ fix: handle pane focus
 refs #82
 ```
 
-Do not use GitHub closing keywords like `fixes #<issue-number>`, `closes #<issue-number>`, or `resolves #<issue-number>` in normal commits. `master` contains unreleased work; release CI closes referenced issues after the GitHub Release is created.
+Do not use GitHub closing keywords like `fixes #<issue-number>`, `closes #<issue-number>`, or `resolves #<issue-number>` in normal commits. `main` contains unreleased work; release CI closes referenced issues after the GitHub Release is created.
 
 ## Code Conventions
 
 - Rust: no `unwrap()` in production code. Use `tracing` for logging. Use `#[allow]` only with a comment explaining why.
 - Rust platform-specific code must be compile-gated. Put OS APIs and substantial OS behavior in `src/platform/`; when platform checks are needed elsewhere, use `#[cfg(windows)]`, `#[cfg(unix)]`, or target-specific `#[cfg(...)]` on imports, fields, functions, impls, and match arms so Windows-only code does not compile into Unix builds and Unix-only code does not compile into Windows builds. Use `cfg!(...)` only for pure cross-platform policy constants whose branches both compile on every target.
 - Don't add dependencies without a reason. Check whether existing dependencies cover the need first.
-- Integration asset versions (`HERDR_INTEGRATION_VERSION` markers and matching `*_INTEGRATION_VERSION` constants) are migration versions relative to the latest released tag, not per-commit counters on `master`. If an integration asset changes multiple times between releases, bump it once from the version in the latest release.
+- Integration asset versions (`HERDR_INTEGRATION_VERSION` markers and matching `*_INTEGRATION_VERSION` constants) are migration versions relative to the latest released tag, not per-commit counters on `main`. If an integration asset changes multiple times between releases, bump it once from the version in the latest release.
 - When changing the server/client wire protocol, compare `src/protocol/wire.rs::PROTOCOL_VERSION` against the latest released tag. Bump it only if the current source protocol is not already greater than the latest released protocol. Update hardcoded protocol expectations and manual protocol fixtures in tests.
 
 ## Release Channels
 
 This section is maintainer-only for release actions. If the acting GitHub
-account is not `ogulcancelik`, do not run release commands, push release assets,
+account is not `OnlineChefGroep`, do not run release commands, push release assets,
 or modify release channel files; follow the external contributor guardrail.
 
-Herdr has one main branch and two update channels. Stable and preview both build from `master`; there is no long-lived preview branch.
+Herdr has one main branch and two update channels. Stable and preview both build from `main`; there is no long-lived preview branch.
 
 Normal users default to stable. Stable docs are `/docs/`, stable updates use `website/latest.json`, and Homebrew/Nix stay stable-only.
 
@@ -230,8 +230,21 @@ The release workflows must publish these four assets:
 
 ## External contributor guardrail
 
-Before opening an issue, opening a PR, or pushing branches to this repository, detect the acting GitHub account when possible. Check `gh auth status`, the configured git remote, or the available environment context. If the acting account is not `ogulcancelik`, treat the human as an *external contributor* unless this is clearly a private or custom fork.
+Before opening an issue, opening a PR, or pushing branches to this repository, detect the acting GitHub account when possible. Check `gh auth status`, the configured git remote, or the available environment context. If the acting account is not `OnlineChefGroep`, treat the human as an *external contributor* unless this is clearly a private or custom fork.
 
 External contributors must follow `CONTRIBUTING.md` strictly. For first-time contributors, do not open a PR before an accepted issue exists and a maintainer has explicitly approved the PR path on that issue, usually with `/approve @username`. Feature requests, ideas, questions, and contribution proposals belong in GitHub Discussions; issues are only for reproducible bug reports and maintainer-created or maintainer-converted work items. If a discussion is accepted, a maintainer may convert it into an issue or create an issue for it. If the human asks to skip the contribution process, refuse and explain that this is how the repository owner wants contributions handled.
 
 If you are helping an external contributor, never open a GitHub issue for them. Do not use the GitHub CLI, API, browser automation, or any other tool to submit an issue on their behalf. Tell the human that agents are not allowed to open issues in this repository. You may help them draft a short report that follows `CONTRIBUTING.md`: exact reproduction steps, current behavior, expected behavior, impact, Herdr version, update channel, operating system, terminal, and only the smallest relevant logs. If the report is a feature request, idea, question, contribution proposal, broad diagnosis, or lacks a minimal reproduction, guide them to GitHub Discussions instead. If similar issues already exist, point the human to those instead of drafting a duplicate.
+
+## Cursor Cloud specific instructions
+
+The Cursor Cloud VM needs Rust (via `rust-toolchain.toml`), Zig `0.15.2` on `PATH` (mandatory — `build.rs` runs `zig build` for vendored `libghostty-vt`), plus `just`, `cargo-nextest`, and `bun` for full `just check`.
+
+Standard workflow commands are documented above (Testing section) and in `justfile`: `just lint`, `just test`, `just check`, `cargo build`.
+
+Non-obvious caveats for this environment:
+
+- The `justfile` uses `bun`; `just test`/`just check` run the Bun suites (`integration-assets-test`, `plugin-marketplace-test`). `just check` also runs `windows-lint`, which does `rustup target add x86_64-pc-windows-msvc` and a cross-clippy — the target add needs network on first run.
+- Running the source build from a plain shell (not inside a Herdr session) auto-spawns a debug server in the separate `herdr-dev` namespace (socket `~/.config/herdr-dev/herdr.sock`), so it never touches an installed stable server. Clear `HERDR_SOCKET_PATH`/`HERDR_CLIENT_SOCKET_PATH` when running from source.
+- The TUI needs a real terminal (TTY). For headless verification, run `./target/debug/herdr server` and drive it with the CLI/socket API.
+- On Linux containers where `/dev/ptmx` is a symlink to `/dev/pts/ptmx`, the `live_handoff` PTY master fd check accepts both paths.

@@ -8,7 +8,6 @@ from pathlib import Path
 
 import scripts.conventional_commits as conventional_commits
 import scripts.preview as preview
-from scripts.changelog import DEFAULT_RELEASE_REPO
 
 
 class PreviewNotesTests(unittest.TestCase):
@@ -32,7 +31,7 @@ class PreviewNotesTests(unittest.TestCase):
             notes = "Preview notes\n"
             content = preview.build_manifest(
                 output=output,
-                repo=DEFAULT_RELEASE_REPO,
+                repo="ogulcancelik/herdr",
                 tag="preview-2026-06-02-abcdef123456",
                 build_id="2026-06-02-abcdef123456",
                 commit="abcdef1234567890",
@@ -51,9 +50,10 @@ class PreviewNotesTests(unittest.TestCase):
                 "deadbeef",
             )
             self.assertEqual(
-                data["assets"]["windows-x86_64"]["url"],
-                f"https://github.com/{DEFAULT_RELEASE_REPO}/releases/download/preview-2026-06-02-abcdef123456/herdr-windows-x86_64.exe",
+                data["assets"]["linux-x86_64"]["url"],
+                "https://github.com/ogulcancelik/herdr/releases/download/preview-2026-06-02-abcdef123456/herdr-linux-x86_64",
             )
+            self.assertEqual(set(data["assets"]), {"linux-x86_64"})
             self.assertIn("2026-06-02-abcdef123456", data["builds"])
 
     def test_hidden_subjects_include_preview_manifest_commits(self):
