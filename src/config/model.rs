@@ -104,8 +104,10 @@ pub enum SpinnerStyle {
     SquareCorners,
     Triangle,
     Star,
+    #[serde(alias = "star-2")]
     Star2,
     Arrow,
+    #[serde(alias = "arrow-3")]
     Arrow3,
     Bounce,
     BoxBounce,
@@ -132,6 +134,7 @@ pub enum SpinnerStyle {
     Binary,
     DotsCircle,
     Sand,
+    #[serde(alias = "dots-8-bit")]
     Dots8Bit,
     // emoji spinners
     Moon,
