@@ -1,6 +1,6 @@
 use ratatui::{
-    style::Color,
     layout::{Alignment, Rect},
+    style::Color,
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Clear, List, ListItem, ListState, Paragraph},
@@ -20,7 +20,7 @@ fn keybind_label(bindings: &crate::config::ActionKeybinds) -> String {
     bindings.label().unwrap_or_else(|| "unset".to_string())
 }
 
-fn render_bottom_bar(frame: &mut Frame, area: Rect, line: Line<'_>, bg: ratatui::style::Color) {
+fn render_bottom_bar(frame: &mut Frame, area: Rect, line: Line<'_>, _bg: ratatui::style::Color) {
     let buf = frame.buffer_mut();
     for x in area.x..area.x + area.width {
         if x < buf.area.width && area.y < buf.area.height {

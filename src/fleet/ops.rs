@@ -7,6 +7,7 @@ use crate::terminal::state::TerminalState;
 /// Fleet operations metadata for a single pane/agent.
 /// Supplements (never overrides) the upstream semantic AgentState.
 #[derive(Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct FleetOpsMetadata {
     pub repo: Option<String>,
     pub worktree: Option<String>,
@@ -62,6 +63,7 @@ impl FleetOpsMetadata {
 
     /// Render a compact single-line status string.
     /// Format: `agent | state | repo:branch | model | host | elapsed`
+    #[allow(dead_code)]
     pub fn render_bar(&self, agent_name: &str, state: AgentState, label: Option<&str>) -> String {
         let mut parts: Vec<String> = Vec::new();
 
@@ -120,6 +122,7 @@ impl FleetOpsMetadata {
     }
 }
 
+#[allow(dead_code)]
 fn state_label(state: AgentState) -> &'static str {
     match state {
         AgentState::Idle => "idle",
@@ -129,6 +132,7 @@ fn state_label(state: AgentState) -> &'static str {
     }
 }
 
+#[allow(dead_code)]
 fn format_duration(d: Duration) -> String {
     let secs = d.as_secs();
     if secs < 60 {

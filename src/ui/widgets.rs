@@ -2,7 +2,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph, Wrap},
+    widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
 
@@ -12,7 +12,7 @@ pub(super) fn render_panel_shell(
     frame: &mut Frame,
     area: Rect,
     border_color: Color,
-    bg: Color,
+    _bg: Color,
 ) -> Option<Rect> {
     if area.width < 2 || area.height < 2 {
         return None;
@@ -32,7 +32,11 @@ pub(super) fn render_panel_shell(
         for x in area.x..area.x + area.width {
             if x < buf.area.width && y < buf.area.height {
                 let cell = &mut buf[(x, y)];
-                if x >= inner.x && x < inner.x + inner.width && y >= inner.y && y < inner.y + inner.height {
+                if x >= inner.x
+                    && x < inner.x + inner.width
+                    && y >= inner.y
+                    && y < inner.y + inner.height
+                {
                     // Inner area: Frosting effect
                     // Keep the underlying text but dim it
                     let style = cell.style();
@@ -53,7 +57,11 @@ pub(super) fn render_panel_shell(
     let right_x = area.x.saturating_add(area.width);
     if right_x < buf.area.width {
         let start_y = area.y.saturating_add(1);
-        let end_y = area.y.saturating_add(area.height).saturating_add(1).min(buf.area.height);
+        let end_y = area
+            .y
+            .saturating_add(area.height)
+            .saturating_add(1)
+            .min(buf.area.height);
         for y in start_y..end_y {
             let cell = &mut buf[(right_x, y)];
             cell.set_bg(shadow_color);
