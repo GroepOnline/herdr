@@ -5,9 +5,6 @@ use std::time::Instant;
 
 use tracing::{debug, info};
 
-
-
-
 use crate::detect::{Agent, AgentState};
 use crate::events::AppEvent;
 use crate::layout::PaneId;

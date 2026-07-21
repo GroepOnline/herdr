@@ -96,7 +96,6 @@ impl Agent {
     ];
 
     pub const SCREEN_MANIFEST_AGENTS: [Self; 22] = [
-
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -179,7 +178,6 @@ pub fn interactive_agent_executable(agent: Agent) -> &'static str {
         Agent::Maki => "maki",
     }
 }
-
 
 pub fn parse_agent_label(agent: &str) -> Option<Agent> {
     let name = normalized_agent_lookup_name(agent);
@@ -733,7 +731,6 @@ mod tests {
     #[test]
     fn every_agent_label_round_trips_through_canonical_and_alias_parsers() {
         for agent in Agent::ALL {
-
             let label = agent_label(agent);
             assert_eq!(parse_canonical_agent_label(label), Some(agent));
             assert_eq!(parse_agent_label(label), Some(agent));
@@ -763,6 +760,9 @@ mod tests {
             (Agent::Hermes, "hermes"),
             (Agent::Kilo, "kilo"),
             (Agent::Qodercli, "qodercli"),
+            (Agent::Freebuff, "freebuff"),
+            (Agent::Junie, "junie"),
+            (Agent::OpenClaude, "openclaude"),
             (Agent::Maki, "maki"),
         ];
         assert_eq!(expected.len(), Agent::ALL.len());

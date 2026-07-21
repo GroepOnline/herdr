@@ -482,7 +482,6 @@ fn render_pane_borders(
 
     render_pane_border_titles(app, ws, pane_infos, frame);
     render_fleet_ops_bar(app, ws, frame);
-
 }
 
 fn add_split_border_cells(
@@ -688,7 +687,6 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
 }
 
 fn render_pane_border_titles(
-
     app: &AppState,
     ws: &crate::workspace::Workspace,
     pane_infos: &[PaneInfo],
