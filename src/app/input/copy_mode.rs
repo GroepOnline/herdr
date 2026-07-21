@@ -969,7 +969,8 @@ fn row_cell_glyphs(text: Option<&str>) -> Vec<(u16, u16)> {
     let mut glyphs = Vec::new();
     let mut col = 0u16;
     for ch in text.into_iter().flat_map(str::chars) {
-        let width = UnicodeWidthChar::width(ch).unwrap_or(1) as u16;
+        let width = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(1) as u16;
+
         if width == 0 {
             continue;
         }

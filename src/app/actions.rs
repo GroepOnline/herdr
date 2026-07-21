@@ -3,7 +3,9 @@
 
 use std::time::Instant;
 
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
+
+
 
 
 use crate::detect::{Agent, AgentState};

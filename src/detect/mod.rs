@@ -173,9 +173,13 @@ pub fn interactive_agent_executable(agent: Agent) -> &'static str {
         Agent::Hermes => "hermes",
         Agent::Kilo => "kilo",
         Agent::Qodercli => "qodercli",
+        Agent::Freebuff => "freebuff",
+        Agent::Junie => "junie",
+        Agent::OpenClaude => "openclaude",
         Agent::Maki => "maki",
     }
 }
+
 
 pub fn parse_agent_label(agent: &str) -> Option<Agent> {
     let name = normalized_agent_lookup_name(agent);
