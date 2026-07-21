@@ -868,7 +868,8 @@ impl HeadlessServer {
     ) -> Result<(), api::schema::ErrorBody> {
         self.dispatch_headless_runtime_mutation(
             id,
-            api::schema::Method::WorkspaceCreate(api::schema::WorkspaceCreateParams { command: None,
+            api::schema::Method::WorkspaceCreate(api::schema::WorkspaceCreateParams {
+                command: None,
                 cwd,
                 focus: true,
                 label,
@@ -884,7 +885,8 @@ impl HeadlessServer {
     ) -> Result<(), api::schema::ErrorBody> {
         self.dispatch_headless_runtime_mutation(
             id,
-            api::schema::Method::TabCreate(api::schema::TabCreateParams { command: None,
+            api::schema::Method::TabCreate(api::schema::TabCreateParams {
+                command: None,
                 workspace_id: None,
                 cwd: None,
                 focus: true,

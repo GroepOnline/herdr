@@ -93,7 +93,8 @@ fn workspace_create(args: &[String]) -> std::io::Result<i32> {
         }
     }
 
-    super::runtime::workspace_create(WorkspaceCreateParams { command: None,
+    super::runtime::workspace_create(WorkspaceCreateParams {
+        command: None,
         cwd,
         focus,
         label,

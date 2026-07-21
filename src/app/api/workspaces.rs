@@ -52,7 +52,12 @@ impl App {
             Err((code, message)) => return encode_error(id, &code, message),
         };
         match match params.command {
-            Some(command) => self.create_workspace_argv_command_with_launch_env(cwd, params.focus, extra_env, &command),
+            Some(command) => self.create_workspace_argv_command_with_launch_env(
+                cwd,
+                params.focus,
+                extra_env,
+                &command,
+            ),
             None => self.create_workspace_with_launch_env(cwd, params.focus, extra_env),
         } {
             Ok(index) => {
@@ -312,6 +317,7 @@ mod tests {
         let response = app.handle_tab_create(
             "tab".into(),
             crate::api::schema::TabCreateParams {
+                command: None,
                 workspace_id: None,
                 cwd: None,
                 focus: true,
@@ -342,6 +348,7 @@ mod tests {
         let response = app.handle_workspace_create(
             "req".into(),
             WorkspaceCreateParams {
+                command: None,
                 cwd: None,
                 focus: false,
                 label: None,

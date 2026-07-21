@@ -949,6 +949,7 @@ impl App {
                     self.runtime_workspace_create(
                         "tui.workspace.create_named",
                         crate::api::schema::WorkspaceCreateParams {
+                            command: None,
                             cwd: Some(cwd.display().to_string()),
                             focus: true,
                             label,
@@ -975,7 +976,8 @@ impl App {
                 };
                 self.runtime_tab_create(
                     "tui.tab.create_named",
-                    crate::api::schema::TabCreateParams { command: None,
+                    crate::api::schema::TabCreateParams {
+                        command: None,
                         workspace_id: None,
                         cwd: None,
                         focus: true,

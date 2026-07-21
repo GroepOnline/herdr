@@ -90,6 +90,7 @@ impl App {
         self.runtime_workspace_create(
             request_id,
             crate::api::schema::WorkspaceCreateParams {
+                command: None,
                 cwd: None,
                 focus: true,
                 label: None,

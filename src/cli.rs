@@ -9,8 +9,8 @@ use crate::api::schema::{
 };
 
 mod agent;
-mod browser;
 mod api;
+mod browser;
 mod completion;
 mod integration;
 mod notification;
