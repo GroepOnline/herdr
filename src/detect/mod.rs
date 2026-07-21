@@ -760,6 +760,9 @@ mod tests {
             (Agent::Hermes, "hermes"),
             (Agent::Kilo, "kilo"),
             (Agent::Qodercli, "qodercli"),
+            (Agent::Freebuff, "freebuff"),
+            (Agent::Junie, "junie"),
+            (Agent::OpenClaude, "openclaude"),
             (Agent::Maki, "maki"),
         ];
         assert_eq!(expected.len(), Agent::ALL.len());
