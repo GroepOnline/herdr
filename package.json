@@ -1,6 +1,7 @@
 {
   "name": "herdr-chef",
-  "version": "0.7.1-chef",
+  "version": "0.7.5-chef",
+
   "private": true,
   "description": "OnlineChefGroep downstream distribution of Herdr terminal multiplexer",
   "scripts": {
