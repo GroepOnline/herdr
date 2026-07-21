@@ -62,8 +62,7 @@ impl ClipboardHistory {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let db = Database::create(&path)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        let db = Database::create(&path).map_err(|e| std::io::Error::other(e.to_string()))?;
         let count = db
             .begin_read()
             .ok()
@@ -176,7 +175,7 @@ impl ClipboardHistory {
                 Err(_) => continue,
             }
         }
-        rows.sort_by(|a, b| b.seq.cmp(&a.seq));
+        rows.sort_by_key(|b| std::cmp::Reverse(b.seq));
         rows.truncate(limit);
         rows
     }
