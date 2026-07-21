@@ -75,6 +75,7 @@ mod kitty_graphics;
 mod layout;
 mod logging;
 mod metadata_tokens;
+mod noninteractive_process;
 mod pane;
 mod persist;
 mod platform;
@@ -270,8 +271,8 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # Pane apps like lazygit and btop can still receive mouse when they request it.
 # mouse_capture = true
 
-# Copy text selected by mouse drag or double-click.
-# Set false to disable mouse text selection and copying.
+# Automatically copy text selected by mouse drag.
+# Set false to keep drag selection visible without copying; double-click still copies a word.
 # copy_on_select = true
 
 # Host cursor policy: "auto", "native", or "drawn".
@@ -297,6 +298,9 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # Ask for a tab name before creating a new tab.
 # Set false to create tabs immediately with generated names.
 # prompt_new_tab_name = true
+
+# Ask for a workspace name before interactive creation.
+# prompt_new_workspace_name = false
 
 # Draw borders around split panes.
 # pane_borders = true
@@ -552,7 +556,6 @@ fn main() -> io::Result<()> {
         println!("       herdr notification <subcommand> ...");
         println!("       herdr agent <subcommand> ...");
         println!("       herdr pane <subcommand> ...");
-        println!("       herdr wait <subcommand> ...");
         println!("       herdr session <subcommand> ...");
         println!("       herdr integration <subcommand> ...");
         println!();
@@ -609,10 +612,6 @@ fn main() -> io::Result<()> {
             (
                 "herdr pane <subcommand>",
                 "Pane control helpers over the socket API",
-            ),
-            (
-                "herdr wait <subcommand>",
-                "Blocking wait helpers over the socket API",
             ),
             (
                 "herdr session <subcommand>",
@@ -674,7 +673,7 @@ fn main() -> io::Result<()> {
         if arg.starts_with('-') && !known_flags.contains(&arg_name) {
             eprintln!("unknown option: {arg}");
             eprintln!("run 'herdr --help' for usage");
-            std::process::exit(1);
+            std::process::exit(2);
         }
         if !arg.starts_with('-')
             && ![
@@ -688,7 +687,6 @@ fn main() -> io::Result<()> {
                 "workspace",
                 "worktree",
                 "pane",
-                "wait",
                 "session",
                 "integration",
             ]
@@ -696,7 +694,7 @@ fn main() -> io::Result<()> {
         {
             eprintln!("unknown command: {arg}");
             eprintln!("run 'herdr --help' for usage");
-            std::process::exit(1);
+            std::process::exit(2);
         }
     }
 

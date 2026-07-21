@@ -2,13 +2,15 @@
 // managed by herdr; reinstalling or updating the integration overwrites this file.
 // add custom hooks/plugins beside this file instead of editing it.
 // HERDR_INTEGRATION_ID=omp
-// HERDR_INTEGRATION_VERSION=5
+// HERDR_INTEGRATION_VERSION=6
 // @ts-nocheck
 
-import { createConnection } from "node:net";
+import net from "node:net";
 
 const HERDR_ENV = process.env.HERDR_ENV;
 const socketPath = process.env.HERDR_SOCKET_PATH;
+const socketEndpoint =
+  process.platform === "win32" && socketPath ? `\\\\.\\pipe\\${socketPath}` : socketPath;
 const paneId = process.env.HERDR_PANE_ID;
 const source = "herdr:omp";
 
@@ -36,7 +38,7 @@ function sendRequestAttempt(request: unknown, timeoutMs: number): Promise<boolea
       resolve(delivered);
     };
 
-    const socket = createConnection(socketPath!);
+    const socket = net.createConnection(socketEndpoint!);
     socket.on("error", () => finish(false));
     socket.on("connect", () => socket.write(`${JSON.stringify(request)}\n`));
     socket.on("data", () => finish(true));
@@ -167,6 +169,7 @@ function sendState(state: AgentState, message?: string, seq = nextReportSeq()): 
 }
 
 function releaseAgent(): Promise<void> {
+  const sessionRef = currentSessionRef();
   return sendRequest({
     id: `${source}:release:${Date.now()}:${Math.random().toString(36).slice(2)}`,
     method: "pane.release_agent",
@@ -175,6 +178,7 @@ function releaseAgent(): Promise<void> {
       source,
       agent: "omp",
       seq: nextReportSeq(),
+      ...sessionRef,
     },
   });
 }

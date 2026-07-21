@@ -317,6 +317,22 @@ fn foreground_shell_agent_action(
     ForegroundShellAgentAction::ObserveProbe
 }
 
+fn foreground_agent_under_lifecycle_authority(
+    previous_agent: Option<Agent>,
+    observed_agent: Option<Agent>,
+    full_lifecycle_authority_active: bool,
+) -> Option<Agent> {
+    if full_lifecycle_authority_active
+        && previous_agent.is_some()
+        && observed_agent.is_some()
+        && previous_agent != observed_agent
+    {
+        previous_agent
+    } else {
+        observed_agent
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 struct ProcessProbeInput {
     current_agent: Option<Agent>,
@@ -680,6 +696,11 @@ fn spawn_basic_detection_task(
                     }
                 }
                 let previous_agent = agent_presence.current_agent();
+                new_agent = foreground_agent_under_lifecycle_authority(
+                    previous_agent,
+                    new_agent,
+                    lifecycle_authority_active,
+                );
                 let changed = match foreground_shell_agent_action(
                     previous_agent,
                     new_agent,
@@ -1716,9 +1737,6 @@ impl PaneRuntime {
         let (response_tx, _response_rx) = mpsc::channel::<Bytes>(1);
         let mut terminal = crate::ghostty::Terminal::new(cols, rows, scrollback_limit_bytes)
             .map_err(|e| std::io::Error::other(e.to_string()))?;
-        terminal
-            .enable_grapheme_cluster_mode()
-            .map_err(|e| std::io::Error::other(e.to_string()))?;
         if crate::kitty_graphics::is_enabled() {
             terminal
                 .enable_kitty_graphics()
@@ -1851,9 +1869,6 @@ impl PaneRuntime {
 
         let (response_tx, _response_rx) = mpsc::channel::<Bytes>(1);
         let mut terminal = crate::ghostty::Terminal::new(cols, rows, scrollback_limit_bytes)
-            .map_err(|e| std::io::Error::other(e.to_string()))?;
-        terminal
-            .enable_grapheme_cluster_mode()
             .map_err(|e| std::io::Error::other(e.to_string()))?;
         if crate::kitty_graphics::is_enabled() {
             terminal
@@ -2108,6 +2123,11 @@ impl PaneRuntime {
                             }
 
                             let previous_agent = agent_presence.current_agent();
+                            new_agent = foreground_agent_under_lifecycle_authority(
+                                previous_agent,
+                                new_agent,
+                                lifecycle_authority_active,
+                            );
                             let changed = match foreground_shell_agent_action(
                                 previous_agent,
                                 new_agent,
@@ -2699,7 +2719,6 @@ impl PaneRuntime {
             .lock()
             .ok()
             .and_then(|reported_cwd| reported_cwd.clone())
-            .and_then(usable_reported_cwd)
         {
             return Some(cwd);
         }
@@ -2711,6 +2730,22 @@ impl PaneRuntime {
     pub fn child_pid(&self) -> Option<u32> {
         let pid = self.child_pid.load(Ordering::Acquire);
         (pid > 0).then_some(pid)
+    }
+
+    pub fn follow_cwd(&self) -> Option<std::path::PathBuf> {
+        #[cfg(unix)]
+        {
+            let leader_cwd = self
+                .io
+                .foreground_process_group_id()
+                .and_then(usable_process_cwd);
+            leader_cwd.or_else(|| self.cwd())
+        }
+
+        #[cfg(not(unix))]
+        {
+            self.cwd()
+        }
     }
 
     /// Get the current working directory of the process group controlling the pane PTY.
@@ -2815,6 +2850,42 @@ impl PaneRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn cwd_returns_accepted_report_without_rechecking_filesystem() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock should be after unix epoch")
+            .as_nanos();
+        let cwd = std::env::temp_dir().join(format!(
+            "herdr-reported-cwd-cache-{}-{stamp}",
+            std::process::id()
+        ));
+        std::fs::create_dir(&cwd).expect("create reported cwd");
+
+        let (runtime, _rx) = PaneRuntime::test_with_channel(80, 24);
+        let (events, _event_rx) = mpsc::channel(1);
+        publish_reported_cwd(runtime.pane_id, cwd.clone(), &runtime.reported_cwd, &events);
+        assert_eq!(
+            runtime.reported_cwd.lock().unwrap().as_ref(),
+            Some(&cwd),
+            "test setup must pass cache admission"
+        );
+
+        std::fs::remove_dir(&cwd).expect("remove reported cwd after admission");
+
+        assert_eq!(runtime.cwd(), Some(cwd));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn follow_cwd_falls_back_to_reported_pane_cwd_without_foreground_group() {
+        let (runtime, _rx) = PaneRuntime::test_with_channel(80, 24);
+        let cwd = std::env::temp_dir();
+        *runtime.reported_cwd.lock().unwrap() = Some(cwd.clone());
+
+        assert_eq!(runtime.follow_cwd(), Some(cwd));
+    }
 
     #[test]
     fn shutdown_liveness_treats_reaped_direct_child_as_gone() {
@@ -3306,6 +3377,23 @@ mod tests {
             tokio::time::timeout(std::time::Duration::from_millis(10), rx.recv())
                 .await
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn nested_foreground_agent_does_not_replace_authoritative_root() {
+        assert_eq!(
+            foreground_agent_under_lifecycle_authority(Some(Agent::Pi), Some(Agent::Claude), true,),
+            Some(Agent::Pi)
+        );
+        assert_eq!(
+            foreground_agent_under_lifecycle_authority(Some(Agent::Pi), Some(Agent::Claude), false,),
+            Some(Agent::Claude)
+        );
+        assert_eq!(
+            foreground_agent_under_lifecycle_authority(Some(Agent::Pi), None, true),
+            None,
+            "returning to the shell remains exit evidence"
         );
     }
 

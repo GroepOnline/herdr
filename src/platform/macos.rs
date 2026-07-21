@@ -45,6 +45,10 @@ pub(crate) fn scrollback_editor_argv(path: &Path) -> std::io::Result<Vec<String>
     Ok(vec!["/bin/sh".to_string(), "-c".to_string(), command])
 }
 
+pub(crate) fn interactive_shell_command(argv: &[String], shell_name: &str) -> Option<String> {
+    super::interactive_unix_shell_command(argv, shell_name, shell_quote)
+}
+
 fn shell_quote(value: &str) -> String {
     if !value.is_empty()
         && value.chars().all(|ch| {
@@ -313,6 +317,10 @@ fn target_nofile_soft_limit(
     };
 
     (current < target).then_some(target)
+}
+
+pub(crate) fn available_pane_shell(child_pid: u32) -> Option<String> {
+    super::available_pane_shell_from_job(child_pid, foreground_job(child_pid)?)
 }
 
 /// Collect the foreground terminal job for a given child PID.

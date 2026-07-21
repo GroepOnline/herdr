@@ -6,7 +6,9 @@
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+#[cfg(not(windows))]
+use std::process::Command;
+use std::process::Output;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use tracing::warn;
@@ -142,7 +144,7 @@ if (-not $script:done) { throw 'sound playback timed out' }
 
 #[cfg(windows)]
 fn run_windows_player(path: &Path) -> Result<Output, String> {
-    Command::new("powershell.exe")
+    crate::noninteractive_process::command("powershell.exe")
         .args([
             "-NoLogo",
             "-NoProfile",

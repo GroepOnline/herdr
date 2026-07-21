@@ -128,6 +128,12 @@ pub(crate) struct RawInputFramer {
 }
 
 impl RawInputFramer {
+    pub(crate) fn for_host_input() -> Self {
+        Self {
+            byte_framer: RawInputByteFramer::for_host_input(),
+        }
+    }
+
     pub(crate) fn push(&mut self, data: &[u8]) -> Vec<RawInputEvent> {
         Self::events_from_chunks(self.byte_framer.push(data))
     }
@@ -185,12 +191,26 @@ pub(crate) struct RawInputByteFramer {
     host_color_replies_awaited: u8,
     held_pending_color_esc: bool,
     host_color_scheme_change_tracking: bool,
+    split_coalesced_escape: bool,
 }
 
 const HOST_COLOR_QUERY_REPLIES: u8 = 2;
 const MAX_ORPHANED_SGR_MOUSE_TAIL_BYTES: usize = 32;
 
 impl RawInputByteFramer {
+    pub(crate) fn for_host_input() -> Self {
+        Self::with_host_input_policy(
+            crate::platform::capabilities().preserve_legacy_doubled_escape_input,
+        )
+    }
+
+    fn with_host_input_policy(preserve_legacy_doubled_escape_input: bool) -> Self {
+        Self {
+            split_coalesced_escape: !preserve_legacy_doubled_escape_input,
+            ..Self::default()
+        }
+    }
+
     pub(crate) fn push(&mut self, data: &[u8]) -> Vec<Vec<u8>> {
         self.buffer.extend_from_slice(data);
         self.drain_available_chunks()
@@ -405,6 +425,12 @@ impl RawInputByteFramer {
                 continue;
             }
 
+            if self.split_coalesced_escape && self.buffer.starts_with(b"\x1b\x1b") {
+                chunks.push(vec![ESC]);
+                self.buffer.drain(..1);
+                continue;
+            }
+
             let Some((event, consumed)) = extract_one_event(&self.buffer) else {
                 break;
             };
@@ -491,7 +517,7 @@ pub fn spawn_input_reader() -> mpsc::Receiver<RawInputEvent> {
         let stdin = std::io::stdin();
         let mut reader = stdin.lock();
         let mut scratch = [0u8; 1024];
-        let mut framer = RawInputFramer::default();
+        let mut framer = RawInputFramer::for_host_input();
         framer.host_color_query_sent();
         framer.enable_host_color_scheme_change_tracking();
 
@@ -1618,6 +1644,24 @@ mod tests {
             KeyModifiers::ALT,
         );
         assert!(framer.flush_timeout().is_empty());
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn non_macos_host_input_splits_lone_escape_from_arrow() {
+        let mut framer = RawInputByteFramer::for_host_input();
+
+        assert_eq!(
+            framer.push(b"\x1b\x1b[D"),
+            vec![b"\x1b".to_vec(), b"\x1b[D".to_vec()]
+        );
+    }
+
+    #[test]
+    fn macos_host_input_policy_preserves_legacy_doubled_escape_alt_arrow() {
+        let mut framer = RawInputByteFramer::with_host_input_policy(true);
+
+        assert_eq!(framer.push(b"\x1b\x1b[D"), vec![b"\x1b\x1b[D".to_vec()]);
     }
 
     #[test]

@@ -297,21 +297,20 @@ pub(super) fn render_panes(
     app: &AppState,
     terminal_runtimes: &TerminalRuntimeRegistry,
     frame: &mut Frame,
-    area: Rect,
+    pane_infos: &[PaneInfo],
+    split_borders: &[crate::layout::SplitBorder],
 ) {
     let Some(ws_idx) = app.active else {
-        render_empty(app, frame, area);
         return;
     };
     let Some(ws) = app.workspaces.get(ws_idx) else {
-        render_empty(app, frame, area);
         return;
     };
 
     let multi_pane = ws.layout.pane_count() > 1;
     let terminal_active = app.mode == Mode::Terminal;
 
-    for info in &app.view.pane_infos {
+    for info in pane_infos {
         if let Some(rt) = app.runtime_for_pane_in_workspace(terminal_runtimes, ws_idx, info.id) {
             let show_cursor = info.is_focused
                 && terminal_active
@@ -365,7 +364,7 @@ pub(super) fn render_panes(
         }
     }
 
-    render_pane_borders(app, ws, frame);
+    render_pane_borders(app, ws, pane_infos, split_borders, frame);
 }
 
 pub(crate) fn popup_pane_rects(app: &AppState, area: Rect) -> Option<(Rect, Rect)> {
@@ -437,22 +436,22 @@ struct LineCell {
     right: bool,
 }
 
-fn render_pane_borders(app: &AppState, ws: &crate::workspace::Workspace, frame: &mut Frame) {
-    if !app.pane_borders
-        || app
-            .view
-            .pane_infos
-            .iter()
-            .all(|info| info.borders.is_empty())
-    {
+fn render_pane_borders(
+    app: &AppState,
+    ws: &crate::workspace::Workspace,
+    pane_infos: &[PaneInfo],
+    split_borders: &[crate::layout::SplitBorder],
+    frame: &mut Frame,
+) {
+    if !app.pane_borders || pane_infos.iter().all(|info| info.borders.is_empty()) {
         return;
     }
 
     let mut cells = std::collections::HashMap::<(u16, u16), LineCell>::new();
-    for info in &app.view.pane_infos {
+    for info in pane_infos {
         add_pane_border_cells(&mut cells, info);
     }
-    add_split_border_cells(app, &mut cells);
+    add_split_border_cells(app.pane_gaps, split_borders, &mut cells);
 
     let buf = frame.buffer_mut();
     let area = buf.area;
@@ -464,9 +463,7 @@ fn render_pane_borders(app: &AppState, ws: &crate::workspace::Workspace, frame: 
         {
             continue;
         }
-        let focused = app
-            .view
-            .pane_infos
+        let focused = pane_infos
             .iter()
             .any(|info| info.is_focused && line_touches_pane(x, y, info, app.pane_gaps));
         let symbol = line_cell_symbol(line);
@@ -483,19 +480,21 @@ fn render_pane_borders(app: &AppState, ws: &crate::workspace::Workspace, frame: 
         cell.set_style(Style::default().fg(color));
     }
 
-    render_pane_border_titles(app, ws, frame);
+    render_pane_border_titles(app, ws, pane_infos, frame);
     render_fleet_ops_bar(app, ws, frame);
+
 }
 
 fn add_split_border_cells(
-    app: &AppState,
+    pane_gaps: bool,
+    split_borders: &[crate::layout::SplitBorder],
     cells: &mut std::collections::HashMap<(u16, u16), LineCell>,
 ) {
-    if app.pane_gaps {
+    if pane_gaps {
         return;
     }
 
-    for split in &app.view.split_borders {
+    for split in split_borders {
         match split.direction {
             ratatui::layout::Direction::Horizontal => {
                 let x = split.pos;
@@ -608,6 +607,7 @@ fn line_touches_pane(x: u16, y: u16, info: &PaneInfo, pane_gaps: bool) -> bool {
         || (x == shared_right && y == shared_bottom)
 }
 
+<<<<<<< HEAD
 /// Fleet Ops Bar — compact status line at bottom of each pane border.
 /// Shows agent | state | git branch | host when available.
 fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame: &mut Frame) {
@@ -681,17 +681,15 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
             AgentState::Unknown => app.palette.overlay0,
         };
 
-        let style = Style::default().fg(color);
-        let max_render = end_x.saturating_sub(start_x) as usize;
-        let truncated = truncate_end(&display, max_render);
-        buf.set_stringn(start_x, y, &truncated, max_render, style);
-    }
-}
-
-fn render_pane_border_titles(app: &AppState, ws: &crate::workspace::Workspace, frame: &mut Frame) {
+fn render_pane_border_titles(
+    app: &AppState,
+    ws: &crate::workspace::Workspace,
+    pane_infos: &[PaneInfo],
+    frame: &mut Frame,
+) {
     let buf = frame.buffer_mut();
     let area = buf.area;
-    for info in &app.view.pane_infos {
+    for info in pane_infos {
         if !info.borders.contains(Borders::TOP) || info.rect.width <= 4 {
             continue;
         }
@@ -993,7 +991,7 @@ fn color_to_rgb(color: Color) -> Option<Rgb> {
     }
 }
 
-fn render_empty(app: &AppState, frame: &mut Frame, area: Rect) {
+pub(super) fn render_empty(app: &AppState, frame: &mut Frame, area: Rect) {
     let p = &app.palette;
     let lines = vec![
         Line::from(""),
@@ -1042,6 +1040,16 @@ mod tests {
     use crate::terminal::TerminalRuntime;
     use crate::terminal::TerminalState;
     use crate::workspace::Workspace;
+
+    fn render_view_pane_borders(app: &AppState, ws: &Workspace, frame: &mut Frame) {
+        render_pane_borders(
+            app,
+            ws,
+            &app.view.pane_infos,
+            &app.view.split_borders,
+            frame,
+        );
+    }
 
     #[test]
     fn pane_border_title_trims_and_truncates() {
@@ -1097,7 +1105,7 @@ mod tests {
         let mut terminal =
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(12, 3)).unwrap();
         terminal
-            .draw(|frame| render_pane_borders(&app, &ws, frame))
+            .draw(|frame| render_view_pane_borders(&app, &ws, frame))
             .unwrap();
 
         let buffer = terminal.backend().buffer();
@@ -1264,7 +1272,7 @@ mod tests {
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(4, 4)).unwrap();
 
         terminal
-            .draw(|frame| render_pane_borders(&app, &ws, frame))
+            .draw(|frame| render_view_pane_borders(&app, &ws, frame))
             .unwrap();
 
         let buffer = terminal.backend().buffer();
@@ -1303,7 +1311,7 @@ mod tests {
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(4, 3)).unwrap();
 
         terminal
-            .draw(|frame| render_pane_borders(&app, &ws, frame))
+            .draw(|frame| render_view_pane_borders(&app, &ws, frame))
             .unwrap();
 
         let buffer = terminal.backend().buffer();

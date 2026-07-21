@@ -1,9 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
-import { createServer, type Server } from "node:net";
+import net, { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+const originalPlatform = process.platform;
+const originalCreateConnection = net.createConnection;
 const originalEnvironment = {
   HERDR_ENV: process.env.HERDR_ENV,
   HERDR_OMP_IDLE_DEBOUNCE_MS: process.env.HERDR_OMP_IDLE_DEBOUNCE_MS,
@@ -30,6 +32,8 @@ afterEach(async () => {
     socketPath = undefined;
   }
 
+  Object.defineProperty(process, "platform", { value: originalPlatform });
+  net.createConnection = originalCreateConnection;
   for (const [name, value] of Object.entries(originalEnvironment)) {
     if (value === undefined) {
       delete process.env[name];
@@ -42,6 +46,15 @@ afterEach(async () => {
 const integrations = [
   { name: "Pi", modulePath: "./pi/herdr-agent-state.ts" },
   { name: "Oh My Pi", modulePath: "./omp/herdr-agent-state.ts" },
+] as const;
+
+const socketPlugins = [
+  {
+    name: "OpenCode",
+    modulePath: "./opencode/herdr-agent-state.js",
+    sessionID: "opencode-session",
+  },
+  { name: "Kilo", modulePath: "./kilo/herdr-agent-state.js", sessionID: "kilo-session" },
 ] as const;
 
 function importFresh(modulePath: string) {
@@ -74,6 +87,15 @@ function configureIntegrationEnvironment(recordingSocketPath: string) {
   process.env.HERDR_PANE_ID = "test:p1";
 }
 
+function captureConnectionEndpoint() {
+  let connectedEndpoint: unknown;
+  net.createConnection = ((...args: unknown[]) => {
+    connectedEndpoint = args[0];
+    return Reflect.apply(originalCreateConnection, net, args);
+  }) as typeof net.createConnection;
+  return () => connectedEndpoint;
+}
+
 async function startRecordingServer(name: string): Promise<unknown[]> {
   const recordingSocketPath = join(tmpdir(), `herdr-${name}-${process.pid}.sock`);
   socketPath = recordingSocketPath;
@@ -102,7 +124,61 @@ async function startRecordingServer(name: string): Promise<unknown[]> {
   return requests;
 }
 
+for (const socketPlugin of socketPlugins) {
+  test(`${socketPlugin.name} maps the Windows socket marker path to a named pipe endpoint`, async () => {
+    const markerPath = `herdr-${socketPlugin.name.toLowerCase()}-${process.pid}.sock`;
+    configureIntegrationEnvironment(markerPath);
+    Object.defineProperty(process, "platform", { value: "win32" });
+    const connectedEndpoint = captureConnectionEndpoint();
+
+    const { HerdrAgentStatePlugin } = await importFresh(socketPlugin.modulePath);
+    const plugin = await HerdrAgentStatePlugin();
+    await plugin.event({
+      event: {
+        type: "session.updated",
+        properties: { sessionID: socketPlugin.sessionID },
+      },
+    });
+
+    expect(connectedEndpoint()).toBe(`\\\\.\\pipe\\${markerPath}`);
+  });
+}
+
+test("OpenCode stays disabled without the Herdr socket environment", async () => {
+  process.env.HERDR_ENV = "1";
+  process.env.HERDR_PANE_ID = "test:p1";
+  delete process.env.HERDR_SOCKET_PATH;
+
+  const { HerdrAgentStatePlugin } = await importFresh("./opencode/herdr-agent-state.js");
+
+  expect(await HerdrAgentStatePlugin()).toEqual({});
+});
+
 for (const integration of integrations) {
+  test(`${integration.name} maps the Windows socket marker path to a named pipe endpoint`, async () => {
+    const markerPath = `herdr-${integration.name.toLowerCase().replaceAll(" ", "-")}-${process.pid}.sock`;
+    configureIntegrationEnvironment(markerPath);
+    Object.defineProperty(process, "platform", { value: "win32" });
+    const connectedEndpoint = captureConnectionEndpoint();
+    const { handlers, pi } = createExtensionHarness();
+
+    const { default: install } = await importFresh(integration.modulePath);
+    install(pi);
+    await handlers.get("session_start")?.(
+      { reason: "startup" },
+      {
+        hasUI: true,
+        isIdle: () => true,
+        sessionManager: {
+          getSessionFile: () => undefined,
+          getSessionId: () => "test-session",
+        },
+      },
+    );
+
+    expect(connectedEndpoint()).toBe(`\\\\.\\pipe\\${markerPath}`);
+  });
+
   test(`${integration.name} reload preserves working state when the agent is active`, async () => {
     const requests = await startRecordingServer(
       integration.name.toLowerCase().replaceAll(" ", "-"),
@@ -145,6 +221,38 @@ for (const integration of integrations) {
     }
 
     expect(reportedState()).toBe("working");
+  });
+}
+
+for (const integration of integrations) {
+  test(`${integration.name} scopes quit releases to the current session`, async () => {
+    const requests = await startRecordingServer(
+      `${integration.name.toLowerCase().replaceAll(" ", "-")}-release-session`,
+    );
+    const { handlers, pi } = createExtensionHarness();
+    const sessionPath = `/tmp/${integration.name.toLowerCase().replaceAll(" ", "-")}-root.jsonl`;
+
+    const { default: install } = await importFresh(integration.modulePath);
+    install(pi);
+    await handlers.get("session_start")?.(
+      { reason: "startup" },
+      {
+        hasUI: true,
+        isIdle: () => true,
+        sessionManager: {
+          getSessionFile: () => sessionPath,
+          getSessionId: () => "root-session",
+        },
+      },
+    );
+    await handlers.get("session_shutdown")?.({ reason: "quit" }, {});
+
+    const release = requests.find(
+      (request) => isRecord(request) && request.method === "pane.release_agent",
+    );
+    expect(release).toBeDefined();
+    expect(isRecord(release) && isRecord(release.params) ? release.params.agent_session_path : null)
+      .toBe(sessionPath);
   });
 }
 

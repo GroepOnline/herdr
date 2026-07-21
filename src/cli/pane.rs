@@ -1,11 +1,11 @@
 use crate::api::schema::{
-    Method, PaneCurrentParams, PaneDirection, PaneEdgesParams, PaneFocusDirectionParams,
-    PaneLayoutParams, PaneListParams, PaneMoveDestination, PaneMoveParams, PaneNeighborParams,
-    PaneProcessInfoParams, PaneReadParams, PaneReleaseAgentParams, PaneRenameParams,
-    PaneReportAgentParams, PaneReportAgentSessionParams, PaneReportMetadataParams,
-    PaneResizeParams, PaneSendInputParams, PaneSendKeysParams, PaneSendTextParams, PaneSplitParams,
-    PaneSwapParams, PaneTarget, PaneZoomMode, PaneZoomParams, ReadFormat, ReadSource, Request,
-    SplitDirection,
+    Method, OutputMatch, PaneCurrentParams, PaneDirection, PaneEdgesParams,
+    PaneFocusDirectionParams, PaneLayoutParams, PaneListParams, PaneMoveDestination,
+    PaneMoveParams, PaneNeighborParams, PaneProcessInfoParams, PaneReadParams,
+    PaneReleaseAgentParams, PaneRenameParams, PaneReportAgentParams, PaneReportAgentSessionParams,
+    PaneReportMetadataParams, PaneResizeParams, PaneSendInputParams, PaneSendKeysParams,
+    PaneSendTextParams, PaneSplitParams, PaneSwapParams, PaneTarget, PaneWaitForOutputParams,
+    PaneZoomMode, PaneZoomParams, ReadFormat, ReadSource, Request, SplitDirection,
 };
 
 pub(super) fn run_pane_command(args: &[String]) -> std::io::Result<i32> {
@@ -33,6 +33,7 @@ pub(super) fn run_pane_command(args: &[String]) -> std::io::Result<i32> {
         "close" => pane_close(&args[1..]),
         "send-text" => pane_send_text(&args[1..]),
         "send-keys" => pane_send_keys(&args[1..]),
+        "wait-output" => pane_wait_output(&args[1..]),
         "report-agent" => pane_report_agent(&args[1..]),
         "report-agent-session" => pane_report_agent_session(&args[1..]),
         "release-agent" => pane_release_agent(&args[1..]),
@@ -505,15 +506,7 @@ fn pane_read(args: &[String]) -> std::io::Result<i32> {
         }),
     })?;
 
-    if let Some(error) = response.get("error") {
-        eprintln!("{}", serde_json::to_string(error).unwrap());
-        return Ok(1);
-    }
-
-    if let Some(text) = response["result"]["read"]["text"].as_str() {
-        print!("{text}");
-    }
-    Ok(0)
+    super::print_read_response(&response)
 }
 
 fn pane_split(args: &[String]) -> std::io::Result<i32> {
@@ -941,6 +934,92 @@ fn pane_run(args: &[String]) -> std::io::Result<i32> {
     }))
 }
 
+fn pane_wait_output(args: &[String]) -> std::io::Result<i32> {
+    let Some(raw_pane_id) = args.first() else {
+        eprintln!("usage: herdr pane wait-output <pane_id> (--match TEXT | --regex PATTERN) [--source visible|recent|recent-unwrapped] [--lines N] [--timeout MS] [--raw]");
+        return Ok(2);
+    };
+    let pane_id = super::normalize_pane_id(raw_pane_id);
+    let mut source = ReadSource::Recent;
+    let mut lines = None;
+    let mut timeout_ms = None;
+    let mut strip_ansi = true;
+    let mut matcher = None;
+    let mut index = 1;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--match" | "--regex" => {
+                let option = args[index].as_str();
+                let Some(value) = args.get(index + 1) else {
+                    eprintln!("missing value for {option}");
+                    return Ok(2);
+                };
+                if matcher.is_some() {
+                    eprintln!("--match and --regex are mutually exclusive");
+                    return Ok(2);
+                }
+                matcher = Some(if option == "--regex" {
+                    OutputMatch::Regex {
+                        value: value.clone(),
+                    }
+                } else {
+                    OutputMatch::Substring {
+                        value: value.clone(),
+                    }
+                });
+                index += 2;
+            }
+            "--source" => {
+                let Some(value) = args.get(index + 1) else {
+                    eprintln!("missing value for --source");
+                    return Ok(2);
+                };
+                source = super::parse_read_source(value)?;
+                index += 2;
+            }
+            "--lines" => {
+                let Some(value) = args.get(index + 1) else {
+                    eprintln!("missing value for --lines");
+                    return Ok(2);
+                };
+                lines = Some(super::parse_u32_flag("--lines", value)?);
+                index += 2;
+            }
+            "--timeout" => {
+                let Some(value) = args.get(index + 1) else {
+                    eprintln!("missing value for --timeout");
+                    return Ok(2);
+                };
+                timeout_ms = Some(super::parse_u64_flag("--timeout", value)?);
+                index += 2;
+            }
+            "--raw" => {
+                strip_ansi = false;
+                index += 1;
+            }
+            other => {
+                eprintln!("unknown option: {other}");
+                return Ok(2);
+            }
+        }
+    }
+    let Some(matcher) = matcher else {
+        eprintln!("missing required --match or --regex");
+        return Ok(2);
+    };
+    super::print_response(&super::send_request(&Request {
+        id: "cli:pane:wait-output".into(),
+        method: Method::PaneWaitForOutput(PaneWaitForOutputParams {
+            pane_id,
+            source,
+            lines,
+            r#match: matcher,
+            timeout_ms,
+            strip_ansi,
+        }),
+    })?)
+}
+
 fn pane_report_agent(args: &[String]) -> std::io::Result<i32> {
     let Some(raw_pane_id) = args.first() else {
         eprintln!("usage: herdr pane report-agent <pane_id> --source ID --agent LABEL --state idle|working|blocked|unknown [--message TEXT] [--seq N] [--agent-session-id ID] [--agent-session-path PATH]");
@@ -1149,7 +1228,7 @@ fn pane_report_agent_session(args: &[String]) -> std::io::Result<i32> {
 
 fn pane_release_agent(args: &[String]) -> std::io::Result<i32> {
     let Some(raw_pane_id) = args.first() else {
-        eprintln!("usage: herdr pane release-agent <pane_id> --source ID --agent LABEL [--seq N]");
+        eprintln!("usage: herdr pane release-agent <pane_id> --source ID --agent LABEL [--seq N] [--agent-session-id ID] [--agent-session-path PATH]");
         return Ok(2);
     };
 
@@ -1157,6 +1236,8 @@ fn pane_release_agent(args: &[String]) -> std::io::Result<i32> {
     let mut source = None;
     let mut agent = None;
     let mut seq = None;
+    let mut agent_session_id = None;
+    let mut agent_session_path = None;
 
     let mut index = 1;
     while index < args.len() {
@@ -1185,6 +1266,22 @@ fn pane_release_agent(args: &[String]) -> std::io::Result<i32> {
                 seq = Some(super::parse_u64_flag("--seq", value)?);
                 index += 2;
             }
+            "--agent-session-id" => {
+                let Some(value) = args.get(index + 1) else {
+                    eprintln!("missing value for --agent-session-id");
+                    return Ok(2);
+                };
+                agent_session_id = Some(value.clone());
+                index += 2;
+            }
+            "--agent-session-path" => {
+                let Some(value) = args.get(index + 1) else {
+                    eprintln!("missing value for --agent-session-path");
+                    return Ok(2);
+                };
+                agent_session_path = Some(value.clone());
+                index += 2;
+            }
             other => {
                 eprintln!("unknown option: {other}");
                 return Ok(2);
@@ -1209,6 +1306,8 @@ fn pane_release_agent(args: &[String]) -> std::io::Result<i32> {
         source,
         agent,
         seq,
+        agent_session_id,
+        agent_session_path,
     }))
 }
 
@@ -1430,9 +1529,10 @@ fn print_pane_help() {
     eprintln!("  herdr pane close <pane_id>");
     eprintln!("  herdr pane send-text <pane_id> <text>");
     eprintln!("  herdr pane send-keys <pane_id> <key> [key ...]");
+    eprintln!("  herdr pane wait-output <pane_id> (--match TEXT | --regex PATTERN) [--source visible|recent|recent-unwrapped] [--lines N] [--timeout MS] [--raw]");
     eprintln!("  herdr pane report-agent <pane_id> --source ID --agent LABEL --state idle|working|blocked|unknown [--message TEXT] [--seq N] [--agent-session-id ID] [--agent-session-path PATH]");
     eprintln!("  herdr pane report-agent-session <pane_id> --source ID --agent LABEL [--seq N] [--agent-session-id ID] [--agent-session-path PATH]");
-    eprintln!("  herdr pane release-agent <pane_id> --source ID --agent LABEL [--seq N]");
+    eprintln!("  herdr pane release-agent <pane_id> --source ID --agent LABEL [--seq N] [--agent-session-id ID] [--agent-session-path PATH]");
     eprintln!("  herdr pane report-metadata <pane_id> --source ID [--agent LABEL] [--applies-to-source ID] [--title TEXT|--clear-title] [--display-agent TEXT|--clear-display-agent] [--state-label STATUS=TEXT] [--clear-state-labels] [--token NAME=VALUE] [--clear-token NAME] [--seq N] [--ttl-ms N]");
     eprintln!("  herdr pane run <pane_id> <command>");
 }
