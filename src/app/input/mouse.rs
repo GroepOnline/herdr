@@ -640,14 +640,12 @@ impl AppState {
                         mouse.row - info.inner_rect.y,
                         mouse.column - info.inner_rect.x,
                     );
-                    if self.copy_on_select {
-                        self.selection = Some(Selection::anchor(
-                            info.id,
-                            row,
-                            col,
-                            self.pane_scroll_metrics(terminal_runtimes, info.id),
-                        ));
-                    }
+                    self.selection = Some(Selection::anchor(
+                        info.id,
+                        row,
+                        col,
+                        self.pane_scroll_metrics(terminal_runtimes, info.id),
+                    ));
                     if let Some(ws_idx) = self.active {
                         return Some(MouseAction::FocusPane {
                             ws_idx,
