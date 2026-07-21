@@ -3,7 +3,7 @@ const { createWriteStream, existsSync, mkdirSync, chmodSync } = require("fs");
 const { join } = require("path");
 const https = require("https");
 
-const VERSION = "0.7.4";
+const VERSION = "0.7.5";
 const REPO = "OnlineChefGroep/herdr";
 const BIN_DIR = join(__dirname, "bin");
 const BINARY_NAME = "herdr";
