@@ -1398,10 +1398,10 @@ mod tests {
             .unwrap();
 
         let buffer = terminal.backend().buffer();
-        assert_eq!(buffer[(2, 2)].symbol(), "┼");
-        assert_eq!(buffer[(2, 2)].style().fg, Some(app.palette.accent));
-        assert_eq!(buffer[(2, 1)].symbol(), "│");
-        assert_eq!(buffer[(2, 1)].style().fg, Some(app.palette.accent));
+        assert_eq!(buffer[(2, 2)].symbol(), "╋");
+        assert_eq!(buffer[(2, 2)].style().fg, Some(Color::Rgb(85, 127, 255)));
+        assert_eq!(buffer[(2, 1)].symbol(), "┃");
+        assert_eq!(buffer[(2, 1)].style().fg, Some(Color::Rgb(85, 127, 255)));
     }
 
     #[test]
@@ -1437,7 +1437,10 @@ mod tests {
             .unwrap();
 
         let buffer = terminal.backend().buffer();
-        assert_eq!(buffer[(1, 1)].style().fg, Some(app.palette.accent));
+        // Premium UI overhaul: in the focused split, both the pane's own border and the
+        // shared split border glow with the animated focus gradient (spinner_tick=0 ->
+        // Rgb(85,127,255)) instead of accent/overlay0.
+        assert_eq!(buffer[(1, 1)].style().fg, Some(Color::Rgb(85, 127, 255)));
         assert_eq!(buffer[(2, 1)].style().fg, Some(app.palette.overlay0));
     }
 
