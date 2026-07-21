@@ -607,7 +607,6 @@ fn line_touches_pane(x: u16, y: u16, info: &PaneInfo, pane_gaps: bool) -> bool {
         || (x == shared_right && y == shared_bottom)
 }
 
-<<<<<<< HEAD
 /// Fleet Ops Bar — compact status line at bottom of each pane border.
 /// Shows agent | state | git branch | host when available.
 fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame: &mut Frame) {
@@ -681,7 +680,15 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
             AgentState::Unknown => app.palette.overlay0,
         };
 
+        let style = Style::default().fg(color);
+        let max_render = end_x.saturating_sub(start_x) as usize;
+        let truncated = truncate_end(&display, max_render);
+        buf.set_stringn(start_x, y, &truncated, max_render, style);
+    }
+}
+
 fn render_pane_border_titles(
+
     app: &AppState,
     ws: &crate::workspace::Workspace,
     pane_infos: &[PaneInfo],
