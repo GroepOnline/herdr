@@ -85,7 +85,11 @@ impl App {
             return;
         }
 
-        if let AppEvent::GithubStatusRefreshed { workspace_id, status } = ev {
+        if let AppEvent::GithubStatusRefreshed {
+            workspace_id,
+            status,
+        } = ev
+        {
             self.github_refresh_in_flight = false;
             if self.github_refresh_due_after_in_flight {
                 self.mark_github_status_refresh_due(std::time::Instant::now());
@@ -93,9 +97,15 @@ impl App {
             } else {
                 self.last_github_remote_status_refresh = std::time::Instant::now();
             }
-            if let Some(ws) = self.state.workspaces.iter_mut().find(|w| w.id == workspace_id) {
+            if let Some(ws) = self
+                .state
+                .workspaces
+                .iter_mut()
+                .find(|w| w.id == workspace_id)
+            {
                 ws.cached_github_status = Some(status);
-                self.render_dirty.store(true, std::sync::atomic::Ordering::Release);
+                self.render_dirty
+                    .store(true, std::sync::atomic::Ordering::Release);
                 self.render_notify.notify_one();
             }
             return;
