@@ -13,7 +13,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use redb::{Database, ReadableDatabase, ReadableTable, ReadableTableMetadata, TableDefinition, WriteTransaction};
+use redb::{
+    Database, ReadableDatabase, ReadableTable, ReadableTableMetadata, TableDefinition,
+    WriteTransaction,
+};
 
 use crate::config::Config;
 
@@ -25,7 +28,9 @@ struct Entry {
 }
 
 /// One row returned to callers.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub struct ClipboardEntry {
     pub seq: u64,
     pub timestamp: u64,
@@ -158,7 +163,10 @@ impl ClipboardHistory {
         };
         for item in iter.flatten() {
             let (k, v) = item;
-            match bincode::serde::decode_from_slice::<Entry, _>(v.value(), bincode::config::standard()) {
+            match bincode::serde::decode_from_slice::<Entry, _>(
+                v.value(),
+                bincode::config::standard(),
+            ) {
                 Ok((entry, _)) => rows.push(ClipboardEntry {
                     seq: k.value(),
                     timestamp: entry.ts,
@@ -240,7 +248,8 @@ mod tests {
     fn temp_db() -> ClipboardHistory {
         static TMP: AtomicU64 = AtomicU64::new(0);
         let n = TMP.fetch_add(1, Ordering::SeqCst);
-        let dir = std::env::temp_dir().join(format!("herdr-clip-test-{}-{}", std::process::id(), n));
+        let dir =
+            std::env::temp_dir().join(format!("herdr-clip-test-{}-{}", std::process::id(), n));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let db = Database::create(dir.join("clipboard.redb")).unwrap();
