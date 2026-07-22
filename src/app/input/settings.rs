@@ -563,7 +563,15 @@ impl AppState {
                         None
                     }
                     _ => {
-                        cancel_settings(self);
+                        // Inside chrome: no-op. Outside popup: dismiss (navigator pattern).
+                        let popup = self.settings_popup_rect();
+                        let inside = mouse.column >= popup.x
+                            && mouse.column < popup.x.saturating_add(popup.width)
+                            && mouse.row >= popup.y
+                            && mouse.row < popup.y.saturating_add(popup.height);
+                        if !inside {
+                            cancel_settings(self);
+                        }
                         None
                     }
                 }
@@ -741,6 +749,52 @@ mod tests {
         app.handle_mouse(mouse(MouseEventKind::Moved, area.x + 2, area.y + 2));
 
         assert_eq!(app.state.settings.list.selected, 0);
+    }
+
+    #[test]
+    fn settings_click_inside_chrome_does_not_cancel() {
+        let mut app = app_for_mouse_test();
+        let original_theme = app.state.theme_name.clone();
+        open_settings(&mut app.state);
+        crate::ui::compute_view(&mut app.state, ratatui::layout::Rect::new(0, 0, 106, 28));
+
+        let popup = app.state.settings_popup_rect();
+        // Title row inside the border — not a tab, list row, or button.
+        let chrome_col = popup.x + 2;
+        let chrome_row = popup.y + 1;
+        assert!(app.state.settings_tab_at(chrome_col, chrome_row).is_none());
+        assert!(app
+            .state
+            .settings_list_index_at(chrome_col, chrome_row)
+            .is_none());
+
+        let action = app.state.handle_settings_mouse(mouse(
+            MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            chrome_col,
+            chrome_row,
+        ));
+
+        assert_eq!(action, None);
+        assert_eq!(app.state.mode, Mode::Settings);
+        assert_eq!(app.state.theme_name, original_theme);
+    }
+
+    #[test]
+    fn settings_click_outside_popup_cancels() {
+        let mut app = app_for_mouse_test();
+        open_settings(&mut app.state);
+        crate::ui::compute_view(&mut app.state, ratatui::layout::Rect::new(0, 0, 106, 28));
+        let popup = app.state.settings_popup_rect();
+
+        let action = app.state.handle_settings_mouse(mouse(
+            MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            0,
+            0,
+        ));
+
+        assert_eq!(action, None);
+        assert_ne!(app.state.mode, Mode::Settings);
+        assert!(popup.width > 0);
     }
 
     #[test]
