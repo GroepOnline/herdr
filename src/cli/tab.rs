@@ -51,6 +51,7 @@ fn tab_list(args: &[String]) -> std::io::Result<i32> {
 }
 
 fn tab_create(args: &[String]) -> std::io::Result<i32> {
+    // TODO: wire `--argv` / `-- <command...>` for tab create CLI (API already supports `command`).
     let mut workspace_id = None;
     let mut cwd = None;
     let mut focus = false;

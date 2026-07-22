@@ -553,7 +553,9 @@ impl App {
         crate::logging::workspace_created(&workspace_id, root_pane);
         if focus || self.state.active.is_none() {
             self.state.switch_workspace(idx);
+            self.state.mode = Mode::Terminal;
         }
+        self.schedule_session_save();
         Ok(idx)
     }
 }

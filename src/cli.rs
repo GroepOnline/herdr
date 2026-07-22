@@ -10,6 +10,7 @@ use crate::api::schema::{
 
 mod agent;
 mod api;
+#[cfg(feature = "browser")]
 mod browser;
 mod completion;
 mod integration;
@@ -97,7 +98,13 @@ pub fn maybe_run(args: &[String]) -> std::io::Result<CommandOutcome> {
         "agent" => agent::run_agent_command(&args[2..])?,
         "terminal" => run_terminal_command(&args[2..])?,
         "pane" => pane::run_pane_command(&args[2..])?,
+        #[cfg(feature = "browser")]
         "browser" => browser::run_browser_command(&args[2..])?,
+        #[cfg(not(feature = "browser"))]
+        "browser" => {
+            eprintln!("herdr was built without the `browser` feature");
+            1
+        }
         "plugin" => plugin::run_plugin_command(&args[2..])?,
         "integration" => integration::run_integration_command(&args[2..])?,
         "session" => run_session_command(&args[2..])?,

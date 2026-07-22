@@ -39,6 +39,7 @@ fn workspace_list(args: &[String]) -> std::io::Result<i32> {
 }
 
 fn workspace_create(args: &[String]) -> std::io::Result<i32> {
+    // TODO: wire `--argv` / `-- <command...>` for workspace create CLI (API already supports `command`).
     let mut cwd = None;
     let mut focus = false;
     let mut label = None;
