@@ -4,7 +4,7 @@
     "beforeShellExecution": [
       {
         "command": ".cursor/hooks/deny-rust-builds.sh",
-        "matcher": "cargo|rustc|zig|just",
+        "matcher": "cargo|rustc|rustup|zig|just|rustfmt|clippy|cargo-nextest",
         "failClosed": true
       }
     ]

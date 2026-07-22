@@ -14,7 +14,8 @@ import sys
 deny_message = (
     "Local Rust/Zig builds are forbidden on this machine "
     "(cargo/rustc/zig saturate CPU). Do not run cargo, rustc, rustup, "
-    "cargo-nextest, clippy, zig build, or just test|check|lint|ci. "
+    "cargo-nextest, clippy, zig build, or just test|check|lint|ci|build|"
+    "fmt-check|windows-lint. "
     "Validate with GitHub Actions: `gh pr checks` and "
     "`gh run view <id> --log-failed`."
 )
@@ -33,13 +34,24 @@ except json.JSONDecodeError:
 
 command = data.get("command") or ""
 
+# Explicit allowlist for CI inspection / non-build tooling
+allow_patterns = [
+    r"(?:^|[\s;&|`($])gh\s+pr\s+checks(?:\s|$|[;&|)`])",
+    r"(?:^|[\s;&|`($])gh\s+run\s+view(?:\s|$|[;&|)`])",
+    r"(?:^|[\s;&|`($])gh\s+workflow\s+view(?:\s|$|[;&|)`])",
+]
+
+if any(re.search(p, command) for p in allow_patterns):
+    print(json.dumps({"permission": "allow"}))
+    raise SystemExit(0)
+
 patterns = [
-    # cargo / rustc / rustup / cargo-nextest / clippy as a command token
-    r"(?:^|[\s;&|`($])(?:sudo\s+)?(?:cargo|rustc|rustup|cargo-nextest|clippy)(?:\s|$|[;&|)`])",
+    # cargo / rustc / rustup / cargo-nextest / clippy / rustfmt as a command token
+    r"(?:^|[\s;&|`($])(?:sudo\s+)?(?:cargo|rustc|rustup|cargo-nextest|clippy|rustfmt)(?:\s|$|[;&|)`])",
     # zig build (not all zig invocations)
     r"(?:^|[\s;&|`($])(?:sudo\s+)?zig\s+build(?:\s|$|[;&|)`])",
-    # just recipes that compile/test Rust
-    r"(?:^|[\s;&|`($])(?:sudo\s+)?just\s+(?:test|check|lint|ci)(?:\s|$|[;&|)`])",
+    # just recipes that compile/test/lint Rust
+    r"(?:^|[\s;&|`($])(?:sudo\s+)?just\s+(?:test|check|lint|ci|build|fmt-check|windows-lint|build-libghostty-vt)(?:\s|$|[;&|)`])",
 ]
 
 if any(re.search(p, command) for p in patterns):

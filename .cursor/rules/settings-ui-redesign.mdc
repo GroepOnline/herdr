@@ -1,0 +1,14 @@
+---
+description: Bold Herdr settings modal redesign — render/input/state boundaries, section IA, shared layout hit-tests
+globs: src/ui/settings.rs,src/ui/settings/**/*.rs,src/app/input/settings.rs,src/app/state.rs,src/app/config_io.rs,docs/CHEF-SETTINGS-UI-DESIGN.md
+alwaysApply: false
+---
+
+# Settings UI redesign
+
+- **Render is pure:** `src/ui/settings*` only draws. Mutations stay in `src/app/input/settings.rs` / `App` save helpers.
+- **Shared layout:** geometry for mouse hit-tests must come from the same helpers used by render (no duplicated tab/list math).
+- **Reuse widgets:** `centered_popup_rect`, `modal_stack_areas`, `render_action_button`, `render_panel_shell` from `src/ui/widgets.rs`.
+- **Section IA:** Appearance, Layout, Input, Terminal, Notifications, Agents, Updates, Advanced.
+- **Persist:** config.toml via `src/app/config_io.rs` + `apply_config_from_disk`; do not invent server wire fields for TUI chrome.
+- **Tests without PTY:** `AppState::test_new()` characterization tests; do not run cargo/just locally — push and use `gh pr checks`.
