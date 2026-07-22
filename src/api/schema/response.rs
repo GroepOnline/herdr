@@ -246,6 +246,10 @@ pub enum ResponseResult {
         diagnostics: Vec<String>,
     },
     Ok {},
+    ClipboardHistory {
+        entries: Vec<crate::clipboard_history::ClipboardEntry>,
+    },
+    ClipboardCleared {},
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]

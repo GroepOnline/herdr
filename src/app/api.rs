@@ -61,6 +61,7 @@ impl App {
 
     pub(crate) fn handle_internal_event(&mut self, ev: AppEvent) {
         if let AppEvent::ClipboardWrite { content } = ev {
+            crate::clipboard_history::record_clipboard(&content);
             #[cfg(not(test))]
             crate::selection::write_osc52_bytes(&content);
             #[cfg(test)]
@@ -1135,6 +1136,20 @@ impl App {
             }
             Method::PluginPaneClose(params) => {
                 return self.handle_plugin_pane_close(request.id, params);
+            }
+            Method::ClipboardList(params) => {
+                let entries = crate::clipboard_history::recent_global(params.limit.max(1) as usize);
+                return responses::encode_success(
+                    request.id,
+                    crate::api::schema::ResponseResult::ClipboardHistory { entries },
+                );
+            }
+            Method::ClipboardClear(_) => {
+                crate::clipboard_history::clear_global();
+                return responses::encode_success(
+                    request.id,
+                    crate::api::schema::ResponseResult::ClipboardCleared {},
+                );
             }
             _ => {
                 return responses::encode_error(

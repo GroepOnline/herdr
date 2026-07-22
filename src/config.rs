@@ -7,6 +7,8 @@ mod sidebar;
 mod sound;
 mod theme;
 
+pub use model::ClipboardConfig;
+
 pub use self::{
     io::{
         config_diagnostic_summary, config_dir, config_path, load_live_config,

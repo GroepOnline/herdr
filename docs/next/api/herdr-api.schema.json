@@ -1667,6 +1667,19 @@
           ],
           "type": "object"
         },
+        "ClipboardListParams": {
+          "description": "Params for `clipboard.list`.",
+          "properties": {
+            "limit": {
+              "default": 100,
+              "description": "Maximum number of recent entries to return. Defaults to 100 when omitted.",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
         "EmptyParams": {
           "type": "object"
         },
@@ -5750,6 +5763,38 @@
             "params"
           ],
           "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "const": "clipboard.list",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/ClipboardListParams"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "const": "clipboard.clear",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/EmptyParams"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
         }
       ],
       "properties": {
@@ -6212,6 +6257,34 @@
             "no_foreground_client"
           ],
           "type": "string"
+        },
+        "ClipboardEntry": {
+          "description": "One row returned to callers.",
+          "properties": {
+            "seq": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "source": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "timestamp": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "seq",
+            "timestamp",
+            "source",
+            "text"
+          ],
+          "type": "object"
         },
         "ConfigReloadStatus": {
           "enum": [
@@ -9540,6 +9613,37 @@
               "properties": {
                 "type": {
                   "const": "ok",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "entries": {
+                  "items": {
+                    "$ref": "#/schemas/success_response/$defs/ClipboardEntry"
+                  },
+                  "type": "array"
+                },
+                "type": {
+                  "const": "clipboard_history",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "entries"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "type": {
+                  "const": "clipboard_cleared",
                   "type": "string"
                 }
               },

@@ -933,6 +933,28 @@ pub struct Config {
     pub advanced: AdvancedConfig,
     pub experimental: ExperimentalConfig,
     pub remote: RemoteConfig,
+    pub clipboard: ClipboardConfig,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[serde(default)]
+pub struct ClipboardConfig {
+    /// Persist clipboard writes to a local history (clipboard manager).
+    pub history_enabled: bool,
+    /// Maximum number of history entries retained.
+    pub max_entries: usize,
+    /// Maximum bytes stored per entry (longer clips are truncated).
+    pub max_bytes: usize,
+}
+
+impl Default for ClipboardConfig {
+    fn default() -> Self {
+        Self {
+            history_enabled: true,
+            max_entries: 1000,
+            max_bytes: 1_000_000,
+        }
+    }
 }
 
 #[derive(Debug)]
