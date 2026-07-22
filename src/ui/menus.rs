@@ -20,10 +20,16 @@ fn keybind_label(bindings: &crate::config::ActionKeybinds) -> String {
 }
 
 fn render_bottom_bar(frame: &mut Frame, area: Rect, line: Line<'_>, bg: ratatui::style::Color) {
+    // Full-width clear/fill so unused cells never keep terminal glyphs.
     frame.render_widget(Clear, area);
     let buf = frame.buffer_mut();
     for x in area.x..area.x + area.width {
-        buf[(x, area.y)].set_style(Style::default().bg(bg));
+        if x < buf.area.width && area.y < buf.area.height {
+            let cell = &mut buf[(x, area.y)];
+            cell.set_symbol(" ");
+            cell.set_bg(bg);
+            cell.set_style(Style::default().bg(bg).add_modifier(Modifier::DIM));
+        }
     }
     frame.render_widget(Paragraph::new(line), area);
 }
