@@ -290,6 +290,7 @@ impl App {
                         self.runtime_tab_create(
                             "tui.key.tab.create",
                             crate::api::schema::TabCreateParams {
+                                command: None,
                                 workspace_id: None,
                                 cwd: None,
                                 focus: true,
@@ -546,6 +547,7 @@ impl App {
         self.runtime_pane_split(
             "tui.pane.split",
             crate::api::schema::PaneSplitParams {
+                command: None,
                 workspace_id: None,
                 target_pane_id: None,
                 direction,

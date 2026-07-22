@@ -436,6 +436,8 @@ fn api_method_name(method: &Method) -> &'static str {
         Method::PluginPaneOpen(_) => "plugin.pane.open",
         Method::PluginPaneFocus(_) => "plugin.pane.focus",
         Method::PluginPaneClose(_) => "plugin.pane.close",
+        Method::ClipboardList(_) => "clipboard.list",
+        Method::ClipboardClear(_) => "clipboard.clear",
     }
 }
 

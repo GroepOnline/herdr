@@ -51,35 +51,48 @@ fn tab_list(args: &[String]) -> std::io::Result<i32> {
 }
 
 fn tab_create(args: &[String]) -> std::io::Result<i32> {
+    let params = match parse_tab_create_args(args) {
+        Ok(params) => params,
+        Err(message) => {
+            eprintln!("{message}");
+            return Ok(2);
+        }
+    };
+    super::runtime::tab_create(params)
+}
+
+fn parse_tab_create_args(args: &[String]) -> Result<TabCreateParams, String> {
+    let separator = args
+        .iter()
+        .position(|arg| arg == "--")
+        .unwrap_or(args.len());
     let mut workspace_id = None;
     let mut cwd = None;
     let mut focus = false;
     let mut label = None;
     let mut env = HashMap::new();
+    let mut command = None;
 
     let mut index = 0;
-    while index < args.len() {
+    while index < separator {
         match args[index].as_str() {
             "--workspace" => {
                 let Some(value) = args.get(index + 1) else {
-                    eprintln!("missing value for --workspace");
-                    return Ok(2);
+                    return Err("missing value for --workspace".into());
                 };
                 workspace_id = Some(super::normalize_workspace_id(value));
                 index += 2;
             }
             "--cwd" => {
                 let Some(value) = args.get(index + 1) else {
-                    eprintln!("missing value for --cwd");
-                    return Ok(2);
+                    return Err("missing value for --cwd".into());
                 };
                 cwd = Some(value.clone());
                 index += 2;
             }
             "--label" => {
                 let Some(value) = args.get(index + 1) else {
-                    eprintln!("missing value for --label");
-                    return Ok(2);
+                    return Err("missing value for --label".into());
                 };
                 label = Some(value.clone());
                 index += 2;
@@ -94,33 +107,68 @@ fn tab_create(args: &[String]) -> std::io::Result<i32> {
             }
             "--env" => {
                 let Some(value) = args.get(index + 1) else {
-                    eprintln!("missing value for --env");
-                    return Ok(2);
+                    return Err("missing value for --env".into());
                 };
-                let (key, value) = match super::parse_env_assignment(value) {
-                    Ok(pair) => pair,
-                    Err(err) => {
-                        eprintln!("{err}");
-                        return Ok(2);
-                    }
-                };
+                let (key, value) = super::parse_env_assignment(value)?;
                 env.insert(key, value);
                 index += 2;
             }
-            other => {
-                eprintln!("unknown option: {other}");
-                return Ok(2);
+            "--argv" | "--command" => {
+                if command.is_some() {
+                    return Err("command specified more than once".into());
+                }
+                let mut argv = Vec::new();
+                index += 1;
+                while index < separator {
+                    let arg = &args[index];
+                    if arg.starts_with("--") && is_tab_create_option(arg) {
+                        break;
+                    }
+                    argv.push(arg.clone());
+                    index += 1;
+                }
+                if argv.is_empty() {
+                    return Err("missing value for --argv".into());
+                }
+                command = Some(argv);
             }
+            other => return Err(format!("unknown option: {other}")),
         }
     }
 
-    super::runtime::tab_create(TabCreateParams {
+    if separator < args.len() {
+        if command.is_some() {
+            return Err("cannot combine --argv with '--' command separator".into());
+        }
+        let cmd = args[separator + 1..].to_vec();
+        if cmd.is_empty() {
+            return Err("missing command after --".into());
+        }
+        command = Some(cmd);
+    }
+
+    Ok(TabCreateParams {
+        command,
         workspace_id,
         cwd,
         focus,
         label,
         env,
     })
+}
+
+fn is_tab_create_option(arg: &str) -> bool {
+    matches!(
+        arg,
+        "--workspace"
+            | "--cwd"
+            | "--label"
+            | "--focus"
+            | "--no-focus"
+            | "--env"
+            | "--argv"
+            | "--command"
+    )
 }
 
 fn tab_get(args: &[String]) -> std::io::Result<i32> {
@@ -178,10 +226,48 @@ fn print_tab_help() {
     eprintln!("herdr tab commands:");
     eprintln!("  herdr tab list [--workspace <workspace_id>]");
     eprintln!(
-        "  herdr tab create [--workspace <workspace_id>] [--cwd PATH] [--label TEXT] [--env KEY=VALUE] [--focus] [--no-focus]"
+        "  herdr tab create [--workspace <workspace_id>] [--cwd PATH] [--label TEXT] [--env KEY=VALUE] [--argv COMMAND...|-- <command...>] [--focus] [--no-focus]"
     );
     eprintln!("  herdr tab get <tab_id>");
     eprintln!("  herdr tab focus <tab_id>");
     eprintln!("  herdr tab rename <tab_id> <label>");
     eprintln!("  herdr tab close <tab_id>");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_string()).collect()
+    }
+
+    #[test]
+    fn parse_tab_create_args_argv_does_not_swallow_later_flags() {
+        let params = parse_tab_create_args(&args(&[
+            "--argv", "bash", "-lc", "echo hi", "--cwd", "/tmp",
+        ]))
+        .unwrap();
+
+        assert_eq!(
+            params.command,
+            Some(vec!["bash".into(), "-lc".into(), "echo hi".into()])
+        );
+        assert_eq!(params.cwd, Some("/tmp".into()));
+    }
+
+    #[test]
+    fn parse_tab_create_args_accepts_command_after_separator() {
+        let params =
+            parse_tab_create_args(&args(&["--label", "run", "--", "cargo", "test"])).unwrap();
+
+        assert_eq!(params.command, Some(vec!["cargo".into(), "test".into()]));
+        assert_eq!(params.label, Some("run".into()));
+    }
+
+    #[test]
+    fn parse_tab_create_args_rejects_combining_argv_and_separator() {
+        let err = parse_tab_create_args(&args(&["--argv", "bash", "--", "zsh"])).unwrap_err();
+        assert!(err.contains("cannot combine"));
+    }
 }

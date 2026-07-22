@@ -466,14 +466,18 @@ fn render_pane_borders(
         let focused = pane_infos
             .iter()
             .any(|info| info.is_focused && line_touches_pane(x, y, info, app.pane_gaps));
-        let symbol = line_cell_symbol(line);
+        let symbol = line_cell_symbol(line, focused);
         if symbol.is_empty() {
             continue;
         }
         let cell = &mut buf[(x, y)];
         cell.set_symbol(symbol);
         let color = if focused {
-            app.palette.accent
+            let t = (app.spinner_tick as f32 * 0.05).sin() * 0.5 + 0.5;
+            let r = (0.0 * (1. - t) + 170.0 * t) as u8;
+            let g = (255.0 * (1. - t) + 0.0 * t) as u8;
+            let b = (255.0 * (1. - t) + 255.0 * t) as u8;
+            Color::Rgb(r, g, b)
         } else {
             app.palette.overlay0
         };
@@ -607,10 +611,10 @@ fn line_touches_pane(x: u16, y: u16, info: &PaneInfo, pane_gaps: bool) -> bool {
 }
 
 /// Fleet Ops Bar — compact status line at bottom of each pane border.
-/// Shows agent | state | git branch | host when available.
+/// Shows agent | state | git | PR/issue | model | host | resume when available.
 fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame: &mut Frame) {
     use crate::detect::AgentState;
-    use crate::fleet::FleetOpsMetadata;
+    use crate::fleet::{FleetOpsBarKind, FleetOpsMetadata};
 
     let buf = frame.buffer_mut();
     let area = buf.area;
@@ -641,16 +645,46 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
         };
 
         let meta = FleetOpsMetadata::from_terminal(term, host_str.unwrap_or("local"));
-        let bar_text = meta.render_bar(agent_name, state, label);
+        let parts = meta.bar_parts(agent_name, state, label);
 
-        // Truncate to pane width - 2 (borders), by display width so multibyte
-        // (e.g. CJK) glyphs are never sliced on a non-char boundary.
-        let max_len = (info.rect.width.saturating_sub(2)) as usize;
-        let display = truncate_end(&bar_text, max_len);
+        let state_bg = match state {
+            AgentState::Blocked => app.palette.red,
+            AgentState::Working => app.palette.accent,
+            AgentState::Idle => app.palette.overlay0,
+            AgentState::Unknown => app.palette.overlay0,
+        };
 
-        if display.is_empty() {
-            continue;
+        let mut spans = Vec::with_capacity(parts.len());
+        for part in parts {
+            let style = match part.kind {
+                FleetOpsBarKind::Name => Style::default()
+                    .bg(app.palette.accent)
+                    .fg(panel_contrast_fg(&app.palette))
+                    .add_modifier(Modifier::BOLD),
+                FleetOpsBarKind::State => Style::default()
+                    .bg(state_bg)
+                    .fg(panel_contrast_fg(&app.palette))
+                    .add_modifier(Modifier::BOLD),
+                FleetOpsBarKind::Git | FleetOpsBarKind::Linear | FleetOpsBarKind::Pr => {
+                    Style::default()
+                        .bg(app.palette.surface1)
+                        .fg(app.palette.text)
+                }
+                FleetOpsBarKind::Model => Style::default()
+                    .bg(app.palette.surface0)
+                    .fg(app.palette.text),
+                FleetOpsBarKind::Host | FleetOpsBarKind::Elapsed | FleetOpsBarKind::Retry => {
+                    Style::default().fg(app.palette.overlay0)
+                }
+                FleetOpsBarKind::Resume => Style::default()
+                    .bg(app.palette.green)
+                    .fg(panel_contrast_fg(&app.palette))
+                    .add_modifier(Modifier::BOLD),
+            };
+            spans.push(Span::styled(format!(" {} ", part.text), style));
         }
+
+        let line = Line::from(spans);
 
         let y = info
             .rect
@@ -672,18 +706,49 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
             continue;
         }
 
-        let color = match state {
-            AgentState::Blocked => app.palette.red,
-            AgentState::Working => app.palette.accent,
-            AgentState::Idle => app.palette.overlay0,
-            AgentState::Unknown => app.palette.overlay0,
-        };
-
-        let style = Style::default().fg(color);
-        let max_render = end_x.saturating_sub(start_x) as usize;
-        let truncated = truncate_end(&display, max_render);
-        buf.set_stringn(start_x, y, &truncated, max_render, style);
+        let max_render = end_x.saturating_sub(start_x);
+        let line_width = line.width() as u16;
+        let render_width = line_width.min(max_render);
+        let bar_area = Rect::new(start_x, y, render_width, 1);
+        frame.render_widget(Paragraph::new(line), bar_area);
     }
+}
+
+fn animated_gradient_border_title(title: &str, tick: u32) -> Line<'static> {
+    let t = (tick as f32 * 0.05).sin() * 0.5 + 0.5; // pulses 0.0 to 1.0
+
+    // Cyberpunk Neon Cyan to Neon Purple
+    let c1 = (0, 255, 255);
+    let c2 = (170, 0, 255);
+
+    let r1 = (c1.0 as f32 * t + c2.0 as f32 * (1. - t)) as u8;
+    let g1 = (c1.1 as f32 * t + c2.1 as f32 * (1. - t)) as u8;
+    let b1 = (c1.2 as f32 * t + c2.2 as f32 * (1. - t)) as u8;
+
+    let r2 = (c2.0 as f32 * t + c1.0 as f32 * (1. - t)) as u8;
+    let g2 = (c2.1 as f32 * t + c1.1 as f32 * (1. - t)) as u8;
+    let b2 = (c2.2 as f32 * t + c1.2 as f32 * (1. - t)) as u8;
+
+    let chars: Vec<char> = title.chars().collect();
+    let len = chars.len();
+    let mut spans = Vec::with_capacity(len);
+    for (i, c) in chars.into_iter().enumerate() {
+        let pct = if len > 1 {
+            i as f32 / (len - 1) as f32
+        } else {
+            0.5
+        };
+        let r = (r1 as f32 * (1. - pct) + r2 as f32 * pct) as u8;
+        let g = (g1 as f32 * (1. - pct) + g2 as f32 * pct) as u8;
+        let b = (b1 as f32 * (1. - pct) + b2 as f32 * pct) as u8;
+        spans.push(Span::styled(
+            c.to_string(),
+            Style::default()
+                .fg(Color::Rgb(r, g, b))
+                .add_modifier(Modifier::BOLD),
+        ));
+    }
+    Line::from(spans)
 }
 
 fn render_pane_border_titles(
@@ -692,8 +757,7 @@ fn render_pane_border_titles(
     pane_infos: &[PaneInfo],
     frame: &mut Frame,
 ) {
-    let buf = frame.buffer_mut();
-    let area = buf.area;
+    let area = frame.area();
     for info in pane_infos {
         if !info.borders.contains(Borders::TOP) || info.rect.width <= 4 {
             continue;
@@ -720,44 +784,67 @@ fn render_pane_border_titles(
         if start_x >= end_x {
             continue;
         }
-        let color = if info.is_focused {
-            app.palette.accent
-        } else {
-            app.palette.overlay0
-        };
-        let mut style = Style::default().fg(color);
-        if info.is_focused {
-            style = style.add_modifier(Modifier::BOLD);
-        }
+
         let max_len = end_x.saturating_sub(start_x) as usize;
-        for dx in 0..max_len {
-            let x = start_x + dx as u16;
-            if x < area.x + area.width {
-                buf[(x, y)].set_style(Style::default());
+
+        if info.is_focused {
+            let line = animated_gradient_border_title(&title, app.spinner_tick);
+            let bar_area = Rect::new(start_x, y, max_len as u16, 1);
+            frame.render_widget(Paragraph::new(line), bar_area);
+        } else {
+            let buf = frame.buffer_mut();
+            let color = app.palette.overlay0;
+            let style = Style::default().fg(color);
+            for dx in 0..max_len {
+                let x = start_x + dx as u16;
+                if x < area.x + area.width {
+                    buf[(x, y)].set_style(Style::default());
+                }
             }
+            buf.set_stringn(start_x, y, title, max_len, style);
         }
-        buf.set_stringn(start_x, y, title, max_len, style);
     }
 }
 
-fn line_cell_symbol(line: LineCell) -> &'static str {
-    match (line.up, line.down, line.left, line.right) {
-        (true, true, true, true) => "┼",
-        (true, true, true, false) => "┤",
-        (true, true, false, true) => "├",
-        (true, false, true, true) => "┴",
-        (false, true, true, true) => "┬",
-        (true, true, false, false) | (true, false, false, false) | (false, true, false, false) => {
-            "│"
+fn line_cell_symbol(line: LineCell, focused: bool) -> &'static str {
+    if focused {
+        match (line.up, line.down, line.left, line.right) {
+            (true, true, true, true) => "╋",
+            (true, true, true, false) => "┫",
+            (true, true, false, true) => "┣",
+            (true, false, true, true) => "┻",
+            (false, true, true, true) => "┳",
+            (true, true, false, false)
+            | (true, false, false, false)
+            | (false, true, false, false) => "┃",
+            (false, false, true, true)
+            | (false, false, true, false)
+            | (false, false, false, true) => "━",
+            (false, true, false, true) => "┏",
+            (false, true, true, false) => "┓",
+            (true, false, false, true) => "┗",
+            (true, false, true, false) => "┛",
+            _ => "",
         }
-        (false, false, true, true) | (false, false, true, false) | (false, false, false, true) => {
-            "─"
+    } else {
+        match (line.up, line.down, line.left, line.right) {
+            (true, true, true, true) => "┼",
+            (true, true, true, false) => "┤",
+            (true, true, false, true) => "├",
+            (true, false, true, true) => "┴",
+            (false, true, true, true) => "┬",
+            (true, true, false, false)
+            | (true, false, false, false)
+            | (false, true, false, false) => "│",
+            (false, false, true, true)
+            | (false, false, true, false)
+            | (false, false, false, true) => "─",
+            (false, true, false, true) => "┌",
+            (false, true, true, false) => "┐",
+            (true, false, false, true) => "└",
+            (true, false, true, false) => "┘",
+            _ => "",
         }
-        (false, true, false, true) => "┌",
-        (false, true, true, false) => "┐",
-        (true, false, false, true) => "└",
-        (true, false, true, false) => "┘",
-        _ => "",
     }
 }
 
@@ -1281,10 +1368,10 @@ mod tests {
             .unwrap();
 
         let buffer = terminal.backend().buffer();
-        assert_eq!(buffer[(2, 2)].symbol(), "┼");
-        assert_eq!(buffer[(2, 2)].style().fg, Some(app.palette.accent));
-        assert_eq!(buffer[(2, 1)].symbol(), "│");
-        assert_eq!(buffer[(2, 1)].style().fg, Some(app.palette.accent));
+        assert_eq!(buffer[(2, 2)].symbol(), "╋");
+        assert_eq!(buffer[(2, 2)].style().fg, Some(Color::Rgb(85, 127, 255)));
+        assert_eq!(buffer[(2, 1)].symbol(), "┃");
+        assert_eq!(buffer[(2, 1)].style().fg, Some(Color::Rgb(85, 127, 255)));
     }
 
     #[test]
@@ -1320,7 +1407,10 @@ mod tests {
             .unwrap();
 
         let buffer = terminal.backend().buffer();
-        assert_eq!(buffer[(1, 1)].style().fg, Some(app.palette.accent));
+        // Premium UI overhaul: in the focused split, both the pane's own border and the
+        // shared split border glow with the animated focus gradient (spinner_tick=0 ->
+        // Rgb(85,127,255)) instead of accent/overlay0.
+        assert_eq!(buffer[(1, 1)].style().fg, Some(Color::Rgb(85, 127, 255)));
         assert_eq!(buffer[(2, 1)].style().fg, Some(app.palette.overlay0));
     }
 

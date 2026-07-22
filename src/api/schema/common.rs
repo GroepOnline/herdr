@@ -25,6 +25,18 @@ pub(super) fn metadata_token_values_schema(
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema, Default)]
 pub struct EmptyParams {}
 
+/// Params for `clipboard.list`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct ClipboardListParams {
+    /// Maximum number of recent entries to return. Defaults to 100 when omitted.
+    #[serde(default = "default_clipboard_limit")]
+    pub limit: u32,
+}
+
+fn default_clipboard_limit() -> u32 {
+    100
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct WorkspaceTarget {
     pub workspace_id: String,

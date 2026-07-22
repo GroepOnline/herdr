@@ -8,6 +8,11 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.product_config import PRODUCT_GITHUB_REPO as DEFAULT_RELEASE_REPO
+except ModuleNotFoundError:
+    from product_config import PRODUCT_GITHUB_REPO as DEFAULT_RELEASE_REPO
+
 ASSET_TARGETS = ("linux-x86_64",)
 EXPECTED_ASSET_NAMES = {target: f"herdr-{target}" for target in ASSET_TARGETS}
 HIDDEN_SUBJECTS = (
@@ -286,13 +291,13 @@ def main() -> int:
     notes.add_argument("--commit", required=True)
     notes.add_argument("--build-id", required=True)
     notes.add_argument("--base-version", required=True)
-    notes.add_argument("--repo", default="ogulcancelik/herdr")
+    notes.add_argument("--repo", default=DEFAULT_RELEASE_REPO)
     notes.add_argument("--output", required=True)
     notes.set_defaults(func=cmd_notes)
 
     manifest = sub.add_parser("manifest")
     manifest.add_argument("--output", default="website/preview.json")
-    manifest.add_argument("--repo", default="ogulcancelik/herdr")
+    manifest.add_argument("--repo", default=DEFAULT_RELEASE_REPO)
     manifest.add_argument("--tag", required=True)
     manifest.add_argument("--build-id", required=True)
     manifest.add_argument("--commit", required=True)

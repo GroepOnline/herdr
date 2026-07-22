@@ -79,6 +79,20 @@ async fn get_agents(State(state): State<SharedState>) -> Json<Value> {
     Json(data.unwrap_or_else(|e| json!({"error": e})))
 }
 
+async fn get_clipboard(State(state): State<SharedState>) -> Json<Value> {
+    let s = state.read().await;
+    let req = json!({"id": next_id(), "method": "clipboard.list", "params": {"limit": 100}});
+    let data = socket_request(&s.socket_path, &req).await;
+    Json(data.unwrap_or_else(|e| json!({"error": e})))
+}
+
+async fn clear_clipboard(State(state): State<SharedState>) -> Json<Value> {
+    let s = state.read().await;
+    let req = json!({"id": next_id(), "method": "clipboard.clear", "params": {}});
+    let data = socket_request(&s.socket_path, &req).await;
+    Json(data.unwrap_or_else(|e| json!({"error": e})))
+}
+
 async fn get_session(State(state): State<SharedState>) -> Json<Value> {
     let s = state.read().await;
     let req = json!({"id": next_id(), "method": "session.snapshot", "params": {}});
@@ -183,6 +197,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/session", get(get_session))
         .route("/v1/workspaces", get(get_workspaces))
         .route("/v1/agents", get(get_agents))
+        .route("/v1/clipboard", get(get_clipboard).delete(clear_clipboard))
         .route("/v1/events", get(sse_events))
         .with_state(state);
 

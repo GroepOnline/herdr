@@ -62,6 +62,7 @@ mod build_info;
 mod checksum;
 mod cli;
 mod client;
+mod clipboard_history;
 mod config;
 mod detect;
 mod events;
@@ -78,6 +79,7 @@ mod logging;
 mod metadata_tokens;
 mod noninteractive_process;
 mod pane;
+mod pane_template;
 mod persist;
 mod platform;
 mod plugin_command;
@@ -726,6 +728,8 @@ fn main() -> io::Result<()> {
 
     // --- Monolithic mode (--no-session escape hatch) ---
     // This is the pre-mission single-process behavior.
+
+    clipboard_history::init(&loaded_config.config);
 
     init_logging();
 

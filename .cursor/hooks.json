@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": ".cursor/hooks/deny-rust-builds.sh",
+        "matcher": "cargo|rustc|zig|just",
+        "failClosed": true
+      }
+    ]
+  }
+}

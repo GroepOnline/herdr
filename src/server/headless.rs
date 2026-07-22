@@ -869,6 +869,7 @@ impl HeadlessServer {
         self.dispatch_headless_runtime_mutation(
             id,
             api::schema::Method::WorkspaceCreate(api::schema::WorkspaceCreateParams {
+                command: None,
                 cwd,
                 focus: true,
                 label,
@@ -885,6 +886,7 @@ impl HeadlessServer {
         self.dispatch_headless_runtime_mutation(
             id,
             api::schema::Method::TabCreate(api::schema::TabCreateParams {
+                command: None,
                 workspace_id: None,
                 cwd: None,
                 focus: true,
@@ -2006,6 +2008,7 @@ impl HeadlessServer {
             AppEvent::ClipboardWrite { content } => {
                 // Clipboard writes are client-local side effects. Forward them only to
                 // the foreground client instead of broadcasting to every attached client.
+                crate::clipboard_history::record_clipboard(content.as_slice());
                 let data = base64::engine::general_purpose::STANDARD.encode(content.as_slice());
                 if self.send_to_foreground_client(ServerMessage::Clipboard { data }) {
                     self.app.show_clipboard_feedback();
@@ -4202,6 +4205,7 @@ pub fn run_server() -> io::Result<()> {
     }
 
     let loaded_config = config::Config::load();
+    crate::clipboard_history::init(&loaded_config.config);
     let (api_tx, api_rx) = tokio::sync::mpsc::unbounded_channel();
     let event_hub = api::EventHub::default();
 
@@ -4956,8 +4960,8 @@ next_tab = ""
             writer,
         }));
         server.app.state.mode = crate::app::Mode::Settings;
-        server.app.state.settings.section = crate::app::state::SettingsSection::Toast;
-        server.app.state.settings.list.selected = 1;
+        server.app.state.settings.section = crate::app::state::SettingsSection::Sound;
+        server.app.state.settings.list.selected = 2;
 
         assert!(server.handle_server_event(ServerEvent::ClientInput {
             client_id: 1,
@@ -5031,8 +5035,8 @@ next_tab = ""
             writer: writer_a,
         }));
         server.app.state.mode = crate::app::Mode::Settings;
-        server.app.state.settings.section = crate::app::state::SettingsSection::Toast;
-        server.app.state.settings.list.selected = 1;
+        server.app.state.settings.section = crate::app::state::SettingsSection::Sound;
+        server.app.state.settings.list.selected = 2;
 
         assert!(server.handle_server_event(ServerEvent::ClientInput {
             client_id: 1,

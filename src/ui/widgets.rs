@@ -18,13 +18,30 @@ pub(super) fn render_panel_shell(
         return None;
     }
 
+    // Own the panel area so underlying terminal glyphs cannot bleed through.
+    // Drop shadows are omitted: painting outside the panel corrupts adjacent chrome.
+    frame.render_widget(Clear, area);
+
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(border_color))
         .border_set(ratatui::symbols::border::PLAIN)
         .style(Style::default().bg(bg));
     let inner = block.inner(area);
-    frame.render_widget(Clear, area);
+
+    // Frosted but opaque interior: space-fill + palette panel_bg (+ light dim).
+    let buf = frame.buffer_mut();
+    for y in inner.y..inner.y.saturating_add(inner.height) {
+        for x in inner.x..inner.x.saturating_add(inner.width) {
+            if x < buf.area.width && y < buf.area.height {
+                let cell = &mut buf[(x, y)];
+                cell.set_symbol(" ");
+                cell.set_bg(bg);
+                cell.set_style(cell.style().add_modifier(Modifier::DIM));
+            }
+        }
+    }
+
     frame.render_widget(block, area);
     Some(inner)
 }
@@ -185,6 +202,7 @@ pub(crate) fn render_modal_description(frame: &mut Frame, area: Rect, text: &str
     );
 }
 
+#[allow(dead_code)]
 pub(crate) fn modal_choice_rows(area: Rect, count: usize, row_height: u16) -> Vec<Rect> {
     let mut rows = Vec::with_capacity(count);
     let mut y = area.y;
@@ -200,6 +218,7 @@ pub(crate) fn modal_choice_rows(area: Rect, count: usize, row_height: u16) -> Ve
     rows
 }
 
+#[allow(dead_code)]
 pub(crate) fn render_modal_choice_list<T>(
     frame: &mut Frame,
     area: Rect,

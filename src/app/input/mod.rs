@@ -325,6 +325,11 @@ impl App {
                         SettingsAction::SaveAgentBorderLabels(enabled) => {
                             self.save_agent_border_labels(enabled)
                         }
+                        SettingsAction::SavePaneBorders(enabled) => self.save_pane_borders(enabled),
+                        SettingsAction::SavePaneGaps(enabled) => self.save_pane_gaps(enabled),
+                        SettingsAction::SaveHideTabBarWhenSingleTab(enabled) => {
+                            self.save_hide_tab_bar_when_single_tab(enabled)
+                        }
                         SettingsAction::SavePaneHistory(enabled) => {
                             self.save_pane_history_persistence(enabled)
                         }
@@ -332,6 +337,9 @@ impl App {
                             self.save_switch_ascii_input_source_in_prefix(enabled)
                         }
                         SettingsAction::SaveSpinnerStyle(style) => self.save_spinner_style(style),
+                        SettingsAction::ApplyPaneTemplate(template) => {
+                            self.apply_pane_template(template)
+                        }
                         SettingsAction::InstallRecommendedIntegrations => {
                             self.install_recommended_integrations()
                         }

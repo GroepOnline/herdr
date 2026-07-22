@@ -8,6 +8,7 @@ from pathlib import Path
 
 import scripts.conventional_commits as conventional_commits
 import scripts.preview as preview
+from scripts.product_config import PRODUCT_GITHUB_REPO
 
 
 class PreviewNotesTests(unittest.TestCase):
@@ -31,7 +32,7 @@ class PreviewNotesTests(unittest.TestCase):
             notes = "Preview notes\n"
             content = preview.build_manifest(
                 output=output,
-                repo="ogulcancelik/herdr",
+                repo=PRODUCT_GITHUB_REPO,
                 tag="preview-2026-06-02-abcdef123456",
                 build_id="2026-06-02-abcdef123456",
                 commit="abcdef1234567890",
@@ -51,7 +52,7 @@ class PreviewNotesTests(unittest.TestCase):
             )
             self.assertEqual(
                 data["assets"]["linux-x86_64"]["url"],
-                "https://github.com/ogulcancelik/herdr/releases/download/preview-2026-06-02-abcdef123456/herdr-linux-x86_64",
+                f"https://github.com/{PRODUCT_GITHUB_REPO}/releases/download/preview-2026-06-02-abcdef123456/herdr-linux-x86_64",
             )
             self.assertEqual(set(data["assets"]), {"linux-x86_64"})
             self.assertIn("2026-06-02-abcdef123456", data["builds"])

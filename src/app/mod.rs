@@ -659,6 +659,7 @@ impl App {
                 list: state::SelectionListState::new(0),
                 original_palette: None,
                 original_theme: None,
+                preview_tick: 0,
             },
             integration_recommendations: crate::integration::integration_recommendations(),
             agent_manifest_summaries,
@@ -945,6 +946,7 @@ impl App {
                 self.runtime_workspace_create(
                     "tui.workspace.create",
                     crate::api::schema::WorkspaceCreateParams {
+                        command: None,
                         cwd: None,
                         focus: true,
                         label: None,
@@ -960,6 +962,7 @@ impl App {
                 self.runtime_tab_create(
                     "tui.tab.create",
                     crate::api::schema::TabCreateParams {
+                        command: None,
                         workspace_id: None,
                         cwd: None,
                         focus: true,
@@ -984,6 +987,7 @@ impl App {
                 self.runtime_workspace_create(
                     "tui.workspace.create_cwd",
                     crate::api::schema::WorkspaceCreateParams {
+                        command: None,
                         cwd: Some(cwd.display().to_string()),
                         focus: true,
                         label: None,
@@ -4157,6 +4161,7 @@ mod tests {
         let response = app.handle_api_request(crate::api::schema::Request {
             id: "req_pane_split_background_tab".into(),
             method: crate::api::schema::Method::PaneSplit(crate::api::schema::PaneSplitParams {
+                command: None,
                 workspace_id: None,
                 target_pane_id: Some(target_pane_id),
                 direction: crate::api::schema::SplitDirection::Right,
@@ -4237,6 +4242,7 @@ mod tests {
         let response = app.handle_api_request(crate::api::schema::Request {
             id: "req_pane_split_focus_background_tab".into(),
             method: crate::api::schema::Method::PaneSplit(crate::api::schema::PaneSplitParams {
+                command: None,
                 workspace_id: None,
                 target_pane_id: Some(target_pane_id),
                 direction: crate::api::schema::SplitDirection::Right,
@@ -4283,6 +4289,7 @@ mod tests {
         let response = app.handle_api_request(crate::api::schema::Request {
             id: "req_pane_split_ratio".into(),
             method: crate::api::schema::Method::PaneSplit(crate::api::schema::PaneSplitParams {
+                command: None,
                 workspace_id: None,
                 target_pane_id: Some(target_pane_id),
                 direction: crate::api::schema::SplitDirection::Right,
@@ -4329,6 +4336,7 @@ mod tests {
         let response = app.handle_api_request(crate::api::schema::Request {
             id: "req_pane_split_current".into(),
             method: crate::api::schema::Method::PaneSplit(crate::api::schema::PaneSplitParams {
+                command: None,
                 workspace_id: None,
                 target_pane_id: None,
                 direction: crate::api::schema::SplitDirection::Right,
