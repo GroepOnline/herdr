@@ -547,132 +547,58 @@ impl App {
             return;
         }
 
+        // Opt-in: never hit api.github.com without credentials (avoids unauth spam/rate limits).
+        let Some(token) = crate::github::load_github_token() else {
+            self.last_github_remote_status_refresh = now;
+            return;
+        };
+
         self.github_refresh_in_flight = true;
         let event_tx = self.event_tx.clone();
         tokio::spawn(async move {
-            let client = reqwest::Client::new();
+            // Always emit one batch completion event so in_flight clears, including panic paths.
+            let mut completion = GithubRefreshCompletion {
+                event_tx,
+                results: Vec::new(),
+                disarmed: false,
+            };
 
-            let token = std::env::var("HOME")
-                .ok()
-                .and_then(|home| {
-                    let hosts_path = std::path::Path::new(&home).join(".config/gh/hosts.yml");
-                    let content = std::fs::read_to_string(hosts_path).ok()?;
-                    for line in content.lines() {
-                        let line = line.trim();
-                        if line.starts_with("oauth_token:") {
-                            return Some(
-                                line.trim_start_matches("oauth_token:").trim().to_string(),
-                            );
-                        }
-                    }
-                    None
-                })
-                .unwrap_or_default();
+            let client = match reqwest::Client::builder()
+                .user_agent("herdr-agent")
+                .build()
+            {
+                Ok(client) => client,
+                Err(err) => {
+                    tracing::warn!(error = %err, "failed to build github http client");
+                    return;
+                }
+            };
 
             for ws in workspaces {
-                let mut pr_count = 0;
-                let mut issue_count = 0;
+                let Some((owner, repo_name)) =
+                    crate::github::discover_github_owner_repo(&ws.resolved_identity_cwd)
+                else {
+                    continue;
+                };
 
-                let mut repo = None;
-                let mut root = ws.resolved_identity_cwd.clone();
-                let mut found_config = None;
-                while let Some(parent) = root.parent() {
-                    let config_path = root.join(".git/config");
-                    if config_path.exists() {
-                        found_config = Some(config_path);
-                        break;
-                    }
-                    if root == parent {
-                        break;
-                    }
-                    root = parent.to_path_buf();
-                }
-
-                if let Some(config_path) = found_config {
-                    if let Ok(content) = std::fs::read_to_string(config_path) {
-                        let mut in_origin = false;
-                        for line in content.lines() {
-                            let line = line.trim();
-                            if line == "[remote \"origin\"]" {
-                                in_origin = true;
-                            } else if line.starts_with("[") {
-                                in_origin = false;
-                            } else if in_origin && line.starts_with("url = ") {
-                                let url =
-                                    line.trim_start_matches("url = ").trim_end_matches(".git");
-                                let parts: Vec<&str> = if url.contains("github.com:") {
-                                    url.split("github.com:").collect()
-                                } else if url.contains("github.com/") {
-                                    url.split("github.com/").collect()
-                                } else {
-                                    vec![]
-                                };
-                                if parts.len() == 2 {
-                                    let path_parts: Vec<&str> = parts[1].split("/").collect();
-                                    if path_parts.len() >= 2 {
-                                        repo = Some((
-                                            path_parts[0].to_string(),
-                                            path_parts[1].to_string(),
-                                        ));
-                                    }
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if let Some((owner, repo_name)) = repo {
-                    let mut pr_req = client
-                        .get(format!(
-                            "https://api.github.com/repos/{}/{}/pulls?state=open",
-                            owner, repo_name
-                        ))
-                        .header("User-Agent", "herdr-agent");
-                    if !token.is_empty() {
-                        pr_req = pr_req.header("Authorization", format!("Bearer {}", token));
-                    }
-                    if let Ok(resp) = pr_req.send().await {
-                        if let Ok(v) = resp.json::<serde_json::Value>().await {
-                            if let Some(arr) = v.as_array() {
-                                pr_count = arr.len();
-                            }
-                        }
-                    }
-
-                    let mut issue_req = client
-                        .get(format!(
-                            "https://api.github.com/repos/{}/{}/issues?state=open",
-                            owner, repo_name
-                        ))
-                        .header("User-Agent", "herdr-agent");
-                    if !token.is_empty() {
-                        issue_req = issue_req.header("Authorization", format!("Bearer {}", token));
-                    }
-                    if let Ok(resp) = issue_req.send().await {
-                        if let Ok(v) = resp.json::<serde_json::Value>().await {
-                            if let Some(arr) = v.as_array() {
-                                issue_count = arr
-                                    .iter()
-                                    .filter(|i| {
-                                        !i.as_object().unwrap().contains_key("pull_request")
-                                    })
-                                    .count();
-                            }
-                        }
-                    }
-                }
-
-                let _ = event_tx
-                    .send(AppEvent::GithubStatusRefreshed {
+                match fetch_github_status(&client, &token, &owner, &repo_name).await {
+                    Ok(status) => completion.results.push(crate::github::WorkspaceGithubStatus {
                         workspace_id: ws.workspace_id,
-                        status: crate::workspace::GithubStatus {
-                            pr_count,
-                            issue_count,
-                        },
-                    })
-                    .await;
+                        status,
+                    }),
+                    Err(err) => {
+                        tracing::debug!(
+                            workspace_id = %ws.workspace_id,
+                            owner = %owner,
+                            repo = %repo_name,
+                            error = %err,
+                            "github status refresh failed; leaving cache unchanged"
+                        );
+                    }
+                }
             }
+            // Normal path: send with collected results (Drop is disarmed inside send).
+            completion.send().await;
         });
     }
 
@@ -893,6 +819,113 @@ pub(crate) fn refresh_workspace_git_statuses_with_cache(
     }
 }
 
+/// Ensures GitHub refresh always emits one completion event so `in_flight` clears.
+struct GithubRefreshCompletion {
+    event_tx: tokio::sync::mpsc::Sender<AppEvent>,
+    results: Vec<crate::github::WorkspaceGithubStatus>,
+    disarmed: bool,
+}
+
+impl GithubRefreshCompletion {
+    async fn send(mut self) {
+        let results = std::mem::take(&mut self.results);
+        self.disarmed = true;
+        let _ = self
+            .event_tx
+            .send(AppEvent::GithubStatusRefreshed { results })
+            .await;
+    }
+}
+
+impl Drop for GithubRefreshCompletion {
+    fn drop(&mut self) {
+        if self.disarmed {
+            return;
+        }
+        let results = std::mem::take(&mut self.results);
+        let _ = self
+            .event_tx
+            .try_send(AppEvent::GithubStatusRefreshed { results });
+    }
+}
+
+async fn fetch_github_status(
+    client: &reqwest::Client,
+    token: &str,
+    owner: &str,
+    repo: &str,
+) -> Result<crate::workspace::GithubStatus, String> {
+    if !crate::github::is_valid_repo_path_segment(owner)
+        || !crate::github::is_valid_repo_path_segment(repo)
+    {
+        return Err("invalid owner/repo path segment".into());
+    }
+
+    let pr_url = format!("https://api.github.com/repos/{owner}/{repo}/pulls?state=open");
+    let issue_url = format!("https://api.github.com/repos/{owner}/{repo}/issues?state=open");
+
+    let pr_count = fetch_github_array_len(client, token, &pr_url).await?;
+    let issue_count = fetch_github_open_issue_count(client, token, &issue_url).await?;
+
+    Ok(crate::workspace::GithubStatus {
+        pr_count,
+        issue_count,
+    })
+}
+
+async fn fetch_github_array_len(
+    client: &reqwest::Client,
+    token: &str,
+    url: &str,
+) -> Result<usize, String> {
+    let resp = client
+        .get(url)
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .map_err(|err| err.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("github api returned {}", resp.status()));
+    }
+    let value = resp
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|err| err.to_string())?;
+    value
+        .as_array()
+        .map(|arr| arr.len())
+        .ok_or_else(|| "github api response was not an array".into())
+}
+
+async fn fetch_github_open_issue_count(
+    client: &reqwest::Client,
+    token: &str,
+    url: &str,
+) -> Result<usize, String> {
+    let resp = client
+        .get(url)
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .map_err(|err| err.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("github api returned {}", resp.status()));
+    }
+    let value = resp
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|err| err.to_string())?;
+    let Some(arr) = value.as_array() else {
+        return Err("github api response was not an array".into());
+    };
+    // /issues includes pull requests; count only true issues.
+    Ok(arr
+        .iter()
+        .filter_map(|item| item.as_object())
+        .filter(|obj| !obj.contains_key("pull_request"))
+        .count())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1022,6 +1055,53 @@ mod tests {
             app.next_headless_loop_deadline_with_git_refresh(now, false, true),
             Some(now)
         );
+    }
+
+    #[test]
+    fn github_refresh_skips_when_no_token_available() {
+        let mut app = super::super::App::new(
+            &crate::config::Config::default(),
+            true,
+            None,
+            tokio::sync::mpsc::unbounded_channel().1,
+            crate::api::EventHub::default(),
+        );
+        app.state.workspaces.push(Workspace::test_new("test"));
+        let now = Instant::now();
+        app.last_github_remote_status_refresh =
+            now - super::super::GITHUB_REMOTE_STATUS_REFRESH_INTERVAL;
+
+        // Ensure env tokens are unset for this process for the duration of the check.
+        let previous_gh = std::env::var_os("GH_TOKEN");
+        let previous_github = std::env::var_os("GITHUB_TOKEN");
+        std::env::remove_var("GH_TOKEN");
+        std::env::remove_var("GITHUB_TOKEN");
+
+        // Point HOME at an empty temp dir so hosts.yml / gh config cannot supply a token.
+        let previous_home = std::env::var_os("HOME");
+        let temp_home = std::env::temp_dir().join(format!(
+            "herdr-github-no-token-home-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::create_dir_all(&temp_home);
+        std::env::set_var("HOME", &temp_home);
+
+        app.start_github_status_refresh_if_due(now);
+
+        assert!(!app.github_refresh_in_flight);
+        assert_eq!(app.last_github_remote_status_refresh, now);
+
+        if let Some(value) = previous_gh {
+            std::env::set_var("GH_TOKEN", value);
+        }
+        if let Some(value) = previous_github {
+            std::env::set_var("GITHUB_TOKEN", value);
+        }
+        match previous_home {
+            Some(value) => std::env::set_var("HOME", value),
+            None => std::env::remove_var("HOME"),
+        }
+        let _ = std::fs::remove_dir_all(temp_home);
     }
 
     #[test]

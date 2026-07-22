@@ -2077,6 +2077,78 @@ mod tests {
     }
 
     #[test]
+    fn github_status_batch_event_clears_in_flight_once() {
+        let mut app = test_app();
+        app.state.workspaces.push(Workspace::test_new("one"));
+        app.state.workspaces.push(Workspace::test_new("two"));
+        app.github_refresh_in_flight = true;
+        let previous_refresh = Instant::now() - Duration::from_secs(10);
+        app.last_github_remote_status_refresh = previous_refresh;
+        let first_id = app.state.workspaces[0].id.clone();
+        let second_id = app.state.workspaces[1].id.clone();
+
+        app.handle_internal_event(AppEvent::GithubStatusRefreshed {
+            results: vec![
+                crate::github::WorkspaceGithubStatus {
+                    workspace_id: first_id,
+                    status: crate::workspace::GithubStatus {
+                        pr_count: 2,
+                        issue_count: 1,
+                    },
+                },
+                crate::github::WorkspaceGithubStatus {
+                    workspace_id: second_id,
+                    status: crate::workspace::GithubStatus {
+                        pr_count: 0,
+                        issue_count: 3,
+                    },
+                },
+            ],
+        });
+
+        assert!(!app.github_refresh_in_flight);
+        assert!(app.last_github_remote_status_refresh > previous_refresh);
+        assert_eq!(
+            app.state.workspaces[0].cached_github_status,
+            Some(crate::workspace::GithubStatus {
+                pr_count: 2,
+                issue_count: 1,
+            })
+        );
+        assert_eq!(
+            app.state.workspaces[1].cached_github_status,
+            Some(crate::workspace::GithubStatus {
+                pr_count: 0,
+                issue_count: 3,
+            })
+        );
+    }
+
+    #[test]
+    fn github_status_batch_event_leaves_missing_workspaces_unchanged() {
+        let mut app = test_app();
+        app.state.workspaces.push(Workspace::test_new("one"));
+        app.state.workspaces[0].cached_github_status = Some(crate::workspace::GithubStatus {
+            pr_count: 9,
+            issue_count: 9,
+        });
+        app.github_refresh_in_flight = true;
+
+        app.handle_internal_event(AppEvent::GithubStatusRefreshed {
+            results: Vec::new(),
+        });
+
+        assert!(!app.github_refresh_in_flight);
+        assert_eq!(
+            app.state.workspaces[0].cached_github_status,
+            Some(crate::workspace::GithubStatus {
+                pr_count: 9,
+                issue_count: 9,
+            })
+        );
+    }
+
+    #[test]
     fn git_status_event_marks_render_dirty_when_status_changes() {
         let mut app = test_app();
         app.state.workspaces.push(Workspace::test_new("one"));
