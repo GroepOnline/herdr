@@ -370,6 +370,35 @@ pub(crate) fn row_toggle_checked(app: &AppState, section: SettingsSection, row: 
 
 pub(crate) fn row_choice_selected(app: &AppState, section: SettingsSection, row: &SettingsRow) -> bool {
     match section {
+        SettingsSection::Layout if row.kind == SettingsRowKind::Choice => match row.payload {
+            0 => matches!(
+                app.sidebar_collapsed_mode,
+                crate::config::SidebarCollapsedModeConfig::Compact
+            ),
+            1 => matches!(
+                app.agent_panel_sort,
+                crate::app::state::AgentPanelSort::Spaces
+            ),
+            _ => false,
+        },
+        SettingsSection::Input if row.kind == SettingsRowKind::Choice => {
+            matches!(
+                app.settings.config_snapshot.host_cursor,
+                crate::config::HostCursorModeConfig::Auto
+            )
+        }
+        SettingsSection::Terminal if row.kind == SettingsRowKind::Choice => match row.payload {
+            0 => app.default_shell.is_empty(),
+            1 => matches!(app.shell_mode, crate::config::ShellModeConfig::Auto),
+            2 => matches!(
+                app.new_terminal_cwd,
+                crate::config::NewTerminalCwdConfig::Follow
+            ),
+            preset_idx if preset_idx >= 2 => scrollback_presets()
+                .get(preset_idx - 2)
+                .is_some_and(|(bytes, _)| app.pane_scrollback_limit_bytes == *bytes),
+            _ => false,
+        },
         SettingsSection::Updates if row.kind == SettingsRowKind::Choice => match row.payload {
             0 => {
                 app.settings.config_snapshot.update_channel
@@ -390,12 +419,6 @@ pub(crate) fn row_choice_selected(app: &AppState, section: SettingsSection, row:
                 _ => return false,
             };
             app.toast_delivery() == delivery
-        }
-        SettingsSection::Terminal if row.kind == SettingsRowKind::Choice && row.payload >= 2 => {
-            let preset_idx = row.payload - 2;
-            scrollback_presets()
-                .get(preset_idx)
-                .is_some_and(|(bytes, _)| app.pane_scrollback_limit_bytes == *bytes)
         }
         _ => false,
     }
