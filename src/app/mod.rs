@@ -655,11 +655,16 @@ impl App {
             host_terminal_appearance: None,
             host_terminal_appearance_explicit: false,
             settings: state::SettingsState {
-                section: state::SettingsSection::Theme,
+                section: state::SettingsSection::Appearance,
                 list: state::SelectionListState::new(0),
+                search: String::new(),
+                focus: state::SettingsFocus::Content,
+                spinner_category: 0,
+                content_scroll: 0,
                 original_palette: None,
                 original_theme: None,
                 preview_tick: 0,
+                config_snapshot: state::SettingsConfigSnapshot::load(),
             },
             integration_recommendations: crate::integration::integration_recommendations(),
             agent_manifest_summaries,
@@ -1270,7 +1275,7 @@ impl App {
     pub(crate) fn open_settings_from_onboarding(&mut self) {
         self.mark_onboarding_complete();
         self.refresh_integration_recommendations();
-        crate::app::input::open_settings_at(&mut self.state, state::SettingsSection::Integrations);
+        crate::app::input::open_settings_at(&mut self.state, state::SettingsSection::Agents);
     }
 
     pub(crate) fn refresh_integration_recommendations(&mut self) {
@@ -5116,7 +5121,7 @@ last_pane = "prefix+tab"
         assert_eq!(app.state.mode, Mode::Settings);
         assert_eq!(
             app.state.settings.section,
-            state::SettingsSection::Integrations
+            state::SettingsSection::Agents
         );
     }
 

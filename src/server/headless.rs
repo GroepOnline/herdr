@@ -4960,7 +4960,7 @@ next_tab = ""
             writer,
         }));
         server.app.state.mode = crate::app::Mode::Settings;
-        server.app.state.settings.section = crate::app::state::SettingsSection::Sound;
+        server.app.state.settings.section = crate::app::state::SettingsSection::Notifications;
         server.app.state.settings.list.selected = 2;
 
         assert!(server.handle_server_event(ServerEvent::ClientInput {
@@ -5035,7 +5035,7 @@ next_tab = ""
             writer: writer_a,
         }));
         server.app.state.mode = crate::app::Mode::Settings;
-        server.app.state.settings.section = crate::app::state::SettingsSection::Sound;
+        server.app.state.settings.section = crate::app::state::SettingsSection::Notifications;
         server.app.state.settings.list.selected = 2;
 
         assert!(server.handle_server_event(ServerEvent::ClientInput {
@@ -7045,7 +7045,7 @@ next_tab = ""
         assert_eq!(server.app.state.mode, crate::app::Mode::Settings);
         assert_eq!(
             server.app.state.settings.section,
-            crate::app::state::SettingsSection::Integrations
+            crate::app::state::SettingsSection::Agents
         );
     }
 

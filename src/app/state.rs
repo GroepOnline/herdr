@@ -983,55 +983,164 @@ pub enum AgentPanelSort {
 /// Which section of the settings panel is focused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsSection {
-    /// Theme picker.
-    Theme,
-    /// Spinner style + UI toggles (borders, gaps, labels, tab bar).
-    Ui,
-    /// Sound alerts + toast delivery.
-    Sound,
-    /// Experiments + fleet/plugins info.
-    System,
-    /// Pane layout templates.
-    Templates,
-    /// Integration recommendations.
-    Integrations,
+    Appearance,
+    Layout,
+    Input,
+    Terminal,
+    Notifications,
+    Agents,
+    Updates,
+    Advanced,
 }
 
 impl SettingsSection {
     pub const ALL: &[Self] = &[
-        Self::Theme,
-        Self::Ui,
-        Self::Sound,
-        Self::System,
-        Self::Templates,
-        Self::Integrations,
+        Self::Appearance,
+        Self::Layout,
+        Self::Input,
+        Self::Terminal,
+        Self::Notifications,
+        Self::Agents,
+        Self::Updates,
+        Self::Advanced,
     ];
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::Theme => "theme",
-            Self::Ui => "ui",
-            Self::Sound => "sound",
-            Self::System => "system",
-            Self::Templates => "templates",
-            Self::Integrations => "integrations",
+            Self::Appearance => "appearance",
+            Self::Layout => "layout",
+            Self::Input => "input",
+            Self::Terminal => "terminal",
+            Self::Notifications => "notifications",
+            Self::Agents => "agents",
+            Self::Updates => "updates",
+            Self::Advanced => "advanced",
+        }
+    }
+
+    pub fn title(self) -> &'static str {
+        match self {
+            Self::Appearance => "Appearance",
+            Self::Layout => "Layout",
+            Self::Input => "Input",
+            Self::Terminal => "Terminal",
+            Self::Notifications => "Notifications",
+            Self::Agents => "Agents",
+            Self::Updates => "Updates",
+            Self::Advanced => "Advanced",
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::Appearance => "theme, auto-switch, and spinner animation style",
+            Self::Layout => "pane chrome, sidebar, agent panel, and layout templates",
+            Self::Input => "mouse, copy, focus redraw, prompts, and keybind help",
+            Self::Terminal => "default shell, cwd policy, and scrollback",
+            Self::Notifications => "sound alerts, toast delivery, and clipboard toasts",
+            Self::Agents => "resume sessions and agent integration packages",
+            Self::Updates => "update channel and background check toggles",
+            Self::Advanced => "experiments, graphics, remote, and config paths",
+        }
+    }
+
+    pub fn next(self) -> Self {
+        let idx = Self::ALL
+            .iter()
+            .position(|section| *section == self)
+            .unwrap_or(0);
+        Self::ALL[(idx + 1) % Self::ALL.len()]
+    }
+
+    pub fn prev(self) -> Self {
+        let idx = Self::ALL
+            .iter()
+            .position(|section| *section == self)
+            .unwrap_or(0);
+        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
+    }
+}
+
+/// Keyboard/mouse focus within the settings modal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SettingsFocus {
+    #[default]
+    Nav,
+    Content,
+    Search,
+}
+
+/// Config fields surfaced in settings that are not mirrored on [`AppState`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SettingsConfigSnapshot {
+    pub update_channel: crate::config::UpdateChannelConfig,
+    pub version_check: bool,
+    pub manifest_check: bool,
+    pub resume_agents_on_restore: bool,
+    pub manage_ssh_config: bool,
+    pub clipboard_history_enabled: bool,
+    pub allow_nested: bool,
+    pub theme_auto_switch: bool,
+    pub theme_dark_name: String,
+    pub theme_light_name: String,
+    pub host_cursor: crate::config::HostCursorModeConfig,
+}
+
+impl SettingsConfigSnapshot {
+    pub(crate) fn load() -> Self {
+        let config = crate::config::Config::load().config;
+        Self {
+            update_channel: config.update.channel,
+            version_check: config.update.version_check,
+            manifest_check: config.update.manifest_check,
+            resume_agents_on_restore: config.session.resume_agents_on_restore,
+            manage_ssh_config: config.advanced.manage_ssh_config,
+            clipboard_history_enabled: config.clipboard.history_enabled,
+            allow_nested: config.experimental.allow_nested,
+            theme_auto_switch: config.theme.auto_switch,
+            theme_dark_name: config
+                .theme
+                .dark_name
+                .unwrap_or_else(|| "catppuccin".to_string()),
+            theme_light_name: config
+                .theme
+                .light_name
+                .unwrap_or_else(|| "catppuccin-latte".to_string()),
+            host_cursor: config.ui.host_cursor,
         }
     }
 }
 
-/// Number of toggle rows in the Ui tab before the spinner grid.
+/// Number of toggle rows in the layout section before the spinner grid.
 pub(crate) const UI_TOGGLE_COUNT: usize = 4;
-/// Index in the Ui tab where the spinner grid starts.
-pub(crate) const UI_SPINNER_OFFSET: usize = UI_TOGGLE_COUNT;
+/// Index in the appearance section where the spinner grid starts.
+pub(crate) const UI_SPINNER_OFFSET: usize = 1;
+/// Spinner styles shown per category page in appearance.
+pub(crate) const SETTINGS_SPINNER_CATEGORY_SIZE: usize = 24;
+
+/// Scrollback limit presets surfaced in terminal settings.
+pub const SCROLLBACK_PRESETS: &[usize] = &[1_000_000, 5_000_000, 10_000_000, 50_000_000];
+
+/// Common shells offered in terminal settings.
+pub const DEFAULT_SHELL_PRESETS: &[&str] = &["", "bash", "zsh", "fish", "nu"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ExperimentSetting {
     PaneHistory,
     SwitchAsciiInputSourceInPrefix,
+    KittyGraphics,
+    AllowNested,
+    RevealHiddenCursorForCjkIme,
 }
 
 impl ExperimentSetting {
-    pub(crate) const ALL: [Self; 2] = [Self::PaneHistory, Self::SwitchAsciiInputSourceInPrefix];
+    pub(crate) const ALL: [Self; 5] = [
+        Self::PaneHistory,
+        Self::SwitchAsciiInputSourceInPrefix,
+        Self::KittyGraphics,
+        Self::AllowNested,
+        Self::RevealHiddenCursorForCjkIme,
+    ];
 
     pub(crate) fn label(self) -> &'static str {
         match self {
@@ -1039,6 +1148,9 @@ impl ExperimentSetting {
             Self::SwitchAsciiInputSourceInPrefix => {
                 "switch to ascii input source in prefix (macOS)"
             }
+            Self::KittyGraphics => "kitty graphics protocol",
+            Self::AllowNested => "allow nested herdr sessions",
+            Self::RevealHiddenCursorForCjkIme => "reveal hidden cursor for cjk ime",
         }
     }
 
@@ -1048,6 +1160,9 @@ impl ExperimentSetting {
             Self::SwitchAsciiInputSourceInPrefix => {
                 state.switch_ascii_input_source_in_prefix_enabled()
             }
+            Self::KittyGraphics => state.kitty_graphics_enabled,
+            Self::AllowNested => state.settings.config_snapshot.allow_nested,
+            Self::RevealHiddenCursorForCjkIme => state.reveal_hidden_cursor_for_cjk_ime,
         }
     }
 }
@@ -1137,17 +1252,26 @@ pub struct ThemeRuntimeConfig {
 }
 
 pub struct SettingsState {
-    /// Which section tab is active.
+    /// Which left-nav section is active.
     pub section: SettingsSection,
-    /// Selected item index within the current section.
+    /// Selected item index within the current section content list.
     pub list: SelectionListState,
+    /// Filter query for the settings search box.
+    pub search: String,
+    /// Which region of the settings modal has keyboard focus.
+    pub focus: SettingsFocus,
+    /// Active spinner style category in appearance.
+    pub spinner_category: usize,
+    /// Scroll offset for the active section content list.
+    pub content_scroll: u16,
     /// The palette before opening settings (for cancel/restore).
     pub original_palette: Option<Palette>,
     /// The theme name before opening settings.
     pub original_theme: Option<String>,
-    /// Independent tick for the Appearance spinner preview so it animates
-    /// even when no working agent drives `spinner_tick`.
+    /// Independent tick for animated settings previews.
     pub preview_tick: u32,
+    /// Snapshot of config fields not mirrored on [`AppState`].
+    pub config_snapshot: SettingsConfigSnapshot,
 }
 
 pub(crate) enum DragTarget {
@@ -1673,7 +1797,7 @@ impl AppState {
     }
 
     pub(crate) fn settings_section_has_badge(&self, section: SettingsSection) -> bool {
-        section == SettingsSection::Integrations && self.integration_updates_available()
+        section == SettingsSection::Agents && self.integration_updates_available()
     }
 
     pub(crate) fn focused_pane_requests_mouse_capture_from(
@@ -1949,11 +2073,16 @@ impl AppState {
             host_terminal_appearance: None,
             host_terminal_appearance_explicit: false,
             settings: SettingsState {
-                section: SettingsSection::Theme,
+                section: SettingsSection::Appearance,
                 list: SelectionListState::new(0),
+                search: String::new(),
+                focus: SettingsFocus::Content,
+                spinner_category: 0,
+                content_scroll: 0,
                 original_palette: None,
                 original_theme: None,
                 preview_tick: 0,
+                config_snapshot: SettingsConfigSnapshot::load(),
             },
             integration_recommendations: Vec::new(),
             agent_manifest_summaries: Vec::new(),

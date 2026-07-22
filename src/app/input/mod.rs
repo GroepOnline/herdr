@@ -383,8 +383,8 @@ impl App {
                 self.selection_highlight_clear_deadline = None;
             }
         }
-        if previous_settings_section != crate::app::state::SettingsSection::Integrations
-            && self.state.settings.section == crate::app::state::SettingsSection::Integrations
+        if previous_settings_section != crate::app::state::SettingsSection::Agents
+            && self.state.settings.section == crate::app::state::SettingsSection::Agents
         {
             self.refresh_integration_recommendations();
         }

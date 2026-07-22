@@ -291,9 +291,7 @@ impl App {
             self.state.spinner_tick = self.state.spinner_tick.wrapping_add(1);
             // Animate the spinner preview independently so it stays alive
             // even when no working agent drives spinner_tick.
-            if self.state.mode == crate::app::Mode::Settings
-                && self.state.settings.section == crate::app::state::SettingsSection::Ui
-            {
+            if self.state.mode == crate::app::Mode::Settings {
                 self.state.settings.preview_tick = self.state.settings.preview_tick.wrapping_add(1);
             }
             self.next_animation_tick = Some(now + ANIMATION_INTERVAL);
@@ -408,7 +406,9 @@ impl App {
     }
 
     fn sync_animation_timer_with_interval(&mut self, now: Instant, interval: Duration) {
-        if self.agent_panel_has_animation() {
+        if self.agent_panel_has_animation()
+            || self.state.mode == crate::app::Mode::Settings
+        {
             self.next_animation_tick.get_or_insert(now + interval);
         } else {
             self.next_animation_tick = None;
