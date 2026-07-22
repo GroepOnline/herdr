@@ -3,9 +3,7 @@ pub(crate) mod rows;
 mod sections;
 pub(crate) mod spinner;
 
-pub(crate) use layout::{
-    settings_button_rects, settings_show_primary_action, SettingsLayout,
-};
+pub(crate) use layout::{settings_button_rects, settings_show_primary_action, SettingsLayout};
 
 use ratatui::{layout::Rect, Frame};
 
