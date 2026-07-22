@@ -976,6 +976,9 @@ mod tests {
     #[test]
     fn settings_nav_hit_area_matches_layout() {
         let mut state = state_with_workspaces(&["test"]);
+        // Settings popup is 96x30; give the synthetic screen enough room.
+        state.view.sidebar_rect = ratatui::layout::Rect::new(0, 0, 26, 40);
+        state.view.terminal_area = ratatui::layout::Rect::new(26, 0, 80, 40);
         state.integration_recommendations = vec![integration_recommendation(
             crate::integration::IntegrationStatusKind::Outdated,
             true,
