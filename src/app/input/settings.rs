@@ -1,5 +1,4 @@
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
-use ratatui::layout::Rect;
 
 use crate::{
     app::{
@@ -15,7 +14,7 @@ use crate::{
     },
     ui::settings::{
         rows::{scrollback_presets, section_rows, spinner_style_for_row, SettingsRowKind},
-        SettingsLayout, SETTINGS_POPUP_WIDTH,
+        SettingsLayout,
     },
 };
 
