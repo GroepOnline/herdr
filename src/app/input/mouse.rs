@@ -562,11 +562,12 @@ impl AppState {
                     } else {
                         self.view.workspace_card_areas.clone()
                     };
-                    // Match navigator caret width (~4 cols) so ▸/▾ is easy to hit.
+                    // Widen caret slightly (x..x+1) without stealing the parent
+                    // row body click at x+2 used for focus-without-toggle.
                     if let Some(card) = cards.iter().find(|card| {
                         mouse.row == card.rect.y
                             && mouse.column >= card.rect.x
-                            && mouse.column <= card.rect.x.saturating_add(3)
+                            && mouse.column <= card.rect.x.saturating_add(1)
                             && mouse.column < card.rect.x.saturating_add(card.rect.width)
                     }) {
                         if let Some((key, collapsed)) =
