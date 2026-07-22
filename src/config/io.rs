@@ -739,88 +739,109 @@ mod tests {
         assert!(updated.contains("[ui.sound]\nenabled = true"));
     }
 
+    fn with_default_config_path_env<T>(f: impl FnOnce() -> T) -> T {
+        let _guard = crate::config::test_config_env_lock().lock().unwrap();
+        // Other tests may set CONFIG_PATH_ENV_VAR in this process; summary
+        // assertions expect the default basename "config.toml".
+        std::env::remove_var(CONFIG_PATH_ENV_VAR);
+        f()
+    }
+
     #[test]
     fn config_diagnostic_summary_uses_compact_actionable_banner() {
-        let diagnostics = vec![
-            "one".to_string(),
-            "two".to_string(),
-            "three".to_string(),
-            "four".to_string(),
-            "five".to_string(),
-        ];
+        with_default_config_path_env(|| {
+            let diagnostics = vec![
+                "one".to_string(),
+                "two".to_string(),
+                "three".to_string(),
+                "four".to_string(),
+                "five".to_string(),
+            ];
 
-        assert_eq!(
-            config_diagnostic_summary(&diagnostics).as_deref(),
-            Some("config.toml; herdr config check")
-        );
+            assert_eq!(
+                config_diagnostic_summary(&diagnostics).as_deref(),
+                Some("config.toml; herdr config check")
+            );
+        });
     }
 
     #[test]
     fn config_diagnostic_summary_reports_unknown_keys_compactly() {
-        let diagnostics = vec![
-            "unknown config key ui.mouse_captur; ignoring key".to_string(),
-            "unknown config key keys.new_tabb; ignoring key".to_string(),
-        ];
+        with_default_config_path_env(|| {
+            let diagnostics = vec![
+                "unknown config key ui.mouse_captur; ignoring key".to_string(),
+                "unknown config key keys.new_tabb; ignoring key".to_string(),
+            ];
 
-        assert_eq!(
-            config_diagnostic_summary(&diagnostics).as_deref(),
-            Some("config.toml has unknown keys; herdr config check")
-        );
+            assert_eq!(
+                config_diagnostic_summary(&diagnostics).as_deref(),
+                Some("config.toml has unknown keys; herdr config check")
+            );
+        });
     }
 
     #[test]
     fn config_diagnostic_summary_keeps_mixed_diagnostics_generic() {
-        let diagnostics = vec![
-            "invalid ui config: invalid type: string; keeping current ui settings".to_string(),
-            "unknown config key keys.new_tabb; ignoring key".to_string(),
-        ];
+        with_default_config_path_env(|| {
+            let diagnostics = vec![
+                "invalid ui config: invalid type: string; keeping current ui settings".to_string(),
+                "unknown config key keys.new_tabb; ignoring key".to_string(),
+            ];
 
-        assert_eq!(
-            config_diagnostic_summary(&diagnostics).as_deref(),
-            Some("config.toml; herdr config check")
-        );
+            assert_eq!(
+                config_diagnostic_summary(&diagnostics).as_deref(),
+                Some("config.toml; herdr config check")
+            );
+        });
     }
 
     #[test]
     fn config_diagnostic_summary_reports_default_fallback() {
-        let diagnostics = vec![
-            "config parse error: TOML parse error at line 33, column 8\n   |\n33 | type = \"popup\"\n   |        ^^^^^^^\nunknown variant `popup`; using defaults"
-                .to_string(),
-        ];
+        with_default_config_path_env(|| {
+            let diagnostics = vec![
+                "config parse error: TOML parse error at line 33, column 8\n   |\n33 | type = \"popup\"\n   |        ^^^^^^^\nunknown variant `popup`; using defaults"
+                    .to_string(),
+            ];
 
-        assert_eq!(
-            config_diagnostic_summary(&diagnostics).as_deref(),
-            Some("config.toml invalid; using defaults; herdr config check")
-        );
+            assert_eq!(
+                config_diagnostic_summary(&diagnostics).as_deref(),
+                Some("config.toml invalid; using defaults; herdr config check")
+            );
+        });
     }
 
     #[test]
     fn config_diagnostic_summary_reports_unreadable_config_impact() {
-        let startup = vec!["config read error: permission denied; using defaults".to_string()];
-        assert_eq!(
-            config_diagnostic_summary(&startup).as_deref(),
-            Some("config.toml unreadable; using defaults; herdr config check")
-        );
+        with_default_config_path_env(|| {
+            let startup =
+                vec!["config read error: permission denied; using defaults".to_string()];
+            assert_eq!(
+                config_diagnostic_summary(&startup).as_deref(),
+                Some("config.toml unreadable; using defaults; herdr config check")
+            );
 
-        let reload =
-            vec!["config read error: permission denied; keeping current config".to_string()];
-        assert_eq!(
-            config_diagnostic_summary(&reload).as_deref(),
-            Some("config.toml unreadable; keeping current config; herdr config check")
-        );
+            let reload =
+                vec!["config read error: permission denied; keeping current config".to_string()];
+            assert_eq!(
+                config_diagnostic_summary(&reload).as_deref(),
+                Some("config.toml unreadable; keeping current config; herdr config check")
+            );
+        });
     }
 
     #[test]
     fn config_diagnostic_summary_reports_retained_live_config() {
-        let diagnostics = vec![
-            "config parse error: TOML parse error at line 7, column 4; keeping current config"
-                .to_string(),
-        ];
+        with_default_config_path_env(|| {
+            let diagnostics = vec![
+                "config parse error: TOML parse error at line 7, column 4; keeping current config"
+                    .to_string(),
+            ];
 
-        assert_eq!(
-            config_diagnostic_summary(&diagnostics).as_deref(),
-            Some("config.toml invalid; keeping current config; herdr config check")
-        );
+            assert_eq!(
+                config_diagnostic_summary(&diagnostics).as_deref(),
+                Some("config.toml invalid; keeping current config; herdr config check")
+            );
+        });
     }
 
     #[test]
