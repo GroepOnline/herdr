@@ -54,6 +54,12 @@ pub struct WorkspaceGitStatusSnapshot {
     pub space: Option<GitSpaceMetadata>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GithubStatus {
+    pub pr_count: usize,
+    pub issue_count: usize,
+}
+
 impl WorkspaceGitStatusSnapshot {
     pub fn into_workspace_status(
         self,
@@ -155,6 +161,8 @@ pub struct Workspace {
     pub(crate) cached_git_ahead_behind: Option<(usize, usize)>,
     /// Cached derived Git repo metadata for worktree actions and status display.
     pub(crate) cached_git_space: Option<GitSpaceMetadata>,
+    /// Cached GitHub status for display.
+    pub cached_github_status: Option<GithubStatus>,
     /// Explicit Herdr-managed worktree grouping provenance.
     pub worktree_space: Option<WorktreeSpaceMembership>,
     pub(crate) metadata_tokens: crate::metadata_tokens::MetadataTokens,
@@ -217,6 +225,7 @@ impl Workspace {
             cached_git_branch: git_branch(&identity_cwd),
             cached_git_ahead_behind: None,
             cached_git_space: git_space_metadata(&identity_cwd),
+            cached_github_status: None,
             worktree_space: None,
             metadata_tokens: crate::metadata_tokens::MetadataTokens::default(),
             metadata_token_sequences: HashMap::new(),
@@ -400,6 +409,7 @@ impl Workspace {
                 cached_git_branch: git_branch(&initial_cwd),
                 cached_git_ahead_behind: None,
                 cached_git_space: None,
+                cached_github_status: None,
                 worktree_space: None,
                 metadata_tokens: crate::metadata_tokens::MetadataTokens::default(),
                 metadata_token_sequences: HashMap::new(),
@@ -1213,6 +1223,7 @@ impl Workspace {
             cached_git_branch: git_branch(&identity_cwd),
             cached_git_ahead_behind: None,
             cached_git_space: None,
+            cached_github_status: None,
             worktree_space: None,
             metadata_tokens: crate::metadata_tokens::MetadataTokens::default(),
             metadata_token_sequences: HashMap::new(),

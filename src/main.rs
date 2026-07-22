@@ -68,6 +68,7 @@ mod detect;
 mod events;
 mod fleet;
 mod ghostty;
+mod github;
 mod handoff_runtime;
 mod input;
 mod integration;

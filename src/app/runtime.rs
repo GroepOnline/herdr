@@ -311,6 +311,7 @@ impl App {
         changed |= self.clear_due_selection_highlight(now);
 
         self.start_git_status_refresh_if_due(now);
+        self.start_github_status_refresh_if_due(now);
 
         if self
             .next_auto_update_check
@@ -538,6 +539,92 @@ impl App {
         std::thread::spawn(move || crate::detect::manifest_update::auto_update(manifest_update_tx));
     }
 
+    pub(crate) fn start_github_status_refresh_if_due(&mut self, now: Instant) {
+        let Some(deadline) = self.github_refresh_deadline() else {
+            return;
+        };
+
+        if now < deadline {
+            return;
+        }
+
+        let workspaces = self.workspace_git_refresh_items();
+        if workspaces.is_empty() {
+            self.last_github_remote_status_refresh = now;
+            return;
+        }
+
+        // Opt-in: never hit api.github.com without credentials (avoids unauth spam/rate limits).
+        let Some(token) = crate::github::load_github_token() else {
+            self.last_github_remote_status_refresh = now;
+            return;
+        };
+
+        self.github_refresh_in_flight = true;
+        let event_tx = self.event_tx.clone();
+        tokio::spawn(async move {
+            // Always emit one batch completion event so in_flight clears, including panic paths.
+            let mut completion = GithubRefreshCompletion {
+                event_tx,
+                results: Vec::new(),
+                disarmed: false,
+            };
+
+            let client = match reqwest::Client::builder().user_agent("herdr-agent").build() {
+                Ok(client) => client,
+                Err(err) => {
+                    tracing::warn!(error = %err, "failed to build github http client");
+                    return;
+                }
+            };
+
+            for ws in workspaces {
+                let Some((owner, repo_name)) =
+                    crate::github::discover_github_owner_repo(&ws.resolved_identity_cwd)
+                else {
+                    continue;
+                };
+
+                match fetch_github_status(&client, &token, &owner, &repo_name).await {
+                    Ok(status) => completion
+                        .results
+                        .push(crate::github::WorkspaceGithubStatus {
+                            workspace_id: ws.workspace_id,
+                            status,
+                        }),
+                    Err(err) => {
+                        tracing::debug!(
+                            workspace_id = %ws.workspace_id,
+                            owner = %owner,
+                            repo = %repo_name,
+                            error = %err,
+                            "github status refresh failed; leaving cache unchanged"
+                        );
+                    }
+                }
+            }
+            // Normal path: send with collected results (Drop is disarmed inside send).
+            completion.send().await;
+        });
+    }
+
+    pub(crate) fn mark_github_status_refresh_due(&mut self, now: Instant) {
+        if self.github_refresh_in_flight {
+            self.github_refresh_due_after_in_flight = true;
+            return;
+        }
+        self.last_github_remote_status_refresh = now
+            .checked_sub(super::GITHUB_REMOTE_STATUS_REFRESH_INTERVAL)
+            .unwrap_or(now);
+        self.github_refresh_due_after_in_flight = false;
+    }
+
+    pub(crate) fn github_refresh_deadline(&self) -> Option<Instant> {
+        (!self.github_refresh_in_flight && !self.state.workspaces.is_empty()).then_some(
+            self.last_github_remote_status_refresh + super::GITHUB_REMOTE_STATUS_REFRESH_INTERVAL,
+        )
+    }
+
     pub(crate) fn start_git_status_refresh_if_due(&mut self, now: Instant) {
         let Some(deadline) = self.git_refresh_deadline() else {
             return;
@@ -620,6 +707,9 @@ impl App {
             self.next_animation_tick,
             include_git_refresh
                 .then(|| self.git_refresh_deadline())
+                .flatten(),
+            include_git_refresh
+                .then(|| self.github_refresh_deadline())
                 .flatten(),
             self.next_auto_update_check,
             self.next_agent_manifest_update_check,
@@ -733,6 +823,98 @@ pub(crate) fn refresh_workspace_git_statuses_with_cache(
         results,
         cache_updates,
     }
+}
+
+/// Ensures GitHub refresh always emits one completion event so `in_flight` clears.
+struct GithubRefreshCompletion {
+    event_tx: tokio::sync::mpsc::Sender<AppEvent>,
+    results: Vec<crate::github::WorkspaceGithubStatus>,
+    disarmed: bool,
+}
+
+impl GithubRefreshCompletion {
+    async fn send(mut self) {
+        let results = std::mem::take(&mut self.results);
+        self.disarmed = true;
+        let _ = self
+            .event_tx
+            .send(AppEvent::GithubStatusRefreshed { results })
+            .await;
+    }
+}
+
+impl Drop for GithubRefreshCompletion {
+    fn drop(&mut self) {
+        if self.disarmed {
+            return;
+        }
+        let results = std::mem::take(&mut self.results);
+        let _ = self
+            .event_tx
+            .try_send(AppEvent::GithubStatusRefreshed { results });
+    }
+}
+
+async fn fetch_github_status(
+    client: &reqwest::Client,
+    token: &str,
+    owner: &str,
+    repo: &str,
+) -> Result<crate::workspace::GithubStatus, String> {
+    if !crate::github::is_valid_repo_path_segment(owner)
+        || !crate::github::is_valid_repo_path_segment(repo)
+    {
+        return Err("invalid owner/repo path segment".into());
+    }
+
+    // `per_page=1` + Link rel="last" yields the full total without paging every item.
+    let pr_url = format!("https://api.github.com/repos/{owner}/{repo}/pulls?state=open&per_page=1");
+    // /issues includes PRs; subtract open PR total for issue-only count.
+    let issue_url =
+        format!("https://api.github.com/repos/{owner}/{repo}/issues?state=open&per_page=1");
+
+    let pr_count = fetch_github_list_total(client, token, &pr_url).await?;
+    let issues_and_prs = fetch_github_list_total(client, token, &issue_url).await?;
+    let issue_count = issues_and_prs.saturating_sub(pr_count);
+
+    Ok(crate::workspace::GithubStatus {
+        pr_count,
+        issue_count,
+    })
+}
+
+async fn fetch_github_list_total(
+    client: &reqwest::Client,
+    token: &str,
+    url: &str,
+) -> Result<usize, String> {
+    let resp = client
+        .get(url)
+        .header("Authorization", format!("Bearer {token}"))
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|err| err.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("github api returned {}", resp.status()));
+    }
+    let link = resp
+        .headers()
+        .get(reqwest::header::LINK)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
+    let value = resp
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|err| err.to_string())?;
+    let first_page_len = value
+        .as_array()
+        .map(|arr| arr.len())
+        .ok_or_else(|| "github api response was not an array".to_string())?;
+    Ok(crate::github::github_list_total_count(
+        link.as_deref(),
+        first_page_len,
+    ))
 }
 
 #[cfg(test)]
@@ -864,6 +1046,51 @@ mod tests {
             app.next_headless_loop_deadline_with_git_refresh(now, false, true),
             Some(now)
         );
+    }
+
+    #[test]
+    fn github_refresh_skips_when_no_token_available() {
+        let mut app = super::super::App::new(
+            &crate::config::Config::default(),
+            true,
+            None,
+            tokio::sync::mpsc::unbounded_channel().1,
+            crate::api::EventHub::default(),
+        );
+        app.state.workspaces.push(Workspace::test_new("test"));
+        let now = Instant::now();
+        app.last_github_remote_status_refresh =
+            now - super::super::GITHUB_REMOTE_STATUS_REFRESH_INTERVAL;
+
+        // Ensure env tokens are unset for this process for the duration of the check.
+        let previous_gh = std::env::var_os("GH_TOKEN");
+        let previous_github = std::env::var_os("GITHUB_TOKEN");
+        std::env::remove_var("GH_TOKEN");
+        std::env::remove_var("GITHUB_TOKEN");
+
+        // Point HOME at an empty temp dir so hosts.yml / gh config cannot supply a token.
+        let previous_home = std::env::var_os("HOME");
+        let temp_home =
+            std::env::temp_dir().join(format!("herdr-github-no-token-home-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&temp_home);
+        std::env::set_var("HOME", &temp_home);
+
+        app.start_github_status_refresh_if_due(now);
+
+        assert!(!app.github_refresh_in_flight);
+        assert_eq!(app.last_github_remote_status_refresh, now);
+
+        if let Some(value) = previous_gh {
+            std::env::set_var("GH_TOKEN", value);
+        }
+        if let Some(value) = previous_github {
+            std::env::set_var("GITHUB_TOKEN", value);
+        }
+        match previous_home {
+            Some(value) => std::env::set_var("HOME", value),
+            None => std::env::remove_var("HOME"),
+        }
+        let _ = std::fs::remove_dir_all(temp_home);
     }
 
     #[test]

@@ -86,6 +86,36 @@ impl App {
             return;
         }
 
+        if let AppEvent::GithubStatusRefreshed { results } = ev {
+            self.github_refresh_in_flight = false;
+            if self.github_refresh_due_after_in_flight {
+                self.mark_github_status_refresh_due(std::time::Instant::now());
+                self.github_refresh_due_after_in_flight = false;
+            } else {
+                self.last_github_remote_status_refresh = std::time::Instant::now();
+            }
+            let mut changed = false;
+            for result in results {
+                if let Some(ws) = self
+                    .state
+                    .workspaces
+                    .iter_mut()
+                    .find(|w| w.id == result.workspace_id)
+                {
+                    if ws.cached_github_status.as_ref() != Some(&result.status) {
+                        ws.cached_github_status = Some(result.status);
+                        changed = true;
+                    }
+                }
+            }
+            if changed {
+                self.render_dirty
+                    .store(true, std::sync::atomic::Ordering::Release);
+                self.render_notify.notify_one();
+            }
+            return;
+        }
+
         if let AppEvent::GitStatusRefreshed {
             results,
             cache_updates,

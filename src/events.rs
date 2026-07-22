@@ -6,6 +6,7 @@
 use std::time::Instant;
 
 use crate::detect::{Agent, AgentState};
+use crate::github::WorkspaceGithubStatus;
 use crate::layout::PaneId;
 use crate::workspace::{GitStatusCacheEntry, WorkspaceGitStatus};
 
@@ -144,6 +145,8 @@ pub enum AppEvent {
         results: Vec<WorkspaceGitStatus>,
         cache_updates: Vec<(std::path::PathBuf, GitStatusCacheEntry)>,
     },
+    /// Background GitHub status refresh completed for workspaces.
+    GithubStatusRefreshed { results: Vec<WorkspaceGithubStatus> },
     /// A plugin action or event command finished.
     PluginCommandFinished {
         log_id: String,
