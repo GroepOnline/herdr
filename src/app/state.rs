@@ -983,44 +983,46 @@ pub enum AgentPanelSort {
 /// Which section of the settings panel is focused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsSection {
+    /// Theme picker.
     Theme,
+    /// Spinner style + UI toggles (borders, gaps, labels, tab bar).
+    Ui,
+    /// Sound alerts + toast delivery.
     Sound,
-    Toast,
-    PaneLabels,
-    Appearance,
-    Fleet,
-    Plugins,
-    Experiments,
+    /// Experiments + fleet/plugins info.
+    System,
+    /// Pane layout templates.
+    Templates,
+    /// Integration recommendations.
     Integrations,
 }
 
 impl SettingsSection {
     pub const ALL: &[Self] = &[
         Self::Theme,
+        Self::Ui,
         Self::Sound,
-        Self::Toast,
-        Self::PaneLabels,
-        Self::Appearance,
-        Self::Fleet,
-        Self::Plugins,
+        Self::System,
+        Self::Templates,
         Self::Integrations,
-        Self::Experiments,
     ];
 
     pub fn label(self) -> &'static str {
         match self {
             Self::Theme => "theme",
+            Self::Ui => "ui",
             Self::Sound => "sound",
-            Self::Toast => "toasts",
-            Self::PaneLabels => "pane labels",
-            Self::Appearance => "appearance",
-            Self::Fleet => "fleet",
-            Self::Plugins => "plugins",
-            Self::Experiments => "experiments",
+            Self::System => "system",
+            Self::Templates => "templates",
             Self::Integrations => "integrations",
         }
     }
 }
+
+/// Number of toggle rows in the Ui tab before the spinner grid.
+pub(crate) const UI_TOGGLE_COUNT: usize = 4;
+/// Index in the Ui tab where the spinner grid starts.
+pub(crate) const UI_SPINNER_OFFSET: usize = UI_TOGGLE_COUNT;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ExperimentSetting {
@@ -1143,6 +1145,9 @@ pub struct SettingsState {
     pub original_palette: Option<Palette>,
     /// The theme name before opening settings.
     pub original_theme: Option<String>,
+    /// Independent tick for the Appearance spinner preview so it animates
+    /// even when no working agent drives `spinner_tick`.
+    pub preview_tick: u32,
 }
 
 pub(crate) enum DragTarget {
@@ -1620,6 +1625,18 @@ impl AppState {
         self.show_agent_labels_on_pane_borders
     }
 
+    pub fn pane_borders_enabled(&self) -> bool {
+        self.pane_borders
+    }
+
+    pub fn pane_gaps_enabled(&self) -> bool {
+        self.pane_gaps
+    }
+
+    pub fn hide_tab_bar_when_single_tab_enabled(&self) -> bool {
+        self.hide_tab_bar_when_single_tab
+    }
+
     pub fn pane_history_persistence_enabled(&self) -> bool {
         self.pane_history_persistence
     }
@@ -1936,6 +1953,7 @@ impl AppState {
                 list: SelectionListState::new(0),
                 original_palette: None,
                 original_theme: None,
+                preview_tick: 0,
             },
             integration_recommendations: Vec::new(),
             agent_manifest_summaries: Vec::new(),

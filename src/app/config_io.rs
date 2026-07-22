@@ -92,6 +92,35 @@ impl App {
         }
     }
 
+    pub(super) fn save_pane_borders(&mut self, enabled: bool) {
+        if self.update_config_file("pane borders", |content| {
+            crate::config::upsert_section_bool(content, "ui", "pane_borders", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_pane_gaps(&mut self, enabled: bool) {
+        if self.update_config_file("pane gaps", |content| {
+            crate::config::upsert_section_bool(content, "ui", "pane_gaps", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_hide_tab_bar_when_single_tab(&mut self, enabled: bool) {
+        if self.update_config_file("hide tab bar when single tab", |content| {
+            crate::config::upsert_section_bool(
+                content,
+                "ui",
+                "hide_tab_bar_when_single_tab",
+                enabled,
+            )
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
     pub(super) fn save_pane_history_persistence(&mut self, enabled: bool) {
         if self.update_config_file("pane screen history", |content| {
             crate::config::upsert_section_bool(content, "experimental", "pane_history", enabled)
@@ -222,6 +251,84 @@ impl App {
             )
         }) {
             self.apply_config_from_disk(false);
+        }
+    }
+
+    /// Apply a pane layout template to the current tab by performing a sequence
+    /// of splits. Leaves settings mode first so the user sees the result.
+    pub(super) fn apply_pane_template(&mut self, template: crate::pane_template::PaneTemplateId) {
+        use crate::api::schema::SplitDirection;
+        use crate::layout::NavDirection;
+        use crate::pane_template::PaneTemplateId as T;
+
+        // Leave settings overlay so the user sees the layout change.
+        if self.state.active.is_some() {
+            self.state.mode = crate::app::Mode::Terminal;
+        } else {
+            self.state.mode = crate::app::Mode::Navigate;
+        }
+
+        match template {
+            T::Single => {
+                // Close every other pane in the active tab so the result matches
+                // "one pane, no splits" even when the tab already had splits.
+                let Some(ws_idx) = self.state.active else {
+                    return;
+                };
+                let Some(focused) = self
+                    .state
+                    .workspaces
+                    .get(ws_idx)
+                    .and_then(|ws| ws.focused_pane_id())
+                else {
+                    return;
+                };
+                let Some(tab) = self.state.workspaces[ws_idx].active_tab() else {
+                    return;
+                };
+                let to_close: Vec<String> = tab
+                    .layout
+                    .pane_ids()
+                    .into_iter()
+                    .filter(|pane_id| *pane_id != focused)
+                    .filter_map(|pane_id| self.public_pane_id(ws_idx, pane_id))
+                    .collect();
+                for pane_id in to_close {
+                    self.runtime_pane_close("tui.pane.close", pane_id);
+                }
+            }
+            T::HorizontalSplit => {
+                self.split_focused_pane_via_api(SplitDirection::Right);
+            }
+            T::VerticalSplit => {
+                self.split_focused_pane_via_api(SplitDirection::Down);
+            }
+            T::Quad => {
+                self.split_focused_pane_via_api(SplitDirection::Right);
+                self.focus_pane_direction_via_api(NavDirection::Left);
+                self.split_focused_pane_via_api(SplitDirection::Down);
+                self.focus_pane_direction_via_api(NavDirection::Right);
+                self.split_focused_pane_via_api(SplitDirection::Down);
+            }
+            T::TripleHorizontal => {
+                self.split_focused_pane_via_api(SplitDirection::Right);
+                self.focus_pane_direction_via_api(NavDirection::Left);
+                self.split_focused_pane_via_api(SplitDirection::Right);
+            }
+            T::MainSidebar => {
+                self.runtime_pane_split(
+                    "tui.pane.split",
+                    crate::api::schema::PaneSplitParams {
+                        workspace_id: None,
+                        target_pane_id: None,
+                        direction: SplitDirection::Right,
+                        ratio: Some(0.7),
+                        cwd: None,
+                        focus: true,
+                        env: Default::default(),
+                    },
+                );
+            }
         }
     }
 }

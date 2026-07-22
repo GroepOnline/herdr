@@ -655,6 +655,7 @@ impl App {
                 list: state::SelectionListState::new(0),
                 original_palette: None,
                 original_theme: None,
+                preview_tick: 0,
             },
             integration_recommendations: crate::integration::integration_recommendations(),
             agent_manifest_summaries,

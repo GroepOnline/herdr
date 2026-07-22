@@ -185,6 +185,7 @@ pub(crate) fn render_modal_description(frame: &mut Frame, area: Rect, text: &str
     );
 }
 
+#[allow(dead_code)]
 pub(crate) fn modal_choice_rows(area: Rect, count: usize, row_height: u16) -> Vec<Rect> {
     let mut rows = Vec::with_capacity(count);
     let mut y = area.y;
@@ -200,6 +201,7 @@ pub(crate) fn modal_choice_rows(area: Rect, count: usize, row_height: u16) -> Ve
     rows
 }
 
+#[allow(dead_code)]
 pub(crate) fn render_modal_choice_list<T>(
     frame: &mut Frame,
     area: Rect,

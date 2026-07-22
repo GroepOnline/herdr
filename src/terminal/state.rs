@@ -3552,6 +3552,78 @@ mod tests {
     }
 
     #[test]
+    fn silent_full_lifecycle_hook_authority_stays_authoritative() {
+        // Event-sourced hooks may not heartbeat while idle/working; silence alone
+        // must not demote hook authority back to screen detection.
+        let mut terminal = test_terminal();
+        terminal.set_detected_state_with_screen_signals_at(
+            Some(Agent::Pi),
+            AgentState::Working,
+            false,
+            false,
+            false,
+            false,
+            Instant::now(),
+        );
+        terminal.set_hook_authority("herdr:pi".into(), "pi".into(), AgentState::Idle, None, None);
+        terminal.hook_authority.as_mut().unwrap().reported_at =
+            Instant::now() - Duration::from_secs(3600);
+
+        assert!(terminal.full_lifecycle_hook_authority_active());
+        terminal.set_detected_state_with_screen_signals_at(
+            Some(Agent::Pi),
+            AgentState::Working,
+            false,
+            false,
+            false,
+            false,
+            Instant::now(),
+        );
+        assert_eq!(terminal.fallback_state, AgentState::Working);
+        assert_eq!(terminal.state, AgentState::Idle);
+    }
+
+    #[test]
+    fn process_exit_clears_silent_hook_authority_for_reload_recovery() {
+        // Safer reload recovery: when the foreground agent process exits, hook
+        // authority is cleared and screen detection resumes.
+        let now = Instant::now();
+        let mut terminal = test_terminal();
+        terminal.set_detected_state_with_screen_signals_at(
+            Some(Agent::Pi),
+            AgentState::Working,
+            false,
+            false,
+            false,
+            false,
+            now,
+        );
+        terminal.set_hook_authority_at(
+            "herdr:pi".into(),
+            "pi".into(),
+            AgentState::Idle,
+            None,
+            None,
+            None,
+            now,
+        );
+        terminal.hook_authority.as_mut().unwrap().reported_at = now - Duration::from_secs(3600);
+
+        terminal.set_detected_state_with_screen_signals_at(
+            Some(Agent::Pi),
+            AgentState::Working,
+            false,
+            false,
+            false,
+            true,
+            now + Duration::from_millis(1),
+        );
+
+        assert!(terminal.hook_authority.is_none());
+        assert_eq!(terminal.state, AgentState::Working);
+    }
+
+    #[test]
     fn detected_agent_clear_clears_matching_hook_authority() {
         let mut terminal = test_terminal();
         terminal.set_detected_state(Some(Agent::Cursor), AgentState::Idle);
