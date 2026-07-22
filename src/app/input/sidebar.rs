@@ -305,10 +305,12 @@ impl AppState {
             return None;
         }
 
+        let owned;
         let cards = if self.view.workspace_card_areas.is_empty() {
-            crate::ui::compute_workspace_card_areas(self, self.view.sidebar_rect)
+            owned = crate::ui::compute_workspace_card_areas(self, self.view.sidebar_rect);
+            owned.as_slice()
         } else {
-            self.view.workspace_card_areas.clone()
+            self.view.workspace_card_areas.as_slice()
         };
 
         cards.iter().find_map(|card| {
@@ -326,7 +328,7 @@ impl AppState {
             return None;
         }
 
-        let idx = (row - ws_area.y) as usize;
+        let idx = (row - ws_area.y) as usize + self.workspace_scroll;
         (idx < self.workspaces.len()).then_some(idx)
     }
 
@@ -365,10 +367,12 @@ impl AppState {
             return None;
         }
 
+        let owned;
         let cards = if self.view.workspace_card_areas.is_empty() {
-            crate::ui::compute_workspace_card_areas(self, self.view.sidebar_rect)
+            owned = crate::ui::compute_workspace_card_areas(self, self.view.sidebar_rect);
+            owned.as_slice()
         } else {
-            self.view.workspace_card_areas.clone()
+            self.view.workspace_card_areas.as_slice()
         };
         if cards.is_empty() {
             return Some(0);

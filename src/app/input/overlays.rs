@@ -45,6 +45,8 @@ impl App {
                                     .set_release_notes_offset_from_bottom(offset_from_bottom);
                             }
                         }
+                    } else if !self.state.release_notes_popup_contains(mouse.column, mouse.row) {
+                        self.dismiss_release_notes();
                     }
                 }
                 MouseEventKind::Drag(MouseButton::Left) => {
@@ -97,6 +99,11 @@ impl App {
                                 .state
                                 .set_product_announcement_offset_from_bottom(offset_from_bottom),
                         }
+                    } else if !self
+                        .state
+                        .product_announcement_popup_contains(mouse.column, mouse.row)
+                    {
+                        self.dismiss_product_announcement();
                     }
                 }
                 MouseEventKind::Drag(MouseButton::Left) => {
@@ -354,6 +361,11 @@ impl AppState {
     }
 
     pub(super) fn onboarding_modal_inner(&self, popup_w: u16, popup_h: u16) -> Option<Rect> {
+        let popup = self.onboarding_modal_popup(popup_w, popup_h)?;
+        Some(Block::default().borders(Borders::ALL).inner(popup))
+    }
+
+    fn onboarding_modal_popup(&self, popup_w: u16, popup_h: u16) -> Option<Rect> {
         let area = self.onboarding_full_area();
         let popup_w = popup_w.min(area.width.saturating_sub(4));
         let popup_h = popup_h.min(area.height.saturating_sub(2));
@@ -362,8 +374,23 @@ impl AppState {
         }
         let popup_x = area.x + (area.width.saturating_sub(popup_w)) / 2;
         let popup_y = area.y + (area.height.saturating_sub(popup_h)) / 2;
-        let popup = Rect::new(popup_x, popup_y, popup_w, popup_h);
-        Some(Block::default().borders(Borders::ALL).inner(popup))
+        Some(Rect::new(popup_x, popup_y, popup_w, popup_h))
+    }
+
+    fn release_notes_popup_contains(&self, col: u16, row: u16) -> bool {
+        self.onboarding_modal_popup(
+            crate::ui::RELEASE_NOTES_MODAL_SIZE.0,
+            crate::ui::RELEASE_NOTES_MODAL_SIZE.1,
+        )
+        .is_some_and(|popup| rect_contains(popup, col, row))
+    }
+
+    fn product_announcement_popup_contains(&self, col: u16, row: u16) -> bool {
+        self.onboarding_modal_popup(
+            crate::ui::PRODUCT_ANNOUNCEMENT_MODAL_SIZE.0,
+            crate::ui::PRODUCT_ANNOUNCEMENT_MODAL_SIZE.1,
+        )
+        .is_some_and(|popup| rect_contains(popup, col, row))
     }
 
     fn release_notes_modal_inner(&self) -> Option<Rect> {

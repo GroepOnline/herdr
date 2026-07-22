@@ -246,9 +246,10 @@ fn compute_view_internal(
         let max_agent_scroll = agent_panel_scroll_metrics(app, detail_area).max_offset_from_bottom;
         app.agent_panel_scroll = app.agent_panel_scroll.min(max_agent_scroll);
     } else {
-        app.workspace_scroll = app
-            .workspace_scroll
-            .min(app.workspaces.len().saturating_sub(1));
+        let (ws_area, _, _) = collapsed_sidebar_sections(sidebar_area);
+        let visible = usize::from(ws_area.height.max(1));
+        let max_scroll = app.workspaces.len().saturating_sub(visible);
+        app.workspace_scroll = app.workspace_scroll.min(max_scroll);
         app.agent_panel_scroll = 0;
     }
 
@@ -301,10 +302,17 @@ fn compute_view_internal(
         })
         .unwrap_or_default();
 
+    let navigator_rows = if app.mode == Mode::Navigator {
+        app.navigator_rows_from(terminal_runtimes)
+    } else {
+        Vec::new()
+    };
+
     app.view = crate::app::ViewState {
         layout: ViewLayout::Desktop,
         sidebar_rect: sidebar_area,
         workspace_card_areas,
+        navigator_rows,
         tab_bar_rect,
         tab_hit_areas: tab_bar_view.tab_hit_areas,
         tab_scroll_left_hit_area: tab_bar_view.scroll_left_hit_area,
@@ -364,10 +372,17 @@ fn compute_mobile_view(
         .map(|_| mobile_toast_banner_rect(area, app.config_diagnostic.is_some()))
         .unwrap_or_default();
 
+    let navigator_rows = if app.mode == Mode::Navigator {
+        app.navigator_rows_from(terminal_runtimes)
+    } else {
+        Vec::new()
+    };
+
     app.view = crate::app::ViewState {
         layout: ViewLayout::Mobile,
         sidebar_rect: Rect::default(),
         workspace_card_areas: Vec::new(),
+        navigator_rows,
         tab_bar_rect: Rect::default(),
         tab_hit_areas: Vec::new(),
         tab_scroll_left_hit_area: Rect::default(),

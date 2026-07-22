@@ -240,7 +240,10 @@ impl AppState {
                         Some(ModalAction::Confirm) => {
                             return Some(MouseAction::ConfirmCloseAccept);
                         }
-                        Some(ModalAction::Cancel) | None => confirm_close_cancel(self),
+                        Some(ModalAction::Cancel) => confirm_close_cancel(self),
+                        None if !rect_contains(popup, mouse.column, mouse.row) => {
+                            confirm_close_cancel(self);
+                        }
                         _ => {}
                     }
                     return None;
@@ -555,10 +558,13 @@ impl AppState {
                         return None;
                     }
 
+                    let owned_cards;
                     let cards = if self.view.workspace_card_areas.is_empty() {
-                        crate::ui::compute_workspace_card_areas(self, self.view.sidebar_rect)
+                        owned_cards =
+                            crate::ui::compute_workspace_card_areas(self, self.view.sidebar_rect);
+                        owned_cards.as_slice()
                     } else {
-                        self.view.workspace_card_areas.clone()
+                        self.view.workspace_card_areas.as_slice()
                     };
                     // Widen caret slightly (x..x+1) without stealing the parent
                     // row body click at x+2 used for focus-without-toggle.
@@ -2632,6 +2638,37 @@ mod tests {
 
         assert_eq!(app.state.workspaces.len(), 1);
         assert_eq!(app.state.mode, Mode::Terminal);
+    }
+
+    #[test]
+    fn clicking_confirm_close_body_does_not_cancel() {
+        let mut app = app_for_mouse_test();
+        app.state.workspaces = vec![Workspace::test_new("a"), Workspace::test_new("b")];
+        app.state.active = Some(0);
+        app.state.selected = 1;
+        app.state.mode = Mode::ConfirmClose;
+
+        let popup = app.state.confirm_close_rect();
+        let inner = Rect::new(
+            popup.x + 1,
+            popup.y + 1,
+            popup.width.saturating_sub(2),
+            popup.height.saturating_sub(2),
+        );
+        let (confirm, cancel) = crate::ui::confirm_close_button_rects(inner);
+        let body_col = inner.x + 2;
+        let body_row = inner.y + 1;
+        assert!(!rect_contains(confirm, body_col, body_row));
+        assert!(!rect_contains(cancel, body_col, body_row));
+
+        app.handle_mouse(mouse(
+            MouseEventKind::Down(MouseButton::Left),
+            body_col,
+            body_row,
+        ));
+
+        assert_eq!(app.state.mode, Mode::ConfirmClose);
+        assert_eq!(app.state.workspaces.len(), 2);
     }
 
     #[test]
