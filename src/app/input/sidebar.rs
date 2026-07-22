@@ -479,7 +479,9 @@ mod tests {
     use crossterm::event::{MouseButton, MouseEventKind};
     use ratatui::layout::Rect;
 
-    use super::super::{app_for_mouse_test, capture_snapshot, mouse, unique_temp_path};
+    use super::super::{
+        app_for_mouse_test, capture_snapshot, mouse, state_with_workspaces, unique_temp_path,
+    };
     use crate::{
         app::state::{AgentPanelSort, DragTarget, Mode},
         config::SidebarCollapsedModeConfig,

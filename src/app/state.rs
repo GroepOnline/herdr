@@ -991,8 +991,12 @@ pub enum SettingsSection {
     Ui,
     /// Sound alerts + toast delivery.
     Sound,
-    /// Experiments + fleet/plugins info.
+    /// System experiments.
     System,
+    /// Personal CHEF fleet context.
+    Fleet,
+    /// Installed and browsable CHEF plugins.
+    Plugins,
     /// Pane layout templates.
     Templates,
     /// Integration recommendations.
@@ -1005,6 +1009,8 @@ impl SettingsSection {
         Self::Ui,
         Self::Sound,
         Self::System,
+        Self::Fleet,
+        Self::Plugins,
         Self::Templates,
         Self::Integrations,
     ];
@@ -1015,6 +1021,8 @@ impl SettingsSection {
             Self::Ui => "ui",
             Self::Sound => "sound",
             Self::System => "system",
+            Self::Fleet => "fleet",
+            Self::Plugins => "plugins",
             Self::Templates => "templates",
             Self::Integrations => "integrations",
         }
@@ -1033,7 +1041,10 @@ pub(crate) enum ExperimentSetting {
 }
 
 impl ExperimentSetting {
-    pub(crate) const ALL: [Self; 2] = [Self::PaneHistory, Self::SwitchAsciiInputSourceInPrefix];
+    pub(crate) const ALL: [Self; 2] = [
+        Self::PaneHistory,
+        Self::SwitchAsciiInputSourceInPrefix,
+    ];
 
     pub(crate) fn label(self) -> &'static str {
         match self {
@@ -1526,6 +1537,7 @@ pub struct AppState {
     pub pane_borders: bool,
     pub pane_gaps: bool,
     pub show_agent_labels_on_pane_borders: bool,
+    pub fleet_ops_bar: bool,
     pub hide_tab_bar_when_single_tab: bool,
     pub pane_history_persistence: bool,
     /// Expose the focused pane's cursor anchor to the outer terminal even when
@@ -1645,6 +1657,10 @@ impl AppState {
 
     pub fn switch_ascii_input_source_in_prefix_enabled(&self) -> bool {
         self.switch_ascii_input_source_in_prefix
+    }
+
+    pub fn fleet_ops_bar_enabled(&self) -> bool {
+        self.fleet_ops_bar
     }
 
     pub(crate) fn pane_exposes_host_cursor(
@@ -1917,6 +1933,7 @@ impl AppState {
             pane_borders: true,
             pane_gaps: false,
             show_agent_labels_on_pane_borders: false,
+            fleet_ops_bar: true,
             hide_tab_bar_when_single_tab: false,
             pane_history_persistence: false,
             reveal_hidden_cursor_for_cjk_ime: false,
