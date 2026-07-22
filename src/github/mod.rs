@@ -150,7 +150,10 @@ pub fn discover_github_owner_repo(cwd: &Path) -> Option<(String, String)> {
         } else if line.starts_with('[') {
             in_origin = false;
         } else if in_origin {
-            if let Some(url) = line.strip_prefix("url = ").or_else(|| line.strip_prefix("url=")) {
+            if let Some(url) = line
+                .strip_prefix("url = ")
+                .or_else(|| line.strip_prefix("url="))
+            {
                 return parse_github_owner_repo(url.trim());
             }
         }

@@ -563,10 +563,7 @@ impl App {
                 disarmed: false,
             };
 
-            let client = match reqwest::Client::builder()
-                .user_agent("herdr-agent")
-                .build()
-            {
+            let client = match reqwest::Client::builder().user_agent("herdr-agent").build() {
                 Ok(client) => client,
                 Err(err) => {
                     tracing::warn!(error = %err, "failed to build github http client");
@@ -582,10 +579,12 @@ impl App {
                 };
 
                 match fetch_github_status(&client, &token, &owner, &repo_name).await {
-                    Ok(status) => completion.results.push(crate::github::WorkspaceGithubStatus {
-                        workspace_id: ws.workspace_id,
-                        status,
-                    }),
+                    Ok(status) => completion
+                        .results
+                        .push(crate::github::WorkspaceGithubStatus {
+                            workspace_id: ws.workspace_id,
+                            status,
+                        }),
                     Err(err) => {
                         tracing::debug!(
                             workspace_id = %ws.workspace_id,
@@ -1079,10 +1078,8 @@ mod tests {
 
         // Point HOME at an empty temp dir so hosts.yml / gh config cannot supply a token.
         let previous_home = std::env::var_os("HOME");
-        let temp_home = std::env::temp_dir().join(format!(
-            "herdr-github-no-token-home-{}",
-            std::process::id()
-        ));
+        let temp_home =
+            std::env::temp_dir().join(format!("herdr-github-no-token-home-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&temp_home);
         std::env::set_var("HOME", &temp_home);
 
