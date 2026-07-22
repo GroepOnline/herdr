@@ -1,0 +1,33 @@
+id = "com.chefgroep.issue-provision"
+name = "Issue Provision"
+version = "0.1.0"
+min_herdr_version = "0.7.5"
+description = "Create and tear down workspaces from Linear issues (SSOT: Linear + Git)"
+platforms = ["linux", "macos", "windows"]
+
+[[actions]]
+id = "provision"
+title = "Provision workspace"
+description = "Provision a workspace from a Linear issue"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "provision"]
+
+[[actions]]
+id = "teardown"
+title = "Teardown provisioned workspace"
+description = "Tear down a previously provisioned workspace"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "teardown"]
+
+[[actions]]
+id = "list-provisioned"
+title = "List provisioned workspaces"
+description = "List workspaces provisioned from Linear issues"
+contexts = ["global"]
+command = ["node", "src/index.js", "list-provisioned"]
+
+[[link_handlers]]
+id = "linear-issue"
+title = "Provision from Linear issue"
+pattern = "^https://linear\\.app/[^/]+/issue/[A-Z]+-[0-9]+"
+action = "provision"

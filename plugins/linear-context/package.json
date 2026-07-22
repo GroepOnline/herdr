@@ -1,0 +1,8 @@
+{
+  "name": "@chefgroep/linear-context",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "description": "CHEF Linear issue context for Fleet Ops Bar"
+}

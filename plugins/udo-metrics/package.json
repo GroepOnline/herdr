@@ -1,0 +1,8 @@
+{
+  "name": "@chefgroep/udo-metrics",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "description": "CHEF Utrecht Data OS metrics for Fleet Ops Bar"
+}
