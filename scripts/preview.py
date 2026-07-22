@@ -8,6 +8,11 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.product_config import PRODUCT_GITHUB_REPO as DEFAULT_RELEASE_REPO
+except ModuleNotFoundError:
+    from product_config import PRODUCT_GITHUB_REPO as DEFAULT_RELEASE_REPO
+
 ASSET_TARGETS = ("linux-x86_64",)
 EXPECTED_ASSET_NAMES = {target: f"herdr-{target}" for target in ASSET_TARGETS}
 HIDDEN_SUBJECTS = (

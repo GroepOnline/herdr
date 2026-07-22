@@ -52,7 +52,7 @@ class PreviewNotesTests(unittest.TestCase):
             )
             self.assertEqual(
                 data["assets"]["linux-x86_64"]["url"],
-                "https://github.com/ogulcancelik/herdr/releases/download/preview-2026-06-02-abcdef123456/herdr-linux-x86_64",
+                f"https://github.com/{DEFAULT_RELEASE_REPO}/releases/download/preview-2026-06-02-abcdef123456/herdr-linux-x86_64",
             )
             self.assertEqual(set(data["assets"]), {"linux-x86_64"})
             self.assertIn("2026-06-02-abcdef123456", data["builds"])
