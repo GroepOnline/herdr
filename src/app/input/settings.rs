@@ -996,10 +996,7 @@ mod tests {
             .position(|section| *section == SettingsSection::Agents)
             .expect("agents section");
         let rect = layout.nav_item_rect(agents_idx).expect("nav rect");
-        assert_eq!(
-            state.settings_nav_index_at(rect.x + 2, rect.y),
-            Some(agents_idx)
-        );
+        assert_eq!(layout.nav_index_at(rect.x + 2, rect.y), Some(agents_idx));
     }
 
     fn integration_recommendation(
