@@ -45,7 +45,10 @@ impl App {
                                     .set_release_notes_offset_from_bottom(offset_from_bottom);
                             }
                         }
-                    } else if !self.state.release_notes_popup_contains(mouse.column, mouse.row) {
+                    } else if !self
+                        .state
+                        .release_notes_popup_contains(mouse.column, mouse.row)
+                    {
                         self.dismiss_release_notes();
                     }
                 }
