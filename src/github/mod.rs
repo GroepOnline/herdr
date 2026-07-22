@@ -325,10 +325,8 @@ github.example.com:
 
     #[test]
     fn discovers_owner_repo_from_linked_worktree_git_file() {
-        let root = std::env::temp_dir().join(format!(
-            "herdr-github-worktree-{}",
-            std::process::id()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("herdr-github-worktree-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let git_dir = root.join(".git");
         let worktree = root.join("linked");

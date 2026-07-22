@@ -861,8 +861,7 @@ async fn fetch_github_status(
     }
 
     // `per_page=1` + Link rel="last" yields the full total without paging every item.
-    let pr_url =
-        format!("https://api.github.com/repos/{owner}/{repo}/pulls?state=open&per_page=1");
+    let pr_url = format!("https://api.github.com/repos/{owner}/{repo}/pulls?state=open&per_page=1");
     // /issues includes PRs; subtract open PR total for issue-only count.
     let issue_url =
         format!("https://api.github.com/repos/{owner}/{repo}/issues?state=open&per_page=1");
