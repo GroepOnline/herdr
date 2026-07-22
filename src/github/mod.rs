@@ -114,6 +114,39 @@ pub fn is_valid_repo_path_segment(segment: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
 }
 
+/// Total items for a GitHub list fetched with `per_page=1`.
+///
+/// When the response includes `Link: ...; rel="last"`, that page number is the
+/// total. Otherwise the first page length is the total (0 or 1).
+pub fn github_list_total_count(link_header: Option<&str>, first_page_len: usize) -> usize {
+    if let Some(last_page) = link_header.and_then(parse_link_rel_last_page) {
+        return last_page;
+    }
+    first_page_len
+}
+
+/// Parse `page=` from the `rel="last"` entry of a GitHub `Link` header.
+pub fn parse_link_rel_last_page(link_header: &str) -> Option<usize> {
+    for part in link_header.split(',') {
+        let part = part.trim();
+        let is_last = part.contains("rel=\"last\"") || part.contains("rel='last'");
+        if !is_last {
+            continue;
+        }
+        let start = part.find('<')? + 1;
+        let end = part[start..].find('>')? + start;
+        let url = &part[start..end];
+        let query = url.split('?').nth(1)?;
+        for pair in query.split('&') {
+            let (key, value) = pair.split_once('=')?;
+            if key == "page" {
+                return value.parse().ok();
+            }
+        }
+    }
+    None
+}
+
 /// Parse `owner/repo` from a github.com remote URL (https or ssh).
 pub fn parse_github_owner_repo(url: &str) -> Option<(String, String)> {
     let url = url.trim().trim_end_matches('/').trim_end_matches(".git");
@@ -247,6 +280,26 @@ github.example.com:
     }
 
     #[test]
+    fn list_total_uses_link_last_page_when_present() {
+        let link = concat!(
+            r#"<https://api.github.com/repositories/1/pulls?state=open&per_page=1&page=2>; rel="next", "#,
+            r#"<https://api.github.com/repositories/1/pulls?state=open&per_page=1&page=42>; rel="last""#
+        );
+        assert_eq!(parse_link_rel_last_page(link), Some(42));
+        assert_eq!(github_list_total_count(Some(link), 1), 42);
+    }
+
+    #[test]
+    fn list_total_falls_back_to_first_page_len_without_link() {
+        assert_eq!(github_list_total_count(None, 0), 0);
+        assert_eq!(github_list_total_count(None, 1), 1);
+        assert_eq!(
+            github_list_total_count(Some(r#"<https://api.github.com/x?page=2>; rel="next""#), 1),
+            1
+        );
+    }
+
+    #[test]
     fn parses_https_and_ssh_github_urls() {
         assert_eq!(
             parse_github_owner_repo("https://github.com/acme/widgets.git"),
@@ -268,5 +321,30 @@ github.example.com:
             parse_github_owner_repo("https://github.com/acme/wid gets.git"),
             None
         );
+    }
+
+    #[test]
+    fn discovers_owner_repo_from_linked_worktree_git_file() {
+        let root = std::env::temp_dir().join(format!(
+            "herdr-github-worktree-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        let git_dir = root.join(".git");
+        let worktree = root.join("linked");
+        let worktree_git = git_dir.join("worktrees").join("linked");
+        std::fs::create_dir_all(&worktree_git).expect("worktree git dir");
+        std::fs::create_dir_all(&worktree).expect("worktree dir");
+        std::fs::write(
+            git_dir.join("config"),
+            "[remote \"origin\"]\n\turl = https://github.com/acme/widgets.git\n",
+        )
+        .expect("config");
+        std::fs::write(worktree.join(".git"), "gitdir: ../.git/worktrees/linked\n")
+            .expect("git file");
+
+        let discovered = discover_github_owner_repo(&worktree);
+        let _ = std::fs::remove_dir_all(&root);
+        assert_eq!(discovered, Some(("acme".into(), "widgets".into())));
     }
 }

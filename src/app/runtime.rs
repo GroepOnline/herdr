@@ -860,11 +860,16 @@ async fn fetch_github_status(
         return Err("invalid owner/repo path segment".into());
     }
 
-    let pr_url = format!("https://api.github.com/repos/{owner}/{repo}/pulls?state=open");
-    let issue_url = format!("https://api.github.com/repos/{owner}/{repo}/issues?state=open");
+    // `per_page=1` + Link rel="last" yields the full total without paging every item.
+    let pr_url =
+        format!("https://api.github.com/repos/{owner}/{repo}/pulls?state=open&per_page=1");
+    // /issues includes PRs; subtract open PR total for issue-only count.
+    let issue_url =
+        format!("https://api.github.com/repos/{owner}/{repo}/issues?state=open&per_page=1");
 
-    let pr_count = fetch_github_array_len(client, token, &pr_url).await?;
-    let issue_count = fetch_github_open_issue_count(client, token, &issue_url).await?;
+    let pr_count = fetch_github_list_total(client, token, &pr_url).await?;
+    let issues_and_prs = fetch_github_list_total(client, token, &issue_url).await?;
+    let issue_count = issues_and_prs.saturating_sub(pr_count);
 
     Ok(crate::workspace::GithubStatus {
         pr_count,
@@ -872,7 +877,7 @@ async fn fetch_github_status(
     })
 }
 
-async fn fetch_github_array_len(
+async fn fetch_github_list_total(
     client: &reqwest::Client,
     token: &str,
     url: &str,
@@ -880,49 +885,30 @@ async fn fetch_github_array_len(
     let resp = client
         .get(url)
         .header("Authorization", format!("Bearer {token}"))
+        .header("Accept", "application/vnd.github+json")
         .send()
         .await
         .map_err(|err| err.to_string())?;
     if !resp.status().is_success() {
         return Err(format!("github api returned {}", resp.status()));
     }
+    let link = resp
+        .headers()
+        .get(reqwest::header::LINK)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
     let value = resp
         .json::<serde_json::Value>()
         .await
         .map_err(|err| err.to_string())?;
-    value
+    let first_page_len = value
         .as_array()
         .map(|arr| arr.len())
-        .ok_or_else(|| "github api response was not an array".into())
-}
-
-async fn fetch_github_open_issue_count(
-    client: &reqwest::Client,
-    token: &str,
-    url: &str,
-) -> Result<usize, String> {
-    let resp = client
-        .get(url)
-        .header("Authorization", format!("Bearer {token}"))
-        .send()
-        .await
-        .map_err(|err| err.to_string())?;
-    if !resp.status().is_success() {
-        return Err(format!("github api returned {}", resp.status()));
-    }
-    let value = resp
-        .json::<serde_json::Value>()
-        .await
-        .map_err(|err| err.to_string())?;
-    let Some(arr) = value.as_array() else {
-        return Err("github api response was not an array".into());
-    };
-    // /issues includes pull requests; count only true issues.
-    Ok(arr
-        .iter()
-        .filter_map(|item| item.as_object())
-        .filter(|obj| !obj.contains_key("pull_request"))
-        .count())
+        .ok_or_else(|| "github api response was not an array".to_string())?;
+    Ok(crate::github::github_list_total_count(
+        link.as_deref(),
+        first_page_len,
+    ))
 }
 
 #[cfg(test)]
