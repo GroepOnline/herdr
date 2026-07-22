@@ -42,7 +42,14 @@ pub(super) fn command() -> Command {
         .subcommand(session_command())
         .subcommand(integration_command())
         .subcommand(plugin_command());
-    configure_help(command, true)
+    configure_help(
+        if cfg!(feature = "browser") {
+            command.subcommand(browser_command())
+        } else {
+            command
+        },
+        true,
+    )
 }
 
 fn configure_help(command: Command, root: bool) -> Command {
@@ -108,6 +115,18 @@ fn completion_command() -> Command {
                 .required(true)
                 .value_parser(super::completion::SUPPORTED_SHELLS)
                 .help("Shell to generate completions for"),
+        )
+}
+
+fn browser_command() -> Command {
+    Command::new("browser")
+        .about("Render a webpage in the terminal using headless Chrome and viuer (requires Chrome/Chromium on PATH)")
+        .arg(flag("wait").help("Wait for Enter before exiting (default: exit after render)"))
+        .arg(
+            Arg::new("url")
+                .value_name("URL")
+                .required(true)
+                .help("http or https URL to render"),
         )
 }
 

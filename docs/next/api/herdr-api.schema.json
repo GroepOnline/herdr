@@ -3015,6 +3015,15 @@
         },
         "PaneSplitParams": {
           "properties": {
+            "command": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
             "cwd": {
               "type": [
                 "string",
@@ -3984,6 +3993,15 @@
         },
         "TabCreateParams": {
           "properties": {
+            "command": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
             "cwd": {
               "type": [
                 "string",
@@ -4080,6 +4098,15 @@
         },
         "WorkspaceCreateParams": {
           "properties": {
+            "command": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
             "cwd": {
               "type": [
                 "string",

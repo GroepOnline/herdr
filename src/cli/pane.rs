@@ -528,12 +528,17 @@ fn parse_pane_split_args(
     args: &[String],
     env_pane_id: Option<&str>,
 ) -> Result<PaneSplitParams, String> {
+    let separator = args
+        .iter()
+        .position(|arg| arg == "--")
+        .unwrap_or(args.len());
     let mut env = std::collections::HashMap::new();
     let mut pane_id = None;
     let mut direction = None;
     let mut ratio = None;
     let mut cwd = None;
     let mut focus = false;
+    let mut command = None;
 
     let mut index = 0;
     if args
@@ -543,7 +548,7 @@ fn parse_pane_split_args(
         pane_id = args.first().map(|arg| super::normalize_pane_id(arg));
         index = 1;
     }
-    while index < args.len() {
+    while index < separator {
         match args[index].as_str() {
             "--pane" => {
                 let Some(value) = args.get(index + 1) else {
@@ -592,6 +597,25 @@ fn parse_pane_split_args(
                 focus = false;
                 index += 1;
             }
+            "--argv" | "--command" => {
+                if command.is_some() {
+                    return Err("command specified more than once".into());
+                }
+                let mut argv = Vec::new();
+                index += 1;
+                while index < separator {
+                    let arg = &args[index];
+                    if arg.starts_with("--") && is_pane_split_option(arg) {
+                        break;
+                    }
+                    argv.push(arg.clone());
+                    index += 1;
+                }
+                if argv.is_empty() {
+                    return Err("missing value for --argv".into());
+                }
+                command = Some(argv);
+            }
             "--env" => {
                 let Some(value) = args.get(index + 1) else {
                     return Err("missing value for --env".into());
@@ -604,9 +628,20 @@ fn parse_pane_split_args(
         }
     }
 
+    if separator < args.len() {
+        if command.is_some() {
+            return Err("cannot combine --argv with '--' command separator".into());
+        }
+        let cmd = args[separator + 1..].to_vec();
+        if cmd.is_empty() {
+            return Err("missing command after --".into());
+        }
+        command = Some(cmd);
+    }
+
     let Some(direction) = direction else {
         return Err(
-            "usage: herdr pane split [<pane_id>|--pane ID|--current] --direction right|down [--ratio FLOAT] [--cwd PATH] [--env KEY=VALUE] [--focus] [--no-focus]"
+            "usage: herdr pane split [<pane_id>|--pane ID|--current] --direction right|down [--ratio FLOAT] [--cwd PATH] [--env KEY=VALUE] [--argv COMMAND...|-- <command...>] [--focus] [--no-focus]"
                 .into(),
         );
     };
@@ -619,7 +654,24 @@ fn parse_pane_split_args(
         cwd,
         focus,
         env,
+        command,
     })
+}
+
+fn is_pane_split_option(arg: &str) -> bool {
+    matches!(
+        arg,
+        "--pane"
+            | "--current"
+            | "--direction"
+            | "--ratio"
+            | "--cwd"
+            | "--focus"
+            | "--no-focus"
+            | "--env"
+            | "--argv"
+            | "--command"
+    )
 }
 
 fn pane_swap(args: &[String]) -> std::io::Result<i32> {
@@ -1519,7 +1571,7 @@ fn print_pane_help() {
     eprintln!("  herdr pane rename <pane_id> <label>|--clear");
     eprintln!("  herdr pane read <pane_id> [--source visible|recent|recent-unwrapped] [--lines N] [--format text|ansi] [--ansi]");
     eprintln!(
-        "  herdr pane split [<pane_id>|--pane ID|--current] --direction right|down [--ratio FLOAT] [--cwd PATH] [--env KEY=VALUE] [--focus] [--no-focus]"
+        "  herdr pane split [<pane_id>|--pane ID|--current] --direction right|down [--ratio FLOAT] [--cwd PATH] [--env KEY=VALUE] [--argv COMMAND...|-- <command...>] [--focus] [--no-focus]"
     );
     eprintln!("  herdr pane swap --direction left|right|up|down [--pane ID|--current]");
     eprintln!("  herdr pane swap --source-pane ID --target-pane ID");
@@ -1596,6 +1648,54 @@ mod tests {
 
         assert_eq!(params.target_pane_id, Some("issue-2".into()));
         assert_eq!(params.direction, crate::api::schema::SplitDirection::Right);
+    }
+
+    #[test]
+    fn parse_pane_split_args_argv_does_not_swallow_later_flags() {
+        let params = parse_pane_split_args(
+            &args(&[
+                "--direction",
+                "right",
+                "--argv",
+                "bash",
+                "-lc",
+                "echo hi",
+                "--cwd",
+                "/tmp",
+            ]),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            params.command,
+            Some(vec!["bash".into(), "-lc".into(), "echo hi".into()])
+        );
+        assert_eq!(params.cwd, Some("/tmp".into()));
+    }
+
+    #[test]
+    fn parse_pane_split_args_accepts_command_after_separator() {
+        let params = parse_pane_split_args(
+            &args(&[
+                "--direction",
+                "down",
+                "--cwd",
+                "/tmp",
+                "--",
+                "bash",
+                "-lc",
+                "echo hi",
+            ]),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            params.command,
+            Some(vec!["bash".into(), "-lc".into(), "echo hi".into()])
+        );
+        assert_eq!(params.cwd, Some("/tmp".into()));
     }
 
     #[test]

@@ -66,8 +66,33 @@ impl App {
             crate::api::schema::SplitDirection::Down => ratatui::layout::Direction::Vertical,
         };
         let shell_config = crate::pane::PaneShellConfig::new(&default_shell, self.state.shell_mode);
-        let split_result = match params.ratio {
-            Some(ratio) => ws.split_pane_with_ratio(
+        let split_result = match (params.ratio, params.command.as_deref()) {
+            (Some(ratio), Some(argv)) => ws.split_pane_argv_command_with_ratio(
+                target_pane_id,
+                direction,
+                ratio,
+                rows,
+                cols,
+                split_cwd,
+                argv,
+                extra_env,
+                scrollback_limit_bytes,
+                host_terminal_theme,
+                params.focus,
+            ),
+            (None, Some(argv)) => ws.split_pane_argv_command(
+                target_pane_id,
+                direction,
+                rows,
+                cols,
+                split_cwd,
+                argv,
+                extra_env,
+                scrollback_limit_bytes,
+                host_terminal_theme,
+                params.focus,
+            ),
+            (Some(ratio), None) => ws.split_pane_with_ratio(
                 target_pane_id,
                 direction,
                 ratio,
@@ -80,7 +105,7 @@ impl App {
                 extra_env,
                 params.focus,
             ),
-            None => ws.split_pane(
+            (None, None) => ws.split_pane(
                 target_pane_id,
                 direction,
                 rows,
