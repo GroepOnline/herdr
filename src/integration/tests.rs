@@ -2689,10 +2689,11 @@ fn bundled_integration_assets_report_session_refs() {
     );
     assert!(!CODEX_HOOK_ASSET.contains("\"state\": action"));
     assert!(!CODEX_HOOK_ASSET.contains("pane.release_agent"));
-    assert!(KIMI_HOOK_ASSET.contains("source = \"herdr:kimi\""));
+    assert!(KIMI_HOOK_ASSET.contains("source\": \"herdr:kimi"));
     assert!(KIMI_HOOK_ASSET.contains("agent_session_id"));
-    assert!(KIMI_HOOK_ASSET.contains("pane.report_agent_session"));
-    assert!(KIMI_HOOK_ASSET.contains("\"state\": action"));
+    assert!(KIMI_HOOK_ASSET.contains("method = \"pane.report_agent_session\""));
+    assert!(KIMI_HOOK_ASSET.contains("method = \"pane.report_agent\""));
+    assert!(KIMI_HOOK_ASSET.contains("params[\"state\"] = action"));
     assert!(!KIMI_HOOK_ASSET.contains("pane.release_agent"));
     assert!(COPILOT_HOOK_ASSET.contains("agent_session_id"));
     assert!(COPILOT_HOOK_ASSET.contains("pane.report_agent_session"));
