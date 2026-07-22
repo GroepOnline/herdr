@@ -397,7 +397,7 @@ pub(crate) fn row_choice_selected(
             true
         }
         SettingsSection::Terminal if row.kind == SettingsRowKind::Choice => match row.payload {
-            0 | 1 | 2 => true,
+            0..=2 => true,
             preset_idx if preset_idx >= 3 => scrollback_presets()
                 .get(preset_idx - 3)
                 .is_some_and(|(bytes, _)| app.pane_scrollback_limit_bytes == *bytes),
