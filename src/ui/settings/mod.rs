@@ -86,6 +86,6 @@ mod tests {
             .map(|cell| cell.symbol())
             .collect::<String>();
 
-        assert!(rendered.contains("pane screen history [✓]"));
+        assert!(rendered.contains("[✓] pane screen history"));
     }
 }
