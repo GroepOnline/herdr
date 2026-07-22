@@ -1674,7 +1674,16 @@ mod tests {
     #[test]
     fn parse_pane_split_args_accepts_command_after_separator() {
         let params = parse_pane_split_args(
-            &args(&["--direction", "down", "--cwd", "/tmp", "--", "bash", "-lc", "echo hi"]),
+            &args(&[
+                "--direction",
+                "down",
+                "--cwd",
+                "/tmp",
+                "--",
+                "bash",
+                "-lc",
+                "echo hi",
+            ]),
             None,
         )
         .unwrap();
