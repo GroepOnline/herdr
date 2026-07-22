@@ -105,8 +105,11 @@ jobs:
             --skip local_keybinding_client_keeps_local_keybindings_after_settings_save \
             --skip pane_border_renderer_places_adjacent_cjk_by_display_width
 
+      # nextest does not run doctests; herdr is binary-only so cargo test --doc
+      # has no library target and is N/A until a lib crate exists in the workspace.
       - name: Cargo doctests
-        run: cargo test --workspace --doc --locked
+        run: |
+          echo "Skipping cargo doctests: no lib target in herdr workspace packages that need --doc."
 
       - name: Cargo clippy
         run: cargo clippy --all-targets --locked -- -D warnings
