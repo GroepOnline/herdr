@@ -18,9 +18,12 @@ include = [
     "Cargo.toml",
 ]
 
+# Feature flag for cfg(feature = "browser") gates in CLI. Dependencies stay
+# required so Cargo.lock (generated when they were non-optional) stays valid
+# under --locked. Narrowing to optional deps needs a lock regenerate on CI.
 [features]
 default = ["browser"]
-browser = ["dep:headless_chrome", "dep:image", "dep:viuer"]
+browser = []
 
 [dependencies]
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "json"] }
@@ -51,11 +54,9 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 unicode-width = "0.2"
 schemars = { version = "1.2.1", features = ["derive"] }
-viuer = { version = "0.11.0", optional = true }
-headless_chrome = { version = "1.0.22", optional = true }
-image = { version = "0.25.10", optional = true, default-features = false, features = [
-    "jpeg",
-] }
+viuer = "0.11.0"
+headless_chrome = "1.0.22"
+image = "0.25.10"
 
 [patch.crates-io]
 portable-pty = { path = "vendor/portable-pty" }
