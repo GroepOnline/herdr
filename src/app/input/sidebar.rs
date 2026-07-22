@@ -1718,4 +1718,17 @@ mod tests {
         let snapshot = capture_snapshot(&app.state);
         assert_eq!(snapshot.sidebar_width, Some(26));
     }
+
+    #[test]
+    fn collapsed_sidebar_workspace_hit_respects_scroll() {
+        let mut state = state_with_workspaces(&["a", "b", "c", "d", "e", "f"]);
+        state.sidebar_collapsed = true;
+        state.workspace_scroll = 2;
+        crate::ui::compute_view(&mut state, Rect::new(0, 0, 106, 12));
+        let (ws_area, _, _) = crate::ui::collapsed_sidebar_sections(state.view.sidebar_rect);
+        assert!(ws_area.height >= 1);
+
+        let hit = state.collapsed_workspace_at_row(ws_area.y);
+        assert_eq!(hit, Some(2));
+    }
 }
