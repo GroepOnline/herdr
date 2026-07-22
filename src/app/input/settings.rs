@@ -699,18 +699,6 @@ impl AppState {
         SettingsLayout::compute(self.screen_rect(), self)
     }
 
-    #[cfg(test)]
-    pub(crate) fn settings_content_rect(&self) -> Rect {
-        self.settings_layout()
-            .map(|layout| layout.content)
-            .unwrap_or_default()
-    }
-
-    #[cfg(test)]
-    pub(crate) fn settings_nav_index_at(&self, col: u16, row: u16) -> Option<usize> {
-        self.settings_layout()?.nav_index_at(col, row)
-    }
-
     pub(super) fn handle_settings_mouse(&mut self, mouse: MouseEvent) -> Option<SettingsAction> {
         let layout = self.settings_layout()?;
         match mouse.kind {
@@ -951,7 +939,11 @@ mod tests {
         open_settings(&mut app.state);
         app.state.settings.list.select(0);
 
-        let area = app.state.settings_content_rect();
+        let area = app
+            .state
+            .settings_layout()
+            .expect("layout")
+            .content;
         app.handle_mouse(mouse(MouseEventKind::Moved, area.x + 2, area.y + 2));
 
         assert_eq!(app.state.settings.list.selected, 0);
@@ -963,7 +955,11 @@ mod tests {
         app.state.pane_history_persistence = false;
         open_settings_at(&mut app.state, SettingsSection::Advanced);
 
-        let area = app.state.settings_content_rect();
+        let area = app
+            .state
+            .settings_layout()
+            .expect("layout")
+            .content;
         let action = app.state.handle_settings_mouse(mouse(
             MouseEventKind::Down(crossterm::event::MouseButton::Left),
             area.x + 2,

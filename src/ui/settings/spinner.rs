@@ -119,9 +119,8 @@ pub(crate) fn active_spinner_category(index: usize) -> &'static SpinnerCategory 
         .unwrap_or(&SPINNER_CATEGORIES[0])
 }
 
-pub(crate) fn spinner_style_count() -> usize {
-    SpinnerStyle::ALL.len()
-}
+/// Keep the full catalog linked so category coverage stays auditable.
+const _: usize = SpinnerStyle::ALL.len();
 
 #[cfg(test)]
 mod tests {
@@ -130,6 +129,6 @@ mod tests {
     #[test]
     fn spinner_categories_cover_all_styles() {
         let categorized: usize = SPINNER_CATEGORIES.iter().map(|c| c.styles.len()).sum();
-        assert_eq!(categorized, spinner_style_count());
+        assert_eq!(categorized, SpinnerStyle::ALL.len());
     }
 }
