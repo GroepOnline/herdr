@@ -31,6 +31,7 @@ jobs:
   check:
     name: Check & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -42,6 +43,11 @@ jobs:
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+
+      - name: Install Rust tools
+        uses: taiki-e/install-action@fd2f5e3d644b484055ebf4268f474c565f148f25 # v2.81.9
+        with:
+          tool: cargo-nextest
 
       - name: Install Zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
@@ -90,15 +96,28 @@ jobs:
       - name: Cargo check
         run: cargo check --all-targets --locked
 
-      - name: Cargo test
-        run: cargo test --all --locked -- --skip graphics_bytes_are_written_after_blit_with_saved_cursor --skip foreground_client_applies_client_keybindings --skip invalid_server_keybindings_apply_valid_subset_after_settings_save_without_caching_local_keybindings --skip local_keybinding_client_keeps_local_keybindings_after_settings_save --skip pane_border_renderer_places_adjacent_cjk_by_display_width
+      - name: Cargo nextest
+        run: |
+          cargo nextest run --workspace --locked -- \
+            --skip graphics_bytes_are_written_after_blit_with_saved_cursor \
+            --skip foreground_client_applies_client_keybindings \
+            --skip invalid_server_keybindings_apply_valid_subset_after_settings_save_without_caching_local_keybindings \
+            --skip local_keybinding_client_keeps_local_keybindings_after_settings_save \
+            --skip pane_border_renderer_places_adjacent_cjk_by_display_width
+
+      # nextest does not run doctests; herdr is binary-only so cargo test --doc
+      # has no library target and is N/A until a lib crate exists in the workspace.
+      - name: Cargo doctests
+        run: |
+          echo "Skipping cargo doctests: no lib target in herdr workspace packages that need --doc."
 
       - name: Cargo clippy
         run: cargo clippy --all-targets --locked -- -D warnings
 
   release-build:
-    name: Release build (${{ matrix.target }})
+    name: Release smoke build (${{ matrix.target }})
     needs: check
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -144,20 +163,21 @@ jobs:
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          key: ci-release-${{ matrix.target }}
+          key: ci-release-smoke-${{ matrix.target }}
 
       - name: Remove Zig caches
         run: rm -rf .zig-cache vendor/libghostty-vt/.zig-cache vendor/libghostty-vt/zig-out
 
-      - name: Build exact release artifact
-        run: cargo build --release --locked --target ${{ matrix.target }}
+      # Non-LTO release-profile smoke build; not the exact publish artifact.
+      - name: Build release smoke artifact (LTO off)
+        run: cargo build --release --locked --target ${{ matrix.target }} --config profile.release.lto=false
 
-      - name: Stage artifact
+      - name: Stage smoke artifact
         run: cp target/${{ matrix.target }}/release/herdr ${{ matrix.artifact }}
 
-      - name: Upload artifact
+      - name: Upload smoke artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: ci-${{ matrix.artifact }}
+          name: ci-smoke-${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
           retention-days: 7
