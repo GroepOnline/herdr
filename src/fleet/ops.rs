@@ -174,16 +174,6 @@ impl FleetOpsMetadata {
 
         parts
     }
-
-    /// Render a compact single-line status string.
-    /// Format: `agent | state | repo:branch | model | host | elapsed`
-    pub fn render_bar(&self, agent_name: &str, state: AgentState, label: Option<&str>) -> String {
-        self.bar_parts(agent_name, state, label)
-            .into_iter()
-            .map(|part| part.text)
-            .collect::<Vec<_>>()
-            .join(" | ")
-    }
 }
 
 fn state_label(state: AgentState) -> &'static str {
@@ -263,19 +253,23 @@ mod tests {
     }
 
     #[test]
-    fn test_render_bar_minimal() {
+    fn test_bar_parts_minimal() {
         let meta = FleetOpsMetadata {
             host: "sofie".to_string(),
             ..Default::default()
         };
-        let bar = meta.render_bar("claude", AgentState::Idle, None);
-        assert!(bar.contains("claude"));
-        assert!(bar.contains("idle"));
-        assert!(bar.contains("sofie"));
+        let texts: Vec<_> = meta
+            .bar_parts("claude", AgentState::Idle, None)
+            .into_iter()
+            .map(|part| part.text)
+            .collect();
+        assert!(texts.iter().any(|t| t == "claude"));
+        assert!(texts.iter().any(|t| t == "idle"));
+        assert!(texts.iter().any(|t| t == "sofie"));
     }
 
     #[test]
-    fn test_render_bar_full() {
+    fn test_bar_parts_full() {
         let meta = FleetOpsMetadata {
             repo: Some("herdr".to_string()),
             branch: Some("main".to_string()),
@@ -289,14 +283,18 @@ mod tests {
             session_resume_available: true,
             ..Default::default()
         };
-        let bar = meta.render_bar("claude", AgentState::Working, Some("chef-bot"));
-        assert!(bar.contains("chef-bot"));
-        assert!(bar.contains("working"));
-        assert!(bar.contains("herdr:main (feature)"));
-        assert!(bar.contains("zai/glm-5.2"));
-        assert!(bar.contains("#42 OK"));
-        assert!(bar.contains("5m"));
-        assert!(bar.contains("resume"));
+        let texts: Vec<_> = meta
+            .bar_parts("claude", AgentState::Working, Some("chef-bot"))
+            .into_iter()
+            .map(|part| part.text)
+            .collect();
+        assert!(texts.iter().any(|t| t == "chef-bot"));
+        assert!(texts.iter().any(|t| t == "working"));
+        assert!(texts.iter().any(|t| t == "herdr:main (feature)"));
+        assert!(texts.iter().any(|t| t == "zai/glm-5.2"));
+        assert!(texts.iter().any(|t| t == "#42 OK"));
+        assert!(texts.iter().any(|t| t == "5m"));
+        assert!(texts.iter().any(|t| t == "resume"));
     }
 
     #[test]
