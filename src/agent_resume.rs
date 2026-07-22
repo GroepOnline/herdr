@@ -198,13 +198,27 @@ pub fn plan(source: &str, agent: &str, session_ref: &AgentSessionRef) -> Option<
 }
 
 fn pi_resume_argv(session_ref: &AgentSessionRef) -> Vec<String> {
-    vec![
-        "sh".into(),
-        "-lc".into(),
-        pi_resume_script(&session_ref.value),
-    ]
+    // Unix resume populates Pi-Memory context via a shell prelude. Windows keeps
+    // the direct argv form because `sh -lc` is not a reliable host shell there.
+    #[cfg(unix)]
+    {
+        vec![
+            "sh".into(),
+            "-lc".into(),
+            pi_resume_script(&session_ref.value),
+        ]
+    }
+    #[cfg(windows)]
+    {
+        vec![
+            "pi".into(),
+            "--session".into(),
+            session_ref.value.clone(),
+        ]
+    }
 }
 
+#[cfg(unix)]
 fn pi_resume_script(session_value: &str) -> String {
     format!(
         r#"set +e
@@ -226,6 +240,7 @@ exec pi --session {}
     )
 }
 
+#[cfg(unix)]
 fn shell_quote(value: &str) -> String {
     if value.is_empty() {
         return "''".to_string();
@@ -625,6 +640,7 @@ mod tests {
         assert_eq!(devin_plan.argv, vec!["devin", "--resume", id]);
     }
 
+    #[cfg(unix)]
     #[test]
     fn pi_resume_script_shell_quotes_session_ref() {
         assert_eq!(shell_quote("plain"), "'plain'");
