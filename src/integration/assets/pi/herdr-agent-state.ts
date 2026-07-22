@@ -2,10 +2,14 @@
 // managed by herdr; reinstalling or updating the integration overwrites this file.
 // add custom hooks/plugins beside this file instead of editing it.
 // HERDR_INTEGRATION_ID=pi
-// HERDR_INTEGRATION_VERSION=6
+// HERDR_INTEGRATION_VERSION=7
 // @ts-nocheck
 
+import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import net from "node:net";
+import { homedir } from "node:os";
+import path from "node:path";
 
 const HERDR_ENV = process.env.HERDR_ENV;
 const socketPath = process.env.HERDR_SOCKET_PATH;
@@ -13,9 +17,104 @@ const socketEndpoint =
   process.platform === "win32" && socketPath ? `\\\\.\\pipe\\${socketPath}` : socketPath;
 const paneId = process.env.HERDR_PANE_ID;
 const source = "herdr:pi";
+const PI_MEMORY_TIMEOUT_MS = 4000;
 
 function enabled() {
   return HERDR_ENV === "1" && !!socketPath && !!paneId;
+}
+
+function piMemoryEnabled() {
+  return HERDR_ENV === "1" && process.env.HERDR_PI_MEMORY !== "0";
+}
+
+function localPiMemoryBin() {
+  return path.join(
+    homedir(),
+    ".pi",
+    "memory",
+    process.platform === "win32" ? "pi-memory.exe" : "pi-memory",
+  );
+}
+
+function piMemoryBin() {
+  const configured = process.env.PI_MEMORY_BIN;
+  if (typeof configured === "string" && configured.length > 0) {
+    return configured;
+  }
+
+  const localBin = localPiMemoryBin();
+  return existsSync(localBin) ? localBin : "pi-memory";
+}
+
+function projectName() {
+  try {
+    return path.basename(process.cwd()) || "workspace";
+  } catch {
+    return "workspace";
+  }
+}
+
+function runPiMemory(args: string[]): Promise<void> {
+  if (!piMemoryEnabled()) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    try {
+      execFile(
+        piMemoryBin(),
+        args,
+        {
+          maxBuffer: 64 * 1024,
+          timeout: PI_MEMORY_TIMEOUT_MS,
+          windowsHide: true,
+        },
+        () => resolve(),
+      );
+    } catch {
+      resolve();
+    }
+  });
+}
+
+function piMemoryCommands(lifecycle: string): string[][] {
+  const project = projectName();
+  switch (lifecycle) {
+    case "session_start":
+      return [
+        ["sync", "MEMORY.md", "--limit", "15"],
+        ["state", project],
+        ["query", "--limit", "10"],
+      ];
+    case "agent_start":
+      return [["state", project]];
+    case "agent_settled":
+      return [
+        [
+          "log",
+          "finding",
+          "herdr:agent_settled",
+          "--category",
+          "session",
+          "--confidence",
+          "observed",
+        ],
+        ["sync", "MEMORY.md", "--limit", "15"],
+      ];
+    case "session_shutdown":
+      return [
+        ["state", project],
+        ["sync", "MEMORY.md", "--limit", "15"],
+      ];
+    default:
+      return [];
+  }
+}
+
+async function runPiMemoryLifecycle(lifecycle: string): Promise<void> {
+  for (const args of piMemoryCommands(lifecycle)) {
+    await runPiMemory(args);
+  }
 }
 
 function sendRequestAttempt(request: unknown, timeoutMs: number): Promise<boolean> {
@@ -198,7 +297,7 @@ async function drainStateQueue(): Promise<void> {
 }
 
 export default function (pi) {
-  if (!enabled()) {
+  if (!enabled() && !piMemoryEnabled()) {
     return;
   }
 
@@ -254,6 +353,7 @@ export default function (pi) {
     rootSession = true;
     updateSessionRef(ctx);
     await reportSession(event?.reason);
+    void runPiMemoryLifecycle("session_start");
     // A reload can replace this extension mid-run without emitting another agent_start.
     agentActive = ctx?.isIdle?.() === false;
     publishState(true);
@@ -265,6 +365,7 @@ export default function (pi) {
     }
     updateSessionRef(ctx);
     void reportSession();
+    void runPiMemoryLifecycle("agent_start");
     agentActive = true;
     publishState();
   });
@@ -276,12 +377,14 @@ export default function (pi) {
 
     agentActive = false;
     publishState();
+    void runPiMemoryLifecycle("agent_settled");
   });
 
   pi.on("session_shutdown", async (event) => {
     if (!rootSession) {
       return;
     }
+    void runPiMemoryLifecycle("session_shutdown");
     if (shouldReleaseOnSessionShutdown(event)) {
       await releaseAgent();
     }
