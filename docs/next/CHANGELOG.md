@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Changed
+- Relicensed Herdr from AGPL-3.0-or-later to Apache-2.0.
+
 ## [0.7.5] - 2026-07-21
 
 ### Breaking Changes

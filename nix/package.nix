@@ -81,7 +81,7 @@ rustPlatform.buildRustPackage {
   meta = {
     description = "Terminal workspace manager for AI coding agents";
     homepage = "https://herdr.dev";
-    license = lib.licenses.agpl3Plus;
+    license = lib.licenses.asl20;
     mainProgram = "herdr";
     platforms = lib.platforms.linux ++ lib.platforms.darwin;
   };
