@@ -1667,7 +1667,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(params.command, Some(vec!["bash", "-lc", "echo hi"]));
+        assert_eq!(
+            params.command,
+            Some(vec!["bash".into(), "-lc".into(), "echo hi".into()])
+        );
         assert_eq!(params.cwd, Some("/tmp".into()));
     }
 
@@ -1688,7 +1691,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(params.command, Some(vec!["bash", "-lc", "echo hi"]));
+        assert_eq!(
+            params.command,
+            Some(vec!["bash".into(), "-lc".into(), "echo hi".into()])
+        );
         assert_eq!(params.cwd, Some("/tmp".into()));
     }
 
