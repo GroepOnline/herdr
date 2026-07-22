@@ -269,7 +269,34 @@ impl App {
         }
 
         match template {
-            T::Single => {}
+            T::Single => {
+                // Close every other pane in the active tab so the result matches
+                // "one pane, no splits" even when the tab already had splits.
+                let Some(ws_idx) = self.state.active else {
+                    return;
+                };
+                let Some(focused) = self
+                    .state
+                    .workspaces
+                    .get(ws_idx)
+                    .and_then(|ws| ws.focused_pane_id())
+                else {
+                    return;
+                };
+                let Some(tab) = self.state.workspaces[ws_idx].active_tab() else {
+                    return;
+                };
+                let to_close: Vec<String> = tab
+                    .layout
+                    .pane_ids()
+                    .into_iter()
+                    .filter(|pane_id| *pane_id != focused)
+                    .filter_map(|pane_id| self.public_pane_id(ws_idx, pane_id))
+                    .collect();
+                for pane_id in to_close {
+                    self.runtime_pane_close("tui.pane.close", pane_id);
+                }
+            }
             T::HorizontalSplit => {
                 self.split_focused_pane_via_api(SplitDirection::Right);
             }
