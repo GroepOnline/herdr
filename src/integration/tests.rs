@@ -2724,12 +2724,12 @@ fn bundled_integration_assets_report_session_refs() {
     assert!(HERMES_PLUGIN_INIT_ASSET.contains("on_session_end"));
     assert!(!HERMES_PLUGIN_INIT_ASSET.contains("on_session_finalize"));
     assert!(!HERMES_PLUGIN_INIT_ASSET.contains("pane.release_agent"));
-    assert!(QODERCLI_HOOK_ASSET.contains("HERDR_HOOK_INPUT_FILE"));
-    assert!(QODERCLI_HOOK_ASSET.contains("agent_session_id"));
-    assert!(QODERCLI_HOOK_ASSET.contains("pane.report_agent_session"));
-    assert!(!QODERCLI_HOOK_ASSET.contains("\"state\": action"));
-    assert!(!QODERCLI_HOOK_ASSET.contains("pane.release_agent"));
-    assert!(!QODERCLI_HOOK_ASSET.contains("QODER_HOOK_EVENT"));
+    assert!(QODERCLI_HOOK_ASSET.contains("HERDR_PANE_ID"));
+    assert!(QODERCLI_HOOK_ASSET.contains("session_id"));
+    assert!(QODERCLI_HOOK_ASSET.contains("report-agent-session"));
+    assert!(QODERCLI_HOOK_ASSET.contains("--agent-session-id"));
+    assert!(!QODERCLI_HOOK_ASSET.contains("report-agent\""));
+    assert!(!QODERCLI_HOOK_ASSET.contains("release-agent"));
     assert!(CURSOR_HOOK_ASSET.contains("HERDR_INTEGRATION_ID=cursor"));
     assert!(CURSOR_HOOK_ASSET.contains("conversation_id"));
     assert!(CURSOR_HOOK_ASSET.contains("conversationId"));
