@@ -302,33 +302,19 @@ mod tests {
 
     #[test]
     fn parse_workspace_create_args_command_alias_does_not_swallow_later_flags() {
-        let params = parse_workspace_create_args(&args(&[
-            "--command",
-            "cargo",
-            "test",
-            "--cwd",
-            "/tmp",
-        ]))
-        .unwrap();
+        let params =
+            parse_workspace_create_args(&args(&["--command", "cargo", "test", "--cwd", "/tmp"]))
+                .unwrap();
 
-        assert_eq!(
-            params.command,
-            Some(vec!["cargo".into(), "test".into()])
-        );
+        assert_eq!(params.command, Some(vec!["cargo".into(), "test".into()]));
         assert_eq!(params.cwd, Some("/tmp".into()));
     }
 
     #[test]
     fn parse_workspace_create_args_accepts_command_after_separator() {
-        let params = parse_workspace_create_args(&args(&[
-            "--label",
-            "ws",
-            "--",
-            "bash",
-            "-lc",
-            "echo hi",
-        ]))
-        .unwrap();
+        let params =
+            parse_workspace_create_args(&args(&["--label", "ws", "--", "bash", "-lc", "echo hi"]))
+                .unwrap();
 
         assert_eq!(
             params.command,
@@ -339,8 +325,7 @@ mod tests {
 
     #[test]
     fn parse_workspace_create_args_rejects_combining_argv_and_separator() {
-        let err =
-            parse_workspace_create_args(&args(&["--argv", "bash", "--", "zsh"])).unwrap_err();
+        let err = parse_workspace_create_args(&args(&["--argv", "bash", "--", "zsh"])).unwrap_err();
         assert!(err.contains("cannot combine"));
     }
 }

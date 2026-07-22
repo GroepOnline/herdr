@@ -245,12 +245,7 @@ mod tests {
     #[test]
     fn parse_tab_create_args_argv_does_not_swallow_later_flags() {
         let params = parse_tab_create_args(&args(&[
-            "--argv",
-            "bash",
-            "-lc",
-            "echo hi",
-            "--cwd",
-            "/tmp",
+            "--argv", "bash", "-lc", "echo hi", "--cwd", "/tmp",
         ]))
         .unwrap();
 
@@ -263,19 +258,10 @@ mod tests {
 
     #[test]
     fn parse_tab_create_args_accepts_command_after_separator() {
-        let params = parse_tab_create_args(&args(&[
-            "--label",
-            "run",
-            "--",
-            "cargo",
-            "test",
-        ]))
-        .unwrap();
+        let params =
+            parse_tab_create_args(&args(&["--label", "run", "--", "cargo", "test"])).unwrap();
 
-        assert_eq!(
-            params.command,
-            Some(vec!["cargo".into(), "test".into()])
-        );
+        assert_eq!(params.command, Some(vec!["cargo".into(), "test".into()]));
         assert_eq!(params.label, Some("run".into()));
     }
 
