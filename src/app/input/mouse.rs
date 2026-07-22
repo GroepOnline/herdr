@@ -386,12 +386,13 @@ impl AppState {
                     self.mode,
                     Mode::RenameWorkspace | Mode::RenameTab | Mode::RenamePane
                 ) {
-                    // Body/chrome clicks are no-ops; only Save/Clear/Cancel act.
+                    // Buttons act; inside body is a no-op; outside cancels (keeps
+                    // mobile switch / other chrome from trapping the modal).
                     let Some(inner) = self.rename_modal_inner() else {
                         return None;
                     };
                     let (save, clear, cancel) = crate::ui::rename_button_rects(inner);
-                    let Some(action) = modal_action_from_buttons(
+                    if let Some(action) = modal_action_from_buttons(
                         mouse.column,
                         mouse.row,
                         &[
@@ -399,10 +400,13 @@ impl AppState {
                             (clear, ModalAction::Clear),
                             (cancel, ModalAction::Cancel),
                         ],
-                    ) else {
+                    ) {
+                        return Some(MouseAction::RenameModal(action));
+                    }
+                    if rect_contains(inner, mouse.column, mouse.row) {
                         return None;
-                    };
-                    return Some(MouseAction::RenameModal(action));
+                    }
+                    return Some(MouseAction::RenameModal(ModalAction::Cancel));
                 }
 
                 if self.mode == Mode::ContextMenu {
