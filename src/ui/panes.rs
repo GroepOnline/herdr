@@ -611,10 +611,10 @@ fn line_touches_pane(x: u16, y: u16, info: &PaneInfo, pane_gaps: bool) -> bool {
 }
 
 /// Fleet Ops Bar — compact status line at bottom of each pane border.
-/// Shows agent | state | git branch | host when available.
+/// Shows agent | state | git | PR/issue | model | host | resume when available.
 fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame: &mut Frame) {
     use crate::detect::AgentState;
-    use crate::fleet::FleetOpsMetadata;
+    use crate::fleet::{FleetOpsBarKind, FleetOpsMetadata};
 
     let buf = frame.buffer_mut();
     let area = buf.area;
@@ -645,15 +645,7 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
         };
 
         let meta = FleetOpsMetadata::from_terminal(term, host_str.unwrap_or("local"));
-
-        let display_name = label.unwrap_or(agent_name);
-
-        let state_str = match state {
-            AgentState::Idle => "idle",
-            AgentState::Working => "working",
-            AgentState::Blocked => "blocked",
-            AgentState::Unknown => "unknown",
-        };
+        let parts = meta.bar_parts(agent_name, state, label);
 
         let state_bg = match state {
             AgentState::Blocked => app.palette.red,
@@ -662,57 +654,35 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
             AgentState::Unknown => app.palette.overlay0,
         };
 
-        let mut spans = Vec::new();
-
-        spans.push(Span::styled(
-            format!(" {} ", display_name),
-            Style::default()
-                .bg(app.palette.accent)
-                .fg(panel_contrast_fg(&app.palette))
-                .add_modifier(Modifier::BOLD),
-        ));
-
-        spans.push(Span::styled(
-            format!(" {} ", state_str),
-            Style::default()
-                .bg(state_bg)
-                .fg(panel_contrast_fg(&app.palette))
-                .add_modifier(Modifier::BOLD),
-        ));
-
-        if let Some(repo) = &meta.repo {
-            let git_info = match (&meta.branch, &meta.worktree) {
-                (Some(br), Some(wt)) => format!("{}:{} ({})", repo, br, wt),
-                (Some(br), None) => format!("{}:{}", repo, br),
-                (None, _) => repo.clone(),
-            };
-            spans.push(Span::styled(
-                format!(" {} ", git_info),
-                Style::default()
-                    .bg(app.palette.surface1)
-                    .fg(app.palette.text),
-            ));
-        }
-
-        if let Some(model) = &meta.model {
-            let provider = meta.provider.as_deref().unwrap_or("");
-            let m = if provider.is_empty() {
-                model.clone()
-            } else {
-                format!("{}/{}", provider, model)
-            };
-            spans.push(Span::styled(
-                format!(" {} ", m),
-                Style::default()
+        let mut spans = Vec::with_capacity(parts.len());
+        for part in parts {
+            let style = match part.kind {
+                FleetOpsBarKind::Name => Style::default()
+                    .bg(app.palette.accent)
+                    .fg(panel_contrast_fg(&app.palette))
+                    .add_modifier(Modifier::BOLD),
+                FleetOpsBarKind::State => Style::default()
+                    .bg(state_bg)
+                    .fg(panel_contrast_fg(&app.palette))
+                    .add_modifier(Modifier::BOLD),
+                FleetOpsBarKind::Git | FleetOpsBarKind::Linear | FleetOpsBarKind::Pr => {
+                    Style::default()
+                        .bg(app.palette.surface1)
+                        .fg(app.palette.text)
+                }
+                FleetOpsBarKind::Model => Style::default()
                     .bg(app.palette.surface0)
                     .fg(app.palette.text),
-            ));
+                FleetOpsBarKind::Host | FleetOpsBarKind::Elapsed | FleetOpsBarKind::Retry => {
+                    Style::default().fg(app.palette.overlay0)
+                }
+                FleetOpsBarKind::Resume => Style::default()
+                    .bg(app.palette.green)
+                    .fg(panel_contrast_fg(&app.palette))
+                    .add_modifier(Modifier::BOLD),
+            };
+            spans.push(Span::styled(format!(" {} ", part.text), style));
         }
-
-        spans.push(Span::styled(
-            format!(" {} ", meta.host),
-            Style::default().fg(app.palette.overlay0),
-        ));
 
         let line = Line::from(spans);
 

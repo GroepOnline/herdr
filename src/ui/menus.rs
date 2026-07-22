@@ -1,6 +1,5 @@
 use ratatui::{
     layout::{Alignment, Rect},
-    style::Color,
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Clear, List, ListItem, ListState, Paragraph},
@@ -20,14 +19,16 @@ fn keybind_label(bindings: &crate::config::ActionKeybinds) -> String {
     bindings.label().unwrap_or_else(|| "unset".to_string())
 }
 
-fn render_bottom_bar(frame: &mut Frame, area: Rect, line: Line<'_>, _bg: ratatui::style::Color) {
+fn render_bottom_bar(frame: &mut Frame, area: Rect, line: Line<'_>, bg: ratatui::style::Color) {
+    // Full-width clear/fill so unused cells never keep terminal glyphs.
+    frame.render_widget(Clear, area);
     let buf = frame.buffer_mut();
     for x in area.x..area.x + area.width {
         if x < buf.area.width && area.y < buf.area.height {
             let cell = &mut buf[(x, area.y)];
-            let style = cell.style();
-            cell.set_style(style.add_modifier(Modifier::DIM));
-            cell.set_bg(Color::Rgb(15, 15, 25)); // Glassy tint matching panel shell
+            cell.set_symbol(" ");
+            cell.set_bg(bg);
+            cell.set_style(Style::default().bg(bg).add_modifier(Modifier::DIM));
         }
     }
     frame.render_widget(Paragraph::new(line), area);

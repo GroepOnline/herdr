@@ -2,7 +2,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, Paragraph, Wrap},
     Frame,
 };
 
@@ -12,77 +12,34 @@ pub(super) fn render_panel_shell(
     frame: &mut Frame,
     area: Rect,
     border_color: Color,
-    _bg: Color,
+    bg: Color,
 ) -> Option<Rect> {
     if area.width < 2 || area.height < 2 {
         return None;
     }
 
+    // Own the panel area so underlying terminal glyphs cannot bleed through.
+    // Drop shadows are omitted: painting outside the panel corrupts adjacent chrome.
+    frame.render_widget(Clear, area);
+
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(border_color))
         .border_set(ratatui::symbols::border::PLAIN)
-        .style(Style::default()); // remove bg fill so we can do custom glassmorphism
-
+        .style(Style::default().bg(bg));
     let inner = block.inner(area);
-    let buf = frame.buffer_mut();
 
-    // TRUE GLASSMORPHIC OVERLAY
-    for y in area.y..area.y + area.height {
-        for x in area.x..area.x + area.width {
+    // Frosted but opaque interior: space-fill + palette panel_bg (+ light dim).
+    let buf = frame.buffer_mut();
+    for y in inner.y..inner.y.saturating_add(inner.height) {
+        for x in inner.x..inner.x.saturating_add(inner.width) {
             if x < buf.area.width && y < buf.area.height {
                 let cell = &mut buf[(x, y)];
-                if x >= inner.x
-                    && x < inner.x + inner.width
-                    && y >= inner.y
-                    && y < inner.y + inner.height
-                {
-                    // Inner area: Frosting effect
-                    // Keep the underlying text but dim it
-                    let style = cell.style();
-                    cell.set_style(style.add_modifier(Modifier::DIM));
-                    // Apply a premium dark glassy tint to the background
-                    cell.set_bg(Color::Rgb(15, 15, 25));
-                } else {
-                    // Border area: clear the background for the border
-                    cell.set_bg(Color::Reset);
-                }
+                cell.set_symbol(" ");
+                cell.set_bg(bg);
+                cell.set_style(cell.style().add_modifier(Modifier::DIM));
             }
         }
-    }
-
-    let shadow_color = Color::Black; // shadow base color
-
-    // Right shadow
-    let right_x = area.x.saturating_add(area.width);
-    if right_x < buf.area.width {
-        let start_y = area.y.saturating_add(1);
-        let end_y = area
-            .y
-            .saturating_add(area.height)
-            .saturating_add(1)
-            .min(buf.area.height);
-        for y in start_y..end_y {
-            let cell = &mut buf[(right_x, y)];
-            cell.set_bg(shadow_color);
-        }
-    }
-
-    // Bottom shadow
-    let bottom_y = area.y.saturating_add(area.height);
-    if bottom_y < buf.area.height {
-        let start_x = area.x.saturating_add(1);
-        let end_x = right_x.min(buf.area.width);
-        for x in start_x..end_x {
-            let cell = &mut buf[(x, bottom_y)];
-            cell.set_bg(shadow_color);
-        }
-    }
-
-    // Bottom right corner corner-case
-    if right_x < buf.area.width && bottom_y < buf.area.height {
-        let cell = &mut buf[(right_x, bottom_y)];
-        cell.set_bg(shadow_color);
     }
 
     frame.render_widget(block, area);

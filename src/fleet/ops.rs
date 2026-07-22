@@ -7,7 +7,6 @@ use crate::terminal::state::TerminalState;
 /// Fleet operations metadata for a single pane/agent.
 /// Supplements (never overrides) the upstream semantic AgentState.
 #[derive(Clone, Debug, Default)]
-#[allow(dead_code)]
 pub struct FleetOpsMetadata {
     pub repo: Option<String>,
     pub worktree: Option<String>,
@@ -23,8 +22,30 @@ pub struct FleetOpsMetadata {
     pub session_resume_available: bool,
 }
 
+/// Semantic segment kinds for fleet ops bar rendering.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FleetOpsBarKind {
+    Name,
+    State,
+    Git,
+    Linear,
+    Pr,
+    Model,
+    Host,
+    Elapsed,
+    Retry,
+    Resume,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FleetOpsBarPart {
+    pub kind: FleetOpsBarKind,
+    pub text: String,
+}
+
+/// CI status values reserved for PR/CI wiring in the fleet ops bar.
 #[derive(Clone, Debug, Default)]
-#[allow(dead_code)]
+#[allow(dead_code)] // Pending/Cancelled reserved for CI wiring beyond success/fail/running suffixes
 pub enum CiStatus {
     #[default]
     Pending,
@@ -61,16 +82,24 @@ impl FleetOpsMetadata {
         }
     }
 
-    /// Render a compact single-line status string.
-    /// Format: `agent | state | repo:branch | model | host | elapsed`
-    #[allow(dead_code)]
-    pub fn render_bar(&self, agent_name: &str, state: AgentState, label: Option<&str>) -> String {
-        let mut parts: Vec<String> = Vec::new();
+    /// Structured bar segments shared by plain-text and styled UI renderers.
+    pub fn bar_parts(
+        &self,
+        agent_name: &str,
+        state: AgentState,
+        label: Option<&str>,
+    ) -> Vec<FleetOpsBarPart> {
+        let mut parts = Vec::new();
 
-        let display_name = label.unwrap_or(agent_name);
-        parts.push(display_name.to_string());
+        parts.push(FleetOpsBarPart {
+            kind: FleetOpsBarKind::Name,
+            text: label.unwrap_or(agent_name).to_string(),
+        });
 
-        parts.push(state_label(state).to_string());
+        parts.push(FleetOpsBarPart {
+            kind: FleetOpsBarKind::State,
+            text: state_label(state).to_string(),
+        });
 
         if let Some(repo) = &self.repo {
             let git_info = match (&self.branch, &self.worktree) {
@@ -78,11 +107,17 @@ impl FleetOpsMetadata {
                 (Some(br), None) => format!("{}:{}", repo, br),
                 (None, _) => repo.clone(),
             };
-            parts.push(git_info);
+            parts.push(FleetOpsBarPart {
+                kind: FleetOpsBarKind::Git,
+                text: git_info,
+            });
         }
 
         if let Some(issue) = &self.linear_issue {
-            parts.push(format!("LIN-{}", issue));
+            parts.push(FleetOpsBarPart {
+                kind: FleetOpsBarKind::Linear,
+                text: format!("LIN-{}", issue),
+            });
         }
 
         if let Some(pr) = self.github_pr {
@@ -92,37 +127,65 @@ impl FleetOpsMetadata {
                 Some(CiStatus::Running) => " ...",
                 _ => "",
             };
-            parts.push(format!("#{}{}", pr, ci));
+            parts.push(FleetOpsBarPart {
+                kind: FleetOpsBarKind::Pr,
+                text: format!("#{}{}", pr, ci),
+            });
         }
 
         if let Some(model) = &self.model {
             let provider = self.provider.as_deref().unwrap_or("");
-            if provider.is_empty() {
-                parts.push(model.clone());
+            let text = if provider.is_empty() {
+                model.clone()
             } else {
-                parts.push(format!("{}/{}", provider, model));
-            }
+                format!("{}/{}", provider, model)
+            };
+            parts.push(FleetOpsBarPart {
+                kind: FleetOpsBarKind::Model,
+                text,
+            });
         }
 
-        parts.push(self.host.clone());
+        parts.push(FleetOpsBarPart {
+            kind: FleetOpsBarKind::Host,
+            text: self.host.clone(),
+        });
 
         if let Some(elapsed) = self.elapsed {
-            parts.push(format_duration(elapsed));
+            parts.push(FleetOpsBarPart {
+                kind: FleetOpsBarKind::Elapsed,
+                text: format_duration(elapsed),
+            });
         }
 
         if self.retry_count > 0 {
-            parts.push(format!("retry:{}", self.retry_count));
+            parts.push(FleetOpsBarPart {
+                kind: FleetOpsBarKind::Retry,
+                text: format!("retry:{}", self.retry_count),
+            });
         }
 
         if self.session_resume_available {
-            parts.push("resume".to_string());
+            parts.push(FleetOpsBarPart {
+                kind: FleetOpsBarKind::Resume,
+                text: "resume".to_string(),
+            });
         }
 
-        parts.join(" | ")
+        parts
+    }
+
+    /// Render a compact single-line status string.
+    /// Format: `agent | state | repo:branch | model | host | elapsed`
+    pub fn render_bar(&self, agent_name: &str, state: AgentState, label: Option<&str>) -> String {
+        self.bar_parts(agent_name, state, label)
+            .into_iter()
+            .map(|part| part.text)
+            .collect::<Vec<_>>()
+            .join(" | ")
     }
 }
 
-#[allow(dead_code)]
 fn state_label(state: AgentState) -> &'static str {
     match state {
         AgentState::Idle => "idle",
@@ -132,7 +195,6 @@ fn state_label(state: AgentState) -> &'static str {
     }
 }
 
-#[allow(dead_code)]
 fn format_duration(d: Duration) -> String {
     let secs = d.as_secs();
     if secs < 60 {
@@ -235,5 +297,18 @@ mod tests {
         assert!(bar.contains("#42 OK"));
         assert!(bar.contains("5m"));
         assert!(bar.contains("resume"));
+    }
+
+    #[test]
+    fn test_bar_parts_include_resume() {
+        let meta = FleetOpsMetadata {
+            host: "local".to_string(),
+            session_resume_available: true,
+            ..Default::default()
+        };
+        let parts = meta.bar_parts("claude", AgentState::Idle, None);
+        assert!(parts
+            .iter()
+            .any(|p| p.kind == FleetOpsBarKind::Resume && p.text == "resume"));
     }
 }
