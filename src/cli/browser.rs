@@ -159,6 +159,11 @@ mod tests {
             normalize_browser_url("example.com").unwrap(),
             "http://example.com"
         );
+        // Hostnames that begin with "http" must not be mistaken for a scheme.
+        assert_eq!(
+            normalize_browser_url("httpbin.org").unwrap(),
+            "http://httpbin.org"
+        );
     }
 
     #[test]
