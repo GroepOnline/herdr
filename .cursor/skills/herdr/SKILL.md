@@ -60,6 +60,10 @@ Headless: `./target/debug/herdr server` + CLI/socket. TUI needs a real TTY.
 3. Optional override + `herdr server reload-agent-manifests`
 4. Remove override when done
 
+## CHEF fleet
+
+For Linear/GitHub/UDO/Kater, Fleet Ops Bar, and `com.chefgroep.*` plugins, use the **chef-fleet** skill (`.cursor/skills/chef-fleet/SKILL.md`). UI dismiss rules and bar presentation live in **herdr-ui**.
+
 ## External contributors
 
 If GitHub account is not `OnlineChefGroep`, follow `CONTRIBUTING.md`. Agents must not open GitHub issues on a human’s behalf.
