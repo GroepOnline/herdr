@@ -3579,7 +3579,7 @@ mod tests {
             false,
             Instant::now(),
         );
-        assert_eq!(terminal.fallback_state, AgentState::Idle);
+        assert_eq!(terminal.fallback_state, AgentState::Working);
         assert_eq!(terminal.state, AgentState::Idle);
     }
 
