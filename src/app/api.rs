@@ -61,6 +61,7 @@ impl App {
 
     pub(crate) fn handle_internal_event(&mut self, ev: AppEvent) {
         if let AppEvent::ClipboardWrite { content } = ev {
+            crate::clipboard_history::record_clipboard(&content);
             #[cfg(not(test))]
             crate::selection::write_osc52_bytes(&content);
             #[cfg(test)]

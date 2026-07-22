@@ -8,7 +8,7 @@
 //! This module is intentionally non-fatal: any storage error is logged and
 //! swallowed so clipboard behaviour is never broken by the history feature.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -40,13 +40,46 @@ pub struct ClipboardEntry {
 
 const TABLE: TableDefinition<u64, &[u8]> = TableDefinition::new("clipboard_history");
 
-fn default_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    let base = match std::env::var("XDG_CONFIG_HOME") {
-        Ok(x) if !x.is_empty() => PathBuf::from(x),
-        _ => PathBuf::from(home).join(".config"),
-    };
-    base.join("herdr").join("clipboard.redb")
+fn db_path() -> PathBuf {
+    crate::config::state_dir().join("clipboard.redb")
+}
+
+fn restrict_db_permissions(path: &Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        if path.exists() {
+            let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = path;
+}
+
+fn next_seq(db: &Database) -> u64 {
+    db.begin_read()
+        .ok()
+        .and_then(|tx| tx.open_table(TABLE).ok())
+        .map(|table| {
+            table
+                .iter()
+                .ok()
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|(key, _)| key.value())
+                .max()
+                .map_or(0, |max| max.saturating_add(1))
+        })
+        .unwrap_or(0)
+}
+
+fn truncate_to_byte_limit(text: &str, max_bytes: usize) -> &str {
+    if text.len() <= max_bytes {
+        return text;
+    }
+    &text[..text.floor_char_boundary(max_bytes)]
 }
 
 pub struct ClipboardHistory {
@@ -58,20 +91,19 @@ pub struct ClipboardHistory {
 
 impl ClipboardHistory {
     fn open(cfg: &crate::config::ClipboardConfig) -> std::io::Result<Self> {
-        let path = default_path();
+        Self::open_at(db_path(), cfg)
+    }
+
+    fn open_at(path: PathBuf, cfg: &crate::config::ClipboardConfig) -> std::io::Result<Self> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         let db = Database::create(&path).map_err(|e| std::io::Error::other(e.to_string()))?;
-        let count = db
-            .begin_read()
-            .ok()
-            .and_then(|tx| tx.open_table(TABLE).ok())
-            .map(|t| t.len().unwrap_or(0))
-            .unwrap_or(0);
+        restrict_db_permissions(&path);
+        let seq = next_seq(&db);
         Ok(Self {
             db,
-            seq: AtomicU64::new(count),
+            seq: AtomicU64::new(seq),
             max_entries: cfg.max_entries.max(1) as u64,
             max_bytes: cfg.max_bytes,
         })
@@ -88,11 +120,7 @@ impl ClipboardHistory {
         if text.is_empty() {
             return;
         }
-        let text = if text.len() > self.max_bytes {
-            &text[..self.max_bytes]
-        } else {
-            text
-        };
+        let text = truncate_to_byte_limit(text, self.max_bytes);
         let entry = Entry {
             ts: now_ms(),
             source: source.to_string(),
@@ -244,20 +272,26 @@ pub fn clear_global() {
 mod tests {
     use super::*;
 
+    fn temp_cfg(max_bytes: usize) -> crate::config::ClipboardConfig {
+        crate::config::ClipboardConfig {
+            history_enabled: true,
+            max_entries: 3,
+            max_bytes,
+        }
+    }
+
     fn temp_db() -> ClipboardHistory {
+        temp_db_with_max_bytes(1_000_000)
+    }
+
+    fn temp_db_with_max_bytes(max_bytes: usize) -> ClipboardHistory {
         static TMP: AtomicU64 = AtomicU64::new(0);
         let n = TMP.fetch_add(1, Ordering::SeqCst);
         let dir =
             std::env::temp_dir().join(format!("herdr-clip-test-{}-{}", std::process::id(), n));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let db = Database::create(dir.join("clipboard.redb")).unwrap();
-        ClipboardHistory {
-            db,
-            seq: AtomicU64::new(0),
-            max_entries: 3,
-            max_bytes: 1_000_000,
-        }
+        ClipboardHistory::open_at(dir.join("clipboard.redb"), &temp_cfg(max_bytes)).unwrap()
     }
 
     #[test]
@@ -289,5 +323,43 @@ mod tests {
         h.record(&[0xff, 0xfe], "pane");
         h.record(b"   \n\t ", "pane");
         assert!(h.recent(10).is_empty());
+    }
+
+    #[test]
+    fn seq_continues_after_reopen_without_collision() {
+        static TMP: AtomicU64 = AtomicU64::new(0);
+        let n = TMP.fetch_add(1, Ordering::SeqCst);
+        let dir =
+            std::env::temp_dir().join(format!("herdr-clip-reopen-{}-{}", std::process::id(), n));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("clipboard.redb");
+        let cfg = temp_cfg(1_000_000);
+
+        {
+            let h = ClipboardHistory::open_at(path.clone(), &cfg).unwrap();
+            h.record(b"first", "pane");
+            h.record(b"second", "pane");
+        }
+        {
+            let h = ClipboardHistory::open_at(path, &cfg).unwrap();
+            h.record(b"third", "pane");
+            let recent = h.recent(10);
+            assert_eq!(recent.len(), 3);
+            let seqs: std::collections::HashSet<_> = recent.iter().map(|entry| entry.seq).collect();
+            assert_eq!(seqs.len(), 3);
+            assert_eq!(recent[0].text, "third");
+        }
+    }
+
+    #[test]
+    fn truncates_multibyte_text_on_char_boundary() {
+        let h = temp_db_with_max_bytes(5);
+        let text = "ab🎉c";
+        h.record(text.as_bytes(), "pane");
+        let recent = h.recent(1);
+        assert_eq!(recent.len(), 1);
+        assert_eq!(recent[0].text, "ab");
+        assert!(recent[0].text.is_char_boundary(recent[0].text.len()));
     }
 }
