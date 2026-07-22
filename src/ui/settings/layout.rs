@@ -211,13 +211,6 @@ impl SettingsLayout {
             return None;
         }
 
-        if app.settings.section == SettingsSection::Layout {
-            let list_area = self.content_list_area(app);
-            if let Some(template_row) = template_index_at(app, list_area, col, row) {
-                return Some(template_row);
-            }
-        }
-
         let rows = section_rows(app, app.settings.section);
         let list_area = self.content_list_area(app);
         if col < list_area.x
@@ -230,12 +223,39 @@ impl SettingsLayout {
 
         let (scroll, visible) = self.visible_row_range(app);
         let visible_idx = (row - list_area.y) as usize;
-        if visible_idx >= visible {
-            return None;
+        if visible_idx < visible {
+            let row_index = scroll + visible_idx;
+            if let Some(item) = rows.get(row_index) {
+                if item.kind != SettingsRowKind::Template {
+                    return Some(row_index);
+                }
+            }
         }
-        let row_index = scroll + visible_idx;
-        rows.get(row_index)?;
-        Some(row_index)
+
+        if app.settings.section == SettingsSection::Layout {
+            let template_area = template_list_area(list_area, layout_non_template_count(app));
+            if let Some(template_row) = template_index_at(app, template_area, col, row) {
+                return Some(template_row);
+            }
+        }
+
+        None
+    }
+}
+
+pub(crate) fn layout_non_template_count(app: &AppState) -> u16 {
+    section_rows(app, SettingsSection::Layout)
+        .iter()
+        .filter(|row| row.kind != SettingsRowKind::Template)
+        .count() as u16
+}
+
+pub(crate) fn template_list_area(list_area: Rect, non_template_count: u16) -> Rect {
+    Rect {
+        x: list_area.x,
+        y: list_area.y.saturating_add(non_template_count),
+        width: list_area.width,
+        height: list_area.height.saturating_sub(non_template_count),
     }
 }
 
@@ -333,6 +353,9 @@ pub(crate) fn template_card_rect(list_area: Rect, idx: usize) -> Option<Rect> {
         y = y.saturating_add(left_h.max(right_h));
     }
     let height = template_card_height(&id.template());
+    if y >= list_area.y + list_area.height {
+        return None;
+    }
     Some(Rect {
         x: list_area.x + col as u16 * col_width as u16,
         y,
@@ -418,6 +441,26 @@ mod tests {
             .expect("first layout row should have geometry");
         assert_eq!(
             layout.content_index_at(&app, row_rect.x + 1, row_rect.y),
+            Some(0)
+        );
+    }
+
+    #[test]
+    fn layout_template_cards_sit_below_toggle_rows() {
+        let mut app = AppState::test_new();
+        app.mode = Mode::Settings;
+        app.settings.section = SettingsSection::Layout;
+        let layout = SettingsLayout::compute(Rect::new(0, 0, 120, 40), &app).expect("layout");
+        let list_area = layout.content_list_area(&app);
+        let prefix = layout_non_template_count(&app);
+        let template_area = template_list_area(list_area, prefix);
+        let first_toggle = layout
+            .content_row_rect(&app, 0)
+            .expect("toggle geometry");
+        let first_card = template_card_rect(template_area, 0).expect("template geometry");
+        assert!(first_card.y > first_toggle.y);
+        assert_eq!(
+            layout.content_index_at(&app, first_toggle.x + 1, first_toggle.y),
             Some(0)
         );
     }

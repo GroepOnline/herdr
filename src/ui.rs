@@ -14,7 +14,7 @@ mod onboarding;
 mod panes;
 mod release_notes;
 mod scrollbar;
-mod settings;
+pub(crate) mod settings;
 mod sidebar;
 mod status;
 mod tab_surface;

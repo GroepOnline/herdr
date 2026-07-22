@@ -503,7 +503,7 @@ impl App {
 
     pub(super) fn save_manage_ssh_config(&mut self, enabled: bool) {
         if self.update_config_file("manage ssh config", |content| {
-            crate::config::upsert_section_bool(content, "advanced", "manage_ssh_config", enabled)
+            crate::config::upsert_section_bool(content, "remote", "manage_ssh_config", enabled)
         }) {
             self.apply_config_from_disk(false);
         }

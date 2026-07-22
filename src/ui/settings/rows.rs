@@ -155,20 +155,20 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 label: "shell mode".to_string(),
                 detail: Some(app.shell_mode_label()),
                 kind: SettingsRowKind::Choice,
-                payload: 0,
+                payload: 1,
             });
             rows.push(SettingsRow {
                 label: "new pane cwd".to_string(),
                 detail: Some(app.new_terminal_cwd_label()),
                 kind: SettingsRowKind::Choice,
-                payload: 1,
+                payload: 2,
             });
-            for (idx, (bytes, label)) in scrollback_presets().iter().enumerate() {
+            for (idx, (_bytes, label)) in scrollback_presets().iter().enumerate() {
                 rows.push(SettingsRow {
                     label: format!("scrollback {label}"),
                     detail: None,
                     kind: SettingsRowKind::Choice,
-                    payload: idx + 2,
+                    payload: idx + 3,
                 });
             }
         }
@@ -287,17 +287,18 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     payload: 100 + idx,
                 });
             }
-            for (label, detail) in [
-                ("worktrees path", "git worktrees under repo/.git/worktrees"),
-                ("reload config", "prefix reload or herdr server reload-config"),
-            ] {
-                rows.push(SettingsRow {
-                    label: label.to_string(),
-                    detail: Some(detail.to_string()),
-                    kind: SettingsRowKind::Note,
-                    payload: 0,
-                });
-            }
+            rows.push(SettingsRow {
+                label: "worktrees path".to_string(),
+                detail: Some(app.worktree_directory.display().to_string()),
+                kind: SettingsRowKind::Note,
+                payload: 0,
+            });
+            rows.push(SettingsRow {
+                label: "reload config".to_string(),
+                detail: Some("prefix reload or herdr server reload-config".to_string()),
+                kind: SettingsRowKind::Note,
+                payload: 0,
+            });
             rows.push(SettingsRow {
                 label: "config file".to_string(),
                 detail: Some(crate::config::config_path().display().to_string()),
@@ -370,32 +371,16 @@ pub(crate) fn row_toggle_checked(app: &AppState, section: SettingsSection, row: 
 
 pub(crate) fn row_choice_selected(app: &AppState, section: SettingsSection, row: &SettingsRow) -> bool {
     match section {
-        SettingsSection::Layout if row.kind == SettingsRowKind::Choice => match row.payload {
-            0 => matches!(
-                app.sidebar_collapsed_mode,
-                crate::config::SidebarCollapsedModeConfig::Compact
-            ),
-            1 => matches!(
-                app.agent_panel_sort,
-                crate::app::state::AgentPanelSort::Spaces
-            ),
-            _ => false,
-        },
-        SettingsSection::Input if row.kind == SettingsRowKind::Choice => {
-            matches!(
-                app.settings.config_snapshot.host_cursor,
-                crate::config::HostCursorModeConfig::Auto
-            )
+        // Cycling single-row choices always show as active; detail text carries the value.
+        SettingsSection::Layout | SettingsSection::Input
+            if row.kind == SettingsRowKind::Choice =>
+        {
+            true
         }
         SettingsSection::Terminal if row.kind == SettingsRowKind::Choice => match row.payload {
-            0 => app.default_shell.is_empty(),
-            1 => matches!(app.shell_mode, crate::config::ShellModeConfig::Auto),
-            2 => matches!(
-                app.new_terminal_cwd,
-                crate::config::NewTerminalCwdConfig::Follow
-            ),
-            preset_idx if preset_idx >= 2 => scrollback_presets()
-                .get(preset_idx - 2)
+            0 | 1 | 2 => true,
+            preset_idx if preset_idx >= 3 => scrollback_presets()
+                .get(preset_idx - 3)
                 .is_some_and(|(bytes, _)| app.pane_scrollback_limit_bytes == *bytes),
             _ => false,
         },
@@ -411,6 +396,12 @@ pub(crate) fn row_choice_selected(app: &AppState, section: SettingsSection, row:
             _ => false,
         },
         SettingsSection::Notifications if row.kind == SettingsRowKind::Choice => {
+            if matches!(
+                row.label.as_str(),
+                "toast delay" | "herdr toast position" | "clipboard toast"
+            ) {
+                return true;
+            }
             let delivery = match row.payload {
                 1 => ToastDelivery::Off,
                 2 => ToastDelivery::Herdr,

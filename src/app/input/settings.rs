@@ -441,11 +441,14 @@ fn activate_row(state: &AppState, row_index: usize) -> Option<SettingsAction> {
             2 => Some(SettingsAction::SaveNewTerminalCwd(cycle_new_terminal_cwd(
                 &state.new_terminal_cwd,
             ))),
-            preset_idx if preset_idx >= 2 => scrollback_presets()
-                .get(preset_idx - 2)
+            preset_idx if preset_idx >= 3 => scrollback_presets()
+                .get(preset_idx - 3)
                 .map(|(bytes, _)| SettingsAction::SaveScrollbackLimitBytes(*bytes)),
             _ => None,
         },
+        (SettingsSection::Agents, SettingsRowKind::Integration) => {
+            integrations_need_install(state).then_some(SettingsAction::InstallRecommendedIntegrations)
+        }
         (SettingsSection::Notifications, SettingsRowKind::Toggle) => {
             Some(SettingsAction::SaveSound(!state.sound_enabled()))
         }
@@ -461,12 +464,17 @@ fn activate_row(state: &AppState, row_index: usize) -> Option<SettingsAction> {
                 ));
             }
             if row.label == "clipboard toast" {
-                if state.toast_config.clipboard.enabled {
-                    return Some(SettingsAction::SaveClipboardToastPosition(
-                        cycle_clipboard_toast_position(state.toast_config.clipboard.position),
-                    ));
+                if !state.toast_config.clipboard.enabled {
+                    return Some(SettingsAction::SaveClipboardToastEnabled(true));
                 }
-                return Some(SettingsAction::SaveClipboardToastEnabled(true));
+                let next = cycle_clipboard_toast_position(state.toast_config.clipboard.position);
+                // After a full position cycle back to TopLeft, turn clipboard toasts off.
+                if next == ToastClipboardPosition::TopLeft
+                    && state.toast_config.clipboard.position == ToastClipboardPosition::BottomLeft
+                {
+                    return Some(SettingsAction::SaveClipboardToastEnabled(false));
+                }
+                return Some(SettingsAction::SaveClipboardToastPosition(next));
             }
             let delivery = match row.payload {
                 1 => ToastDelivery::Off,
@@ -568,6 +576,12 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
         KeyCode::Char('[') if state.settings.section == SettingsSection::Appearance => {
             if state.settings.spinner_category > 0 {
                 state.settings.spinner_category -= 1;
+            }
+        }
+        KeyCode::Char(']') if state.settings.section == SettingsSection::Appearance => {
+            let max = crate::ui::settings::spinner::SPINNER_CATEGORIES.len().saturating_sub(1);
+            if state.settings.spinner_category < max {
+                state.settings.spinner_category += 1;
             }
         }
         KeyCode::Tab => {
@@ -871,6 +885,42 @@ mod tests {
             KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
         );
         assert_eq!(state.settings.section, SettingsSection::Layout);
+    }
+
+    #[test]
+    fn terminal_choice_payloads_map_to_distinct_actions() {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::Terminal);
+        let rows = section_rows(&state, SettingsSection::Terminal);
+
+        let shell_mode_idx = rows
+            .iter()
+            .position(|row| row.label == "shell mode")
+            .expect("shell mode row");
+        let cwd_idx = rows
+            .iter()
+            .position(|row| row.label == "new pane cwd")
+            .expect("cwd row");
+        let scrollback_idx = rows
+            .iter()
+            .position(|row| row.label.starts_with("scrollback"))
+            .expect("scrollback row");
+
+        state.settings.list.selected = shell_mode_idx;
+        assert!(matches!(
+            activate_row(&state, shell_mode_idx),
+            Some(SettingsAction::SaveShellMode(_))
+        ));
+        state.settings.list.selected = cwd_idx;
+        assert!(matches!(
+            activate_row(&state, cwd_idx),
+            Some(SettingsAction::SaveNewTerminalCwd(_))
+        ));
+        state.settings.list.selected = scrollback_idx;
+        assert!(matches!(
+            activate_row(&state, scrollback_idx),
+            Some(SettingsAction::SaveScrollbackLimitBytes(_))
+        ));
     }
 
     #[test]

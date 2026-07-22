@@ -153,12 +153,19 @@ pub(crate) fn render_settings_content(
     }
 
     if section == SettingsSection::Layout {
-        for row in rows.iter().enumerate().filter(|(_, row)| row.kind == SettingsRowKind::Template)
+        let template_area = super::layout::template_list_area(
+            list_area,
+            super::layout::layout_non_template_count(app),
+        );
+        for row in rows
+            .iter()
+            .enumerate()
+            .filter(|(_, row)| row.kind == SettingsRowKind::Template)
         {
             render_template_card(
                 app,
                 frame,
-                list_area,
+                template_area,
                 row.1.payload,
                 row.0 == selected,
             );

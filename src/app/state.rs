@@ -1094,7 +1094,7 @@ impl SettingsConfigSnapshot {
             version_check: config.update.version_check,
             manifest_check: config.update.manifest_check,
             resume_agents_on_restore: config.session.resume_agents_on_restore,
-            manage_ssh_config: config.advanced.manage_ssh_config,
+            manage_ssh_config: config.remote.manage_ssh_config,
             clipboard_history_enabled: config.clipboard.history_enabled,
             allow_nested: config.experimental.allow_nested,
             theme_auto_switch: config.theme.auto_switch,
