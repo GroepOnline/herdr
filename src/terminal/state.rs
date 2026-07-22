@@ -2,12 +2,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-/// A full-lifecycle hook authority that has not reported a state update for
-/// this long is considered stale: herdr falls back to screen detection so a
-/// hook that stopped reporting (e.g. reloaded mid-run and lost its session)
-/// can no longer pin a pane at a stale `idle`/`working` state forever.
-const STALE_HOOK_AUTHORITY_SECS: u64 = 30;
-
 // Effective state arbitration is intentionally centralized here. Full lifecycle
 // Herdr hook integrations are hook-authoritative while live; screen recovery
 // remains only for session-only/custom hook paths and fallback detection.
@@ -1364,13 +1358,6 @@ impl TerminalState {
         self.live_full_lifecycle_hook_authority()
     }
 
-    /// True when the hook authority has not reported for `STALE_HOOK_AUTHORITY_SECS`.
-    fn hook_authority_stale_at(&self, now: Instant) -> bool {
-        self.hook_authority.as_ref().is_some_and(|authority| {
-            now.duration_since(authority.reported_at).as_secs() >= STALE_HOOK_AUTHORITY_SECS
-        })
-    }
-
     fn visible_blocker_overrides_hook(&self) -> bool {
         if self.live_full_lifecycle_hook_authority() {
             return false;
@@ -1387,7 +1374,6 @@ impl TerminalState {
     fn live_full_lifecycle_hook_authority(&self) -> bool {
         self.hook_authority.as_ref().is_some_and(|authority| {
             crate::detect::full_lifecycle_hook_authority(&authority.source, &authority.agent_label)
-                && !self.hook_authority_stale_at(Instant::now())
         })
     }
 
@@ -1645,10 +1631,6 @@ impl TerminalState {
     ) -> Option<EffectiveStateChange> {
         let state = if self.visible_blocker_overrides_hook() {
             AgentState::Blocked
-        } else if self.hook_authority_stale_at(now) {
-            // Stale hook authority: fall back to screen-detected state so a
-            // hook that stopped reporting cannot pin a stale state forever.
-            self.fallback_state
         } else {
             self.hook_authority
                 .as_ref()
@@ -3570,11 +3552,10 @@ mod tests {
     }
 
     #[test]
-    fn stale_full_lifecycle_hook_authority_falls_back_to_screen_state() {
-        // A hook that reported `idle` long ago and never updated must not pin
-        // the pane at idle forever; screen-detected state takes over.
+    fn silent_full_lifecycle_hook_authority_stays_authoritative() {
+        // Event-sourced hooks may not heartbeat while idle/working; silence alone
+        // must not demote hook authority back to screen detection.
         let mut terminal = test_terminal();
-        // Screen detects Pi working.
         terminal.set_detected_state_with_screen_signals_at(
             Some(Agent::Pi),
             AgentState::Working,
@@ -3584,18 +3565,11 @@ mod tests {
             false,
             Instant::now(),
         );
-        // Hook reported idle, then stopped updating.
         terminal.set_hook_authority("herdr:pi".into(), "pi".into(), AgentState::Idle, None, None);
-        // Backdate the authority so it is stale relative to "now".
         terminal.hook_authority.as_mut().unwrap().reported_at =
-            Instant::now() - Duration::from_secs(60);
+            Instant::now() - Duration::from_secs(3600);
 
-        // Stale authority is no longer "active" -> screen detection resumes.
-        assert!(terminal.hook_authority.is_some());
-        assert!(!terminal.full_lifecycle_hook_authority_active());
-
-        // Force a recompute at the current time: state follows the screen
-        // fallback (Working), not the stale hook state (Idle).
+        assert!(terminal.full_lifecycle_hook_authority_active());
         terminal.set_detected_state_with_screen_signals_at(
             Some(Agent::Pi),
             AgentState::Working,
@@ -3605,7 +3579,48 @@ mod tests {
             false,
             Instant::now(),
         );
-        assert_eq!(terminal.fallback_state, AgentState::Working);
+        assert_eq!(terminal.fallback_state, AgentState::Idle);
+        assert_eq!(terminal.state, AgentState::Idle);
+    }
+
+    #[test]
+    fn process_exit_clears_silent_hook_authority_for_reload_recovery() {
+        // Safer reload recovery: when the foreground agent process exits, hook
+        // authority is cleared and screen detection resumes.
+        let now = Instant::now();
+        let mut terminal = test_terminal();
+        terminal.set_detected_state_with_screen_signals_at(
+            Some(Agent::Pi),
+            AgentState::Working,
+            false,
+            false,
+            false,
+            false,
+            now,
+        );
+        terminal.set_hook_authority_at(
+            "herdr:pi".into(),
+            "pi".into(),
+            AgentState::Idle,
+            None,
+            None,
+            None,
+            now,
+        );
+        terminal.hook_authority.as_mut().unwrap().reported_at =
+            now - Duration::from_secs(3600);
+
+        terminal.set_detected_state_with_screen_signals_at(
+            Some(Agent::Pi),
+            AgentState::Working,
+            false,
+            false,
+            false,
+            true,
+            now + Duration::from_millis(1),
+        );
+
+        assert!(terminal.hook_authority.is_none());
         assert_eq!(terminal.state, AgentState::Working);
     }
 

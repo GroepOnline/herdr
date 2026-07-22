@@ -5,7 +5,6 @@ use crate::{
     app::{
         state::{
             AppState, ExperimentSetting, SettingsSection, THEME_NAMES, UI_SPINNER_OFFSET,
-            UI_TOGGLE_COUNT,
         },
         App, Mode,
     },
@@ -457,31 +456,15 @@ impl AppState {
             return None;
         }
 
+        let list_area = crate::ui::settings_list_area(area);
+
         match self.settings.section {
-            SettingsSection::Ui => {
-                let list_y = area.y + 2;
-                if row < list_y {
-                    return None;
-                }
-                let row_idx = (row - list_y) as usize;
-                if row_idx < UI_TOGGLE_COUNT {
-                    return Some(row_idx);
-                }
-                // Spinner grid below the toggles.
-                let grid_y = row_idx - UI_TOGGLE_COUNT;
-                let col_width = (area.width as usize / 2).max(20);
-                let col = if (col - area.x) as usize >= col_width {
-                    1
-                } else {
-                    0
-                };
-                let spinner_idx = grid_y * 2 + col;
-                if spinner_idx < crate::config::SpinnerStyle::ALL.len() {
-                    Some(UI_SPINNER_OFFSET + spinner_idx)
-                } else {
-                    None
-                }
-            }
+            SettingsSection::Ui => crate::ui::settings_ui_index_at(
+                list_area,
+                col,
+                row,
+                self.settings.list.selected,
+            ),
             SettingsSection::Theme => {
                 let max_visible = area.height as usize;
                 let scroll = if self.settings.list.selected >= max_visible {
@@ -492,30 +475,17 @@ impl AppState {
                 let idx = scroll + (row - area.y) as usize;
                 (idx < THEME_NAMES.len()).then_some(idx)
             }
-            SettingsSection::Sound => {
-                let list_y = area.y + 3;
-                if row >= list_y && row < list_y + SOUND_TOTAL as u16 {
-                    Some((row - list_y) as usize)
-                } else {
-                    None
-                }
-            }
+            SettingsSection::Sound => crate::ui::settings_sound_index_at(list_area, col, row),
             SettingsSection::System => {
-                let list_y = area.y + 3;
-                if row >= list_y && row < list_y + ExperimentSetting::ALL.len() as u16 {
-                    Some((row - list_y) as usize)
+                if row >= list_area.y
+                    && row < list_area.y + ExperimentSetting::ALL.len() as u16
+                {
+                    Some((row - list_area.y) as usize)
                 } else {
                     None
                 }
             }
-            SettingsSection::Templates => {
-                let list_y = area.y + 2;
-                if row < list_y {
-                    return None;
-                }
-                let row_idx = (row - list_y) as usize;
-                (row_idx < crate::pane_template::PaneTemplateId::ALL.len()).then_some(row_idx)
-            }
+            SettingsSection::Templates => crate::ui::settings_template_index_at(list_area, col, row),
             SettingsSection::Integrations => None,
         }
     }

@@ -289,7 +289,18 @@ impl App {
                 self.split_focused_pane_via_api(SplitDirection::Right);
             }
             T::MainSidebar => {
-                self.split_focused_pane_via_api(SplitDirection::Right);
+                self.runtime_pane_split(
+                    "tui.pane.split",
+                    crate::api::schema::PaneSplitParams {
+                        workspace_id: None,
+                        target_pane_id: None,
+                        direction: SplitDirection::Right,
+                        ratio: Some(0.7),
+                        cwd: None,
+                        focus: true,
+                        env: Default::default(),
+                    },
+                );
             }
         }
     }

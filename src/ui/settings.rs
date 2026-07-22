@@ -21,6 +21,117 @@ use crate::{
 pub(crate) const SETTINGS_POPUP_WIDTH: u16 = 76;
 pub(crate) const SETTINGS_POPUP_BASE_HEIGHT: u16 = 22;
 
+pub(crate) const SETTINGS_DESC_ROWS: u16 = 2;
+pub(crate) const SETTINGS_SPACER_ROWS: u16 = 1;
+
+pub(crate) fn settings_list_area(content: Rect) -> Rect {
+    let header_rows = SETTINGS_DESC_ROWS + SETTINGS_SPACER_ROWS;
+    Rect {
+        x: content.x,
+        y: content.y + header_rows,
+        width: content.width,
+        height: content.height.saturating_sub(header_rows),
+    }
+}
+
+pub(crate) fn settings_sound_index_at(list_area: Rect, col: u16, row: u16) -> Option<usize> {
+    if col < list_area.x || col >= list_area.x + list_area.width || row < list_area.y {
+        return None;
+    }
+    match row - list_area.y {
+        0 => Some(0),
+        1 | 2 => None,
+        r if (3..=6).contains(&r) => Some((r - 2) as usize),
+        _ => None,
+    }
+}
+
+pub(crate) fn settings_ui_index_at(
+    list_area: Rect,
+    col: u16,
+    row: u16,
+    selected: usize,
+) -> Option<usize> {
+    use crate::app::state::{UI_SPINNER_OFFSET, UI_TOGGLE_COUNT};
+
+    if col < list_area.x || col >= list_area.x + list_area.width || row < list_area.y {
+        return None;
+    }
+    let row_idx = (row - list_area.y) as usize;
+    if row_idx < UI_TOGGLE_COUNT {
+        return Some(row_idx);
+    }
+    if row_idx == UI_TOGGLE_COUNT {
+        return None;
+    }
+    let grid_row = row_idx - UI_TOGGLE_COUNT - 1;
+    let col_width = (list_area.width as usize / 2).max(20);
+    let col_idx = if (col - list_area.x) as usize >= col_width {
+        1
+    } else {
+        0
+    };
+    let grid_height = list_area.height.saturating_sub(UI_TOGGLE_COUNT as u16 + 1) as usize;
+    let spinner_selected = selected.saturating_sub(UI_SPINNER_OFFSET);
+    let selected_row = spinner_selected / 2;
+    let scroll = if selected_row >= grid_height {
+        selected_row - grid_height + 1
+    } else {
+        0
+    };
+    let spinner_idx = (grid_row + scroll) * 2 + col_idx;
+    (spinner_idx < crate::config::SpinnerStyle::ALL.len()).then_some(UI_SPINNER_OFFSET + spinner_idx)
+}
+
+pub(crate) fn template_card_height(template: &crate::pane_template::PaneTemplate) -> u16 {
+    2 + template.preview.lines().count() as u16
+}
+
+pub(crate) fn settings_template_card_rect(list_area: Rect, idx: usize) -> Option<Rect> {
+    use crate::pane_template::PaneTemplateId;
+
+    let id = *PaneTemplateId::ALL.get(idx)?;
+    let col_width = (list_area.width as usize / 2).max(20);
+    let col = idx % 2;
+    let grid_row = idx / 2;
+    let mut y = list_area.y;
+    for row in 0..grid_row {
+        let left_idx = row * 2;
+        let left_h = PaneTemplateId::ALL
+            .get(left_idx)
+            .map(|id| template_card_height(&id.template()))
+            .unwrap_or(0);
+        let right_h = PaneTemplateId::ALL
+            .get(left_idx + 1)
+            .map(|id| template_card_height(&id.template()))
+            .unwrap_or(0);
+        y = y.saturating_add(left_h.max(right_h));
+    }
+    let height = template_card_height(&id.template());
+    Some(Rect {
+        x: list_area.x + col as u16 * col_width as u16,
+        y,
+        width: col_width as u16,
+        height,
+    })
+}
+
+pub(crate) fn settings_template_index_at(list_area: Rect, col: u16, row: u16) -> Option<usize> {
+    use crate::pane_template::PaneTemplateId;
+
+    for idx in 0..PaneTemplateId::ALL.len() {
+        let card = settings_template_card_rect(list_area, idx)?;
+        if col >= card.x
+            && col < card.x + card.width
+            && row >= card.y
+            && row < card.y + card.height
+        {
+            return Some(idx);
+        }
+    }
+    None
+}
+
 pub(crate) fn settings_popup_height(app: &AppState) -> u16 {
     use crate::app::state::SettingsSection;
     match app.settings.section {
@@ -370,7 +481,7 @@ fn render_settings_ui(app: &AppState, frame: &mut Frame, area: Rect) {
     use crate::config::SpinnerStyle;
     let p = &app.palette;
 
-    let [desc_area, _, list_area] = Layout::vertical([
+    let [desc_area, _, _] = Layout::vertical([
         Constraint::Length(2),
         Constraint::Length(1),
         Constraint::Min(1),
@@ -384,6 +495,7 @@ fn render_settings_ui(app: &AppState, frame: &mut Frame, area: Rect) {
         Style::default().fg(p.overlay1),
     );
 
+    let list_area = settings_list_area(area);
     let selected = app.settings.list.selected;
     let ui_toggles: &[(bool, &str, &str)] = &[
         (
@@ -503,7 +615,7 @@ fn render_settings_ui(app: &AppState, frame: &mut Frame, area: Rect) {
 /// Sound tab: sound toggle + toast delivery options.
 fn render_settings_sound(app: &AppState, frame: &mut Frame, area: Rect) {
     let p = &app.palette;
-    let [desc_area, _, list_area] = Layout::vertical([
+    let [desc_area, _, _] = Layout::vertical([
         Constraint::Length(2),
         Constraint::Length(1),
         Constraint::Min(1),
@@ -517,6 +629,7 @@ fn render_settings_sound(app: &AppState, frame: &mut Frame, area: Rect) {
         Style::default().fg(p.overlay1),
     );
 
+    let list_area = settings_list_area(area);
     let selected = app.settings.list.selected;
 
     // Sound toggle.
@@ -664,9 +777,8 @@ fn render_settings_system(app: &AppState, frame: &mut Frame, area: Rect) {
 
 /// Templates tab: pane layout templates.
 fn render_settings_templates(app: &AppState, frame: &mut Frame, area: Rect) {
-    use crate::pane_template::PaneTemplateId;
     let p = &app.palette;
-    let [desc_area, _, list_area] = Layout::vertical([
+    let [desc_area, _, _] = Layout::vertical([
         Constraint::Length(2),
         Constraint::Length(1),
         Constraint::Min(1),
@@ -680,21 +792,16 @@ fn render_settings_templates(app: &AppState, frame: &mut Frame, area: Rect) {
         Style::default().fg(p.overlay1),
     );
 
+    let list_area = settings_list_area(area);
     let selected = app.settings.list.selected;
-    let templates = PaneTemplateId::ALL;
-    let col_width = (list_area.width as usize / 2).max(20);
 
-    for (idx, &id) in templates.iter().enumerate() {
+    for idx in 0..crate::pane_template::PaneTemplateId::ALL.len() {
+        let Some(card) = settings_template_card_rect(list_area, idx) else {
+            continue;
+        };
+        let id = crate::pane_template::PaneTemplateId::ALL[idx];
         let tmpl = id.template();
         let is_sel = idx == selected;
-        let col = idx % 2;
-        let row = idx / 2;
-        let x = list_area.x + col as u16 * col_width as u16;
-        let y = list_area.y + row as u16;
-        if y >= list_area.y + list_area.height {
-            break;
-        }
-
         let row_style = if is_sel {
             Style::default()
                 .bg(p.surface0)
@@ -704,30 +811,27 @@ fn render_settings_templates(app: &AppState, frame: &mut Frame, area: Rect) {
             Style::default().fg(p.subtext0)
         };
 
-        // Name line.
         frame.render_widget(
             Paragraph::new(Line::from(vec![
                 Span::styled("  ", row_style),
                 Span::styled(tmpl.name, row_style),
             ])),
-            Rect::new(x, y, col_width as u16, 1),
+            Rect::new(card.x, card.y, card.width, 1),
         );
-        // Description line.
         frame.render_widget(
             Paragraph::new(Span::styled(
                 format!("  {}", tmpl.description),
                 Style::default().fg(p.overlay1),
             )),
-            Rect::new(x, y + 1, col_width as u16, 1),
+            Rect::new(card.x, card.y + 1, card.width, 1),
         );
-        // Preview lines.
         for (line_idx, preview_line) in tmpl.preview.lines().enumerate() {
             frame.render_widget(
                 Paragraph::new(Span::styled(
                     format!("  {}", preview_line),
                     Style::default().fg(p.subtext0),
                 )),
-                Rect::new(x, y + 2 + line_idx as u16, col_width as u16, 1),
+                Rect::new(card.x, card.y + 2 + line_idx as u16, card.width, 1),
             );
         }
     }
