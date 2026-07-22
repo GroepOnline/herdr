@@ -4,9 +4,8 @@ mod sections;
 pub(crate) mod spinner;
 
 pub(crate) use layout::{
-    settings_button_rects, settings_popup_height, settings_primary_button_label,
-    settings_show_primary_action, template_card_rect, template_index_at, SettingsLayout,
-    SETTINGS_POPUP_HEIGHT, SETTINGS_POPUP_WIDTH,
+    settings_button_rects, settings_popup_height, settings_show_primary_action, SettingsLayout,
+    SETTINGS_POPUP_WIDTH,
 };
 
 use ratatui::{layout::Rect, Frame};

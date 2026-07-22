@@ -1111,19 +1111,6 @@ impl SettingsConfigSnapshot {
     }
 }
 
-/// Number of toggle rows in the layout section before the spinner grid.
-pub(crate) const UI_TOGGLE_COUNT: usize = 4;
-/// Index in the appearance section where the spinner grid starts.
-pub(crate) const UI_SPINNER_OFFSET: usize = 1;
-/// Spinner styles shown per category page in appearance.
-pub(crate) const SETTINGS_SPINNER_CATEGORY_SIZE: usize = 24;
-
-/// Scrollback limit presets surfaced in terminal settings.
-pub const SCROLLBACK_PRESETS: &[usize] = &[1_000_000, 5_000_000, 10_000_000, 50_000_000];
-
-/// Common shells offered in terminal settings.
-pub const DEFAULT_SHELL_PRESETS: &[&str] = &["", "bash", "zsh", "fish", "nu"];
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ExperimentSetting {
     PaneHistory,

@@ -118,3 +118,15 @@ pub(crate) fn active_spinner_category(index: usize) -> &'static SpinnerCategory 
         .get(index)
         .unwrap_or(&SPINNER_CATEGORIES[0])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::SpinnerStyle;
+
+    #[test]
+    fn spinner_categories_cover_all_styles() {
+        let categorized: usize = SPINNER_CATEGORIES.iter().map(|c| c.styles.len()).sum();
+        assert_eq!(categorized, SpinnerStyle::ALL.len());
+    }
+}

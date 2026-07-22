@@ -696,31 +696,20 @@ pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
 }
 
 impl AppState {
-    fn settings_popup_rect(&self) -> Rect {
-        crate::ui::centered_popup_rect(
-            self.screen_rect(),
-            SETTINGS_POPUP_WIDTH,
-            crate::ui::settings_popup_height(self),
-        )
-        .unwrap_or_default()
-    }
-
     fn settings_layout(&self) -> Option<SettingsLayout> {
         SettingsLayout::compute(self.screen_rect(), self)
     }
 
+    #[cfg(test)]
     pub(crate) fn settings_content_rect(&self) -> Rect {
         self.settings_layout()
             .map(|layout| layout.content)
             .unwrap_or_default()
     }
 
+    #[cfg(test)]
     pub(crate) fn settings_nav_index_at(&self, col: u16, row: u16) -> Option<usize> {
         self.settings_layout()?.nav_index_at(col, row)
-    }
-
-    pub(crate) fn settings_content_index_at(&self, col: u16, row: u16) -> Option<usize> {
-        self.settings_layout()?.content_index_at(self, col, row)
     }
 
     pub(super) fn handle_settings_mouse(&mut self, mouse: MouseEvent) -> Option<SettingsAction> {
