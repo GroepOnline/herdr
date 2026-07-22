@@ -367,7 +367,8 @@ impl App {
             crate::config::NewTerminalCwdConfig::Home => "\"home\"",
             crate::config::NewTerminalCwdConfig::Current => "\"current\"",
             crate::config::NewTerminalCwdConfig::Path(path) => {
-                return self.save_new_terminal_cwd_path(&path);
+                self.save_new_terminal_cwd_path(&path);
+                return;
             }
         };
         if self.update_config_file("new terminal cwd", |content| {
@@ -377,21 +378,18 @@ impl App {
         }
     }
 
-    fn save_new_terminal_cwd_path(&mut self, path: &str) -> bool {
+    fn save_new_terminal_cwd_path(&mut self, path: &str) {
         let path = path.to_string();
-        self.update_config_file("new terminal cwd", |content| {
+        if self.update_config_file("new terminal cwd", |content| {
             crate::config::upsert_section_value(
                 content,
                 "terminal",
                 "new_cwd",
                 &format!("\"{path}\""),
             )
-        })
-        .then(|| {
+        }) {
             self.apply_config_from_disk(false);
-            true
-        })
-        .unwrap_or(false)
+        }
     }
 
     pub(super) fn save_scrollback_limit_bytes(&mut self, bytes: usize) {

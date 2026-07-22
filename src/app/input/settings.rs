@@ -387,7 +387,8 @@ fn default_selection_for_section(state: &AppState, section: SettingsSection) -> 
 
 fn activate_row(state: &AppState, row_index: usize) -> Option<SettingsAction> {
     let section = state.settings.section;
-    let row = section_rows(state, section).get(row_index)?;
+    let rows = section_rows(state, section);
+    let row = rows.get(row_index)?;
 
     match (section, row.kind) {
         (SettingsSection::Appearance, SettingsRowKind::Toggle) => Some(

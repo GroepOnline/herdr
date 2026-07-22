@@ -69,11 +69,7 @@ pub(crate) use self::{
         open_existing_worktree_visible_start, remove_worktree_button_rects,
         remove_worktree_popup_rect, rename_button_rects,
     },
-    settings::{
-        settings_button_rects, settings_popup_height, settings_primary_button_label,
-        settings_show_primary_action, template_card_rect, template_index_at, SettingsLayout,
-        SETTINGS_POPUP_HEIGHT, SETTINGS_POPUP_WIDTH,
-    },
+    settings::{settings_button_rects, settings_popup_height, settings_show_primary_action},
     sidebar::{
         agent_entry_gap, agent_entry_height_in_body, agent_panel_body_rect, agent_panel_entries,
         agent_panel_scroll_for_target, agent_panel_scroll_metrics, agent_panel_scrollbar_rect,
