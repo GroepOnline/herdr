@@ -3,7 +3,10 @@ use std::{
     io::Write,
     os::fd::RawFd,
     path::PathBuf,
-    process::{Command, Stdio},
+    process::{Child, Command, Stdio},
+    sync::mpsc,
+    thread,
+    time::Duration,
 };
 
 use super::{
@@ -345,6 +348,67 @@ pub fn process_exists(pid: u32) -> bool {
     }
 }
 
+/// Xwayland leaves `DISPLAY` set on pure Wayland sessions, so spawning xclip/xsel
+/// there routinely wedges on a dead/unreachable X11 connection with no timeout
+/// (see herdr issue: paste hangs when `XDG_SESSION_TYPE=wayland`). Detect the
+/// Wayland session explicitly so we can skip X11 clipboard tools entirely
+/// instead of racing a hung Xwayland socket on every clipboard access.
+fn wayland_session() -> bool {
+    std::env::var_os("WAYLAND_DISPLAY").is_some()
+}
+
+/// Escape hatch for setups where Xwayland's X11 clipboard is known-good and a
+/// user still wants the xclip/xsel fallback alongside wl-clipboard.
+fn x11_clipboard_allow_override() -> bool {
+    std::env::var_os("HERDR_CLIPBOARD_ALLOW_X11").as_deref() == Some(std::ffi::OsStr::new("1"))
+}
+
+/// Whether it is safe to try xclip/xsel: `DISPLAY` must be set, and either the
+/// session isn't Wayland (plain X11) or the user explicitly opted back in via
+/// `HERDR_CLIPBOARD_ALLOW_X11=1`.
+fn x11_clipboard_available() -> bool {
+    std::env::var_os("DISPLAY").is_some() && (!wayland_session() || x11_clipboard_allow_override())
+}
+
+/// Upper bound on how long a clipboard helper child (wl-copy/wl-paste/xclip/xsel)
+/// may run before we give up and kill it. Guards against a wedged Xwayland
+/// connection blocking `child.wait()` (or a stdout read) indefinitely.
+const CLIPBOARD_CHILD_TIMEOUT: Duration = Duration::from_millis(1800);
+
+/// Run `work` against a spawned clipboard child on a background thread and
+/// bound the whole spawn+read+wait sequence by `timeout`. Reading a clipboard
+/// tool's stdout can block forever before the child ever exits (e.g. while it
+/// is stuck connecting to a dead X11 display), so the timeout has to guard the
+/// read, not just the final `wait()`.
+///
+/// On timeout, the child is killed by pid from the calling thread. The
+/// background thread still owns and reaps the `Child`, so there is no
+/// competing `wait()`; the only cross-thread action is sending `SIGKILL`.
+fn run_clipboard_child_with_timeout<T: Send + 'static>(
+    mut command: Command,
+    timeout: Duration,
+    work: impl FnOnce(Child) -> Option<T> + Send + 'static,
+) -> Option<T> {
+    let child = command.spawn().ok()?;
+    let pid = child.id();
+
+    let (result_tx, result_rx) = mpsc::channel();
+    thread::spawn(move || {
+        let _ = result_tx.send(work(child));
+    });
+
+    result_rx.recv_timeout(timeout).unwrap_or_else(|_| {
+        kill_pid(pid);
+        None
+    })
+}
+
+fn kill_pid(pid: u32) {
+    unsafe {
+        libc::kill(pid as i32, libc::SIGKILL);
+    }
+}
+
 pub fn write_clipboard(bytes: &[u8]) -> bool {
     for command in clipboard_commands() {
         if run_clipboard_command(&command, bytes) {
@@ -382,7 +446,7 @@ pub fn read_clipboard_image() -> Option<ClipboardImage> {
         ("image/webp", "webp"),
         ("image/bmp", "bmp"),
     ] {
-        if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        if wayland_session() {
             if let Some(image) =
                 read_validated_clipboard_image("wl-paste", &["--type", mime], extension)
             {
@@ -390,7 +454,7 @@ pub fn read_clipboard_image() -> Option<ClipboardImage> {
             }
         }
 
-        if std::env::var_os("DISPLAY").is_some() {
+        if x11_clipboard_available() {
             if let Some(image) = read_validated_clipboard_image(
                 "xclip",
                 &["-selection", "clipboard", "-t", mime, "-o"],
@@ -487,51 +551,52 @@ fn read_clipboard_image_with_spawned_command_max(
     mut command: Command,
     max_bytes: usize,
 ) -> Option<Vec<u8>> {
-    let mut child = command
+    command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
-    let stdout = child.stdout.take()?;
+        .stderr(Stdio::null());
 
-    let read = match read_limited_reader(stdout, max_bytes) {
-        Ok(read) => read,
-        Err(_) => {
+    run_clipboard_child_with_timeout(command, CLIPBOARD_CHILD_TIMEOUT, move |mut child| {
+        let stdout = child.stdout.take()?;
+
+        let read = match read_limited_reader(stdout, max_bytes) {
+            Ok(read) => read,
+            Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+        };
+
+        if read == LimitedRead::Oversized {
             let _ = child.kill();
             let _ = child.wait();
             return None;
         }
-    };
 
-    if read == LimitedRead::Oversized {
-        let _ = child.kill();
-        let _ = child.wait();
-        return None;
-    }
+        let status = child.wait().ok()?;
+        if !status.success() {
+            return None;
+        }
 
-    let status = child.wait().ok()?;
-    if !status.success() {
-        return None;
-    }
-
-    match read {
-        LimitedRead::Complete(bytes) => Some(bytes),
-        LimitedRead::Empty | LimitedRead::Oversized => None,
-    }
+        match read {
+            LimitedRead::Complete(bytes) => Some(bytes),
+            LimitedRead::Empty | LimitedRead::Oversized => None,
+        }
+    })
 }
 
 fn clipboard_commands() -> Vec<ClipboardCommand> {
     let mut commands = Vec::new();
 
-    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+    if wayland_session() {
         commands.push(ClipboardCommand {
             program: "wl-copy",
             args: &["--type", "text/plain;charset=utf-8"],
         });
     }
 
-    if std::env::var_os("DISPLAY").is_some() {
+    if x11_clipboard_available() {
         commands.push(ClipboardCommand {
             program: "xclip",
             args: &["-selection", "clipboard", "-in"],
@@ -548,7 +613,7 @@ fn clipboard_commands() -> Vec<ClipboardCommand> {
 fn read_clipboard_text_commands() -> Vec<ClipboardCommand> {
     let mut commands = Vec::new();
 
-    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+    if wayland_session() {
         commands.push(ClipboardCommand {
             program: "wl-paste",
             args: &["--type", "text/plain;charset=utf-8"],
@@ -559,7 +624,7 @@ fn read_clipboard_text_commands() -> Vec<ClipboardCommand> {
         });
     }
 
-    if std::env::var_os("DISPLAY").is_some() {
+    if x11_clipboard_available() {
         commands.push(ClipboardCommand {
             program: "xclip",
             args: &["-selection", "clipboard", "-out"],
@@ -576,67 +641,68 @@ fn read_clipboard_text_commands() -> Vec<ClipboardCommand> {
 fn read_clipboard_text_with_command(command: &ClipboardCommand) -> Option<String> {
     const MAX_CLIPBOARD_TEXT_BYTES: usize = 1024 * 1024;
 
-    let mut child = Command::new(command.program)
-        .args(command.args)
+    let mut cmd = Command::new(command.program);
+    cmd.args(command.args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
+        .stderr(Stdio::null());
 
-    let stdout = child.stdout.take()?;
-    let read = match read_limited_reader(stdout, MAX_CLIPBOARD_TEXT_BYTES) {
-        Ok(LimitedRead::Oversized) => {
-            let _ = child.kill();
-            let _ = child.wait();
+    run_clipboard_child_with_timeout(cmd, CLIPBOARD_CHILD_TIMEOUT, move |mut child| {
+        let stdout = child.stdout.take()?;
+        let read = match read_limited_reader(stdout, MAX_CLIPBOARD_TEXT_BYTES) {
+            Ok(LimitedRead::Oversized) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+            Ok(read) => read,
+            Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+        };
+
+        let status = child.wait().ok()?;
+        if !status.success() {
             return None;
         }
-        Ok(read) => read,
-        Err(_) => {
-            let _ = child.kill();
-            let _ = child.wait();
-            return None;
+
+        match read {
+            LimitedRead::Complete(bytes) => String::from_utf8(bytes).ok(),
+            LimitedRead::Empty => None,
+            LimitedRead::Oversized => {
+                unreachable!("oversized clipboard text is handled before wait")
+            }
         }
-    };
-
-    let status = child.wait().ok()?;
-    if !status.success() {
-        return None;
-    }
-
-    match read {
-        LimitedRead::Complete(bytes) => String::from_utf8(bytes).ok(),
-        LimitedRead::Empty => None,
-        LimitedRead::Oversized => unreachable!("oversized clipboard text is handled before wait"),
-    }
+    })
 }
 
 fn run_clipboard_command(command: &ClipboardCommand, bytes: &[u8]) -> bool {
-    let mut child = match Command::new(command.program)
-        .args(command.args)
+    let mut cmd = Command::new(command.program);
+    cmd.args(command.args)
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-    {
-        Ok(child) => child,
-        Err(_) => return false,
-    };
+        .stderr(Stdio::null());
 
-    let Some(mut stdin) = child.stdin.take() else {
-        let _ = child.kill();
-        let _ = child.wait();
-        return false;
-    };
+    let bytes = bytes.to_vec();
+    run_clipboard_child_with_timeout(cmd, CLIPBOARD_CHILD_TIMEOUT, move |mut child| {
+        let Some(mut stdin) = child.stdin.take() else {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Some(false);
+        };
 
-    if stdin.write_all(bytes).is_err() {
-        let _ = child.kill();
-        let _ = child.wait();
-        return false;
-    }
-    drop(stdin);
+        if stdin.write_all(&bytes).is_err() {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Some(false);
+        }
+        drop(stdin);
 
-    child.wait().map(|status| status.success()).unwrap_or(false)
+        Some(child.wait().map(|status| status.success()).unwrap_or(false))
+    })
+    .unwrap_or(false)
 }
 
 fn process_session_id(pid: u32) -> Option<i32> {
@@ -805,44 +871,203 @@ mod tests {
         );
     }
 
+    /// Clears env vars this module's clipboard/session detection reads, so
+    /// each test starts from a known-clean slate regardless of test order.
+    fn reset_clipboard_env() {
+        unsafe {
+            std::env::remove_var("WAYLAND_DISPLAY");
+            std::env::remove_var("DISPLAY");
+            std::env::remove_var("HERDR_CLIPBOARD_ALLOW_X11");
+        }
+    }
+
+    #[test]
+    fn wayland_session_reflects_wayland_display() {
+        let _guard = env_lock().lock().unwrap();
+        reset_clipboard_env();
+        assert!(!wayland_session());
+
+        unsafe {
+            std::env::set_var("WAYLAND_DISPLAY", "wayland-0");
+        }
+        assert!(wayland_session());
+        reset_clipboard_env();
+    }
+
+    #[test]
+    fn x11_clipboard_available_requires_display() {
+        let _guard = env_lock().lock().unwrap();
+        reset_clipboard_env();
+        assert!(!x11_clipboard_available());
+
+        unsafe {
+            std::env::set_var("DISPLAY", ":0");
+        }
+        assert!(x11_clipboard_available());
+        reset_clipboard_env();
+    }
+
+    #[test]
+    fn x11_clipboard_available_skips_x11_on_wayland_by_default() {
+        let _guard = env_lock().lock().unwrap();
+        reset_clipboard_env();
+        unsafe {
+            // Xwayland leaves DISPLAY set even on pure Wayland sessions.
+            std::env::set_var("WAYLAND_DISPLAY", "wayland-0");
+            std::env::set_var("DISPLAY", ":0");
+        }
+        assert!(!x11_clipboard_available());
+        reset_clipboard_env();
+    }
+
+    #[test]
+    fn x11_clipboard_available_honors_allow_override_on_wayland() {
+        let _guard = env_lock().lock().unwrap();
+        reset_clipboard_env();
+        unsafe {
+            std::env::set_var("WAYLAND_DISPLAY", "wayland-0");
+            std::env::set_var("DISPLAY", ":0");
+            std::env::set_var("HERDR_CLIPBOARD_ALLOW_X11", "1");
+        }
+        assert!(x11_clipboard_available());
+        reset_clipboard_env();
+    }
+
     #[test]
     fn clipboard_commands_prefer_wayland_when_available() {
         let _guard = env_lock().lock().unwrap();
+        reset_clipboard_env();
         unsafe {
             std::env::set_var("WAYLAND_DISPLAY", "wayland-0");
-            std::env::remove_var("DISPLAY");
         }
         let commands = clipboard_commands();
         assert_eq!(commands.len(), 1);
         assert_eq!(commands[0].program, "wl-copy");
+        reset_clipboard_env();
     }
 
     #[test]
-    fn clipboard_commands_include_x11_fallbacks() {
+    fn clipboard_commands_include_x11_fallbacks_on_pure_x11() {
         let _guard = env_lock().lock().unwrap();
+        reset_clipboard_env();
         unsafe {
-            std::env::remove_var("WAYLAND_DISPLAY");
             std::env::set_var("DISPLAY", ":0");
         }
         let commands = clipboard_commands();
         assert_eq!(commands.len(), 2);
         assert_eq!(commands[0].program, "xclip");
         assert_eq!(commands[1].program, "xsel");
+        reset_clipboard_env();
     }
 
     #[test]
-    fn read_clipboard_text_commands_include_session_backends() {
+    fn clipboard_commands_skip_x11_on_wayland_even_with_display_set() {
         let _guard = env_lock().lock().unwrap();
+        reset_clipboard_env();
+        unsafe {
+            // Xwayland sets DISPLAY, but a wedged X11 socket must not be tried.
+            std::env::set_var("WAYLAND_DISPLAY", "wayland-0");
+            std::env::set_var("DISPLAY", ":0");
+        }
+        let commands = clipboard_commands();
+        assert_eq!(commands.len(), 1);
+        assert_eq!(commands[0].program, "wl-copy");
+        reset_clipboard_env();
+    }
+
+    #[test]
+    fn clipboard_commands_include_x11_on_wayland_with_allow_override() {
+        let _guard = env_lock().lock().unwrap();
+        reset_clipboard_env();
+        unsafe {
+            std::env::set_var("WAYLAND_DISPLAY", "wayland-0");
+            std::env::set_var("DISPLAY", ":0");
+            std::env::set_var("HERDR_CLIPBOARD_ALLOW_X11", "1");
+        }
+        let commands = clipboard_commands();
+        assert_eq!(commands.len(), 3);
+        assert_eq!(commands[0].program, "wl-copy");
+        assert_eq!(commands[1].program, "xclip");
+        assert_eq!(commands[2].program, "xsel");
+        reset_clipboard_env();
+    }
+
+    #[test]
+    fn read_clipboard_text_commands_skip_x11_fallbacks_on_wayland_by_default() {
+        let _guard = env_lock().lock().unwrap();
+        reset_clipboard_env();
         unsafe {
             std::env::set_var("WAYLAND_DISPLAY", "wayland-0");
             std::env::set_var("DISPLAY", ":0");
         }
 
         let commands = read_clipboard_text_commands();
+        assert_eq!(commands.len(), 2);
+        assert_eq!(commands[0].program, "wl-paste");
+        assert_eq!(commands[1].program, "wl-paste");
+        reset_clipboard_env();
+    }
+
+    #[test]
+    fn read_clipboard_text_commands_include_session_backends_with_allow_override() {
+        let _guard = env_lock().lock().unwrap();
+        reset_clipboard_env();
+        unsafe {
+            std::env::set_var("WAYLAND_DISPLAY", "wayland-0");
+            std::env::set_var("DISPLAY", ":0");
+            std::env::set_var("HERDR_CLIPBOARD_ALLOW_X11", "1");
+        }
+
+        let commands = read_clipboard_text_commands();
+        assert_eq!(commands.len(), 4);
         assert_eq!(commands[0].program, "wl-paste");
         assert_eq!(commands[1].program, "wl-paste");
         assert_eq!(commands[2].program, "xclip");
         assert_eq!(commands[3].program, "xsel");
+        reset_clipboard_env();
+    }
+
+    #[test]
+    fn run_clipboard_child_with_timeout_kills_a_hanging_child() {
+        let mut command = Command::new("sh");
+        command
+            .arg("-c")
+            .arg("trap '' TERM; sleep 30")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+
+        let started = std::time::Instant::now();
+        let result: Option<()> =
+            run_clipboard_child_with_timeout(command, Duration::from_millis(100), |mut child| {
+                let _ = child.wait();
+                Some(())
+            });
+
+        assert_eq!(result, None);
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "timeout wrapper should not block on a hung child, took {:?}",
+            started.elapsed()
+        );
+    }
+
+    #[test]
+    fn run_clipboard_child_with_timeout_returns_work_result_when_fast() {
+        let mut command = Command::new("sh");
+        command
+            .arg("-c")
+            .arg("printf ok")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+
+        let result =
+            run_clipboard_child_with_timeout(command, CLIPBOARD_CHILD_TIMEOUT, |mut child| {
+                child.wait().ok().map(|status| status.success())
+            });
+
+        assert_eq!(result, Some(true));
     }
 
     #[test]
@@ -982,6 +1207,9 @@ mod tests {
         unsafe {
             std::env::set_var("WAYLAND_DISPLAY", "wayland-0");
             std::env::set_var("DISPLAY", ":0");
+            // On Wayland, xclip is skipped by default; opt back in so this
+            // test still exercises the xclip fallback-rejection path.
+            std::env::set_var("HERDR_CLIPBOARD_ALLOW_X11", "1");
             std::env::set_var("PATH", test_path);
         }
 
@@ -992,6 +1220,7 @@ mod tests {
                 Some(path) => std::env::set_var("PATH", path),
                 None => std::env::remove_var("PATH"),
             }
+            std::env::remove_var("HERDR_CLIPBOARD_ALLOW_X11");
         }
         let _ = std::fs::remove_file(fake_wl_paste);
         let _ = std::fs::remove_file(fake_xclip);
