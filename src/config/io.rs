@@ -813,8 +813,7 @@ mod tests {
     #[test]
     fn config_diagnostic_summary_reports_unreadable_config_impact() {
         with_default_config_path_env(|| {
-            let startup =
-                vec!["config read error: permission denied; using defaults".to_string()];
+            let startup = vec!["config read error: permission denied; using defaults".to_string()];
             assert_eq!(
                 config_diagnostic_summary(&startup).as_deref(),
                 Some("config.toml unreadable; using defaults; herdr config check")
