@@ -3,9 +3,7 @@ use ratatui::layout::Rect;
 
 use crate::{
     app::{
-        state::{
-            AppState, ExperimentSetting, SettingsSection, THEME_NAMES, UI_SPINNER_OFFSET,
-        },
+        state::{AppState, ExperimentSetting, SettingsSection, THEME_NAMES, UI_SPINNER_OFFSET},
         App, Mode,
     },
     config::ToastDelivery,
@@ -459,12 +457,9 @@ impl AppState {
         let list_area = crate::ui::settings_list_area(area);
 
         match self.settings.section {
-            SettingsSection::Ui => crate::ui::settings_ui_index_at(
-                list_area,
-                col,
-                row,
-                self.settings.list.selected,
-            ),
+            SettingsSection::Ui => {
+                crate::ui::settings_ui_index_at(list_area, col, row, self.settings.list.selected)
+            }
             SettingsSection::Theme => {
                 let max_visible = area.height as usize;
                 let scroll = if self.settings.list.selected >= max_visible {
@@ -477,15 +472,15 @@ impl AppState {
             }
             SettingsSection::Sound => crate::ui::settings_sound_index_at(list_area, col, row),
             SettingsSection::System => {
-                if row >= list_area.y
-                    && row < list_area.y + ExperimentSetting::ALL.len() as u16
-                {
+                if row >= list_area.y && row < list_area.y + ExperimentSetting::ALL.len() as u16 {
                     Some((row - list_area.y) as usize)
                 } else {
                     None
                 }
             }
-            SettingsSection::Templates => crate::ui::settings_template_index_at(list_area, col, row),
+            SettingsSection::Templates => {
+                crate::ui::settings_template_index_at(list_area, col, row)
+            }
             SettingsSection::Integrations => None,
         }
     }

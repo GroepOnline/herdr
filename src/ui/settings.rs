@@ -80,7 +80,8 @@ pub(crate) fn settings_ui_index_at(
         0
     };
     let spinner_idx = (grid_row + scroll) * 2 + col_idx;
-    (spinner_idx < crate::config::SpinnerStyle::ALL.len()).then_some(UI_SPINNER_OFFSET + spinner_idx)
+    (spinner_idx < crate::config::SpinnerStyle::ALL.len())
+        .then_some(UI_SPINNER_OFFSET + spinner_idx)
 }
 
 pub(crate) fn template_card_height(template: &crate::pane_template::PaneTemplate) -> u16 {
@@ -121,10 +122,7 @@ pub(crate) fn settings_template_index_at(list_area: Rect, col: u16, row: u16) ->
 
     for idx in 0..PaneTemplateId::ALL.len() {
         let card = settings_template_card_rect(list_area, idx)?;
-        if col >= card.x
-            && col < card.x + card.width
-            && row >= card.y
-            && row < card.y + card.height
+        if col >= card.x && col < card.x + card.width && row >= card.y && row < card.y + card.height
         {
             return Some(idx);
         }

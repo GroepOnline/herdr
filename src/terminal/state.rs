@@ -3607,8 +3607,7 @@ mod tests {
             None,
             now,
         );
-        terminal.hook_authority.as_mut().unwrap().reported_at =
-            now - Duration::from_secs(3600);
+        terminal.hook_authority.as_mut().unwrap().reported_at = now - Duration::from_secs(3600);
 
         terminal.set_detected_state_with_screen_signals_at(
             Some(Agent::Pi),
