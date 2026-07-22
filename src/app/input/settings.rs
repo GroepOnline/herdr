@@ -510,7 +510,10 @@ impl AppState {
             }
             SettingsSection::Templates => {
                 let list_y = area.y + 2;
-                let row_idx = (row.saturating_sub(list_y)) as usize;
+                if row < list_y {
+                    return None;
+                }
+                let row_idx = (row - list_y) as usize;
                 (row_idx < crate::pane_template::PaneTemplateId::ALL.len()).then_some(row_idx)
             }
             SettingsSection::Integrations => None,
