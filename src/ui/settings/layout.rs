@@ -67,11 +67,8 @@ impl SettingsLayout {
         ])
         .areas::<2>(body);
 
-        let [footer_hints, footer_buttons] = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Length(1),
-        ])
-        .areas::<2>(footer);
+        let [footer_hints, footer_buttons] =
+            Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).areas::<2>(footer);
 
         Some(Self {
             popup,
@@ -201,12 +198,7 @@ impl SettingsLayout {
         ))
     }
 
-    pub(crate) fn content_index_at(
-        &self,
-        app: &AppState,
-        col: u16,
-        row: u16,
-    ) -> Option<usize> {
+    pub(crate) fn content_index_at(&self, app: &AppState, col: u16, row: u16) -> Option<usize> {
         if self.spinner_category_index_at(app, col, row).is_some() {
             return None;
         }
@@ -377,9 +369,9 @@ pub(crate) fn template_index_at(
         let card = template_card_rect(list_area, idx)?;
         if col >= card.x && col < card.x + card.width && row >= card.y && row < card.y + card.height
         {
-            return rows.iter().position(|row| {
-                row.kind == SettingsRowKind::Template && row.payload == idx
-            });
+            return rows
+                .iter()
+                .position(|row| row.kind == SettingsRowKind::Template && row.payload == idx);
         }
     }
     None
@@ -454,9 +446,7 @@ mod tests {
         let list_area = layout.content_list_area(&app);
         let prefix = layout_non_template_count(&app);
         let template_area = template_list_area(list_area, prefix);
-        let first_toggle = layout
-            .content_row_rect(&app, 0)
-            .expect("toggle geometry");
+        let first_toggle = layout.content_row_rect(&app, 0).expect("toggle geometry");
         let first_card = template_card_rect(template_area, 0).expect("template geometry");
         assert!(first_card.y > first_toggle.y);
         assert_eq!(
@@ -483,8 +473,7 @@ mod tests {
     #[test]
     fn button_rects_align_with_footer_buttons_area() {
         let layout = layout_for_section(SettingsSection::Appearance);
-        let (apply, close) =
-            settings_button_rects(&layout, SettingsSection::Appearance, true);
+        let (apply, close) = settings_button_rects(&layout, SettingsSection::Appearance, true);
         assert!(apply.is_some());
         assert!(close.y >= layout.footer_buttons.y);
     }

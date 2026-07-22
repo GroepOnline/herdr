@@ -495,7 +495,12 @@ impl App {
 
     pub(super) fn save_resume_agents_on_restore(&mut self, enabled: bool) {
         if self.update_config_file("resume agents on restore", |content| {
-            crate::config::upsert_section_bool(content, "session", "resume_agents_on_restore", enabled)
+            crate::config::upsert_section_bool(
+                content,
+                "session",
+                "resume_agents_on_restore",
+                enabled,
+            )
         }) {
             self.apply_config_from_disk(false);
         }

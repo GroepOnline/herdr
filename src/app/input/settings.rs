@@ -75,9 +75,7 @@ fn cycle_host_cursor(current: HostCursorModeConfig) -> HostCursorModeConfig {
     }
 }
 
-fn cycle_sidebar_collapsed_mode(
-    current: SidebarCollapsedModeConfig,
-) -> SidebarCollapsedModeConfig {
+fn cycle_sidebar_collapsed_mode(current: SidebarCollapsedModeConfig) -> SidebarCollapsedModeConfig {
     match current {
         SidebarCollapsedModeConfig::Compact => SidebarCollapsedModeConfig::Hidden,
         SidebarCollapsedModeConfig::Hidden => SidebarCollapsedModeConfig::Compact,
@@ -88,12 +86,8 @@ fn cycle_agent_panel_sort(
     current: crate::app::state::AgentPanelSort,
 ) -> crate::app::state::AgentPanelSort {
     match current {
-        crate::app::state::AgentPanelSort::Spaces => {
-            crate::app::state::AgentPanelSort::Priority
-        }
-        crate::app::state::AgentPanelSort::Priority => {
-            crate::app::state::AgentPanelSort::Spaces
-        }
+        crate::app::state::AgentPanelSort::Spaces => crate::app::state::AgentPanelSort::Priority,
+        crate::app::state::AgentPanelSort::Priority => crate::app::state::AgentPanelSort::Spaces,
     }
 }
 
@@ -207,7 +201,9 @@ impl App {
             }
             SettingsAction::SaveSpinnerStyle(style) => self.save_spinner_style(style),
             SettingsAction::ApplyPaneTemplate(template) => self.apply_pane_template(template),
-            SettingsAction::InstallRecommendedIntegrations => self.install_recommended_integrations(),
+            SettingsAction::InstallRecommendedIntegrations => {
+                self.install_recommended_integrations()
+            }
             SettingsAction::SaveMouseCapture(enabled) => self.save_mouse_capture(enabled),
             SettingsAction::SaveCopyOnSelect(enabled) => self.save_copy_on_select(enabled),
             SettingsAction::SaveConfirmClose(enabled) => self.save_confirm_close(enabled),
@@ -222,13 +218,19 @@ impl App {
                 self.state.settings.config_snapshot.host_cursor = mode;
                 self.save_host_cursor(mode);
             }
-            SettingsAction::SaveSidebarCollapsedMode(mode) => self.save_sidebar_collapsed_mode(mode),
+            SettingsAction::SaveSidebarCollapsedMode(mode) => {
+                self.save_sidebar_collapsed_mode(mode)
+            }
             SettingsAction::SaveAgentPanelSort(sort) => self.save_agent_panel_sort(sort),
             SettingsAction::SaveShellMode(mode) => self.save_shell_mode(mode),
             SettingsAction::SaveDefaultShell(shell) => self.save_default_shell(&shell),
             SettingsAction::SaveNewTerminalCwd(cwd) => self.save_new_terminal_cwd(cwd),
-            SettingsAction::SaveScrollbackLimitBytes(bytes) => self.save_scrollback_limit_bytes(bytes),
-            SettingsAction::SaveToastDelaySeconds(seconds) => self.save_toast_delay_seconds(seconds),
+            SettingsAction::SaveScrollbackLimitBytes(bytes) => {
+                self.save_scrollback_limit_bytes(bytes)
+            }
+            SettingsAction::SaveToastDelaySeconds(seconds) => {
+                self.save_toast_delay_seconds(seconds)
+            }
             SettingsAction::SaveToastHerdrPosition(position) => {
                 self.save_toast_herdr_position(position)
             }
@@ -259,7 +261,10 @@ impl App {
                 self.save_manage_ssh_config(enabled);
             }
             SettingsAction::SaveClipboardHistoryEnabled(enabled) => {
-                self.state.settings.config_snapshot.clipboard_history_enabled = enabled;
+                self.state
+                    .settings
+                    .config_snapshot
+                    .clipboard_history_enabled = enabled;
                 self.save_clipboard_history_enabled(enabled);
             }
             SettingsAction::SaveAllowNested(enabled) => {
@@ -392,7 +397,9 @@ fn activate_row(state: &AppState, row_index: usize) -> Option<SettingsAction> {
             spinner_style_for_row(state, row).map(SettingsAction::SaveSpinnerStyle)
         }
         (SettingsSection::Layout, SettingsRowKind::Toggle) => match row.payload {
-            0 => Some(SettingsAction::SavePaneBorders(!state.pane_borders_enabled())),
+            0 => Some(SettingsAction::SavePaneBorders(
+                !state.pane_borders_enabled(),
+            )),
             1 => Some(SettingsAction::SavePaneGaps(!state.pane_gaps_enabled())),
             2 => Some(SettingsAction::SaveAgentBorderLabels(
                 !state.agent_border_labels_enabled(),
@@ -424,7 +431,9 @@ fn activate_row(state: &AppState, row_index: usize) -> Option<SettingsAction> {
                 !state.redraw_on_focus_gained,
             )),
             3 => Some(SettingsAction::SaveConfirmClose(!state.confirm_close)),
-            4 => Some(SettingsAction::SavePromptNewTabName(!state.prompt_new_tab_name)),
+            4 => Some(SettingsAction::SavePromptNewTabName(
+                !state.prompt_new_tab_name,
+            )),
             5 => Some(SettingsAction::SavePromptNewWorkspaceName(
                 !state.prompt_new_workspace_name,
             )),
@@ -437,7 +446,9 @@ fn activate_row(state: &AppState, row_index: usize) -> Option<SettingsAction> {
             0 => Some(SettingsAction::SaveDefaultShell(cycle_default_shell(
                 &state.default_shell,
             ))),
-            1 => Some(SettingsAction::SaveShellMode(cycle_shell_mode(state.shell_mode))),
+            1 => Some(SettingsAction::SaveShellMode(cycle_shell_mode(
+                state.shell_mode,
+            ))),
             2 => Some(SettingsAction::SaveNewTerminalCwd(cycle_new_terminal_cwd(
                 &state.new_terminal_cwd,
             ))),
@@ -446,9 +457,8 @@ fn activate_row(state: &AppState, row_index: usize) -> Option<SettingsAction> {
                 .map(|(bytes, _)| SettingsAction::SaveScrollbackLimitBytes(*bytes)),
             _ => None,
         },
-        (SettingsSection::Agents, SettingsRowKind::Integration) => {
-            integrations_need_install(state).then_some(SettingsAction::InstallRecommendedIntegrations)
-        }
+        (SettingsSection::Agents, SettingsRowKind::Integration) => integrations_need_install(state)
+            .then_some(SettingsAction::InstallRecommendedIntegrations),
         (SettingsSection::Notifications, SettingsRowKind::Toggle) => {
             Some(SettingsAction::SaveSound(!state.sound_enabled()))
         }
@@ -485,14 +495,18 @@ fn activate_row(state: &AppState, row_index: usize) -> Option<SettingsAction> {
             };
             Some(SettingsAction::SaveToastDelivery(delivery))
         }
-        (SettingsSection::Agents, SettingsRowKind::Toggle) => Some(
-            SettingsAction::SaveResumeAgentsOnRestore(
+        (SettingsSection::Agents, SettingsRowKind::Toggle) => {
+            Some(SettingsAction::SaveResumeAgentsOnRestore(
                 !state.settings.config_snapshot.resume_agents_on_restore,
-            ),
-        ),
+            ))
+        }
         (SettingsSection::Updates, SettingsRowKind::Choice) => match row.payload {
-            0 => Some(SettingsAction::SaveUpdateChannel(UpdateChannelConfig::Stable)),
-            1 => Some(SettingsAction::SaveUpdateChannel(UpdateChannelConfig::Preview)),
+            0 => Some(SettingsAction::SaveUpdateChannel(
+                UpdateChannelConfig::Stable,
+            )),
+            1 => Some(SettingsAction::SaveUpdateChannel(
+                UpdateChannelConfig::Preview,
+            )),
             _ => None,
         },
         (SettingsSection::Updates, SettingsRowKind::Toggle) => match row.payload {
@@ -579,7 +593,9 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             }
         }
         KeyCode::Char(']') if state.settings.section == SettingsSection::Appearance => {
-            let max = crate::ui::settings::spinner::SPINNER_CATEGORIES.len().saturating_sub(1);
+            let max = crate::ui::settings::spinner::SPINNER_CATEGORIES
+                .len()
+                .saturating_sub(1);
             if state.settings.spinner_category < max {
                 state.settings.spinner_category += 1;
             }
@@ -995,7 +1011,10 @@ mod tests {
             .position(|section| *section == SettingsSection::Agents)
             .expect("agents section");
         let rect = layout.nav_item_rect(agents_idx).expect("nav rect");
-        assert_eq!(state.settings_nav_index_at(rect.x + 2, rect.y), Some(agents_idx));
+        assert_eq!(
+            state.settings_nav_index_at(rect.x + 2, rect.y),
+            Some(agents_idx)
+        );
     }
 
     fn integration_recommendation(

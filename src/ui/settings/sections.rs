@@ -13,9 +13,9 @@ use crate::{
 
 use super::{
     layout::{
-        active_spinner_styles, spinner_category_labels, spinner_preview_frame, SettingsLayout,
-        SETTINGS_SECTION_DESC_ROWS, SETTINGS_SECTION_GAP_ROWS, SETTINGS_SPINNER_CATEGORY_ROWS,
-        template_card_rect,
+        active_spinner_styles, spinner_category_labels, spinner_preview_frame, template_card_rect,
+        SettingsLayout, SETTINGS_SECTION_DESC_ROWS, SETTINGS_SECTION_GAP_ROWS,
+        SETTINGS_SPINNER_CATEGORY_ROWS,
     },
     rows::{
         row_choice_selected, row_spinner_current, row_theme_current, row_toggle_checked,
@@ -23,11 +23,7 @@ use super::{
     },
 };
 
-pub(crate) fn render_settings_content(
-    app: &AppState,
-    frame: &mut Frame,
-    layout: &SettingsLayout,
-) {
+pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout: &SettingsLayout) {
     let p = &app.palette;
     let section = app.settings.section;
 
@@ -162,13 +158,7 @@ pub(crate) fn render_settings_content(
             .enumerate()
             .filter(|(_, row)| row.kind == SettingsRowKind::Template)
         {
-            render_template_card(
-                app,
-                frame,
-                template_area,
-                row.1.payload,
-                row.0 == selected,
-            );
+            render_template_card(app, frame, template_area, row.1.payload, row.0 == selected);
         }
     }
 
@@ -317,9 +307,10 @@ pub(crate) fn render_settings_nav(app: &AppState, frame: &mut Frame, layout: &Se
             ""
         };
         frame.render_widget(
-            Paragraph::new(Line::from(vec![
-                Span::styled(format!(" {}{}", section.label(), badge), style),
-            ])),
+            Paragraph::new(Line::from(vec![Span::styled(
+                format!(" {}{}", section.label(), badge),
+                style,
+            )])),
             rect,
         );
     }

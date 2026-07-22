@@ -406,9 +406,7 @@ impl App {
     }
 
     fn sync_animation_timer_with_interval(&mut self, now: Instant, interval: Duration) {
-        if self.agent_panel_has_animation()
-            || self.state.mode == crate::app::Mode::Settings
-        {
+        if self.agent_panel_has_animation() || self.state.mode == crate::app::Mode::Settings {
             self.next_animation_tick.get_or_insert(now + interval);
         } else {
             self.next_animation_tick = None;

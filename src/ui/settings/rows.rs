@@ -32,8 +32,7 @@ fn matches_filter(filter: &str, label: &str, detail: Option<&str>) -> bool {
     }
     let needle = filter.to_ascii_lowercase();
     label.to_ascii_lowercase().contains(&needle)
-        || detail
-            .is_some_and(|d| d.to_ascii_lowercase().contains(&needle))
+        || detail.is_some_and(|d| d.to_ascii_lowercase().contains(&needle))
 }
 
 pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<SettingsRow> {
@@ -115,10 +114,16 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
             for (idx, (label, detail)) in [
                 ("mouse capture", "capture mouse for Herdr UI chrome"),
                 ("copy on select", "copy selected terminal text to clipboard"),
-                ("redraw on focus gained", "refresh panes when Herdr regains focus"),
+                (
+                    "redraw on focus gained",
+                    "refresh panes when Herdr regains focus",
+                ),
                 ("confirm close", "ask before closing tabs and workspaces"),
                 ("prompt new tab name", "ask for a name when creating tabs"),
-                ("prompt new workspace name", "ask for a name when creating workspaces"),
+                (
+                    "prompt new workspace name",
+                    "ask for a name when creating workspaces",
+                ),
             ]
             .iter()
             .enumerate()
@@ -274,8 +279,14 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 });
             }
             for (idx, (label, detail)) in [
-                ("manage ssh config", "add keepalive fallbacks for herdr --remote"),
-                ("clipboard history", "retain recent global clipboard entries"),
+                (
+                    "manage ssh config",
+                    "add keepalive fallbacks for herdr --remote",
+                ),
+                (
+                    "clipboard history",
+                    "retain recent global clipboard entries",
+                ),
             ]
             .iter()
             .enumerate()
@@ -321,7 +332,11 @@ pub(crate) fn scrollback_presets() -> &'static [(usize, &'static str)] {
     ]
 }
 
-pub(crate) fn row_toggle_checked(app: &AppState, section: SettingsSection, row: &SettingsRow) -> bool {
+pub(crate) fn row_toggle_checked(
+    app: &AppState,
+    section: SettingsSection,
+    row: &SettingsRow,
+) -> bool {
     match section {
         SettingsSection::Appearance if row.kind == SettingsRowKind::Toggle => {
             app.settings.config_snapshot.theme_auto_switch
@@ -342,7 +357,9 @@ pub(crate) fn row_toggle_checked(app: &AppState, section: SettingsSection, row: 
             5 => app.prompt_new_workspace_name,
             _ => false,
         },
-        SettingsSection::Notifications if row.kind == SettingsRowKind::Toggle => app.sound_enabled(),
+        SettingsSection::Notifications if row.kind == SettingsRowKind::Toggle => {
+            app.sound_enabled()
+        }
         SettingsSection::Agents if row.kind == SettingsRowKind::Toggle => {
             app.settings.config_snapshot.resume_agents_on_restore
         }
@@ -369,12 +386,14 @@ pub(crate) fn row_toggle_checked(app: &AppState, section: SettingsSection, row: 
     }
 }
 
-pub(crate) fn row_choice_selected(app: &AppState, section: SettingsSection, row: &SettingsRow) -> bool {
+pub(crate) fn row_choice_selected(
+    app: &AppState,
+    section: SettingsSection,
+    row: &SettingsRow,
+) -> bool {
     match section {
         // Cycling single-row choices always show as active; detail text carries the value.
-        SettingsSection::Layout | SettingsSection::Input
-            if row.kind == SettingsRowKind::Choice =>
-        {
+        SettingsSection::Layout | SettingsSection::Input if row.kind == SettingsRowKind::Choice => {
             true
         }
         SettingsSection::Terminal if row.kind == SettingsRowKind::Choice => match row.payload {
@@ -499,12 +518,9 @@ impl SettingsDisplayLabels for AppState {
 
     fn clipboard_toast_label(&self) -> String {
         if self.toast_config.clipboard.enabled {
-            format!(
-                "on · {:?}",
-                self.toast_config.clipboard.position
-            )
-            .to_ascii_lowercase()
-            .replace('_', " ")
+            format!("on · {:?}", self.toast_config.clipboard.position)
+                .to_ascii_lowercase()
+                .replace('_', " ")
         } else {
             "off".to_string()
         }
