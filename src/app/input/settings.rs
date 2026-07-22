@@ -939,11 +939,7 @@ mod tests {
         open_settings(&mut app.state);
         app.state.settings.list.select(0);
 
-        let area = app
-            .state
-            .settings_layout()
-            .expect("layout")
-            .content;
+        let area = app.state.settings_layout().expect("layout").content;
         app.handle_mouse(mouse(MouseEventKind::Moved, area.x + 2, area.y + 2));
 
         assert_eq!(app.state.settings.list.selected, 0);
@@ -955,11 +951,7 @@ mod tests {
         app.state.pane_history_persistence = false;
         open_settings_at(&mut app.state, SettingsSection::Advanced);
 
-        let area = app
-            .state
-            .settings_layout()
-            .expect("layout")
-            .content;
+        let area = app.state.settings_layout().expect("layout").content;
         let action = app.state.handle_settings_mouse(mouse(
             MouseEventKind::Down(crossterm::event::MouseButton::Left),
             area.x + 2,
