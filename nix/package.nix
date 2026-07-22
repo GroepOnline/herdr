@@ -26,6 +26,10 @@ let
         '') entries}
       '';
   };
+  darwinToolchain = lib.optionals stdenv.hostPlatform.isDarwin [
+    cctools
+    xcbuild
+  ];
 in
 rustPlatform.buildRustPackage {
   pname = "herdr";
@@ -55,11 +59,7 @@ rustPlatform.buildRustPackage {
   nativeBuildInputs = [
     git
     pkg-config
-  ]
-  ++ lib.optionals stdenv.hostPlatform.isDarwin [
-    cctools
-    xcbuild
-  ];
+  ] ++ darwinToolchain;
 
   env = {
     LIBGHOSTTY_VT_OPTIMIZE = "ReleaseFast";
