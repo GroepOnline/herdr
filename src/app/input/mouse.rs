@@ -388,9 +388,7 @@ impl AppState {
                 ) {
                     // Buttons act; inside body is a no-op; outside cancels (keeps
                     // mobile switch / other chrome from trapping the modal).
-                    let Some(inner) = self.rename_modal_inner() else {
-                        return None;
-                    };
+                    let inner = self.rename_modal_inner()?;
                     let (save, clear, cancel) = crate::ui::rename_button_rects(inner);
                     if let Some(action) = modal_action_from_buttons(
                         mouse.column,
