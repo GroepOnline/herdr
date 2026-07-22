@@ -326,6 +326,7 @@ impl App {
                         cwd: None,
                         focus: true,
                         env: Default::default(),
+                        command: None,
                     },
                 );
             }
