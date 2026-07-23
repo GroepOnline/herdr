@@ -1052,8 +1052,7 @@ mod tests {
 
         let browse_y = list_area.y + app.state.installed_plugins.len() as u16 + 1;
         assert_eq!(
-            app.state
-                .settings_list_index_at(list_area.x + 1, browse_y),
+            app.state.settings_list_index_at(list_area.x + 1, browse_y),
             Some(app.state.installed_plugins.len())
         );
     }

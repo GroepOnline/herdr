@@ -414,11 +414,7 @@ fn chrono_lite_parse_rfc3339(value: &str) -> Result<u64, ()> {
     let day: u64 = date_parts.next().ok_or(())?.parse().map_err(|_| ())?;
     let mut time_parts = time.split(':');
     let hour: u64 = time_parts.next().ok_or(())?.parse().map_err(|_| ())?;
-    let minute: u64 = time_parts
-        .next()
-        .ok_or(())?
-        .parse()
-        .map_err(|_| ())?;
+    let minute: u64 = time_parts.next().ok_or(())?.parse().map_err(|_| ())?;
     let second_str = time_parts.next().unwrap_or("0");
     let second: u64 = second_str
         .split(['.', '+', '-'])
