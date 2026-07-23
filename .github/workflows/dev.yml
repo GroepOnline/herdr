@@ -1,9 +1,10 @@
 name: Dev
 
+# Merge-driven publisher for the opt-in `dev` update channel.
+# Trigger is push/dispatch only — never workflow_run / pull_request_target.
+# Write job checks out trusted `main` only; build is read-only.
+
 on:
-  # Merge-driven: runs on pushes to main (after PR merge). Prefer requiring
-  # `CI / Quality gate` on main so only green tip commits publish.
-  # Avoid workflow_run — CodeQL treats that trigger as privileged.
   push:
     branches: [main]
     paths-ignore:
@@ -18,7 +19,8 @@ on:
         required: false
         type: string
 
-permissions: {}
+permissions:
+  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -110,7 +112,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: write
     env:
       LIBGHOSTTY_VT_OPTIMIZE: ReleaseFast
       LIBGHOSTTY_VT_SIMD: "true"
@@ -151,6 +152,7 @@ jobs:
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           key: dev-${{ env.TARGET }}
+          cache-bin: false
 
       - name: Remove Zig caches
         run: rm -rf .zig-cache vendor/libghostty-vt/.zig-cache vendor/libghostty-vt/zig-out
@@ -160,6 +162,9 @@ jobs:
 
       - name: Package artifact
         shell: bash
+        env:
+          COMMIT: ${{ needs.preflight.outputs.commit }}
+          BUILD_ID: ${{ needs.preflight.outputs.build_id }}
         run: |
           set -euo pipefail
           cp "target/${TARGET}/release/herdr" "$ARTIFACT"
@@ -180,8 +185,8 @@ jobs:
           print(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}")
           PY
           {
-            echo "commit=${{ needs.preflight.outputs.commit }}"
-            echo "build_id=${{ needs.preflight.outputs.build_id }}"
+            echo "commit=${COMMIT}"
+            echo "build_id=${BUILD_ID}"
             echo "target=${TARGET}"
             echo "channel=dev"
           } >> BUILD_INFO.txt
@@ -201,15 +206,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: read
     steps:
-      # Trusted tip of main only — never checkout the workflow_run head here.
+      # Trusted tip of main only. Never check out a caller-selected SHA here.
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           ref: main
           fetch-depth: 0
-          persist-credentials: true
-          token: ${{ github.token }}
+          persist-credentials: false
 
       - name: Download artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
@@ -219,6 +222,8 @@ jobs:
       - name: Record previous dev commit
         id: previous-dev
         shell: bash
+        env:
+          COMMIT: ${{ needs.preflight.outputs.commit }}
         run: |
           set -euo pipefail
           previous="$(python3 scripts/preview.py current-commit --manifest website/dev.json || true)"
@@ -227,22 +232,27 @@ jobs:
           fi
           range_base="$(python3 scripts/preview.py range-base \
             --previous "$previous" \
-            --commit '${{ needs.preflight.outputs.commit }}')"
+            --commit "$COMMIT")"
           echo "commit=$previous" >> "$GITHUB_OUTPUT"
           echo "range_base=$range_base" >> "$GITHUB_OUTPUT"
 
       - name: Generate notes and checksums
         shell: bash
+        env:
+          COMMIT: ${{ needs.preflight.outputs.commit }}
+          BUILD_ID: ${{ needs.preflight.outputs.build_id }}
+          BASE_VERSION: ${{ needs.preflight.outputs.base_version }}
+          RANGE_BASE: ${{ steps.previous-dev.outputs.range_base }}
         run: |
           set -euo pipefail
           python3 scripts/preview.py notes \
             --channel dev \
             --branch main \
             --manifest website/dev.json \
-            --previous '${{ steps.previous-dev.outputs.range_base }}' \
-            --commit '${{ needs.preflight.outputs.commit }}' \
-            --build-id '${{ needs.preflight.outputs.build_id }}' \
-            --base-version '${{ needs.preflight.outputs.base_version }}' \
+            --previous "$RANGE_BASE" \
+            --commit "$COMMIT" \
+            --build-id "$BUILD_ID" \
+            --base-version "$BASE_VERSION" \
             --output DEV_NOTES.md
           python3 - <<'PY'
           import json
@@ -270,24 +280,35 @@ jobs:
             artifacts/herdr-linux-x86_64/herdr-linux-x86_64
 
       - name: Update dev manifest
+        env:
+          TAG: ${{ needs.preflight.outputs.tag }}
+          BUILD_ID: ${{ needs.preflight.outputs.build_id }}
+          COMMIT: ${{ needs.preflight.outputs.commit }}
+          BUILT_AT: ${{ needs.preflight.outputs.built_at }}
+          BASE_VERSION: ${{ needs.preflight.outputs.base_version }}
+          PROTOCOL: ${{ needs.preflight.outputs.protocol }}
         run: |
           python3 scripts/preview.py manifest \
             --channel dev \
             --output website/dev.json \
-            --tag '${{ needs.preflight.outputs.tag }}' \
-            --build-id '${{ needs.preflight.outputs.build_id }}' \
-            --commit '${{ needs.preflight.outputs.commit }}' \
-            --built-at '${{ needs.preflight.outputs.built_at }}' \
-            --base-version '${{ needs.preflight.outputs.base_version }}' \
-            --protocol '${{ needs.preflight.outputs.protocol }}' \
+            --tag "$TAG" \
+            --build-id "$BUILD_ID" \
+            --commit "$COMMIT" \
+            --built-at "$BUILT_AT" \
+            --base-version "$BASE_VERSION" \
+            --protocol "$PROTOCOL" \
             --notes DEV_NOTES.md \
             --sha-file dev-sha256.json \
             --retain 20
 
       - name: Commit dev manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git add website/dev.json
           git diff --cached --quiet || git commit -m "docs: update dev manifest"
           git push origin HEAD:main
