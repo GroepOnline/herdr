@@ -142,14 +142,21 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
 
+      - name: Locate build artifacts (debug)
+        run: find . -path ./node_modules -prune -o -name 'herdr-linux*' -type f -print
+
       - name: Extract release notes from changelog
         run: python3 scripts/changelog.py extract --version "${GITHUB_REF_NAME#v}" --output RELEASE_NOTES.md
 
       - name: Create release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
         with:
+          # Permissive glob: download-artifact v8 nests the file as
+          # ./herdr-linux-x86_64/herdr-linux-x86_64, but pinning the exact
+          # path previously matched nothing on the runner. ** catches it at
+          # any depth, and the only file in that dir is the binary.
           files: |
-            herdr-linux-x86_64/herdr-linux-x86_64
+            herdr-linux-x86_64/**
           body_path: RELEASE_NOTES.md
 
   close-released-issues:
@@ -297,7 +304,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          ref: master
+          ref: main
           fetch-depth: 0
           ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
@@ -332,7 +339,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add website/latest.json docs/next/product-announcement.json
           git diff --cached --quiet || git commit -m "docs: update website manifest for v$VERSION"
-          git push origin master
+          git push origin main
 
       - name: Trigger website deploy
         env:
