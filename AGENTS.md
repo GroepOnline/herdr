@@ -202,7 +202,8 @@ This section is maintainer-only for release actions. If the acting GitHub
 account is not `OnlineChefGroep`, do not run release commands, push release assets,
 or modify release channel files; follow the external contributor guardrail.
 
-Herdr has one main branch and two update channels. Stable and preview both build from `main`; there is no long-lived preview branch.
+Herdr has one main branch and three published update manifests. Stable, preview,
+and dev all build from `main`; there are no long-lived preview or dev branches.
 
 Normal users default to stable. Stable docs are `/docs/`, stable updates use `website/latest.json`, and Homebrew/Nix stay stable-only.
 
@@ -210,6 +211,13 @@ Preview is opt-in for direct Herdr installs:
 
 ```bash
 herdr channel set preview
+herdr update
+```
+
+Dev is opt-in for direct Herdr installs:
+
+```bash
+herdr channel set dev
 herdr update
 ```
 
@@ -221,6 +229,12 @@ herdr update
 ```
 
 Preview releases are GitHub prereleases produced by `.github/workflows/preview.yml` on manual dispatch and the Wednesday/Friday schedule. The workflow updates `website/preview.json`, which the website build publishes as `/preview.json`. Do not hand-edit `website/preview.json`; fix the workflow or `scripts/preview.py` and rerun Preview.
+
+Dev releases are auto-published from merges to `main`. The dev workflow tags
+`dev-YYYY-MM-DD-<shortsha12>`, updates `website/dev.json`, and commits
+`docs: update dev manifest` to `main`. Do not hand-edit `website/dev.json`; fix
+the workflow or script and rerun Dev. Direct installer smoke tests can use
+`HERDR_CHANNEL=dev`.
 
 Stable releases use:
 

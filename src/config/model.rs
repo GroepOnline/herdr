@@ -17,6 +17,7 @@ pub enum UpdateChannelConfig {
     #[default]
     Stable,
     Preview,
+    Dev,
 }
 
 impl UpdateChannelConfig {
@@ -24,6 +25,7 @@ impl UpdateChannelConfig {
         match self {
             Self::Stable => "stable",
             Self::Preview => "preview",
+            Self::Dev => "dev",
         }
     }
 }
@@ -1786,6 +1788,14 @@ manifest_check = false
         assert_eq!(config.update.channel.as_str(), "preview");
         assert!(!config.update.version_check);
         assert!(!config.update.manifest_check);
+
+        let toml = r#"
+[update]
+channel = "dev"
+"#;
+        let config: Config = toml::from_str(toml).unwrap();
+        assert_eq!(config.update.channel, UpdateChannelConfig::Dev);
+        assert_eq!(config.update.channel.as_str(), "dev");
     }
 
     #[cfg(windows)]

@@ -135,13 +135,13 @@ fn run_channel_command(args: &[String]) -> std::io::Result<i32> {
 
 fn channel_set(args: &[String]) -> std::io::Result<i32> {
     let Some(channel) = parse_channel_set_arg(args) else {
-        eprintln!("usage: herdr channel set <stable|preview>");
+        eprintln!("usage: herdr channel set <stable|preview|dev>");
         return Ok(2);
     };
 
     if let Some(reason) = channel_set_rejection(
         channel,
-        crate::update::preview_channel_rejection_for_current_install(),
+        crate::update::direct_install_channel_rejection_for_current_install(),
     ) {
         eprintln!("{reason}.");
         return Ok(1);
@@ -204,7 +204,7 @@ fn channel_set(args: &[String]) -> std::io::Result<i32> {
 
 fn parse_channel_set_arg(args: &[String]) -> Option<&str> {
     let channel = args.first().map(|arg| arg.as_str())?;
-    if args.len() == 1 && matches!(channel, "stable" | "preview") {
+    if args.len() == 1 && matches!(channel, "stable" | "preview" | "dev") {
         Some(channel)
     } else {
         None
@@ -217,11 +217,11 @@ fn channel_set_rejection(
 ) -> Option<&'static str> {
     if cfg!(windows) && channel == "stable" {
         return Some(
-            "stable channel is not available on Windows yet; Windows builds are preview-only",
+            "stable channel is not available on Windows yet; Windows builds use preview or dev",
         );
     }
 
-    if channel == "preview" {
+    if matches!(channel, "preview" | "dev") {
         return install_rejection;
     }
 
@@ -246,7 +246,7 @@ fn channel_set_install_action(
 fn print_channel_help() {
     eprintln!("herdr channel commands:");
     eprintln!("  herdr channel show                  print the configured update channel");
-    eprintln!("  herdr channel set <stable|preview>  choose the update channel");
+    eprintln!("  herdr channel set <stable|preview|dev>  choose the update channel");
 }
 
 fn run_config_command(args: &[String]) -> std::io::Result<i32> {
@@ -978,6 +978,7 @@ mod tests {
             super::parse_channel_set_arg(&["stable".to_string()]),
             Some("stable")
         );
+        assert_eq!(super::parse_channel_set_arg(&["dev".to_string()]), Some("dev"));
         assert_eq!(super::parse_channel_set_arg(&["nightly".to_string()]), None);
         assert_eq!(
             super::parse_channel_set_arg(&["preview".to_string(), "stable".to_string()]),
@@ -986,7 +987,7 @@ mod tests {
     }
 
     #[test]
-    fn channel_set_rejects_package_managed_preview_before_config_write() {
+    fn channel_set_rejects_package_managed_direct_install_channels_before_config_write() {
         assert_eq!(
             super::channel_set_rejection("preview", Some("no preview")),
             Some("no preview")
@@ -995,13 +996,18 @@ mod tests {
             super::channel_set_rejection("stable", Some("no preview")),
             if cfg!(windows) {
                 Some(
-                    "stable channel is not available on Windows yet; Windows builds are preview-only",
+                    "stable channel is not available on Windows yet; Windows builds use preview or dev",
                 )
             } else {
                 None
             }
         );
         assert_eq!(super::channel_set_rejection("preview", None), None);
+        assert_eq!(
+            super::channel_set_rejection("dev", Some("no direct install")),
+            Some("no direct install")
+        );
+        assert_eq!(super::channel_set_rejection("dev", None), None);
     }
 
     #[test]
@@ -1010,7 +1016,7 @@ mod tests {
             super::channel_set_rejection("stable", None),
             if cfg!(windows) {
                 Some(
-                    "stable channel is not available on Windows yet; Windows builds are preview-only",
+                    "stable channel is not available on Windows yet; Windows builds use preview or dev",
                 )
             } else {
                 None

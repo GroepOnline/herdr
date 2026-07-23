@@ -45,7 +45,7 @@ mise use -g herdr
 
 if mise reports `herdr not found in mise tool registry`, update mise and retry. older mise versions predate the herdr registry entry; `mise use -g github:OnlineChefGroep/herdr` works as a temporary fallback.
 
-or download the stable Linux/macOS binary from [releases](https://github.com/OnlineChefGroep/herdr/releases). Native Windows binaries are preview-only beta builds.
+or download the stable Linux/macOS binary from [releases](https://github.com/OnlineChefGroep/herdr/releases). Native Windows binaries are beta builds on the preview and dev channels.
 
 ## quick start
 
@@ -81,12 +81,18 @@ Herdr notifies you when a new version is available. Run manually:
 herdr update
 ```
 
-`herdr update` is for installs managed by Herdr's own installer. Homebrew, mise, and Nix installs update through `brew upgrade herdr`, `mise upgrade herdr`, or your Nix workflow, then use the same stop-and-run-again flow if a session is still running the old server. Linux and macOS direct installs can opt into development preview builds with `herdr channel set preview` and return to stable with `herdr channel set stable`. Windows beta installs are preview-only for now. See [install docs](https://herdr.chefgroep.nl/docs/install/) and [session state docs](https://herdr.chefgroep.nl/docs/session-state/) for the full update, restart, restore, and handoff matrix.
+`herdr update` is for installs managed by Herdr's own installer. Homebrew, mise, and Nix installs update through `brew upgrade herdr`, `mise upgrade herdr`, or your Nix workflow, then use the same stop-and-run-again flow if a session is still running the old server. Direct installs can opt into preview builds with `herdr channel set preview`, dev builds with `herdr channel set dev`, and return to stable with `herdr channel set stable` on Linux and macOS. See [install docs](https://herdr.chefgroep.nl/docs/install/) and [session state docs](https://herdr.chefgroep.nl/docs/session-state/) for the full update, restart, restore, and handoff matrix.
 
-Linux and macOS direct installs use the stable update channel by default. Windows beta installs default to preview. To test preview builds from `master` before the next stable release:
+Linux and macOS direct installs use the stable update channel by default. Windows beta installs default to preview. To test preview builds from `main` before the next stable release:
 
 ```bash
 herdr channel set preview
+```
+
+To test dev builds published from merges to `main`:
+
+```bash
+herdr channel set dev
 ```
 
 To return Linux and macOS direct installs to stable:
@@ -98,6 +104,7 @@ herdr channel set stable
 For direct installs, changing channels also checks that channel and installs its latest binary. If that update fails, run `herdr update` to retry from the configured channel.
 
 Preview is only for direct installs managed by Herdr's updater. Homebrew, mise, and Nix stay on stable and update through their package managers.
+Dev is also direct-install only. It follows merges to `main` and is meant for smoke testing merge results.
 
 ## how it compares
 

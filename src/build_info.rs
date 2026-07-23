@@ -24,6 +24,10 @@ pub fn is_preview() -> bool {
     channel() == "preview"
 }
 
+pub fn is_dev() -> bool {
+    channel() == "dev"
+}
+
 fn non_empty(value: Option<&'static str>) -> Option<&'static str> {
     value.and_then(|value| {
         let trimmed = value.trim();

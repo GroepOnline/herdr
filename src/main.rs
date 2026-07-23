@@ -548,7 +548,7 @@ fn main() -> io::Result<()> {
         println!("       herdr session attach <name>");
         println!("       herdr completion zsh");
         println!("       herdr update [--handoff]");
-        println!("       herdr channel set <stable|preview>");
+        println!("       herdr channel set <stable|preview|dev>");
         println!("       herdr server stop");
         println!("       herdr server reload-config");
         println!("       herdr api <subcommand> ...");
@@ -578,8 +578,8 @@ fn main() -> io::Result<()> {
                 "Stop the running server via the API socket",
             ),
             (
-                "herdr channel set <stable|preview>",
-                "Choose the stable or preview update channel",
+                "herdr channel set <stable|preview|dev>",
+                "Choose the stable, preview, or dev update channel",
             ),
             (
                 "herdr server reload-config",
@@ -591,7 +591,7 @@ fn main() -> io::Result<()> {
             ),
             (
                 "herdr channel <subcommand>",
-                "Manage the stable or preview update channel",
+                "Manage the stable, preview, or dev update channel",
             ),
             (
                 "herdr api <subcommand>",

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Added the opt-in `dev` update channel for direct installs, using the same preview-manifest schema at `/dev.json`.
+
 ### Changed
 
 - Rebuilt PR quality CI as a parallel gate (`Lint`, `Test`, `Maintenance`, `Windows lint`, `Release metadata`, smoke, aggregated `Quality gate`) with mechanical autofix commits, one sticky remediation brief, and `herdr-quality-remediation` dispatch for autonomous fix loops instead of comment-only review bots.
