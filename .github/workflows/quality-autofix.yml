@@ -68,35 +68,58 @@ jobs:
           if event_name == "workflow_run":
               with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as handle:
                   event = json.load(handle)
-              pull_requests = event["workflow_run"].get("pull_requests") or []
-              if not pull_requests:
-                  output("skip", "true")
-                  output("skip_reason", "workflow run has no pull request")
-                  raise SystemExit(0)
-              pr_number = str(pull_requests[0]["number"])
-              head_sha = event["workflow_run"]["head_sha"]
+              workflow_run = event["workflow_run"]
+              head_sha = workflow_run["head_sha"]
+              head_branch = workflow_run.get("head_branch") or ""
+              pull_requests = workflow_run.get("pull_requests") or []
+              if pull_requests:
+                  pr_number = str(pull_requests[0]["number"])
+              else:
+                  # workflow_run.pull_requests is often empty; resolve by head SHA.
+                  matches = github_api(
+                      f"/repos/{repository}/commits/{head_sha}/pulls"
+                  )
+                  same_repo = [
+                      item
+                      for item in matches
+                      if item.get("head", {}).get("repo", {}).get("full_name")
+                      == repository
+                  ]
+                  if not same_repo:
+                      output("skip", "true")
+                      output("skip_reason", "workflow run has no same-repo pull request")
+                      raise SystemExit(0)
+                  pr_number = str(same_repo[0]["number"])
           else:
               pr_number = os.environ["PR_NUMBER"]
               head_sha = ""
+              head_branch = ""
 
           pr = github_api(f"/repos/{repository}/pulls/{pr_number}")
           head = pr["head"]
-          head_repo = head["repo"]["full_name"]
+          head_repo = (head.get("repo") or {}).get("full_name")
           if head_repo != repository:
               output("skip", "true")
               output("skip_reason", f"fork pull request: {head_repo}")
               raise SystemExit(0)
 
+          # Escape hatch: skip when PR carries ci-autofix-disabled.
+          labels = {label.get("name") for label in pr.get("labels") or []}
+          if "ci-autofix-disabled" in labels:
+              output("skip", "true")
+              output("skip_reason", "ci-autofix-disabled label present")
+              raise SystemExit(0)
+
           output("skip", "false")
           output("number", pr_number)
-          output("head_branch", head["ref"])
+          output("head_branch", head["ref"] or head_branch)
           output("head_sha", head_sha or head["sha"])
           output("skip_reason", "")
           PY
 
       - name: Report skipped pull request
         if: steps.pr.outputs.skip == 'true'
-        run: echo "Skipping autofix: ${{ steps.pr.outputs.skip_reason }}"
+        run: echo "Skipping autofix - ${{ steps.pr.outputs.skip_reason }}"
 
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         if: steps.pr.outputs.skip != 'true'
@@ -133,7 +156,7 @@ jobs:
 
       - name: Report skipped autofix
         if: steps.pr.outputs.skip != 'true' && steps.guard.outputs.skip == 'true'
-        run: echo "Skipping autofix: ${{ steps.guard.outputs.skip_reason }}"
+        run: echo "Skipping autofix - ${{ steps.guard.outputs.skip_reason }}"
 
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         if: steps.pr.outputs.skip != 'true' && steps.guard.outputs.skip != 'true'

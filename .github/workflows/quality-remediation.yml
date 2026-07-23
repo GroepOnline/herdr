@@ -1,0 +1,239 @@
+name: Quality remediation
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to remediate
+        required: true
+        type: number
+      run_id:
+        description: Failed CI workflow run id
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write # required for repository_dispatch; this workflow never checks out or pushes code
+  issues: write # required for PR comments and labels
+  pull-requests: write
+  statuses: read
+
+concurrency:
+  group: quality-remediation-${{ github.event.inputs.pr_number || github.event.workflow_run.head_branch || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  prepare-remediation:
+    name: Prepare remediation brief
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.event == 'pull_request' &&
+        github.event.workflow_run.conclusion == 'failure' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      COMMENT_MARKER: "<!-- herdr-quality-remediation -->"
+      EVENT_NAME: ${{ github.event_name }}
+      DISPATCH_PR_NUMBER: ${{ github.event.inputs.pr_number }}
+      DISPATCH_RUN_ID: ${{ github.event.inputs.run_id }}
+      WORKFLOW_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+      WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+      WORKFLOW_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Build and publish remediation brief
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            pr_number="$DISPATCH_PR_NUMBER"
+            run_id="$DISPATCH_RUN_ID"
+          else
+            pr_number="${WORKFLOW_PR_NUMBER:-}"
+            run_id="$WORKFLOW_RUN_ID"
+            if [ -z "$pr_number" ] && [ -n "${WORKFLOW_HEAD_SHA:-}" ]; then
+              pr_number="$(
+                gh api "/repos/$REPO/commits/$WORKFLOW_HEAD_SHA/pulls" \
+                  --jq '[.[] | select(.head.repo.full_name == "'"$REPO"'")][0].number // empty'
+              )"
+            fi
+          fi
+
+          if [ -z "$pr_number" ] || [ -z "$run_id" ]; then
+            echo "No pull request or run id was available for remediation."
+            exit 0
+          fi
+
+          pr_json="$(gh pr view "$pr_number" --repo "$REPO" --json number,title,url,headRefName,headRefOid,headRepository,labels,files)"
+          head_repo="$(jq -r '.headRepository.nameWithOwner // ""' <<<"$pr_json")"
+          if [ "$head_repo" != "$REPO" ]; then
+            echo "Skipping remediation for forked PR head repository: $head_repo"
+            exit 0
+          fi
+
+          jq -r '.labels[].name' <<<"$pr_json" > labels.txt
+          if grep -Fxq "ci-autofix-disabled" labels.txt; then
+            echo "Skipping remediation because ci-autofix-disabled is present."
+            exit 0
+          fi
+
+          branch="$(jq -r '.headRefName' <<<"$pr_json")"
+          head_sha="$(jq -r '.headRefOid' <<<"$pr_json")"
+          pr_url="$(jq -r '.url' <<<"$pr_json")"
+          short_sha="${head_sha:0:12}"
+
+          mkdir -p remediation-logs
+          gh api --paginate "/repos/$REPO/actions/runs/$run_id/jobs?filter=latest&per_page=100" \
+            --jq '.jobs[] | select(.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled") | [.id, .name, .conclusion] | @tsv' \
+            > failed_jobs.tsv
+
+          if [ -s failed_jobs.tsv ]; then
+            while IFS=$'\t' read -r job_id job_name conclusion; do
+              safe_name="$(tr -cs '[:alnum:]._-' '_' <<<"$job_name" | sed 's/^_//; s/_$//')"
+              log_path="remediation-logs/${job_id}-${safe_name}.log"
+              gh api "/repos/$REPO/actions/jobs/$job_id/logs" > "$log_path" 2>/tmp/herdr-job-log.err || {
+                echo "Could not download logs for $job_name ($job_id): $(cat /tmp/herdr-job-log.err)" >> "$log_path"
+              }
+              printf '%s\t%s\t%s\t%s\n' "$job_id" "$job_name" "$conclusion" "$log_path"
+            done < failed_jobs.tsv > failed_jobs_with_logs.tsv
+          else
+            : > failed_jobs_with_logs.tsv
+          fi
+
+          if [ -s failed_jobs_with_logs.tsv ]; then
+            awk -F '\t' '{ printf "- `%s` (%s, job id `%s`, log `%s`)\n", $2, $3, $1, $4 }' failed_jobs_with_logs.tsv > failed_jobs.md
+          else
+            echo "- No failed jobs were found in the latest job list for this run." > failed_jobs.md
+          fi
+
+          python3 <<'PY' > top_errors.md
+          from pathlib import Path
+
+          patterns = (
+              "error:",
+              "error[",
+              "failed",
+              "fatal:",
+              "panicked",
+              "assertion",
+              "Traceback",
+          )
+          ignored = (
+              "0 failed",
+              "failed_jobs",
+              "download",
+          )
+
+          hits = []
+          for path in sorted(Path("remediation-logs").glob("*.log")):
+              for line_number, raw_line in enumerate(
+                  path.read_text(errors="replace").splitlines(),
+                  start=1,
+              ):
+                  line = raw_line.strip()
+                  lowered = line.lower()
+                  if not line:
+                      continue
+                  if any(skip in lowered for skip in ignored):
+                      continue
+                  if any(pattern.lower() in lowered for pattern in patterns):
+                      if len(line) > 220:
+                          line = line[:217] + "..."
+                      hits.append((path.name, line_number, line))
+                  if len(hits) >= 12:
+                      break
+              if len(hits) >= 12:
+                  break
+
+          if hits:
+              for log_name, line_number, line in hits:
+                  print(f"- `{log_name}:{line_number}` {line}")
+          else:
+              print("- No obvious error lines were extracted. Use the full failed log command below.")
+          PY
+
+          jq -r '.files[].path' <<<"$pr_json" > touched_files.txt
+          if [ -s touched_files.txt ]; then
+            awk '{ printf "- `%s`\n", $0 }' touched_files.txt | head -n 80 > touched_files.md
+            file_count="$(wc -l < touched_files.txt | tr -d ' ')"
+            if [ "$file_count" -gt 80 ]; then
+              printf -- "- ...and %s more files\n" "$((file_count - 80))" >> touched_files.md
+            fi
+          else
+            echo "- No touched files were reported by the pull request API." > touched_files.md
+          fi
+
+          cat > body.md <<EOF
+          $COMMENT_MARKER
+          ## Quality remediation needed
+
+          CI run \`$run_id\` failed for PR #$pr_number on \`$branch\` at \`$short_sha\`.
+
+          PR: $pr_url
+
+          ### Failed jobs
+          $(cat failed_jobs.md)
+
+          ### Top extracted errors
+          $(cat top_errors.md)
+
+          ### Agent commands
+          - Inspect failed logs: \`gh run view $run_id --repo $REPO --log-failed\`
+          - Watch required checks: \`gh pr checks $pr_number --repo $REPO --watch\`
+          - Confirm current PR files: \`gh pr view $pr_number --repo $REPO --json files\`
+          - Fix only the failing surfaces, push to \`$branch\`, then let CI rerun.
+
+          ### Files touched
+          $(cat touched_files.md)
+          EOF
+
+          sed -i 's/^          //' body.md
+
+          if ! gh api "/repos/$REPO/labels/quality-remediation" >/dev/null 2>&1; then
+            gh api -X POST "/repos/$REPO/labels" \
+              -f name="quality-remediation" \
+              -f color="5319e7" \
+              -f description="CI failure needs agent remediation"
+          fi
+
+          if ! grep -Fxq "quality-remediation" labels.txt; then
+            gh api -X POST "/repos/$REPO/issues/$pr_number/labels" \
+              -f "labels[]=quality-remediation" >/dev/null
+          fi
+
+          existing_comment_id="$(
+            gh api --paginate "/repos/$REPO/issues/$pr_number/comments?per_page=100" \
+              --jq '.[] | select(.body | contains("<!-- herdr-quality-remediation -->")) | .id' \
+              | tail -n 1
+          )"
+
+          if [ -n "$existing_comment_id" ]; then
+            gh api -X PATCH "/repos/$REPO/issues/comments/$existing_comment_id" -F "body=@body.md" >/dev/null
+          else
+            gh api -X POST "/repos/$REPO/issues/$pr_number/comments" -F "body=@body.md" >/dev/null
+          fi
+
+          jq -n \
+            --argjson pr "$pr_number" \
+            --argjson run_id "$run_id" \
+            --arg head_sha "$head_sha" \
+            --arg branch "$branch" \
+            '{
+              event_type: "herdr-quality-remediation",
+              client_payload: {
+                pr: $pr,
+                run_id: $run_id,
+                head_sha: $head_sha,
+                branch: $branch
+              }
+            }' > repository_dispatch.json
+
+          gh api -X POST "/repos/$REPO/dispatches" --input repository_dispatch.json

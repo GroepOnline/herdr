@@ -128,6 +128,9 @@ def check_release_metadata(root: Path) -> None:
     changelog_script = read_text(root, CHANGELOG_SCRIPT_PATH)
     npm_readme = read_text(root, NPM_README_PATH)
 
+    package = load_json_object(root, NPM_PACKAGE_PATH)
+    if package.get("os") != ["linux"]:
+        raise QualityError(f'{NPM_PACKAGE_PATH} os must be ["linux"]')
     if package_version != version:
         raise QualityError(
             f"{NPM_PACKAGE_PATH} version {package_version} does not match Cargo.toml {version}"

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Changed
+- Rebuilt PR quality CI as a parallel gate (`Lint`, `Test`, `Maintenance`, `Windows lint`, `Release metadata`, smoke, aggregated `Quality gate`) with mechanical autofix commits, one sticky remediation brief, and `herdr-quality-remediation` dispatch for autonomous fix loops instead of comment-only review bots.
+
 ### Fixed
 - Linux clipboard copy/paste now prefers Wayland clipboard tools and skips xclip/xsel entirely on Wayland sessions by default, and every clipboard helper process is now bounded by a timeout instead of blocking indefinitely, preventing paste/copy from hanging when Xwayland's X11 connection is unreachable.
 
