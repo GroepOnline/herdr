@@ -336,7 +336,9 @@ impl App {
                         SettingsAction::SaveSwitchAsciiInputSourceInPrefix(enabled) => {
                             self.save_switch_ascii_input_source_in_prefix(enabled)
                         }
-                        SettingsAction::SaveFleetOpsBar(enabled) => self.save_fleet_ops_bar(enabled),
+                        SettingsAction::SaveFleetOpsBar(enabled) => {
+                            self.save_fleet_ops_bar(enabled)
+                        }
                         SettingsAction::SaveSpinnerStyle(style) => self.save_spinner_style(style),
                         SettingsAction::ApplyPaneTemplate(template) => {
                             self.apply_pane_template(template)
