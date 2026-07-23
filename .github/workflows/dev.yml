@@ -11,8 +11,10 @@ on:
         required: false
         type: string
 
-permissions:
-  contents: write
+# Keep the workflow unprivileged at the top level. Only the publish job
+# gets contents:write; build checks out the merge SHA with read-only perms
+# so CodeQL does not treat it as privileged execution of untrusted code.
+permissions: {}
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -38,6 +40,9 @@ jobs:
         )
       }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     outputs:
       should_publish: ${{ steps.plan.outputs.should_publish }}
       commit: ${{ steps.plan.outputs.commit }}
@@ -103,6 +108,9 @@ jobs:
     needs: preflight
     if: needs.preflight.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     env:
       LIBGHOSTTY_VT_OPTIMIZE: ReleaseFast
       LIBGHOSTTY_VT_SIMD: "true"
@@ -140,9 +148,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build musl-tools
 
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-        with:
-          key: dev-${{ env.TARGET }}
+      # No rust-cache here: workflow_run + cache write is a CodeQL cache-poisoning vector.
 
       - name: Remove Zig caches
         run: rm -rf .zig-cache vendor/libghostty-vt/.zig-cache vendor/libghostty-vt/zig-out
@@ -191,11 +197,17 @@ jobs:
     needs: [preflight, build]
     if: needs.preflight.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
     steps:
+      # Trusted tip of main only — never checkout the workflow_run head here.
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           ref: main
           fetch-depth: 0
+          persist-credentials: true
+          token: ${{ github.token }}
 
       - name: Download artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
