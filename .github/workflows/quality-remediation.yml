@@ -264,19 +264,16 @@ jobs:
     name: Clear remediation state
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Only clear after green CI for the same PR head. Manual workflow_dispatch is
+    # prepare-only; clearing on dispatch would race prepare and wipe the brief.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event.workflow_run.event == 'pull_request' &&
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_repository.full_name == github.repository
-      )
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
       COMMENT_MARKER: "<!-- herdr-quality-remediation -->"
-      EVENT_NAME: ${{ github.event_name }}
-      DISPATCH_PR_NUMBER: ${{ github.event.inputs.pr_number }}
       WORKFLOW_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
       WORKFLOW_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
@@ -285,16 +282,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            pr_number="$DISPATCH_PR_NUMBER"
-          else
-            pr_number="${WORKFLOW_PR_NUMBER:-}"
-            if [ -z "$pr_number" ] && [ -n "${WORKFLOW_HEAD_SHA:-}" ]; then
-              pr_number="$(
-                gh api "/repos/$REPO/commits/$WORKFLOW_HEAD_SHA/pulls" \
-                  --jq '[.[] | select(.head.repo.full_name == "'"$REPO"'")][0].number // empty'
-              )"
-            fi
+          pr_number="${WORKFLOW_PR_NUMBER:-}"
+          if [ -z "$pr_number" ] && [ -n "${WORKFLOW_HEAD_SHA:-}" ]; then
+            pr_number="$(
+              gh api "/repos/$REPO/commits/$WORKFLOW_HEAD_SHA/pulls" \
+                --jq '[.[] | select(.head.repo.full_name == "'"$REPO"'")][0].number // empty'
+            )"
           fi
 
           if [ -z "$pr_number" ]; then
@@ -304,7 +297,7 @@ jobs:
 
           pr_json="$(gh pr view "$pr_number" --repo "$REPO" --json labels,headRefOid)"
           current_head="$(jq -r '.headRefOid // empty' <<<"$pr_json")"
-          if [ "$EVENT_NAME" != "workflow_dispatch" ] && [ -n "${WORKFLOW_HEAD_SHA:-}" ]; then
+          if [ -n "${WORKFLOW_HEAD_SHA:-}" ]; then
             if [ -z "$current_head" ] || [ "$current_head" != "$WORKFLOW_HEAD_SHA" ]; then
               echo "PR head moved from ${WORKFLOW_HEAD_SHA:0:12} to ${current_head:0:12}; skipping stale remediation clear."
               exit 0

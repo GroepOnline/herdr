@@ -309,7 +309,7 @@ def main() -> int:
     notes = sub.add_parser("notes")
     notes.add_argument("--manifest", default="website/preview.json")
     notes.add_argument("--channel", choices=PUBLISH_CHANNELS, default="preview")
-    notes.add_argument("--branch", default="master")
+    notes.add_argument("--branch", default="main")
     notes.add_argument("--previous")
     notes.add_argument("--commit", required=True)
     notes.add_argument("--build-id", required=True)
