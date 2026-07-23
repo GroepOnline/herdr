@@ -77,6 +77,15 @@ Remediation payload:
 }
 ```
 
+## Cursor skill + subagents
+
+| Kind | Path | Role |
+|---|---|---|
+| Skill | `.cursor/skills/herdr-quality-ci-remediation/` | Canonical remediation playbook (`/herdr-quality-ci-remediation`) |
+| Codex mirror | `.codex/skills/herdr-quality-ci-remediation/` | Same playbook for cloud/Codex discovery |
+| Subagent | `.cursor/agents/herdr-quality-ci-remediator.md` | Isolated fix loop that pushes and rechecks the gate |
+| Subagent | `.cursor/agents/herdr-quality-ci-diagnoser.md` | Read-only failure triage before fixing |
+
 ## Cursor Automation wiring
 
 Create a Cursor Automation that listens for GitHub `repository_dispatch` with `event_type=herdr-quality-remediation`:
@@ -88,6 +97,7 @@ Failed run: {{client_payload.run_id}}
 Branch: {{client_payload.branch}}
 Head SHA: {{client_payload.head_sha}}
 
+Follow .cursor/skills/herdr-quality-ci-remediation/SKILL.md (or delegate to herdr-quality-ci-remediator).
 Inspect `gh run view {{client_payload.run_id}} --log-failed`, read the sticky remediation comment on the PR, fix the failing checks, push to {{client_payload.branch}}, and validate with `gh pr checks {{client_payload.pr}} --watch`. Do not leave review nits. Stop after green or 3 unsuccessful fix rounds.
 ```
 
