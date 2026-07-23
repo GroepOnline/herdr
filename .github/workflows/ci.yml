@@ -116,6 +116,10 @@ jobs:
     name: Windows lint
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      AR_x86_64_pc_windows_msvc: llvm-lib
+      CC_x86_64_pc_windows_msvc: clang-cl
+      CXX_x86_64_pc_windows_msvc: clang-cl
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -142,6 +146,22 @@ jobs:
         uses: taiki-e/install-action@fd2f5e3d644b484055ebf4268f474c565f148f25 # v2.81.9
         with:
           tool: cargo-xwin
+
+      - name: Install Windows cross tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld llvm
+          if ! command -v llvm-lib >/dev/null; then
+            llvm_lib="$(find /usr/bin -maxdepth 1 -type f -name 'llvm-lib-*' | sort -V | tail -n 1)"
+            if [ -n "$llvm_lib" ]; then
+              sudo ln -sf "$llvm_lib" /usr/local/bin/llvm-lib
+            else
+              sudo ln -sf "$(command -v llvm-ar)" /usr/local/bin/llvm-lib
+            fi
+          fi
+          command -v clang-cl
+          command -v lld-link
+          command -v llvm-lib
 
       # Cross-clippy on Linux needs the MSVC sysroot/linker from xwin.
       - name: Cargo clippy for Windows target
