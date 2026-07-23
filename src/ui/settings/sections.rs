@@ -7,6 +7,7 @@ use ratatui::{
 };
 
 use crate::app::{state::SettingsSection, AppState};
+use crate::ui::text::{display_width_u16, truncate_end};
 
 use super::{
     catalog::{catalog_plugin_id, integration_index, spinner_index},
@@ -24,14 +25,25 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
     let p = &app.palette;
     let section = app.settings.section;
 
+    let title = section.title();
+    let title_width = display_width_u16(title) as usize;
+    let sep = "  ·  ";
+    let sep_width = display_width_u16(sep) as usize;
+    let desc_budget = (layout.content.width as usize).saturating_sub(title_width + sep_width);
+    let description = if desc_budget == 0 {
+        String::new()
+    } else {
+        truncate_end(section.description(), desc_budget)
+    };
+
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(
-                section.title(),
+                title,
                 Style::default().fg(p.text).add_modifier(Modifier::BOLD),
             ),
             Span::styled(
-                format!("  ·  {}", section.description()),
+                format!("{sep}{description}"),
                 Style::default().fg(p.overlay1),
             ),
         ])),
