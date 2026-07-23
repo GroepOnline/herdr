@@ -442,7 +442,7 @@ fn chrono_lite_parse_rfc3339(value: &str) -> Result<u64, ()> {
     let mp = if month > 2 { month - 3 } else { month + 9 };
     let doy = (153 * mp + 2) / 5 + day - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    let days = (era * 146097) as i64 + doe as i64 - 719468;
+    let days = era * 146097 + doe as i64 - 719468;
     Ok((days * 86400) as u64 + hour * 3600 + minute * 60 + second)
 }
 
