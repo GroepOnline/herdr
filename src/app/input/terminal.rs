@@ -328,6 +328,7 @@ impl App {
     }
 
     pub(crate) fn release_input_source_headless(&mut self, source_id: crate::app::InputSourceId) {
+        self.pending_url_click_sources.remove(&source_id);
         for pressed in self.take_pressed_keys_for_source(source_id) {
             let release = pressed
                 .key
@@ -337,6 +338,7 @@ impl App {
     }
 
     pub(crate) async fn release_input_source(&mut self, source_id: crate::app::InputSourceId) {
+        self.pending_url_click_sources.remove(&source_id);
         for pressed in self.take_pressed_keys_for_source(source_id) {
             let release = pressed
                 .key
@@ -842,6 +844,54 @@ mod tests {
 
         assert!(app.event_rx.try_recv().is_err());
         assert!(app.selection_highlight_clear_deadline.is_none());
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn ctrl_click_url_does_not_forward_release_to_mouse_reporting_pane() {
+        let line = "see https://github.com/ogulcancelik/herdr/issues/1761";
+        let col = line.find("github").expect("url host") as u16;
+        let (mut app, info) = app_with_screen_bytes(b"");
+        let pane_id = app.state.workspaces[0].tabs[0].root_pane;
+        let screen = format!("\x1b[?1049h\x1b[?1000h\x1b[?1006h{line}");
+        let (runtime, mut input_rx) =
+            crate::terminal::TerminalRuntime::test_with_channel_and_scrollback_bytes(
+                info.inner_rect.width,
+                info.inner_rect.height,
+                0,
+                screen.as_bytes(),
+                4,
+            );
+        app.state.insert_test_runtime(pane_id, runtime);
+        install_test_link_handler(&mut app);
+        let mut send_mouse = |source_id, kind, column, modifiers| {
+            app.handle_mouse_from_input_source(
+                source_id,
+                modified_mouse(kind, column, info.inner_rect.y, modifiers),
+            );
+        };
+        let down = MouseEventKind::Down(MouseButton::Left);
+        let up = MouseEventKind::Up(MouseButton::Left);
+        let url_x = info.inner_rect.x + col;
+
+        send_mouse(41, down, url_x, KeyModifiers::CONTROL);
+        send_mouse(42, down, info.inner_rect.x, KeyModifiers::empty());
+        send_mouse(42, up, info.inner_rect.x, KeyModifiers::empty());
+        send_mouse(41, up, url_x, KeyModifiers::empty());
+
+        assert_eq!(app.state.plugin_command_logs.len(), 1);
+        assert_eq!(
+            input_rx.try_recv().expect("other source mouse down"),
+            Bytes::from_static(b"\x1b[<0;1;1M")
+        );
+        assert_eq!(
+            input_rx.try_recv().expect("other source mouse up"),
+            Bytes::from_static(b"\x1b[<0;1;1m")
+        );
+        assert!(
+            input_rx.try_recv().is_err(),
+            "handled URL click must not leave an unmatched release for the pane"
+        );
     }
 
     #[cfg(unix)]
