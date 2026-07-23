@@ -19,6 +19,7 @@ pub const FLEET_OPS_PLUGIN_IDS: &[&str] = &[
 ];
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[allow(dead_code)] // reserved JSON fields for future fleet/cloudflare/parked bar segments
 pub struct PluginFleetFragment {
     pub source: Option<String>,
     pub updated_at: Option<String>,
@@ -31,6 +32,7 @@ pub struct PluginFleetFragment {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[allow(dead_code)] // title/status reserved for richer Linear bar segments
 pub struct PluginIssueFragment {
     pub id: Option<String>,
     pub title: Option<String>,
@@ -46,6 +48,7 @@ pub struct PluginPrFragment {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[allow(dead_code)]
 pub struct PluginFleetSummary {
     pub online: Option<u32>,
     pub total: Option<u32>,
@@ -53,12 +56,14 @@ pub struct PluginFleetSummary {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[allow(dead_code)]
 pub struct PluginCloudflareSummary {
     pub tunnels_healthy: Option<u32>,
     pub summary: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[allow(dead_code)]
 pub struct PluginParkedSummary {
     pub count: Option<u32>,
     pub oldest_hours: Option<u32>,
