@@ -193,14 +193,9 @@ fn render_spinner_hero(app: &AppState, frame: &mut Frame, layout: &SettingsLayou
             ),
             Span::styled(
                 style.label(),
-                Style::default()
-                    .fg(p.text)
-                    .add_modifier(Modifier::BOLD),
+                Style::default().fg(p.text).add_modifier(Modifier::BOLD),
             ),
-            Span::styled(
-                format!("  ·  {category}"),
-                Style::default().fg(p.overlay1),
-            ),
+            Span::styled(format!("  ·  {category}"), Style::default().fg(p.overlay1)),
         ])),
         Rect::new(rect.x, rect.y, rect.width, 1),
     );

@@ -62,12 +62,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
             let category = active_spinner_category(app.settings.spinner_category);
             for (idx, style) in category.styles.iter().enumerate() {
                 let frames = style.frames();
-                let trail = frames
-                    .iter()
-                    .take(5)
-                    .copied()
-                    .collect::<Vec<_>>()
-                    .join(" ");
+                let trail = frames.iter().take(5).copied().collect::<Vec<_>>().join(" ");
                 rows.push(SettingsRow {
                     label: style.label().to_string(),
                     detail: Some(trail),
@@ -411,7 +406,11 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
     rows
 }
 
-pub(crate) fn row_toggle_checked(app: &AppState, _section: SettingsSection, row: &SettingsRow) -> bool {
+pub(crate) fn row_toggle_checked(
+    app: &AppState,
+    _section: SettingsSection,
+    row: &SettingsRow,
+) -> bool {
     match row.id {
         SettingsItemId::ThemeAutoSwitch => app.settings.config_snapshot.theme_auto_switch,
         SettingsItemId::PaneBorders => app.pane_borders_enabled(),
@@ -425,7 +424,9 @@ pub(crate) fn row_toggle_checked(app: &AppState, _section: SettingsSection, row:
         SettingsItemId::PromptNewTabName => app.prompt_new_tab_name,
         SettingsItemId::PromptNewWorkspaceName => app.prompt_new_workspace_name,
         SettingsItemId::SoundAlerts => app.sound_enabled(),
-        SettingsItemId::ResumeAgentsOnRestore => app.settings.config_snapshot.resume_agents_on_restore,
+        SettingsItemId::ResumeAgentsOnRestore => {
+            app.settings.config_snapshot.resume_agents_on_restore
+        }
         SettingsItemId::VersionCheck => app.settings.config_snapshot.version_check,
         SettingsItemId::ManifestCheck => app.settings.config_snapshot.manifest_check,
         SettingsItemId::Experiment(setting) => setting.enabled(app),
@@ -439,7 +440,11 @@ pub(crate) fn row_toggle_checked(app: &AppState, _section: SettingsSection, row:
     }
 }
 
-pub(crate) fn row_choice_selected(app: &AppState, _section: SettingsSection, row: &SettingsRow) -> bool {
+pub(crate) fn row_choice_selected(
+    app: &AppState,
+    _section: SettingsSection,
+    row: &SettingsRow,
+) -> bool {
     match row.id {
         SettingsItemId::SidebarCollapsedMode
         | SettingsItemId::AgentPanelSort

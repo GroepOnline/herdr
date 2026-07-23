@@ -170,23 +170,18 @@ pub(crate) const PLUGIN_CATALOG: &[PluginCatalogEntry] = &[
     },
 ];
 
-pub(crate) fn installed_plugins_sorted<'a>(
-    app: &'a AppState,
-) -> Vec<&'a InstalledPluginInfo> {
+pub(crate) fn installed_plugins_sorted<'a>(app: &'a AppState) -> Vec<&'a InstalledPluginInfo> {
     let mut plugins = app.installed_plugins.values().collect::<Vec<_>>();
     plugins.sort_by(|left, right| left.plugin_id.cmp(&right.plugin_id));
     plugins
 }
 
-pub(crate) fn catalog_entries_available<'a>(
-    app: &'a AppState,
-) -> Vec<&'a PluginCatalogEntry> {
+pub(crate) fn catalog_entries_available<'a>(app: &'a AppState) -> Vec<&'a PluginCatalogEntry> {
     PLUGIN_CATALOG
         .iter()
         .filter(|entry| !app.installed_plugins.contains_key(entry.plugin_id))
         .collect()
 }
-
 
 fn cycle_host_cursor(current: HostCursorModeConfig) -> HostCursorModeConfig {
     match current {
@@ -264,7 +259,10 @@ fn cycle_clipboard_toast_position(current: ToastClipboardPosition) -> ToastClipb
     }
 }
 
-fn experiment_toggle_action(state: &AppState, setting: ExperimentSetting) -> Option<SettingsAction> {
+fn experiment_toggle_action(
+    state: &AppState,
+    setting: ExperimentSetting,
+) -> Option<SettingsAction> {
     match setting {
         ExperimentSetting::PaneHistory => Some(SettingsAction::SavePaneHistory(
             !ExperimentSetting::PaneHistory.enabled(state),
@@ -300,11 +298,13 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
         SettingsItemId::ThemeAutoSwitch => Some(SettingsAction::SaveThemeAutoSwitch(
             !state.settings.config_snapshot.theme_auto_switch,
         )),
-        SettingsItemId::Spinner { index } => active_spinner_category(state.settings.spinner_category)
-            .styles
-            .get(index)
-            .copied()
-            .map(SettingsAction::SaveSpinnerStyle),
+        SettingsItemId::Spinner { index } => {
+            active_spinner_category(state.settings.spinner_category)
+                .styles
+                .get(index)
+                .copied()
+                .map(SettingsAction::SaveSpinnerStyle)
+        }
         SettingsItemId::PaneBorders => Some(SettingsAction::SavePaneBorders(
             !state.pane_borders_enabled(),
         )),
@@ -328,11 +328,15 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
         SettingsItemId::MouseCapture => {
             Some(SettingsAction::SaveMouseCapture(!state.mouse_capture))
         }
-        SettingsItemId::CopyOnSelect => Some(SettingsAction::SaveCopyOnSelect(!state.copy_on_select)),
+        SettingsItemId::CopyOnSelect => {
+            Some(SettingsAction::SaveCopyOnSelect(!state.copy_on_select))
+        }
         SettingsItemId::RedrawOnFocusGained => Some(SettingsAction::SaveRedrawOnFocusGained(
             !state.redraw_on_focus_gained,
         )),
-        SettingsItemId::ConfirmClose => Some(SettingsAction::SaveConfirmClose(!state.confirm_close)),
+        SettingsItemId::ConfirmClose => {
+            Some(SettingsAction::SaveConfirmClose(!state.confirm_close))
+        }
         SettingsItemId::PromptNewTabName => Some(SettingsAction::SavePromptNewTabName(
             !state.prompt_new_tab_name,
         )),
@@ -342,9 +346,9 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
         SettingsItemId::HostCursor => Some(SettingsAction::SaveHostCursor(cycle_host_cursor(
             state.settings.config_snapshot.host_cursor,
         ))),
-        SettingsItemId::DefaultShell => Some(SettingsAction::SaveDefaultShell(cycle_default_shell(
-            &state.default_shell,
-        ))),
+        SettingsItemId::DefaultShell => Some(SettingsAction::SaveDefaultShell(
+            cycle_default_shell(&state.default_shell),
+        )),
         SettingsItemId::ShellMode => Some(SettingsAction::SaveShellMode(cycle_shell_mode(
             state.shell_mode,
         ))),
@@ -410,11 +414,13 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
                 plugin_id: plugin.plugin_id.clone(),
                 enabled: !plugin.enabled,
             }),
-        SettingsItemId::CatalogPlugin { index } => catalog_entries_available(state)
-            .get(index)
-            .map(|entry| SettingsAction::InstallCatalogPlugin {
-                source: entry.source.to_string(),
-            }),
+        SettingsItemId::CatalogPlugin { index } => {
+            catalog_entries_available(state).get(index).map(|entry| {
+                SettingsAction::InstallCatalogPlugin {
+                    source: entry.source.to_string(),
+                }
+            })
+        }
         SettingsItemId::Theme { .. }
         | SettingsItemId::SpinnerPreview
         | SettingsItemId::KeybindHelp

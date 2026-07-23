@@ -114,7 +114,8 @@ impl App {
             }
         }
         self.state.settings.config_snapshot = SettingsConfigSnapshot::load();
-        self.state.theme_runtime.auto_switch = self.state.settings.config_snapshot.theme_auto_switch;
+        self.state.theme_runtime.auto_switch =
+            self.state.settings.config_snapshot.theme_auto_switch;
     }
 }
 
@@ -388,9 +389,8 @@ pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
     state.settings.list.selected = default_selection_for_section(state, section);
     state.mode = Mode::Settings;
     if section == SettingsSection::Plugins {
-        let _ = crate::app::api::plugins::reload_installed_plugins_state(
-            &mut state.installed_plugins,
-        );
+        let _ =
+            crate::app::api::plugins::reload_installed_plugins_state(&mut state.installed_plugins);
     }
 }
 

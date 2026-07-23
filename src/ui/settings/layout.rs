@@ -382,7 +382,12 @@ mod tests {
         let rows = section_rows(&app, SettingsSection::Layout);
         let template_idx = rows
             .iter()
-            .position(|row| matches!(row.kind, crate::ui::settings::rows::SettingsRowKind::Template))
+            .position(|row| {
+                matches!(
+                    row.kind,
+                    crate::ui::settings::rows::SettingsRowKind::Template
+                )
+            })
             .expect("template row");
         let rect = layout
             .content_row_rect(&app, template_idx)

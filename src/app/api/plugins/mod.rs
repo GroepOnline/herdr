@@ -715,10 +715,9 @@ pub(crate) fn reload_installed_plugins_state(
     installed_plugins: &mut crate::app::state::InstalledPluginRegistry,
 ) -> std::io::Result<()> {
     let entries = crate::persist::plugin_registry::try_load()?;
-    let entries =
-        crate::persist::plugin_registry::reload_manifests(entries, |path, enabled| {
-            load_plugin_manifest(path, enabled).map_err(|(_, message)| message)
-        });
+    let entries = crate::persist::plugin_registry::reload_manifests(entries, |path, enabled| {
+        load_plugin_manifest(path, enabled).map_err(|(_, message)| message)
+    });
     *installed_plugins = entries
         .into_iter()
         .map(|plugin| (plugin.plugin_id.clone(), plugin))
