@@ -7,6 +7,7 @@ Quality CI is the merge gate. Mechanical failures are fixed by autofix. Non-mech
 ```mermaid
 flowchart TD
     PR[Pull request] --> CI[CI workflow]
+    PR -->|same-repo update| Autofix[quality-autofix]
     CI --> Lint[Lint]
     CI --> Test[Test]
     CI --> Maint[Maintenance]
@@ -20,7 +21,6 @@ flowchart TD
     Win --> Gate
     Meta --> Gate
     Smoke --> Gate
-    Gate -->|mechanical failure| Autofix[quality-autofix]
     Gate -->|still failing| Remediation[quality-remediation]
     Autofix -->|push ci autofix commit| PR
     Remediation --> Comment[sticky PR comment]
@@ -54,12 +54,12 @@ gh pr checks <pr-number> --repo OnlineChefGroep/herdr --watch
 
 ## Autofix vs remediation
 
-`quality-autofix.yml` uses a two-job privilege split. `detect` has read-only repository, Actions, and pull request permissions; it resolves the PR, checks out the source SHA without persisted credentials, applies the loop guard, and reports whether npm release metadata drifted from `Cargo.toml`. `apply` runs only for same-repo PRs that passed detection, gets `contents: write`, checks that the branch still points at the detected source SHA, then runs inline npm version sync plus `cargo fmt --all` before pushing a single guarded autofix commit.
+`quality-autofix.yml` runs on same-repo `pull_request` updates and `workflow_dispatch`. The job has `contents: write`, but `pull_request` events enter only when the head repo matches the base repo; manual dispatch resolves the PR and skips forks before checkout. The workflow checks out the branch with persisted credentials disabled, confirms the branch still points at the event SHA, applies loop guards, runs inline npm version sync plus `cargo fmt --all`, and pushes one guarded autofix commit. It does not use `workflow_run`, `pull_request_target`, Rust caches, or repository scripts.
 
 | Workflow | When | Pushes code? |
 |---|---|---|
-| `quality-autofix.yml` | CI failed on same-repo PR; mechanical drift (fmt, npm VERSION sync) | Yes, one `ci: autofix mechanical quality` commit per source SHA |
-| `quality-remediation.yml` | CI failed on same-repo PR after investigation needed | No — sticky comment + label + dispatch only |
+| `quality-autofix.yml` | Same-repo PR opened, synchronized, reopened, or manual dispatch; mechanical drift (fmt, npm VERSION sync) | Yes, one `ci: autofix mechanical quality` commit per source SHA |
+| `quality-remediation.yml` | CI failed on same-repo PR after investigation needed | No, sticky comment + label + dispatch only |
 
 Escape hatch label on the PR: `ci-autofix-disabled` (skips both autofix and remediation).
 
