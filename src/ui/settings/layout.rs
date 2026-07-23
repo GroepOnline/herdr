@@ -317,10 +317,6 @@ pub(crate) fn settings_show_primary_action(app: &AppState) -> bool {
     }
 }
 
-pub(crate) fn spinner_preview_frame(app: &AppState) -> &'static str {
-    crate::ui::settings::spinner::spinner_frame_at(app.spinner_style, app.settings.preview_tick)
-}
-
 pub(crate) fn spinner_category_labels() -> impl Iterator<Item = &'static str> {
     SPINNER_CATEGORIES.iter().map(|category| category.label)
 }

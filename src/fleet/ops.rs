@@ -200,6 +200,7 @@ impl FleetOpsMetadata {
     }
 
     /// One-line summary for diagnostics / plugin-facing previews.
+    #[cfg(test)]
     pub fn summary_line(&self) -> String {
         let mut parts = Vec::new();
         if let Some(issue) = &self.linear_issue {

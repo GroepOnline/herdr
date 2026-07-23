@@ -15,7 +15,6 @@ use super::spinner::active_spinner_category;
 pub(crate) enum SettingsItemId {
     ThemeAutoSwitch,
     Theme { index: usize },
-    SpinnerPreview,
     Spinner { index: usize },
     PaneBorders,
     PaneGaps,
@@ -422,7 +421,6 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
             })
         }
         SettingsItemId::Theme { .. }
-        | SettingsItemId::SpinnerPreview
         | SettingsItemId::KeybindHelp
         | SettingsItemId::Integration { .. }
         | SettingsItemId::IntegrationsEmpty
@@ -437,22 +435,6 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
 
 pub(crate) fn catalog_plugin_index(id: SettingsItemId) -> Option<usize> {
     if let SettingsItemId::CatalogPlugin { index } = id {
-        Some(index)
-    } else {
-        None
-    }
-}
-
-pub(crate) fn installed_plugin_index(id: SettingsItemId) -> Option<usize> {
-    if let SettingsItemId::InstalledPlugin { index } = id {
-        Some(index)
-    } else {
-        None
-    }
-}
-
-pub(crate) fn pane_template_index(id: SettingsItemId) -> Option<usize> {
-    if let SettingsItemId::PaneTemplate { index } = id {
         Some(index)
     } else {
         None
