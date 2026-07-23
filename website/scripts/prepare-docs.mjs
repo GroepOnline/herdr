@@ -17,6 +17,7 @@ const previewConfigReferenceDestination = resolve(
   repoRoot,
   'website/src/data/config-reference-preview.json',
 );
+const optionalPublicFiles = new Set(['preview.json', 'dev.json']);
 
 if (process.argv[2] === '--rewrite-preview-doc-fixture') {
   const chunks = [];
@@ -37,6 +38,7 @@ async function preparePublicAssets() {
     'agent-guide.md',
     'latest.json',
     'preview.json',
+    'dev.json',
     'robots.txt',
     '_headers',
     '_redirects',
@@ -45,7 +47,7 @@ async function preparePublicAssets() {
     try {
       await cp(source, resolve(publicDir, file));
     } catch (error) {
-      if (file !== 'preview.json' || error.code !== 'ENOENT') throw error;
+      if (!optionalPublicFiles.has(file) || error.code !== 'ENOENT') throw error;
     }
   }
 

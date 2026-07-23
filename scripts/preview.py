@@ -18,9 +18,11 @@ EXPECTED_ASSET_NAMES = {target: f"herdr-{target}" for target in ASSET_TARGETS}
 HIDDEN_SUBJECTS = (
     "docs: update website manifest",
     "docs: update preview manifest",
+    "docs: update dev manifest",
     "chore: approve contributor",
     "chore: approve merged contributor",
 )
+PUBLISH_CHANNELS = ("preview", "dev")
 TYPE_HEADINGS = {
     "feat": "Added",
     "fix": "Fixed",
@@ -127,13 +129,22 @@ def humanize_subject(subject: str) -> tuple[str, str]:
     return heading, body
 
 
-def build_notes(previous: str, commit: str, build_id: str, base_version: str, repo: str) -> str:
+def build_notes(
+    previous: str,
+    commit: str,
+    build_id: str,
+    base_version: str,
+    repo: str,
+    channel: str = "preview",
+    branch: str = "master",
+) -> str:
     short = commit[:12]
     compare = f"https://github.com/{repo}/compare/{previous}...{commit}"
+    label = channel.capitalize()
     lines = [
-        f"Preview build {build_id}",
+        f"{label} build {build_id}",
         "",
-        f"Built from `{short}` on `master`.",
+        f"Built from `{short}` on `{branch}`.",
         f"Base stable: v{normalize_version(base_version)}",
         f"Compare: {compare}",
         "",
@@ -155,7 +166,7 @@ def build_notes(previous: str, commit: str, build_id: str, base_version: str, re
         lines.append("")
 
     if not wrote:
-        lines.extend(["### Changed", "- Rebuilt preview from the current master branch.", ""])
+        lines.extend(["### Changed", f"- Rebuilt {channel} from the current {branch} branch.", ""])
 
     return "\n".join(lines).rstrip() + "\n"
 
@@ -191,6 +202,7 @@ def asset_objects(urls: dict[str, str], shas: dict[str, str]) -> dict[str, dict[
 def build_manifest(
     output: Path,
     repo: str,
+    channel: str,
     tag: str,
     build_id: str,
     commit: str,
@@ -224,7 +236,7 @@ def build_manifest(
     }
     manifest = {
         "schema_version": 1,
-        "channel": "preview",
+        "channel": channel,
         "base_version": normalize_version(base_version),
         "build_id": build_id,
         "commit": commit,
@@ -239,7 +251,15 @@ def build_manifest(
 
 def cmd_notes(args: argparse.Namespace) -> int:
     previous = args.previous or previous_preview_commit(Path(args.manifest)) or latest_stable_tag()
-    notes = build_notes(previous, args.commit, args.build_id, args.base_version, args.repo)
+    notes = build_notes(
+        previous,
+        args.commit,
+        args.build_id,
+        args.base_version,
+        args.repo,
+        args.channel,
+        args.branch,
+    )
     Path(args.output).write_text(notes, encoding="utf-8")
     return 0
 
@@ -250,6 +270,7 @@ def cmd_manifest(args: argparse.Namespace) -> int:
     content = build_manifest(
         output=Path(args.output),
         repo=args.repo,
+        channel=args.channel,
         tag=args.tag,
         build_id=args.build_id,
         commit=args.commit,
@@ -287,6 +308,8 @@ def main() -> int:
 
     notes = sub.add_parser("notes")
     notes.add_argument("--manifest", default="website/preview.json")
+    notes.add_argument("--channel", choices=PUBLISH_CHANNELS, default="preview")
+    notes.add_argument("--branch", default="master")
     notes.add_argument("--previous")
     notes.add_argument("--commit", required=True)
     notes.add_argument("--build-id", required=True)
@@ -298,6 +321,7 @@ def main() -> int:
     manifest = sub.add_parser("manifest")
     manifest.add_argument("--output", default="website/preview.json")
     manifest.add_argument("--repo", default=DEFAULT_RELEASE_REPO)
+    manifest.add_argument("--channel", choices=PUBLISH_CHANNELS, default="preview")
     manifest.add_argument("--tag", required=True)
     manifest.add_argument("--build-id", required=True)
     manifest.add_argument("--commit", required=True)

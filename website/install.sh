@@ -2,7 +2,7 @@
 set -eu
 
 BIN="herdr"
-MANIFEST_URL="https://herdr.chefgroep.nl/latest.json"
+CHANNEL="${HERDR_CHANNEL:-stable}"
 INSTALL_DIR="${HERDR_INSTALL_DIR:-$HOME/.local/bin}"
 
 main() {
@@ -32,16 +32,33 @@ main() {
     need curl
     need awk
 
-    # use the same manifest as `herdr update` so installs and updates agree
-    # on the public latest release.
+    case "$CHANNEL" in
+        stable)  MANIFEST_URL="https://herdr.chefgroep.nl/latest.json" ;;
+        preview) MANIFEST_URL="https://herdr.chefgroep.nl/preview.json" ;;
+        dev)     MANIFEST_URL="https://herdr.chefgroep.nl/dev.json" ;;
+        *)       err "unsupported HERDR_CHANNEL: $CHANNEL (expected stable, preview, or dev)" ;;
+    esac
+
+    # Use the same manifests as Herdr's updater channels where the binary
+    # supports them. The dev installer path is intentionally opt-in.
     TARGET="${os}-${arch}"
-    log "fetching latest release manifest..."
+    log "fetching ${CHANNEL} release manifest..."
     MANIFEST="$(curl -fsSL --retry 3 --connect-timeout 10 --max-time 20 "$MANIFEST_URL")" \
         || err "can't reach ${MANIFEST_URL}. Please try again later; herdr.dev might be down. Who let the sheeps out? baaa."
     URL="$(printf '%s\n' "$MANIFEST" | awk -v target="\"${TARGET}\"" '
         /^[[:space:]]*"assets"[[:space:]]*:/ { in_assets = 1; next }
-        in_assets && /^[[:space:]]*}/ { exit }
+        in_assets && !in_target && /^[[:space:]]*}/ { exit }
         in_assets && index($0, target) {
+            if ($0 ~ /:[[:space:]]*"/) {
+                sub(/^.*:[[:space:]]*"/, "")
+                sub(/".*$/, "")
+                print
+                exit
+            }
+            in_target = 1
+            next
+        }
+        in_assets && in_target && /^[[:space:]]*"url"[[:space:]]*:/ {
             sub(/^.*:[[:space:]]*"/, "")
             sub(/".*$/, "")
             print
@@ -49,6 +66,8 @@ main() {
         }
     ')"
     VERSION="$(printf '%s\n' "$MANIFEST" | awk -F '"' '/^[[:space:]]*"version"[[:space:]]*:/ { print $4; exit }')"
+    BASE_VERSION="$(printf '%s\n' "$MANIFEST" | awk -F '"' '/^[[:space:]]*"base_version"[[:space:]]*:/ { print $4; exit }')"
+    BUILD_ID="$(printf '%s\n' "$MANIFEST" | awk -F '"' '/^[[:space:]]*"build_id"[[:space:]]*:/ { print $4; exit }')"
 
     if [ -z "$URL" ]; then
         err "release manifest does not include a binary for ${TARGET}"
@@ -56,8 +75,12 @@ main() {
 
     if [ -n "$VERSION" ]; then
         log "downloading v${VERSION}..."
+    elif [ -n "$BASE_VERSION" ] && [ -n "$BUILD_ID" ]; then
+        log "downloading ${CHANNEL} build ${BUILD_ID} (base v${BASE_VERSION})..."
+    elif [ -n "$BUILD_ID" ]; then
+        log "downloading ${CHANNEL} build ${BUILD_ID}..."
     else
-        log "downloading latest release..."
+        log "downloading latest ${CHANNEL} release..."
     fi
     TMP="$(mktemp -d)"
     trap 'rm -rf "$TMP"' EXIT

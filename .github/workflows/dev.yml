@@ -1,0 +1,303 @@
+name: Dev
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Optional main commit SHA to publish
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RUST_TOOLCHAIN_VERSION: 1.96.1
+  ZIG_VERSION: 0.15.2
+
+concurrency:
+  group: dev-publish
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          (
+            github.event.workflow_run.head_branch == 'main' ||
+            github.event.workflow_run.head_branch == 'refs/heads/main'
+          )
+        )
+      }}
+    runs-on: ubuntu-latest
+    outputs:
+      should_publish: ${{ steps.plan.outputs.should_publish }}
+      commit: ${{ steps.plan.outputs.commit }}
+      short_sha: ${{ steps.plan.outputs.short_sha }}
+      build_id: ${{ steps.plan.outputs.build_id }}
+      tag: ${{ steps.plan.outputs.tag }}
+      built_at: ${{ steps.plan.outputs.built_at }}
+      base_version: ${{ steps.plan.outputs.base_version }}
+      protocol: ${{ steps.plan.outputs.protocol }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select dev commit
+        id: plan
+        shell: bash
+        env:
+          REQUESTED_COMMIT: ${{ github.event.inputs.commit || '' }}
+          WORKFLOW_RUN_COMMIT: ${{ github.event.workflow_run.head_sha || '' }}
+        run: |
+          set -euo pipefail
+          git fetch origin main --tags
+          if [ -n "$REQUESTED_COMMIT" ]; then
+            commit="$(git rev-parse "$REQUESTED_COMMIT^{commit}")"
+          elif [ -n "$WORKFLOW_RUN_COMMIT" ]; then
+            commit="$(git rev-parse "$WORKFLOW_RUN_COMMIT^{commit}")"
+          else
+            commit="$(git rev-parse origin/main^{commit}")"
+          fi
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "error: requested commit $commit is not reachable from origin/main" >&2
+            exit 1
+          fi
+          current_dev="$(python3 scripts/preview.py current-commit --manifest website/dev.json || true)"
+          if [ "$current_dev" = "$commit" ]; then
+            echo "Dev manifest already points at $commit; skipping."
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git checkout --detach "$commit"
+          short_sha="$(git rev-parse --short=12 HEAD)"
+          day="$(git show -s --format=%cI HEAD | python3 -c 'import datetime, sys; print(datetime.datetime.fromisoformat(sys.stdin.read().strip().replace("Z", "+00:00")).astimezone(datetime.timezone.utc).date().isoformat())')"
+          built_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          build_id="$day-$short_sha"
+          tag="dev-$build_id"
+          base_version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          protocol="$(python3 -c 'import re; print(re.search(r"pub const PROTOCOL_VERSION: u32 = (\d+);", open("src/protocol/wire.rs").read()).group(1))')"
+          {
+            echo "should_publish=true"
+            echo "commit=$commit"
+            echo "short_sha=$short_sha"
+            echo "build_id=$build_id"
+            echo "tag=$tag"
+            echo "built_at=$built_at"
+            echo "base_version=$base_version"
+            echo "protocol=$protocol"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: preflight
+    if: needs.preflight.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    env:
+      LIBGHOSTTY_VT_OPTIMIZE: ReleaseFast
+      LIBGHOSTTY_VT_SIMD: "true"
+      HERDR_BUILD_CHANNEL: dev
+      HERDR_BUILD_ID: ${{ needs.preflight.outputs.build_id }}
+      HERDR_BUILD_COMMIT: ${{ needs.preflight.outputs.commit }}
+      TARGET: x86_64-unknown-linux-musl
+      ARTIFACT: herdr-linux-x86_64
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.preflight.outputs.commit }}
+          persist-credentials: false
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
+          targets: ${{ env.TARGET }}
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Prefer official Ubuntu mirrors over Azure
+        run: |
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            sudo sed -i '/azure.archive.ubuntu.com/d' /etc/apt/apt-mirrors.txt
+          fi
+
+      - name: Install Linux build tools
+        run: |
+          sudo find /etc/apt/sources.list.d -type f \( -iname '*microsoft*' -o -iname '*azure-cli*' \) -print -delete
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build musl-tools
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          key: dev-${{ env.TARGET }}
+
+      - name: Remove Zig caches
+        run: rm -rf .zig-cache vendor/libghostty-vt/.zig-cache vendor/libghostty-vt/zig-out
+
+      - name: Build dev smoke artifact
+        run: cargo build --release --locked --target "$TARGET" --config profile.release.lto=false
+
+      - name: Package artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "target/${TARGET}/release/herdr" "$ARTIFACT"
+          file "$ARTIFACT" > BUILD_INFO.txt
+          ldd "$ARTIFACT" > LDD_INFO.txt 2>&1 || true
+          cat LDD_INFO.txt >> BUILD_INFO.txt
+          grep -Eq "statically linked|not a dynamic executable" LDD_INFO.txt
+          if nm -u "$ARTIFACT" 2>/dev/null | grep -E '(__cxa|GLIBCXX|CXXABI|_ZSt)'; then
+            echo "error: Linux artifact has unresolved C++ runtime symbols" >&2
+            exit 1
+          fi
+          python3 - <<'PY' | tee "${ARTIFACT}.sha256"
+          import hashlib
+          import os
+          import pathlib
+
+          path = pathlib.Path(os.environ["ARTIFACT"])
+          print(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}")
+          PY
+          {
+            echo "commit=${{ needs.preflight.outputs.commit }}"
+            echo "build_id=${{ needs.preflight.outputs.build_id }}"
+            echo "target=${TARGET}"
+            echo "channel=dev"
+          } >> BUILD_INFO.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ env.ARTIFACT }}
+          path: |
+            ${{ env.ARTIFACT }}
+            ${{ env.ARTIFACT }}.sha256
+            BUILD_INFO.txt
+
+  publish:
+    needs: [preflight, build]
+    if: needs.preflight.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          path: artifacts
+
+      - name: Record previous dev commit
+        id: previous-dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          previous="$(python3 scripts/preview.py current-commit --manifest website/dev.json || true)"
+          if [ -z "$previous" ]; then
+            previous="$(git describe --tags --match 'v[0-9]*' --abbrev=0)"
+          fi
+          range_base="$(python3 scripts/preview.py range-base \
+            --previous "$previous" \
+            --commit '${{ needs.preflight.outputs.commit }}')"
+          echo "commit=$previous" >> "$GITHUB_OUTPUT"
+          echo "range_base=$range_base" >> "$GITHUB_OUTPUT"
+
+      - name: Generate notes and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/preview.py notes \
+            --channel dev \
+            --branch main \
+            --manifest website/dev.json \
+            --previous '${{ steps.previous-dev.outputs.range_base }}' \
+            --commit '${{ needs.preflight.outputs.commit }}' \
+            --build-id '${{ needs.preflight.outputs.build_id }}' \
+            --base-version '${{ needs.preflight.outputs.base_version }}' \
+            --output DEV_NOTES.md
+          python3 - <<'PY'
+          import json
+          import pathlib
+
+          result = {}
+          for path in pathlib.Path("artifacts").glob("herdr-*/*.sha256"):
+              digest, name = path.read_text(encoding="utf-8").split()[:2]
+              target = name.removeprefix("herdr-").removesuffix(".exe")
+              result[target] = digest
+          pathlib.Path("dev-sha256.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Create dev prerelease
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
+        with:
+          tag_name: ${{ needs.preflight.outputs.tag }}
+          name: Dev build ${{ needs.preflight.outputs.build_id }}
+          body_path: DEV_NOTES.md
+          prerelease: true
+          make_latest: false
+          overwrite_files: true
+          target_commitish: ${{ needs.preflight.outputs.commit }}
+          files: |
+            artifacts/herdr-linux-x86_64/herdr-linux-x86_64
+
+      - name: Update dev manifest
+        run: |
+          python3 scripts/preview.py manifest \
+            --channel dev \
+            --output website/dev.json \
+            --tag '${{ needs.preflight.outputs.tag }}' \
+            --build-id '${{ needs.preflight.outputs.build_id }}' \
+            --commit '${{ needs.preflight.outputs.commit }}' \
+            --built-at '${{ needs.preflight.outputs.built_at }}' \
+            --base-version '${{ needs.preflight.outputs.base_version }}' \
+            --protocol '${{ needs.preflight.outputs.protocol }}' \
+            --notes DEV_NOTES.md \
+            --sha-file dev-sha256.json \
+            --retain 20
+
+      - name: Commit dev manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add website/dev.json
+          git diff --cached --quiet || git commit -m "docs: update dev manifest"
+          git push origin HEAD:main
+
+      - name: Prune old dev prereleases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,isPrerelease,createdAt > dev-releases.json
+          python3 - <<'PY' > old-dev-tags.txt
+          import json
+
+          with open("dev-releases.json", encoding="utf-8") as handle:
+              data = json.load(handle)
+          releases = [
+              release for release in data
+              if release.get("isPrerelease") and str(release.get("tagName", "")).startswith("dev-")
+          ]
+          releases.sort(key=lambda release: str(release.get("createdAt", "")), reverse=True)
+          for release in releases[20:]:
+              print(release["tagName"])
+          PY
+          while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          done < old-dev-tags.txt

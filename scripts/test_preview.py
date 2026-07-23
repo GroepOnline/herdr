@@ -33,6 +33,7 @@ class PreviewNotesTests(unittest.TestCase):
             content = preview.build_manifest(
                 output=output,
                 repo=PRODUCT_GITHUB_REPO,
+                channel="preview",
                 tag="preview-2026-06-02-abcdef123456",
                 build_id="2026-06-02-abcdef123456",
                 commit="abcdef1234567890",
@@ -57,8 +58,33 @@ class PreviewNotesTests(unittest.TestCase):
             self.assertEqual(set(data["assets"]), {"linux-x86_64"})
             self.assertIn("2026-06-02-abcdef123456", data["builds"])
 
+    def test_build_manifest_accepts_dev_channel(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "dev.json"
+            content = preview.build_manifest(
+                output=output,
+                repo=PRODUCT_GITHUB_REPO,
+                channel="dev",
+                tag="dev-2026-06-02-abcdef123456",
+                build_id="2026-06-02-abcdef123456",
+                commit="abcdef1234567890",
+                built_at="2026-06-02T03:00:00Z",
+                base_version="0.6.6",
+                protocol=12,
+                notes="Dev notes\n",
+                shas={"linux-x86_64": "deadbeef"},
+                retain=20,
+            )
+            data = json.loads(content)
+            self.assertEqual(data["channel"], "dev")
+            self.assertEqual(
+                data["assets"]["linux-x86_64"]["url"],
+                f"https://github.com/{PRODUCT_GITHUB_REPO}/releases/download/dev-2026-06-02-abcdef123456/herdr-linux-x86_64",
+            )
+
     def test_hidden_subjects_include_preview_manifest_commits(self):
         self.assertTrue(preview.hidden_subject("docs: update preview manifest"))
+        self.assertTrue(preview.hidden_subject("docs: update dev manifest"))
         self.assertTrue(preview.hidden_subject("docs: update website manifest"))
         self.assertFalse(preview.hidden_subject("release: v0.7.0"))
         self.assertFalse(preview.hidden_subject("fix: repair preview manifest"))
