@@ -103,7 +103,8 @@ Release notes without a categorized bullet.
             with self.assertRaises(QualityError):
                 check_release_metadata(root)
 
-    def test_sync_release_metadata_updates_npm_files(self) -> None:
+    @patch("scripts.ci_quality.needs_rustfmt", return_value=False)
+    def test_sync_release_metadata_updates_npm_files(self, _mock_needs_rustfmt) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self.write_fixture(root, "1.2.3", "1.2.2")

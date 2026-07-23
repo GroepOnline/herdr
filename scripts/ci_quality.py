@@ -192,9 +192,7 @@ def needs_rustfmt(root: Path) -> bool:
     if result.returncode == 0:
         return False
     combined = f"{result.stdout}\n{result.stderr}"
-    if "no targets specified" in combined or "failed to parse manifest" in combined:
-        return False
-    return True
+    return "Diff in" in combined
 
 
 def detect_autofix(root: Path) -> dict[str, bool]:
