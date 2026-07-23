@@ -114,12 +114,13 @@ jobs:
 
   windows-lint:
     name: Windows lint
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Native Windows runner: cross-clippy via cargo-xwin on Linux was too fragile
+    # (llvm-lib/clang-cl/lld-link tooling). Local `just windows-lint` stays as
+    # a Linux cross check for developer machines that have the toolchain.
+    runs-on: windows-latest
+    timeout-minutes: 45
     env:
-      AR_x86_64_pc_windows_msvc: llvm-lib
-      CC_x86_64_pc_windows_msvc: clang-cl
-      CXX_x86_64_pc_windows_msvc: clang-cl
+      LIBGHOSTTY_VT_SIMD: "false"
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -132,40 +133,16 @@ jobs:
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          key: ci-windows-lint
+          key: ci-windows-lint-native
 
       - name: Install Zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
           version: ${{ env.ZIG_VERSION }}
 
-      - name: Install Windows target
-        run: rustup target add x86_64-pc-windows-msvc
-
-      - name: Install cargo-xwin
-        uses: taiki-e/install-action@fd2f5e3d644b484055ebf4268f474c565f148f25 # v2.81.9
-        with:
-          tool: cargo-xwin
-
-      - name: Install Windows cross tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang lld llvm
-          if ! command -v llvm-lib >/dev/null; then
-            llvm_lib="$(find /usr/bin -maxdepth 1 -type f -name 'llvm-lib-*' | sort -V | tail -n 1)"
-            if [ -n "$llvm_lib" ]; then
-              sudo ln -sf "$llvm_lib" /usr/local/bin/llvm-lib
-            else
-              sudo ln -sf "$(command -v llvm-ar)" /usr/local/bin/llvm-lib
-            fi
-          fi
-          command -v clang-cl
-          command -v lld-link
-          command -v llvm-lib
-
-      # Cross-clippy on Linux needs the MSVC sysroot/linker from xwin.
-      - name: Cargo clippy for Windows target
-        run: LIBGHOSTTY_VT_SIMD=false cargo xwin clippy --bin herdr --locked --target x86_64-pc-windows-msvc -- -D warnings
+      - name: Cargo clippy on Windows
+        shell: bash
+        run: cargo clippy --bin herdr --locked -- -D warnings
 
   release-metadata:
     name: Release metadata

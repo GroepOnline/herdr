@@ -42,7 +42,7 @@ Parallel jobs behind it:
 - `CI / Lint`
 - `CI / Test`
 - `CI / Maintenance`
-- `CI / Windows lint`
+- `CI / Windows lint` (native `windows-latest` runner)
 - `CI / Release metadata`
 - `CI / Release smoke build (x86_64-unknown-linux-musl)`
 
