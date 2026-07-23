@@ -1369,8 +1369,12 @@ mod tests {
             dedupe_key: "herdr:codex\0codex\0Id\0codex-session".into(),
         });
         app.pending_agent_resume_deadline = Some(Instant::now() - Duration::from_millis(1));
+        let now = Instant::now();
+        app.next_fleet_ops_cache_refresh = now + Duration::from_secs(3600);
+        app.next_resize_poll = now + Duration::from_secs(3600);
+        app.next_animation_tick = None;
 
-        assert!(!app.handle_scheduled_tasks(Instant::now(), true));
+        assert!(!app.handle_scheduled_tasks(now, true));
         assert!(app.terminal_runtimes.get(&terminal_id).is_none());
         assert!(app
             .state
