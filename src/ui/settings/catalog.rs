@@ -1,6 +1,6 @@
 use crate::{
     api::schema::InstalledPluginInfo,
-    app::state::{AgentPanelSort, AppState, ExperimentSetting, THEME_NAMES},
+    app::state::{AgentPanelSort, AppState, ExperimentSetting},
     config::{
         HostCursorModeConfig, NewTerminalCwdConfig, ShellModeConfig, SidebarCollapsedModeConfig,
         SpinnerStyle, ToastClipboardPosition, ToastDelivery, ToastHerdrPosition,

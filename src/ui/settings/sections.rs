@@ -12,7 +12,6 @@ use super::{
     catalog::{catalog_plugin_index, integration_index, spinner_index},
     layout::{
         active_spinner_styles, spinner_category_labels, SettingsLayout, SETTINGS_SECTION_DESC_ROWS,
-        SETTINGS_SECTION_GAP_ROWS,
     },
     rows::{
         row_choice_selected, row_spinner_current, row_theme_current, row_toggle_checked,

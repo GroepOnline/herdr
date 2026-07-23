@@ -645,7 +645,7 @@ impl App {
         }
     }
 
-    fn split_with_ratio(&mut self, direction: crate::api::schema::SplitDirection, ratio: f64) {
+    fn split_with_ratio(&mut self, direction: crate::api::schema::SplitDirection, ratio: f32) {
         self.runtime_pane_split(
             "tui.pane.split",
             crate::api::schema::PaneSplitParams {
