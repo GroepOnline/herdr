@@ -136,7 +136,7 @@ def build_notes(
     base_version: str,
     repo: str,
     channel: str = "preview",
-    branch: str = "master",
+    branch: str = "main",
 ) -> str:
     short = commit[:12]
     compare = f"https://github.com/{repo}/compare/{previous}...{commit}"

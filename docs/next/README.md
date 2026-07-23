@@ -45,7 +45,7 @@ mise use -g herdr
 
 if mise reports `herdr not found in mise tool registry`, update mise and retry. older mise versions predate the herdr registry entry; `mise use -g github:OnlineChefGroep/herdr` works as a temporary fallback.
 
-or download the stable Linux/macOS binary from [releases](https://github.com/OnlineChefGroep/herdr/releases). Native Windows binaries are beta builds on the preview and dev channels.
+or download the stable Linux/macOS binary from [releases](https://github.com/OnlineChefGroep/herdr/releases). Native Windows binaries are beta builds; the preview and dev channels currently publish Linux (musl) binaries only.
 
 ## quick start
 
