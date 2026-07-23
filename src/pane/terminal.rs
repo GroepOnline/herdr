@@ -4484,6 +4484,60 @@ mod tests {
     }
 
     #[test]
+    fn process_pty_bytes_answers_xtwinops_size_queries() {
+        let (tx, _rx) = mpsc::channel(4);
+        let terminal = crate::ghostty::Terminal::new(80, 24, 0).unwrap();
+        let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
+        let pane_id = PaneId::from_raw(1);
+        pane.resize(24, 80, 9, 18);
+
+        let result = pane.process_pty_bytes(pane_id, 0, b"\x1b[14t\x1b[16t\x1b[18t", &tx);
+
+        assert_eq!(
+            result.terminal_responses,
+            vec![
+                Bytes::from_static(b"\x1b[4;432;720t"),
+                Bytes::from_static(b"\x1b[6;18;9t"),
+                Bytes::from_static(b"\x1b[8;24;80t"),
+            ]
+        );
+    }
+
+    #[test]
+    fn xtwinops_size_queries_follow_successful_resize() {
+        let (tx, _rx) = mpsc::channel(4);
+        let terminal = crate::ghostty::Terminal::new(80, 24, 0).unwrap();
+        let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
+        let pane_id = PaneId::from_raw(1);
+        pane.resize(24, 80, 9, 18);
+        pane.resize(30, 100, 10, 20);
+
+        let result = pane.process_pty_bytes(pane_id, 0, b"\x1b[14t\x1b[16t\x1b[18t", &tx);
+
+        assert_eq!(
+            result.terminal_responses,
+            vec![
+                Bytes::from_static(b"\x1b[4;600;1000t"),
+                Bytes::from_static(b"\x1b[6;20;10t"),
+                Bytes::from_static(b"\x1b[8;30;100t"),
+            ]
+        );
+    }
+
+    #[test]
+    fn xtwinops_size_queries_stay_silent_without_pixel_geometry() {
+        let (tx, _rx) = mpsc::channel(4);
+        let terminal = crate::ghostty::Terminal::new(80, 24, 0).unwrap();
+        let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
+        let pane_id = PaneId::from_raw(1);
+        for (cell_width_px, cell_height_px) in [(0, 0), (0, 18), (9, 0)] {
+            pane.resize(24, 80, cell_width_px, cell_height_px);
+            let result = pane.process_pty_bytes(pane_id, 0, b"\x1b[14t\x1b[16t\x1b[18t", &tx);
+            assert!(result.terminal_responses.is_empty());
+        }
+    }
+
+    #[test]
     fn resize_returns_in_band_size_report_response() {
         let (tx, _rx) = mpsc::channel(4);
         let mut terminal = crate::ghostty::Terminal::new(80, 24, 0).unwrap();

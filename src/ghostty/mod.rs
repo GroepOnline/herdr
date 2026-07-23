@@ -456,6 +456,26 @@ struct TerminalCallbackState {
     write_pty: Option<Box<WritePtyCallback>>,
     pwd_changes: Vec<Vec<u8>>,
     clipboard_writes: Vec<Vec<u8>>,
+    size_report: ffi::GhosttySizeReportSize,
+}
+
+unsafe extern "C" fn size_trampoline(
+    _terminal: ffi::GhosttyTerminal,
+    userdata: *mut c_void,
+    out_size: *mut ffi::GhosttySizeReportSize,
+) -> bool {
+    if userdata.is_null() || out_size.is_null() {
+        return false;
+    }
+    let state = unsafe { &*userdata.cast::<TerminalCallbackState>() };
+    let size = state.size_report;
+    if size.rows == 0 || size.columns == 0 || size.cell_width == 0 || size.cell_height == 0 {
+        return false;
+    }
+    unsafe {
+        out_size.write(size);
+    }
+    true
 }
 
 unsafe extern "C" fn write_pty_trampoline(
@@ -734,7 +754,14 @@ impl Terminal {
 
         let mut terminal = Self {
             raw,
-            callback_state: Box::default(),
+            callback_state: Box::new(TerminalCallbackState {
+                size_report: ffi::GhosttySizeReportSize {
+                    rows,
+                    columns: cols,
+                    ..Default::default()
+                },
+                ..Default::default()
+            }),
             kitty_fingerprints: Mutex::new(HashMap::new()),
             kitty_empty_generation: Cell::new(None),
         };
@@ -745,6 +772,12 @@ impl Terminal {
                 terminal.raw,
                 ffi::GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_USERDATA,
                 userdata,
+            )
+            .into_result()?;
+            ffi::ghostty_terminal_set(
+                terminal.raw,
+                ffi::GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_SIZE,
+                (size_trampoline as *const ()).cast(),
             )
             .into_result()?;
             ffi::ghostty_terminal_set(
@@ -799,13 +832,25 @@ impl Terminal {
         cell_width_px: u32,
         cell_height_px: u32,
     ) -> Result<(), Error> {
-        let cell_width_px = cell_width_px.max(1);
-        let cell_height_px = cell_height_px.max(1);
+        let size_report = ffi::GhosttySizeReportSize {
+            rows,
+            columns: cols,
+            cell_width: cell_width_px,
+            cell_height: cell_height_px,
+        };
         // SAFETY: self.raw is valid and sizes are plain values.
         unsafe {
-            ffi::ghostty_terminal_resize(self.raw, cols, rows, cell_width_px, cell_height_px)
-                .into_result()
+            ffi::ghostty_terminal_resize(
+                self.raw,
+                cols,
+                rows,
+                cell_width_px.max(1),
+                cell_height_px.max(1),
+            )
+            .into_result()?;
         }
+        self.callback_state.size_report = size_report;
+        Ok(())
     }
 
     pub fn enable_kitty_graphics(&mut self) -> Result<(), Error> {
