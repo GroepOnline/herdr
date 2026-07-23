@@ -19,6 +19,7 @@ You diagnose Herdr Quality CI failures. You do not edit files or push.
    - real code/test failure → `herdr-quality-ci-remediator`
    - docs/config-reference drift → update `docs/next` fixtures via the maintenance scripts
 6. Note whether `ci-autofix-disabled` is present.
+7. For parallel remediation: only recommend concurrent remediator agents when file ownership is clearly disjoint and push/rebase can be serialized; otherwise recommend a single remediator.
 
 ## Output
 
@@ -26,4 +27,4 @@ You diagnose Herdr Quality CI failures. You do not edit files or push.
 - Failed jobs table
 - Top errors (max 12 lines total)
 - Recommended next action per job
-- Whether parallel remediator agents are safe (non-overlapping files)
+- Whether parallel remediator agents are safe (disjoint files + serialized pushes)

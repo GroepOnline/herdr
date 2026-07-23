@@ -4,12 +4,13 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from scripts.ci_quality import (
     QualityError,
     check_release_metadata,
     detect_autofix,
+    needs_rustfmt,
     sync_release_metadata,
 )
 
@@ -124,6 +125,43 @@ Release notes without a categorized bullet.
                 {"needs_fmt": False, "needs_metadata_sync": False},
             )
             check_release_metadata(root)
+
+    @patch("scripts.ci_quality.shutil.which", return_value=None)
+    def test_needs_rustfmt_false_when_cargo_missing(self, _mock_which) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertFalse(needs_rustfmt(Path(tmp)))
+
+    @patch("scripts.ci_quality.subprocess.run")
+    @patch("scripts.ci_quality.shutil.which", return_value="/usr/bin/cargo")
+    def test_needs_rustfmt_false_on_clean_check(self, _mock_which, mock_run) -> None:
+        mock_run.return_value = Mock(returncode=0, stdout="", stderr="")
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertFalse(needs_rustfmt(Path(tmp)))
+        args = mock_run.call_args.args[0]
+        self.assertEqual(Path(args[0]).name, "cargo")
+        self.assertTrue(Path(args[0]).is_absolute())
+        self.assertEqual(args[1:], ["fmt", "--all", "--", "--check"])
+
+    @patch("scripts.ci_quality.subprocess.run")
+    @patch("scripts.ci_quality.shutil.which", return_value="/usr/bin/cargo")
+    def test_needs_rustfmt_true_on_diff_output(self, _mock_which, mock_run) -> None:
+        mock_run.return_value = Mock(
+            returncode=1,
+            stdout="Diff in src/main.rs:\n",
+            stderr="",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertTrue(needs_rustfmt(Path(tmp)))
+
+    @patch("scripts.ci_quality.needs_rustfmt", return_value=True)
+    def test_detect_autofix_reports_fmt_need(self, _mock_needs_rustfmt) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_fixture(root, "1.2.3", "1.2.3")
+            self.assertEqual(
+                detect_autofix(root),
+                {"needs_fmt": True, "needs_metadata_sync": False},
+            )
 
 
 if __name__ == "__main__":

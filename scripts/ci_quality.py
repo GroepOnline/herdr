@@ -180,10 +180,12 @@ def sync_release_metadata(root: Path) -> bool:
 
 
 def needs_rustfmt(root: Path) -> bool:
-    if shutil.which("cargo") is None:
+    cargo = shutil.which("cargo")
+    if cargo is None:
         return False
+    cargo_path = str(Path(cargo).resolve())
     result = subprocess.run(
-        ["cargo", "fmt", "--all", "--", "--check"],
+        [cargo_path, "fmt", "--all", "--", "--check"],
         cwd=root,
         check=False,
         capture_output=True,

@@ -2536,6 +2536,14 @@ mod tests {
     }
 
     #[test]
+    fn graphics_bytes_follow_encoded_frame_when_sync_end_missing() {
+        let mut output = Vec::new();
+        write_encoded_frame_with_graphics(&mut output, b"plain-text-frame", b"graphics").unwrap();
+
+        assert_eq!(output, b"plain-text-frame\x1b7graphics\x1b8");
+    }
+
+    #[test]
     fn empty_graphics_writes_only_blit_frame() {
         let mut output = Vec::new();
         write_encoded_frame_with_graphics(&mut output, b"text", b"").unwrap();

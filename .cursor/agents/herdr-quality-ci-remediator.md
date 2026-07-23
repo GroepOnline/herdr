@@ -17,18 +17,19 @@ Follow `.cursor/skills/herdr-quality-ci-remediation/SKILL.md` and its `reference
 ## Operating rules
 
 1. Start from PR number, failed run id, branch, and head SHA (from the parent prompt or `repository_dispatch` payload).
-2. Inspect `gh run view <run_id> --repo OnlineChefGroep/herdr --log-failed` and the sticky `<!-- herdr-quality-remediation -->` comment.
-3. Classify the failing job (Lint / Test / Maintenance / Windows lint / Release metadata / Release smoke).
-4. Make the smallest correct fix. Prefer root-cause code/test/docs-next fixes over CI skips.
-5. Never run local `cargo`, `rustc`, `zig build`, or `just test|check|lint|ci` on Cloud VMs that deny them. Push and use GitHub Actions.
-6. Validate with `gh pr checks <pr> --repo OnlineChefGroep/herdr --watch`.
-7. Stop after green or after 3 unsuccessful fix rounds.
-8. If the PR is labeled `ci-autofix-disabled`, exit without changes and report the opt-out.
-9. Respect `AGENTS.md`: no production `unwrap()`, platform code isolated, unreleased docs only under `docs/next/`, lowercase conventional commits.
+2. Before editing, confirm the PR still points at that head SHA (`gh pr view <pr> --json headRefOid`). If the head moved, stop and re-diagnose the newest failed run instead of applying a stale brief.
+3. Inspect `gh run view <run_id> --repo OnlineChefGroep/herdr --log-failed` and the sticky `<!-- herdr-quality-remediation -->` comment.
+4. Classify the failing job (Lint / Test / Maintenance / Windows lint / Release metadata / Release smoke).
+5. Make the smallest correct fix. Prefer root-cause code/test/docs-next fixes over CI skips.
+6. Never run local `cargo`, `rustc`, `zig build`, or `just test|check|lint|ci` on Cloud VMs that deny them. Push and use GitHub Actions.
+7. Validate with `gh pr checks <pr> --repo OnlineChefGroep/herdr --watch`.
+8. Stop after green or after 3 unsuccessful fix rounds.
+9. If the PR is labeled `ci-autofix-disabled`, exit without changes and report the opt-out.
+10. Respect `AGENTS.md`: no production `unwrap()`, platform code isolated, unreleased docs only under `docs/next/`, lowercase conventional commits.
 
 ## Parallelism
 
-If the parent asks for parallel remediation, own one failing surface only and return a crisp handoff so siblings do not collide on the same files.
+Do not share a PR branch with sibling remediator agents unless a diagnoser confirmed disjoint file ownership and push/rebase work is serialized. Prefer one remediator, or isolated branches/worktrees plus a single integrator.
 
 ## Final report
 

@@ -17,10 +17,12 @@ Canonical playbook for autonomous PR quality fixes. Comment bots are not the goa
 ## Procedure
 
 1. **Inspect failure**
+
    ```bash
    gh run view <run_id> --repo OnlineChefGroep/herdr --log-failed
    gh pr checks <pr> --repo OnlineChefGroep/herdr
    ```
+
    Also read the sticky PR comment marked `<!-- herdr-quality-remediation -->` when present.
 
 2. **Classify the failing surface**
@@ -46,10 +48,12 @@ Canonical playbook for autonomous PR quality fixes. Comment bots are not the goa
 
 5. **Validate via GitHub Actions**
    On this Cloud VM, local `cargo` / `just test|check|lint|ci` are forbidden.
+
    ```bash
    git push -u origin <branch>
    gh pr checks <pr> --repo OnlineChefGroep/herdr --watch
    ```
+
    On failure: `gh run view <new-run-id> --log-failed`, fix, push again.
 
 6. **Stop conditions**
@@ -59,7 +63,12 @@ Canonical playbook for autonomous PR quality fixes. Comment bots are not the goa
 
 ## Parallelism
 
-When multiple independent failures exist (e.g. Test + Maintenance), dispatch parallel fix agents / the `herdr-quality-ci-remediator` subagent per surface, then re-watch the gate once.
+Do not launch concurrent remediator agents on the same PR branch by default. Parallel work is allowed only when:
+
+1. The diagnoser has confirmed disjoint file ownership per agent.
+2. Push/rebase operations are serialized (one agent pushes at a time, or agents use isolated branches/worktrees and a single integrator merges).
+
+Otherwise run one remediator end-to-end, then re-watch the gate.
 
 ## Final report shape
 

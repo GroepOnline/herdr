@@ -98,12 +98,17 @@ jobs:
             fi
           fi
 
-          autofix_in_progress="$(
-            gh run list --repo "$REPO" --workflow "quality-autofix.yml" --branch "$branch" \
-              --status in_progress --json databaseId --jq 'length'
-          )"
-          if [ "${autofix_in_progress:-0}" -gt 0 ]; then
-            echo "Autofix workflow still running on $branch; skipping remediation to avoid race."
+          # Treat any non-terminal autofix run as a race risk (queued/pending too).
+          autofix_active=0
+          for status in queued requested waiting pending in_progress; do
+            count="$(
+              gh run list --repo "$REPO" --workflow "quality-autofix.yml" --branch "$branch" \
+                --status "$status" --json databaseId --jq 'length'
+            )"
+            autofix_active=$((autofix_active + ${count:-0}))
+          done
+          if [ "${autofix_active:-0}" -gt 0 ]; then
+            echo "Autofix workflow still active on $branch ($autofix_active non-terminal run(s)); skipping remediation to avoid race."
             exit 0
           fi
 
@@ -297,7 +302,15 @@ jobs:
             exit 0
           fi
 
-          pr_json="$(gh pr view "$pr_number" --repo "$REPO" --json labels)"
+          pr_json="$(gh pr view "$pr_number" --repo "$REPO" --json labels,headRefOid)"
+          current_head="$(jq -r '.headRefOid // empty' <<<"$pr_json")"
+          if [ "$EVENT_NAME" != "workflow_dispatch" ] && [ -n "${WORKFLOW_HEAD_SHA:-}" ]; then
+            if [ -z "$current_head" ] || [ "$current_head" != "$WORKFLOW_HEAD_SHA" ]; then
+              echo "PR head moved from ${WORKFLOW_HEAD_SHA:0:12} to ${current_head:0:12}; skipping stale remediation clear."
+              exit 0
+            fi
+          fi
+
           jq -r '.labels[].name' <<<"$pr_json" > labels.txt
           if grep -Fxq "quality-remediation" labels.txt; then
             gh api -X DELETE "/repos/$REPO/issues/$pr_number/labels/quality-remediation" >/dev/null
@@ -314,7 +327,7 @@ jobs:
           $COMMENT_MARKER
           ## Quality remediation resolved
 
-          CI is green again for PR #$pr_number. This sticky brief is kept for history; the \`quality-remediation\` label was removed.
+          CI is green again for PR #$pr_number at \`${current_head:0:12}\`. This sticky brief is kept for history; the \`quality-remediation\` label was removed.
           EOF
             sed -i 's/^          //' resolved.md
             gh api -X PATCH "/repos/$REPO/issues/comments/$existing_comment_id" -F "body=@resolved.md" >/dev/null

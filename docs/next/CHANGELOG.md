@@ -13,6 +13,7 @@
 - CI now publishes a dev prerelease after successful `main` merges, tags it as `dev-YYYY-MM-DD-<shortsha12>`, updates `website/dev.json`, and lets direct installer smoke tests use `HERDR_CHANNEL=dev`.
 
 ### Fixed
+
 - Linux clipboard copy/paste now prefers Wayland clipboard tools and skips xclip/xsel entirely on Wayland sessions by default, and every clipboard helper process is now bounded by a timeout instead of blocking indefinitely, preventing paste/copy from hanging when Xwayland's X11 connection is unreachable.
 
 ## [0.7.5] - 2026-07-21
