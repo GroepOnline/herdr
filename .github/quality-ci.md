@@ -54,6 +54,8 @@ gh pr checks <pr-number> --repo OnlineChefGroep/herdr --watch
 
 ## Autofix vs remediation
 
+`quality-autofix.yml` uses a two-job privilege split. `detect` has read-only repository, Actions, and pull request permissions; it resolves the PR, checks out the source SHA without persisted credentials, applies the loop guard, and reports whether npm release metadata drifted from `Cargo.toml`. `apply` runs only for same-repo PRs that passed detection, gets `contents: write`, checks that the branch still points at the detected source SHA, then runs inline npm version sync plus `cargo fmt --all` before pushing a single guarded autofix commit.
+
 | Workflow | When | Pushes code? |
 |---|---|---|
 | `quality-autofix.yml` | CI failed on same-repo PR; mechanical drift (fmt, npm VERSION sync) | Yes, one `ci: autofix mechanical quality` commit per source SHA |

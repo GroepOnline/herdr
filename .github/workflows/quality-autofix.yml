@@ -11,26 +11,38 @@ on:
         required: true
         type: number
 
-permissions:
-  contents: write
-  pull-requests: write
-  actions: read
+permissions: {}
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   RUST_TOOLCHAIN_VERSION: 1.96.1
 
 jobs:
-  autofix:
-    name: Mechanical quality autofix
+  detect:
+    name: Detect mechanical quality drift
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (
         github.event.workflow_run.conclusion == 'failure' &&
         github.event.workflow_run.event == 'pull_request'
       )
+    outputs:
+      skip: ${{ steps.pr.outputs.skip == 'true' && 'true' || steps.inspect.outputs.skip }}
+      skip_reason: ${{ steps.pr.outputs.skip == 'true' && steps.pr.outputs.skip_reason || steps.inspect.outputs.skip_reason }}
+      number: ${{ steps.pr.outputs.number }}
+      head_branch: ${{ steps.pr.outputs.head_branch }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      head_repo: ${{ steps.pr.outputs.head_repo }}
+      needs_sync: ${{ steps.inspect.outputs.needs_sync }}
+      cargo_version: ${{ steps.inspect.outputs.cargo_version }}
+      package_version: ${{ steps.inspect.outputs.package_version }}
+      installer_version: ${{ steps.inspect.outputs.installer_version }}
     steps:
       - name: Resolve pull request
         id: pr
@@ -70,7 +82,6 @@ jobs:
                   event = json.load(handle)
               workflow_run = event["workflow_run"]
               head_sha = workflow_run["head_sha"]
-              head_branch = workflow_run.get("head_branch") or ""
               pull_requests = workflow_run.get("pull_requests") or []
               if pull_requests:
                   pr_number = str(pull_requests[0]["number"])
@@ -88,12 +99,15 @@ jobs:
                   if not same_repo:
                       output("skip", "true")
                       output("skip_reason", "workflow run has no same-repo pull request")
+                      output("number", "")
+                      output("head_branch", "")
+                      output("head_sha", head_sha)
+                      output("head_repo", "")
                       raise SystemExit(0)
                   pr_number = str(same_repo[0]["number"])
           else:
               pr_number = os.environ["PR_NUMBER"]
               head_sha = ""
-              head_branch = ""
 
           pr = github_api(f"/repos/{repository}/pulls/{pr_number}")
           head = pr["head"]
@@ -101,6 +115,10 @@ jobs:
           if head_repo != repository:
               output("skip", "true")
               output("skip_reason", f"fork pull request: {head_repo}")
+              output("number", pr_number)
+              output("head_branch", "")
+              output("head_sha", head_sha or head["sha"])
+              output("head_repo", head_repo or "")
               raise SystemExit(0)
 
           # Escape hatch: skip when PR carries ci-autofix-disabled.
@@ -108,12 +126,17 @@ jobs:
           if "ci-autofix-disabled" in labels:
               output("skip", "true")
               output("skip_reason", "ci-autofix-disabled label present")
+              output("number", pr_number)
+              output("head_branch", head["ref"])
+              output("head_sha", head_sha or head["sha"])
+              output("head_repo", head_repo)
               raise SystemExit(0)
 
           output("skip", "false")
           output("number", pr_number)
-          output("head_branch", head["ref"] or head_branch)
+          output("head_branch", head["ref"])
           output("head_sha", head_sha or head["sha"])
+          output("head_repo", head_repo)
           output("skip_reason", "")
           PY
 
@@ -125,62 +148,169 @@ jobs:
         if: steps.pr.outputs.skip != 'true'
         with:
           repository: ${{ github.repository }}
-          ref: ${{ steps.pr.outputs.head_branch }}
+          ref: ${{ steps.pr.outputs.head_sha }}
           fetch-depth: 0
           token: ${{ github.token }}
-          persist-credentials: true
+          persist-credentials: false
 
-      - name: Check autofix guard
-        id: guard
+      - name: Inspect autofix guard and metadata drift
+        id: inspect
         if: steps.pr.outputs.skip != 'true'
         env:
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
         run: |
-          latest_subject="$(git log -1 --pretty=%s)"
-          case "$latest_subject" in
-            "ci: autofix"*)
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-              echo "skip_reason=latest commit is already an autofix" >> "$GITHUB_OUTPUT"
-              exit 0
-              ;;
-          esac
+          python3 <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          import tomllib
+          from pathlib import Path
 
-          if git log --format=%B | grep -F "Autofix-Source-SHA: $HEAD_SHA" >/dev/null; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "skip_reason=already autofixed $HEAD_SHA" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          INSTALLER_VERSION_RE = re.compile(r'(?m)^const VERSION = "(?P<version>[^"]+)";$')
 
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-          echo "skip_reason=" >> "$GITHUB_OUTPUT"
+          def output(name, value):
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+                  handle.write(f"{name}={value}\n")
+
+          def git(*args):
+              return subprocess.check_output(("git", *args), text=True)
+
+          head_sha = os.environ["HEAD_SHA"]
+          latest_subject = git("log", "-1", "--pretty=%s").strip()
+          if latest_subject.startswith("ci: autofix"):
+              output("skip", "true")
+              output("skip_reason", "latest commit is already an autofix")
+              raise SystemExit(0)
+
+          commit_messages = git("log", "--format=%B")
+          if f"Autofix-Source-SHA: {head_sha}" in commit_messages:
+              output("skip", "true")
+              output("skip_reason", f"already autofixed {head_sha}")
+              raise SystemExit(0)
+
+          cargo = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))
+          cargo_version = cargo["package"]["version"]
+
+          package = json.loads(Path("npm/package.json").read_text(encoding="utf-8"))
+          package_version = package["version"]
+
+          installer = Path("npm/install.js").read_text(encoding="utf-8")
+          match = INSTALLER_VERSION_RE.search(installer)
+          if match is None:
+              raise SystemExit("npm/install.js is missing const VERSION")
+          installer_version = match.group("version")
+
+          needs_sync = package_version != cargo_version or installer_version != cargo_version
+          output("skip", "false")
+          output("skip_reason", "")
+          output("needs_sync", str(needs_sync).lower())
+          output("cargo_version", cargo_version)
+          output("package_version", package_version)
+          output("installer_version", installer_version)
+          PY
 
       - name: Report skipped autofix
-        if: steps.pr.outputs.skip != 'true' && steps.guard.outputs.skip == 'true'
-        run: echo "Skipping autofix - ${{ steps.guard.outputs.skip_reason }}"
+        if: steps.pr.outputs.skip != 'true' && steps.inspect.outputs.skip == 'true'
+        run: echo "Skipping autofix - ${{ steps.inspect.outputs.skip_reason }}"
+
+      - name: Report metadata drift
+        if: steps.pr.outputs.skip != 'true' && steps.inspect.outputs.skip != 'true'
+        run: |
+          echo "Cargo.toml version: ${{ steps.inspect.outputs.cargo_version }}"
+          echo "npm/package.json version: ${{ steps.inspect.outputs.package_version }}"
+          echo "npm/install.js VERSION: ${{ steps.inspect.outputs.installer_version }}"
+          echo "Needs release metadata sync: ${{ steps.inspect.outputs.needs_sync }}"
+
+  apply:
+    name: Apply mechanical quality fixes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: detect
+    permissions:
+      contents: write
+    if: needs.detect.result == 'success' && needs.detect.outputs.skip != 'true'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ needs.detect.outputs.head_branch }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+          persist-credentials: false
+
+      - name: Confirm branch still matches detected source
+        id: current
+        env:
+          HEAD_SHA: ${{ needs.detect.outputs.head_sha }}
+        run: |
+          current_sha="$(git rev-parse HEAD)"
+          if [ "$current_sha" != "$HEAD_SHA" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Branch moved from $HEAD_SHA to $current_sha; skipping autofix."
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-        if: steps.pr.outputs.skip != 'true' && steps.guard.outputs.skip != 'true'
+        if: steps.current.outputs.skip != 'true'
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
           components: rustfmt
 
-      - name: Install Zig
-        if: steps.pr.outputs.skip != 'true' && steps.guard.outputs.skip != 'true'
-        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
-        with:
-          version: 0.15.2
-
-      - name: Apply mechanical fixes
-        if: steps.pr.outputs.skip != 'true' && steps.guard.outputs.skip != 'true'
+      - name: Sync npm release metadata
+        if: steps.current.outputs.skip != 'true'
         run: |
-          python3 scripts/ci_quality.py sync-release-metadata
+          python3 <<'PY'
+          import json
+          import re
+          import tomllib
+          from pathlib import Path
+
+          INSTALLER_VERSION_RE = re.compile(r'(?m)^const VERSION = "(?P<version>[^"]+)";$')
+
+          cargo = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))
+          version = cargo["package"]["version"]
+          changed = False
+
+          package_path = Path("npm/package.json")
+          package = json.loads(package_path.read_text(encoding="utf-8"))
+          if package.get("version") != version:
+              package["version"] = version
+              package_path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
+              changed = True
+
+          installer_path = Path("npm/install.js")
+          installer = installer_path.read_text(encoding="utf-8")
+          updated_installer, count = INSTALLER_VERSION_RE.subn(
+              f'const VERSION = "{version}";',
+              installer,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("npm/install.js is missing const VERSION")
+          if updated_installer != installer:
+              installer_path.write_text(updated_installer, encoding="utf-8")
+              changed = True
+
+          if changed:
+              print(f"Synced npm release metadata to {version}.")
+          else:
+              print(f"npm release metadata already matches {version}.")
+          PY
+
+      - name: Format Rust sources
+        if: steps.current.outputs.skip != 'true'
+        run: |
           cargo fmt --all
 
       - name: Commit and push changes
-        if: steps.pr.outputs.skip != 'true' && steps.guard.outputs.skip != 'true'
+        if: steps.current.outputs.skip != 'true'
         env:
-          HEAD_BRANCH: ${{ steps.pr.outputs.head_branch }}
-          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ needs.detect.outputs.head_branch }}
+          HEAD_SHA: ${{ needs.detect.outputs.head_sha }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           if git diff --quiet; then
             echo "No mechanical quality changes."
@@ -193,4 +323,4 @@ jobs:
           git commit \
             -m "ci: autofix mechanical quality" \
             -m "Autofix-Source-SHA: $HEAD_SHA"
-          git push origin "HEAD:$HEAD_BRANCH"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPOSITORY}.git" "HEAD:$HEAD_BRANCH"
