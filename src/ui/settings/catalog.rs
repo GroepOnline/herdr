@@ -169,13 +169,13 @@ pub(crate) const PLUGIN_CATALOG: &[PluginCatalogEntry] = &[
     },
 ];
 
-pub(crate) fn installed_plugins_sorted<'a>(app: &'a AppState) -> Vec<&'a InstalledPluginInfo> {
+pub(crate) fn installed_plugins_sorted(app: &AppState) -> Vec<&InstalledPluginInfo> {
     let mut plugins = app.installed_plugins.values().collect::<Vec<_>>();
     plugins.sort_by(|left, right| left.plugin_id.cmp(&right.plugin_id));
     plugins
 }
 
-pub(crate) fn catalog_entries_available<'a>(app: &'a AppState) -> Vec<&'a PluginCatalogEntry> {
+pub(crate) fn catalog_entries_available(app: &AppState) -> Vec<&PluginCatalogEntry> {
     PLUGIN_CATALOG
         .iter()
         .filter(|entry| !app.installed_plugins.contains_key(entry.plugin_id))

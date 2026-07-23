@@ -136,7 +136,7 @@ impl FleetOpsMetadata {
             .git_by_cwd
             .get(&term.cwd)
             .cloned()
-            .unwrap_or_else(|| CachedGitContext {
+            .unwrap_or(CachedGitContext {
                 repo: None,
                 worktree: None,
                 branch: None,
