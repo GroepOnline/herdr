@@ -971,7 +971,7 @@ impl HeadlessServer {
         // rendering semantics. Force one fresh frame to every remaining client
         // even if the next rendered buffer compares equal to its cached frame.
         for client in self.clients.values_mut() {
-            client.request_full_redraw();
+            client.request_repaint();
         }
         if !start_pending_agent_resumes {
             self.app.pending_agent_resume_deadline = None;
@@ -984,7 +984,7 @@ impl HeadlessServer {
             .start_pending_agent_resumes(self.app.pending_agent_resume_due(now))
         {
             for client in self.clients.values_mut() {
-                client.request_full_redraw();
+                client.request_repaint();
             }
         }
     }
@@ -2585,7 +2585,7 @@ impl HeadlessServer {
         );
         if let Some(client) = self.clients.get_mut(&client_id) {
             if host_surface_redraw {
-                client.request_full_redraw();
+                client.request_repaint();
                 client.defer_full_render();
             } else {
                 // Ensure semantic clients receive one post-input frame even if the
@@ -2872,7 +2872,7 @@ impl HeadlessServer {
                         width_px: cell_width_px,
                         height_px: cell_height_px,
                     };
-                    render_state.reset_baseline();
+                    render_state.request_repaint();
                     Some(terminal_id.clone())
                 } else {
                     None
@@ -2896,7 +2896,7 @@ impl HeadlessServer {
                         width_px: cell_width_px,
                         height_px: cell_height_px,
                     };
-                    render_state.reset_baseline();
+                    render_state.request_repaint();
                     return true;
                 }
                 if let Some(client) = self.clients.get_mut(&client_id) {
@@ -7611,7 +7611,7 @@ next_tab = ""
     }
 
     #[test]
-    fn outer_focus_gained_forces_terminal_ansi_full_redraw() {
+    fn outer_focus_gained_repaints_terminal_ansi_without_clearing() {
         let mut server = test_headless_server();
         let (client_tx, _client_control_rx, client_rx) = test_client_writer();
 
@@ -7644,6 +7644,7 @@ next_tab = ""
             ServerMessage::Terminal(frame) => {
                 assert_eq!(frame.seq, 2);
                 assert!(frame.full);
+                assert!(!frame.bytes.windows(4).any(|bytes| bytes == b"\x1b[2J"));
             }
             other => panic!("expected terminal frame, got {other:?}"),
         }

@@ -135,9 +135,8 @@ impl ClientConnection {
         }
     }
 
-    pub(crate) fn request_full_redraw(&mut self) {
-        self.render_state.reset_baseline();
-        self.graphics_surface_reset_pending = true;
+    pub(crate) fn request_repaint(&mut self) {
+        self.render_state.request_repaint();
         self.pane_graphics_render_pending = false;
     }
 

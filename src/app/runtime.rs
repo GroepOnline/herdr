@@ -209,7 +209,7 @@ impl App {
             crate::raw_input::RawInputEvent::OuterFocusGained => {
                 self.send_outer_focus_event(crate::ghostty::FocusEvent::Gained);
                 if self.state.redraw_on_focus_gained {
-                    self.request_full_redraw();
+                    self.request_repaint();
                 }
                 self.state.outer_terminal_focus = Some(true);
                 self.state.mark_active_tab_seen();
