@@ -1,9 +1,16 @@
 name: Dev
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  # Merge-driven: runs on pushes to main (after PR merge). Prefer requiring
+  # `CI / Quality gate` on main so only green tip commits publish.
+  # Avoid workflow_run — CodeQL treats that trigger as privileged.
+  push:
+    branches: [main]
+    paths-ignore:
+      - "website/dev.json"
+      - "website/preview.json"
+      - "website/latest.json"
+      - "**.md"
   workflow_dispatch:
     inputs:
       commit:
@@ -11,9 +18,6 @@ on:
         required: false
         type: string
 
-# Keep the workflow unprivileged at the top level. Only the publish job
-# gets contents:write; build checks out the merge SHA with read-only perms
-# so CodeQL does not treat it as privileged execution of untrusted code.
 permissions: {}
 
 env:
@@ -27,22 +31,9 @@ concurrency:
 
 jobs:
   preflight:
-    if: >-
-      ${{
-        github.event_name == 'workflow_dispatch' ||
-        (
-          github.event.workflow_run.conclusion == 'success' &&
-          github.event.workflow_run.event == 'push' &&
-          (
-            github.event.workflow_run.head_branch == 'main' ||
-            github.event.workflow_run.head_branch == 'refs/heads/main'
-          )
-        )
-      }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
     outputs:
       should_publish: ${{ steps.plan.outputs.should_publish }}
       commit: ${{ steps.plan.outputs.commit }}
@@ -64,14 +55,14 @@ jobs:
         shell: bash
         env:
           REQUESTED_COMMIT: ${{ github.event.inputs.commit || '' }}
-          WORKFLOW_RUN_COMMIT: ${{ github.event.workflow_run.head_sha || '' }}
+          PUSH_COMMIT: ${{ github.event_name == 'push' && github.sha || '' }}
         run: |
           set -euo pipefail
           git fetch origin main --tags
           if [ -n "$REQUESTED_COMMIT" ]; then
             commit="$(git rev-parse "$REQUESTED_COMMIT^{commit}")"
-          elif [ -n "$WORKFLOW_RUN_COMMIT" ]; then
-            commit="$(git rev-parse "$WORKFLOW_RUN_COMMIT^{commit}")"
+          elif [ -n "$PUSH_COMMIT" ]; then
+            commit="$(git rev-parse "$PUSH_COMMIT^{commit}")"
           else
             commit="$(git rev-parse origin/main^{commit}")"
           fi
@@ -79,6 +70,15 @@ jobs:
             echo "error: requested commit $commit is not reachable from origin/main" >&2
             exit 1
           fi
+          # Skip manifest-only / docs bumps that would loop the publisher.
+          subject="$(git show -s --format=%s "$commit")"
+          case "$subject" in
+            "docs: update dev manifest"|"docs: update preview manifest"|"docs: update website manifest")
+              echo "Skipping publisher commit: $subject"
+              echo "should_publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
           current_dev="$(python3 scripts/preview.py current-commit --manifest website/dev.json || true)"
           if [ "$current_dev" = "$commit" ]; then
             echo "Dev manifest already points at $commit; skipping."
