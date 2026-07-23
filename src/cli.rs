@@ -978,7 +978,10 @@ mod tests {
             super::parse_channel_set_arg(&["stable".to_string()]),
             Some("stable")
         );
-        assert_eq!(super::parse_channel_set_arg(&["dev".to_string()]), Some("dev"));
+        assert_eq!(
+            super::parse_channel_set_arg(&["dev".to_string()]),
+            Some("dev")
+        );
         assert_eq!(super::parse_channel_set_arg(&["nightly".to_string()]), None);
         assert_eq!(
             super::parse_channel_set_arg(&["preview".to_string(), "stable".to_string()]),
