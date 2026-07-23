@@ -622,6 +622,12 @@ impl WindowsInputMapper {
         kind: crate::protocol::ClientKeyKind,
     ) -> Option<crate::protocol::ClientInputEvent> {
         let modifiers = windows_key_modifiers(key.control_key_state);
+        if key.virtual_key_code == 0 {
+            let codepoint = self.utf16_unit_to_char(key.unicode)?;
+            if !codepoint.is_control() {
+                return Some(crate::protocol::ClientInputEvent::Text { codepoint });
+            }
+        }
         if modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
             && key.unicode == 0x000a
             && (key.virtual_key_code == 0x4a || key.virtual_scan_code == 0x24)
@@ -1220,6 +1226,25 @@ mod tests {
     }
 
     #[test]
+    fn vti_win32_input_mode_marks_ime_commit_as_text() {
+        for control_key_state in [0, 0x0010, 0x0008] {
+            let records = win32_input_mode_encoded_record(WindowsKeyRecord {
+                key_down: true,
+                repeat_count: 1,
+                virtual_key_code: 0,
+                virtual_scan_code: 0,
+                unicode: '你' as u16,
+                control_key_state,
+            });
+
+            assert_eq!(
+                translate(records),
+                vec![crate::protocol::ClientInputEvent::Text { codepoint: '你' }]
+            );
+        }
+    }
+
+    #[test]
     fn vti_win32_input_mode_decoded_paste_flag_clears_after_raw_completion() {
         let mut records = win32_input_mode_encoded_key_bytes(b"\x1b[200~");
         records.extend("one\x1b[201~".chars().map(key_char));
@@ -1694,11 +1719,7 @@ mod tests {
         assert_eq!(
             translate(records),
             vec![
-                crate::protocol::ClientInputEvent::Key {
-                    code: crate::protocol::ClientKeyCode::Char('a'),
-                    modifiers: 0,
-                    kind: crate::protocol::ClientKeyKind::Press,
-                },
+                crate::protocol::ClientInputEvent::Text { codepoint: 'a' },
                 crate::protocol::ClientInputEvent::Key {
                     code: crate::protocol::ClientKeyCode::Char('a'),
                     modifiers: 0,
