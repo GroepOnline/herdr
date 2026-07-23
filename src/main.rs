@@ -81,6 +81,8 @@ mod noninteractive_process;
 mod pane;
 mod pane_template;
 mod persist;
+/// Pi coding-agent session watcher — emits `pi.session.ended` events.
+mod pi_sessions;
 mod platform;
 mod plugin_command;
 mod plugin_paths;
