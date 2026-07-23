@@ -230,11 +230,16 @@ herdr update
 
 Preview releases are GitHub prereleases produced by `.github/workflows/preview.yml` on manual dispatch and the Wednesday/Friday schedule. The workflow updates `website/preview.json`, which the website build publishes as `/preview.json`. Do not hand-edit `website/preview.json`; fix the workflow or `scripts/preview.py` and rerun Preview.
 
-Dev releases are auto-published from merges to `main`. The dev workflow tags
-`dev-YYYY-MM-DD-<shortsha12>`, updates `website/dev.json`, and commits
-`docs: update dev manifest` to `main`. Do not hand-edit `website/dev.json`; fix
-the workflow or script and rerun Dev. Direct installer smoke tests can use
-`HERDR_CHANNEL=dev`.
+Dev releases auto-tag after successful `CI` on `main` (merge-driven). The
+`.github/workflows/dev.yml` workflow creates `dev-YYYY-MM-DD-<shortsha12>`,
+builds linux-x86_64, publishes a GitHub prerelease, updates `website/dev.json`,
+and commits `docs: update dev manifest` to `main`. Do not hand-edit
+`website/dev.json`; fix the workflow or `scripts/preview.py --channel dev` and
+rerun Dev. Fresh install:
+
+```bash
+curl -fsSL https://herdr.chefgroep.nl/install.sh | HERDR_CHANNEL=dev sh
+```
 
 Stable releases use:
 
