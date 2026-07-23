@@ -258,6 +258,9 @@ pub struct HeadlessServer {
     foreground_client_id: Option<u64>,
     /// Server-owned keybindings, restored when foreground clients use server mode.
     server_keybindings: crate::config::LiveKeybindConfig,
+    /// Watches `~/.pi/agent/sessions/` and emits `pi.session.ended` events so
+    /// plugins (e.g. chef-pi-eval) can ingest finished sessions in real time.
+    pi_session_watcher: crate::pi_sessions::PiSessionWatcher,
     /// Full server config warning shown to clients that use server keybindings.
     server_config_diagnostic: Option<String>,
     /// Server config warning with keybinding diagnostics removed for local-keybinding clients.
@@ -453,6 +456,7 @@ impl HeadlessServer {
             next_client_id: 1,
             foreground_client_id: None,
             server_keybindings,
+            pi_session_watcher: crate::pi_sessions::PiSessionWatcher::new(),
             server_config_diagnostic,
             server_config_diagnostic_without_keybindings,
             terminal_attach_owners: HashMap::new(),
@@ -3854,6 +3858,14 @@ impl HeadlessServer {
     fn handle_scheduled_tasks_headless(&mut self, now: Instant, geometry_dirty: bool) -> bool {
         let mut changed = false;
 
+        // Pi session-end watcher: emit `pi.session.ended` for any session JSONL
+        // that stopped growing. Cheap (directory scan is rate-limited inside
+        // the watcher). Surfaced as plugin hooks via emit_event.
+        for envelope in self.pi_session_watcher.poll() {
+            self.app.emit_event(envelope);
+            changed = true;
+        }
+
         self.app.sync_headless_animation_timer(now);
 
         // No resize polling needed — server has no terminal.
@@ -4489,6 +4501,7 @@ mod tests {
             next_client_id: 1,
             foreground_client_id: None,
             server_keybindings,
+            pi_session_watcher: crate::pi_sessions::PiSessionWatcher::new(),
             server_config_diagnostic: None,
             server_config_diagnostic_without_keybindings: None,
             terminal_attach_owners: HashMap::new(),

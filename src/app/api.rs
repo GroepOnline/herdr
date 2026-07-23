@@ -787,7 +787,7 @@ impl App {
         }
     }
 
-    pub(super) fn emit_event(&mut self, event: crate::api::schema::EventEnvelope) {
+    pub(crate) fn emit_event(&mut self, event: crate::api::schema::EventEnvelope) {
         self.run_plugin_event_hooks(&event);
         self.event_hub.push(event);
     }

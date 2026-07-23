@@ -691,38 +691,88 @@
                 "layout"
               ],
               "type": "object"
+            },
+            {
+              "description": "Fired when a Pi session JSONL stops growing. Payload mirrors what\nchef-pi-eval ingests.",
+              "properties": {
+                "cwd": {
+                  "type": "string"
+                },
+                "event_count": {
+                  "format": "uint64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "last_stop_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "session_file": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "type": {
+                  "const": "pi_session_ended",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "session_id",
+                "cwd",
+                "host",
+                "event_count",
+                "session_file"
+              ],
+              "type": "object"
             }
           ]
         },
         "EventKind": {
-          "enum": [
-            "workspace_created",
-            "workspace_updated",
-            "workspace_metadata_updated",
-            "workspace_closed",
-            "workspace_renamed",
-            "workspace_moved",
-            "workspace_focused",
-            "worktree_created",
-            "worktree_opened",
-            "worktree_removed",
-            "tab_created",
-            "tab_closed",
-            "tab_renamed",
-            "tab_moved",
-            "tab_focused",
-            "pane_created",
-            "pane_closed",
-            "pane_updated",
-            "pane_focused",
-            "pane_moved",
-            "pane_output_changed",
-            "pane_exited",
-            "pane_agent_detected",
-            "pane_agent_status_changed",
-            "layout_updated"
-          ],
-          "type": "string"
+          "oneOf": [
+            {
+              "enum": [
+                "workspace_created",
+                "workspace_updated",
+                "workspace_metadata_updated",
+                "workspace_closed",
+                "workspace_renamed",
+                "workspace_moved",
+                "workspace_focused",
+                "worktree_created",
+                "worktree_opened",
+                "worktree_removed",
+                "tab_created",
+                "tab_closed",
+                "tab_renamed",
+                "tab_moved",
+                "tab_focused",
+                "pane_created",
+                "pane_closed",
+                "pane_updated",
+                "pane_focused",
+                "pane_moved",
+                "pane_output_changed",
+                "pane_exited",
+                "pane_agent_detected",
+                "pane_agent_status_changed",
+                "layout_updated"
+              ],
+              "type": "string"
+            },
+            {
+              "const": "pi_session_ended",
+              "description": "A Pi coding-agent session JSONL has stopped growing. Emitted by the\nbuilt-in `pi_sessions` watcher (see `src/pi_sessions.rs`) so plugins can\nreact the moment a session finishes — e.g. chef-pi-eval's `ingest`.",
+              "type": "string"
+            }
+          ]
         },
         "PaneInfo": {
           "properties": {
@@ -3988,6 +4038,19 @@
                 "type"
               ],
               "type": "object"
+            },
+            {
+              "description": "Subscribe to Pi coding-agent session-end events. Emitted by the built-in\n`pi_sessions` watcher when a session JSONL stops growing. The event\npayload (`EventData::PiSessionEnded`) carries `cwd`; subscribers filter\nclient-side, matching the other fleet-lifecycle event subscriptions\n(which take no filter fields).",
+              "properties": {
+                "type": {
+                  "const": "pi.session.ended",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "type": "object"
             }
           ]
         },
@@ -6933,6 +6996,47 @@
                 "layout"
               ],
               "type": "object"
+            },
+            {
+              "description": "Fired when a Pi session JSONL stops growing. Payload mirrors what\nchef-pi-eval ingests.",
+              "properties": {
+                "cwd": {
+                  "type": "string"
+                },
+                "event_count": {
+                  "format": "uint64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "last_stop_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "session_file": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "type": {
+                  "const": "pi_session_ended",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "session_id",
+                "cwd",
+                "host",
+                "event_count",
+                "session_file"
+              ],
+              "type": "object"
             }
           ]
         },
@@ -6952,34 +7056,43 @@
           "type": "object"
         },
         "EventKind": {
-          "enum": [
-            "workspace_created",
-            "workspace_updated",
-            "workspace_metadata_updated",
-            "workspace_closed",
-            "workspace_renamed",
-            "workspace_moved",
-            "workspace_focused",
-            "worktree_created",
-            "worktree_opened",
-            "worktree_removed",
-            "tab_created",
-            "tab_closed",
-            "tab_renamed",
-            "tab_moved",
-            "tab_focused",
-            "pane_created",
-            "pane_closed",
-            "pane_updated",
-            "pane_focused",
-            "pane_moved",
-            "pane_output_changed",
-            "pane_exited",
-            "pane_agent_detected",
-            "pane_agent_status_changed",
-            "layout_updated"
-          ],
-          "type": "string"
+          "oneOf": [
+            {
+              "enum": [
+                "workspace_created",
+                "workspace_updated",
+                "workspace_metadata_updated",
+                "workspace_closed",
+                "workspace_renamed",
+                "workspace_moved",
+                "workspace_focused",
+                "worktree_created",
+                "worktree_opened",
+                "worktree_removed",
+                "tab_created",
+                "tab_closed",
+                "tab_renamed",
+                "tab_moved",
+                "tab_focused",
+                "pane_created",
+                "pane_closed",
+                "pane_updated",
+                "pane_focused",
+                "pane_moved",
+                "pane_output_changed",
+                "pane_exited",
+                "pane_agent_detected",
+                "pane_agent_status_changed",
+                "layout_updated"
+              ],
+              "type": "string"
+            },
+            {
+              "const": "pi_session_ended",
+              "description": "A Pi coding-agent session JSONL has stopped growing. Emitted by the\nbuilt-in `pi_sessions` watcher (see `src/pi_sessions.rs`) so plugins can\nreact the moment a session finishes — e.g. chef-pi-eval's `ingest`.",
+              "type": "string"
+            }
+          ]
         },
         "InstalledPluginInfo": {
           "properties": {
