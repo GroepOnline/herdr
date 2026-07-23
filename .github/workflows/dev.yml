@@ -148,7 +148,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build musl-tools
 
-      # No rust-cache here: workflow_run + cache write is a CodeQL cache-poisoning vector.
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          key: dev-${{ env.TARGET }}
 
       - name: Remove Zig caches
         run: rm -rf .zig-cache vendor/libghostty-vt/.zig-cache vendor/libghostty-vt/zig-out
