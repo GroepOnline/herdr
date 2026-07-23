@@ -1726,7 +1726,7 @@ mod tests {
         let mut state = state_with_workspaces(&["a", "b", "c", "d", "e", "f"]);
         state.sidebar_collapsed = true;
         state.workspace_scroll = 2;
-        crate::ui::compute_view(&mut state, Rect::new(0, 0, 106, 12));
+        crate::ui::compute_view(&mut state, Rect::new(0, 0, 106, 8));
         let (ws_area, _, _) = crate::ui::collapsed_sidebar_sections(state.view.sidebar_rect);
         assert!(ws_area.height >= 1);
 
