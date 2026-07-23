@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [0.7.6] - 2026-07-23
+
+### Added
+- Added a native `pi.session.ended` event and a built-in `pi_sessions` watcher. When a Pi coding-agent session JSONL stops growing (configurable stale window), Herdr emits a `pi.session.ended` event carrying the session id, cwd, host, stop reason, and event count. Fleet plugins (e.g. `chef-pi-eval`) can subscribe via `on = "pi.session.ended"` to ingest and auto-evaluate sessions. (#58)
+- Exposed `pi.session.ended` in `PLUGIN_HOOK_EVENT_KINDS` so plugin `on = "pi.session.ended"` hooks fire for any opted-in plugin.
+
 ## [0.7.5] - 2026-07-21
 
 ### Breaking Changes
