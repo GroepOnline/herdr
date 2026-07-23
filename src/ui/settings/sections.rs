@@ -121,14 +121,14 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
 
         if row.kind == SettingsRowKind::Spinner {
             let styles = active_spinner_styles(app);
-            if let Some(idx) = spinner_index(row.id)
-                && let Some(style) = styles.get(idx)
-            {
-                let frame_char = spinner_frame_at(*style, app.settings.preview_tick);
-                spans.push(Span::styled(
-                    format!("  {frame_char} "),
-                    Style::default().fg(p.yellow),
-                ));
+            if let Some(idx) = spinner_index(row.id) {
+                if let Some(style) = styles.get(idx) {
+                    let frame_char = spinner_frame_at(*style, app.settings.preview_tick);
+                    spans.push(Span::styled(
+                        format!("  {frame_char} "),
+                        Style::default().fg(p.yellow),
+                    ));
+                }
             }
         }
 
@@ -222,15 +222,18 @@ fn render_spinner_hero(app: &AppState, frame: &mut Frame, layout: &SettingsLayou
 
 fn focused_spinner_style(app: &AppState) -> crate::config::SpinnerStyle {
     let rows = section_rows(app, SettingsSection::Appearance);
-    if let Some(row) = rows.get(app.settings.list.selected)
-        && row.kind == SettingsRowKind::Spinner
-        && let Some(idx) = spinner_index(row.id)
-        && let Some(style) = active_spinner_category(app.settings.spinner_category)
-            .styles
-            .get(idx)
-            .copied()
-    {
-        return style;
+    if let Some(row) = rows.get(app.settings.list.selected) {
+        if row.kind == SettingsRowKind::Spinner {
+            if let Some(idx) = spinner_index(row.id) {
+                if let Some(style) = active_spinner_category(app.settings.spinner_category)
+                    .styles
+                    .get(idx)
+                    .copied()
+                {
+                    return style;
+                }
+            }
+        }
     }
     app.spinner_style
 }
