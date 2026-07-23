@@ -3,7 +3,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use crate::app::{state::SettingsSection, AppState};
 
 use super::{
-    rows::{section_rows, SettingsRowKind},
+    rows::section_rows,
     spinner::{active_spinner_category, SPINNER_CATEGORIES},
 };
 
@@ -16,6 +16,7 @@ pub(crate) const SETTINGS_ROW_HEIGHT: u16 = 1;
 pub(crate) const SETTINGS_SECTION_DESC_ROWS: u16 = 2;
 pub(crate) const SETTINGS_SECTION_GAP_ROWS: u16 = 1;
 pub(crate) const SETTINGS_SPINNER_CATEGORY_ROWS: u16 = 1;
+pub(crate) const SETTINGS_SPINNER_HERO_ROWS: u16 = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SettingsLayout {
@@ -119,7 +120,10 @@ impl SettingsLayout {
         let height = self.content.height;
         y += SETTINGS_SECTION_DESC_ROWS + SETTINGS_SECTION_GAP_ROWS;
         if app.settings.section == SettingsSection::Appearance {
-            y += SETTINGS_SPINNER_CATEGORY_ROWS + SETTINGS_SECTION_GAP_ROWS;
+            y += SETTINGS_SPINNER_CATEGORY_ROWS
+                + SETTINGS_SECTION_GAP_ROWS
+                + SETTINGS_SPINNER_HERO_ROWS
+                + SETTINGS_SECTION_GAP_ROWS;
         }
         Rect {
             x: self.content.x,
@@ -139,6 +143,23 @@ impl SettingsLayout {
             y,
             self.content.width,
             SETTINGS_SPINNER_CATEGORY_ROWS,
+        ))
+    }
+
+    pub(crate) fn spinner_hero_rect(&self, app: &AppState) -> Option<Rect> {
+        if app.settings.section != SettingsSection::Appearance {
+            return None;
+        }
+        let y = self.content.y
+            + SETTINGS_SECTION_DESC_ROWS
+            + SETTINGS_SECTION_GAP_ROWS
+            + SETTINGS_SPINNER_CATEGORY_ROWS
+            + SETTINGS_SECTION_GAP_ROWS;
+        Some(Rect::new(
+            self.content.x,
+            y,
+            self.content.width,
+            SETTINGS_SPINNER_HERO_ROWS,
         ))
     }
 
@@ -179,10 +200,7 @@ impl SettingsLayout {
 
     pub(crate) fn content_row_rect(&self, app: &AppState, row_index: usize) -> Option<Rect> {
         let rows = section_rows(app, app.settings.section);
-        let row = rows.get(row_index)?;
-        if row.kind == SettingsRowKind::Template {
-            return None;
-        }
+        rows.get(row_index)?;
         let list_area = self.content_list_area(app);
         let (scroll, visible) = self.visible_row_range(app);
         let visible_idx = row_index.saturating_sub(scroll);
@@ -215,49 +233,28 @@ impl SettingsLayout {
 
         let (scroll, visible) = self.visible_row_range(app);
         let visible_idx = (row - list_area.y) as usize;
-        if visible_idx < visible {
-            let row_index = scroll + visible_idx;
-            if let Some(item) = rows.get(row_index) {
-                if item.kind != SettingsRowKind::Template {
-                    return Some(row_index);
-                }
-            }
+        if visible_idx >= visible {
+            return None;
         }
-
-        if app.settings.section == SettingsSection::Layout {
-            let template_area = template_list_area(list_area, layout_non_template_count(app));
-            if let Some(template_row) = template_index_at(app, template_area, col, row) {
-                return Some(template_row);
-            }
-        }
-
-        None
-    }
-}
-
-pub(crate) fn layout_non_template_count(app: &AppState) -> u16 {
-    section_rows(app, SettingsSection::Layout)
-        .iter()
-        .filter(|row| row.kind != SettingsRowKind::Template)
-        .count() as u16
-}
-
-pub(crate) fn template_list_area(list_area: Rect, non_template_count: u16) -> Rect {
-    Rect {
-        x: list_area.x,
-        y: list_area.y.saturating_add(non_template_count),
-        width: list_area.width,
-        height: list_area.height.saturating_sub(non_template_count),
+        let row_index = scroll + visible_idx;
+        rows.get(row_index).map(|_| row_index)
     }
 }
 
 pub(crate) fn settings_popup_height(app: &AppState) -> u16 {
     let base = SETTINGS_POPUP_HEIGHT;
-    if app.settings.section == SettingsSection::Agents {
-        let extra = app.integration_recommendations.len().max(2) as u16;
-        base.saturating_add(extra.min(8))
-    } else {
-        base
+    match app.settings.section {
+        SettingsSection::Agents => {
+            let extra = app.integration_recommendations.len().max(2) as u16;
+            base.saturating_add(extra.min(8))
+        }
+        SettingsSection::Plugins => {
+            let installed = super::catalog::installed_plugins_sorted(app).len();
+            let catalog = super::catalog::catalog_entries_available(app).len();
+            let extra = installed.saturating_add(catalog).saturating_add(2) as u16;
+            base.saturating_add(extra.min(10))
+        }
+        _ => base,
     }
 }
 
@@ -320,69 +317,8 @@ pub(crate) fn settings_show_primary_action(app: &AppState) -> bool {
     }
 }
 
-pub(crate) fn template_card_height(template: &crate::pane_template::PaneTemplate) -> u16 {
-    2 + template.preview.lines().count() as u16
-}
-
-pub(crate) fn template_card_rect(list_area: Rect, idx: usize) -> Option<Rect> {
-    use crate::pane_template::PaneTemplateId;
-
-    let id = *PaneTemplateId::ALL.get(idx)?;
-    let col_width = (list_area.width as usize / 2).max(20);
-    let col = idx % 2;
-    let grid_row = idx / 2;
-    let mut y = list_area.y;
-    for row in 0..grid_row {
-        let left_idx = row * 2;
-        let left_h = PaneTemplateId::ALL
-            .get(left_idx)
-            .map(|id| template_card_height(&id.template()))
-            .unwrap_or(0);
-        let right_h = PaneTemplateId::ALL
-            .get(left_idx + 1)
-            .map(|id| template_card_height(&id.template()))
-            .unwrap_or(0);
-        y = y.saturating_add(left_h.max(right_h));
-    }
-    let height = template_card_height(&id.template());
-    if y >= list_area.y + list_area.height {
-        return None;
-    }
-    Some(Rect {
-        x: list_area.x + col as u16 * col_width as u16,
-        y,
-        width: col_width as u16,
-        height,
-    })
-}
-
-pub(crate) fn template_index_at(
-    app: &AppState,
-    list_area: Rect,
-    col: u16,
-    row: u16,
-) -> Option<usize> {
-    use crate::pane_template::PaneTemplateId;
-
-    let rows = section_rows(app, app.settings.section);
-    for idx in 0..PaneTemplateId::ALL.len() {
-        let card = template_card_rect(list_area, idx)?;
-        if col >= card.x && col < card.x + card.width && row >= card.y && row < card.y + card.height
-        {
-            return rows
-                .iter()
-                .position(|row| row.kind == SettingsRowKind::Template && row.payload == idx);
-        }
-    }
-    None
-}
-
 pub(crate) fn spinner_preview_frame(app: &AppState) -> &'static str {
-    let style = app.spinner_style;
-    let frames = style.frames();
-    let divisor = style.speed_divisor();
-    let tick = app.settings.preview_tick;
-    frames[(tick as usize / divisor as usize) % frames.len()]
+    crate::ui::settings::spinner::spinner_frame_at(app.spinner_style, app.settings.preview_tick)
 }
 
 pub(crate) fn spinner_category_labels() -> impl Iterator<Item = &'static str> {
@@ -438,20 +374,22 @@ mod tests {
     }
 
     #[test]
-    fn layout_template_cards_sit_below_toggle_rows() {
+    fn layout_template_rows_are_plain_content_rows() {
         let mut app = AppState::test_new();
         app.mode = Mode::Settings;
         app.settings.section = SettingsSection::Layout;
         let layout = SettingsLayout::compute(Rect::new(0, 0, 120, 40), &app).expect("layout");
-        let list_area = layout.content_list_area(&app);
-        let prefix = layout_non_template_count(&app);
-        let template_area = template_list_area(list_area, prefix);
-        let first_toggle = layout.content_row_rect(&app, 0).expect("toggle geometry");
-        let first_card = template_card_rect(template_area, 0).expect("template geometry");
-        assert!(first_card.y > first_toggle.y);
+        let rows = section_rows(&app, SettingsSection::Layout);
+        let template_idx = rows
+            .iter()
+            .position(|row| matches!(row.kind, crate::ui::settings::rows::SettingsRowKind::Template))
+            .expect("template row");
+        let rect = layout
+            .content_row_rect(&app, template_idx)
+            .expect("template should use normal row geometry");
         assert_eq!(
-            layout.content_index_at(&app, first_toggle.x + 1, first_toggle.y),
-            Some(0)
+            layout.content_index_at(&app, rect.x + 1, rect.y),
+            Some(template_idx)
         );
     }
 

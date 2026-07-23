@@ -616,6 +616,10 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
     use crate::detect::AgentState;
     use crate::fleet::{FleetOpsBarKind, FleetOpsMetadata};
 
+    if !app.fleet_ops_bar_enabled() {
+        return;
+    }
+
     let buf = frame.buffer_mut();
     let area = buf.area;
 
@@ -644,7 +648,9 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
             Some(host.as_str())
         };
 
-        let meta = FleetOpsMetadata::from_terminal(term, host_str.unwrap_or("local"));
+        // Render reads only the off-path cache — no disk I/O here.
+        let meta =
+            FleetOpsMetadata::from_terminal(term, host_str.unwrap_or("local"), &app.fleet_ops_cache);
         let parts = meta.bar_parts(agent_name, state, label);
 
         let state_bg = match state {

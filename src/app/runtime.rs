@@ -4,8 +4,9 @@ use crossterm::terminal;
 
 use super::{
     background_update_check_enabled, repeat_key_identity, App, Mode, ANIMATION_INTERVAL,
-    AUTO_UPDATE_CHECK_INTERVAL, GIT_REMOTE_STATUS_REFRESH_INTERVAL, MIN_RENDER_INTERVAL,
-    RESIZE_POLL_INTERVAL, SELECTION_AUTOSCROLL_INTERVAL,
+    AUTO_UPDATE_CHECK_INTERVAL, FLEET_OPS_CACHE_REFRESH_INTERVAL,
+    GIT_REMOTE_STATUS_REFRESH_INTERVAL, MIN_RENDER_INTERVAL, RESIZE_POLL_INTERVAL,
+    SELECTION_AUTOSCROLL_INTERVAL,
 };
 use crate::events::AppEvent;
 use crate::workspace::{GitStatusCacheEntry, Workspace, WorkspaceGitStatus};
@@ -54,6 +55,18 @@ fn retain_custom_command_after_wait(
 }
 
 impl App {
+    /// Refresh Fleet Ops fragment + git caches off the render path.
+    pub(crate) fn refresh_fleet_ops_cache(&mut self) {
+        let plugin_ids: Vec<String> = self.state.installed_plugins.keys().cloned().collect();
+        let mut cwds = Vec::new();
+        for term in self.state.terminals.values() {
+            if !cwds.iter().any(|cwd| cwd == &term.cwd) {
+                cwds.push(term.cwd.clone());
+            }
+        }
+        crate::fleet::refresh_fleet_ops_cache(&mut self.state.fleet_ops_cache, plugin_ids, cwds);
+    }
+
     pub(crate) fn reap_finished_custom_commands(&mut self) {
         self.detached_custom_command_children
             .retain_mut(|child| retain_custom_command_after_wait(child.id(), child.try_wait()));
@@ -223,6 +236,12 @@ impl App {
         let mut resized = false;
 
         self.sync_animation_timer(now);
+
+        if now >= self.next_fleet_ops_cache_refresh {
+            self.refresh_fleet_ops_cache();
+            self.next_fleet_ops_cache_refresh = now + FLEET_OPS_CACHE_REFRESH_INTERVAL;
+            changed = true;
+        }
 
         if now >= self.next_resize_poll {
             resized = self.handle_resize_poll();

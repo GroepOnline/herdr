@@ -557,6 +557,14 @@ impl App {
         }
     }
 
+    pub(super) fn save_fleet_ops_bar(&mut self, enabled: bool) {
+        if self.update_config_file("fleet ops bar", |content| {
+            crate::config::upsert_section_bool(content, "ui", "fleet_ops_bar", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
     /// Apply a pane layout template to the current tab by performing a sequence
     /// of splits. Leaves settings mode first so the user sees the result.
     pub(super) fn apply_pane_template(&mut self, template: crate::pane_template::PaneTemplateId) {
@@ -613,26 +621,43 @@ impl App {
                 self.focus_pane_direction_via_api(NavDirection::Right);
                 self.split_focused_pane_via_api(SplitDirection::Down);
             }
-            T::TripleHorizontal => {
+            T::TripleHorizontal | T::OpsTriple => {
                 self.split_focused_pane_via_api(SplitDirection::Right);
                 self.focus_pane_direction_via_api(NavDirection::Left);
                 self.split_focused_pane_via_api(SplitDirection::Right);
             }
             T::MainSidebar => {
-                self.runtime_pane_split(
-                    "tui.pane.split",
-                    crate::api::schema::PaneSplitParams {
-                        workspace_id: None,
-                        target_pane_id: None,
-                        direction: SplitDirection::Right,
-                        ratio: Some(0.7),
-                        cwd: None,
-                        focus: true,
-                        env: Default::default(),
-                        command: None,
-                    },
-                );
+                self.split_with_ratio(SplitDirection::Right, 0.7);
+            }
+            T::MonitorBottom => {
+                self.split_with_ratio(SplitDirection::Down, 0.72);
+            }
+            T::MonitorSide => {
+                self.split_with_ratio(SplitDirection::Right, 0.62);
+                self.split_focused_pane_via_api(SplitDirection::Down);
+                self.focus_pane_direction_via_api(NavDirection::Left);
+            }
+            T::ReviewDeck => {
+                self.split_with_ratio(SplitDirection::Right, 0.68);
+                self.split_focused_pane_via_api(SplitDirection::Down);
+                self.focus_pane_direction_via_api(NavDirection::Left);
             }
         }
+    }
+
+    fn split_with_ratio(&mut self, direction: crate::api::schema::SplitDirection, ratio: f64) {
+        self.runtime_pane_split(
+            "tui.pane.split",
+            crate::api::schema::PaneSplitParams {
+                workspace_id: None,
+                target_pane_id: None,
+                direction,
+                ratio: Some(ratio),
+                cwd: None,
+                focus: true,
+                env: Default::default(),
+                command: None,
+            },
+        );
     }
 }

@@ -360,6 +360,11 @@ impl App {
         {
             self.refresh_integration_recommendations();
         }
+        if previous_settings_section != crate::app::state::SettingsSection::Plugins
+            && self.state.settings.section == crate::app::state::SettingsSection::Plugins
+        {
+            self.reload_plugins_for_settings();
+        }
         if self.state.agent_panel_sort != previous_agent_panel_sort {
             self.save_agent_panel_sort(self.state.agent_panel_sort);
         }

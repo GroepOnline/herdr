@@ -2,171 +2,17 @@ use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKin
 
 use crate::{
     app::{
-        state::{
-            AppState, ExperimentSetting, SettingsConfigSnapshot, SettingsFocus, SettingsSection,
-            THEME_NAMES,
-        },
+        state::{AppState, SettingsConfigSnapshot, SettingsFocus, SettingsSection, THEME_NAMES},
         App, Mode,
     },
-    config::{
-        HostCursorModeConfig, NewTerminalCwdConfig, ShellModeConfig, SidebarCollapsedModeConfig,
-        ToastClipboardPosition, ToastDelivery, ToastHerdrPosition, UpdateChannelConfig,
-    },
     ui::settings::{
-        rows::{scrollback_presets, section_rows, spinner_style_for_row, SettingsRowKind},
+        catalog::{activate_item, theme_index},
+        rows::{section_rows, SettingsRowKind},
         SettingsLayout,
     },
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-// The shared `Save` verb is semantic: these actions persist settings.
-#[allow(clippy::enum_variant_names)]
-pub(super) enum SettingsAction {
-    SaveTheme(String),
-    SaveSound(bool),
-    SaveToastDelivery(ToastDelivery),
-    SaveAgentBorderLabels(bool),
-    SavePaneBorders(bool),
-    SavePaneGaps(bool),
-    SaveHideTabBarWhenSingleTab(bool),
-    SavePaneHistory(bool),
-    SaveSwitchAsciiInputSourceInPrefix(bool),
-    SaveSpinnerStyle(crate::config::SpinnerStyle),
-    ApplyPaneTemplate(crate::pane_template::PaneTemplateId),
-    InstallRecommendedIntegrations,
-    SaveMouseCapture(bool),
-    SaveCopyOnSelect(bool),
-    SaveConfirmClose(bool),
-    SavePromptNewTabName(bool),
-    SavePromptNewWorkspaceName(bool),
-    SaveRedrawOnFocusGained(bool),
-    SaveHostCursor(HostCursorModeConfig),
-    SaveSidebarCollapsedMode(SidebarCollapsedModeConfig),
-    SaveAgentPanelSort(crate::app::state::AgentPanelSort),
-    SaveShellMode(ShellModeConfig),
-    SaveDefaultShell(String),
-    SaveNewTerminalCwd(NewTerminalCwdConfig),
-    SaveScrollbackLimitBytes(usize),
-    SaveToastDelaySeconds(u64),
-    SaveToastHerdrPosition(ToastHerdrPosition),
-    SaveClipboardToastEnabled(bool),
-    SaveClipboardToastPosition(ToastClipboardPosition),
-    SaveUpdateChannel(UpdateChannelConfig),
-    SaveVersionCheck(bool),
-    SaveManifestCheck(bool),
-    SaveResumeAgentsOnRestore(bool),
-    SaveManageSshConfig(bool),
-    SaveClipboardHistoryEnabled(bool),
-    SaveAllowNested(bool),
-    SaveKittyGraphics(bool),
-    SaveRevealHiddenCursorForCjkIme(bool),
-    SaveThemeAutoSwitch(bool),
-}
-
-const DEFAULT_SHELL_PRESETS: &[&str] = &["", "bash", "zsh", "fish", "nu"];
-const TOAST_DELAY_PRESETS: &[u64] = &[0, 1, 2, 5];
-
-fn cycle_host_cursor(current: HostCursorModeConfig) -> HostCursorModeConfig {
-    match current {
-        HostCursorModeConfig::Auto => HostCursorModeConfig::Native,
-        HostCursorModeConfig::Native => HostCursorModeConfig::Drawn,
-        HostCursorModeConfig::Drawn => HostCursorModeConfig::Auto,
-    }
-}
-
-fn cycle_sidebar_collapsed_mode(current: SidebarCollapsedModeConfig) -> SidebarCollapsedModeConfig {
-    match current {
-        SidebarCollapsedModeConfig::Compact => SidebarCollapsedModeConfig::Hidden,
-        SidebarCollapsedModeConfig::Hidden => SidebarCollapsedModeConfig::Compact,
-    }
-}
-
-fn cycle_agent_panel_sort(
-    current: crate::app::state::AgentPanelSort,
-) -> crate::app::state::AgentPanelSort {
-    match current {
-        crate::app::state::AgentPanelSort::Spaces => crate::app::state::AgentPanelSort::Priority,
-        crate::app::state::AgentPanelSort::Priority => crate::app::state::AgentPanelSort::Spaces,
-    }
-}
-
-fn cycle_shell_mode(current: ShellModeConfig) -> ShellModeConfig {
-    match current {
-        ShellModeConfig::Auto => ShellModeConfig::Login,
-        ShellModeConfig::Login => ShellModeConfig::NonLogin,
-        ShellModeConfig::NonLogin => ShellModeConfig::Auto,
-    }
-}
-
-fn cycle_new_terminal_cwd(current: &NewTerminalCwdConfig) -> NewTerminalCwdConfig {
-    match current {
-        NewTerminalCwdConfig::Follow => NewTerminalCwdConfig::Home,
-        NewTerminalCwdConfig::Home => NewTerminalCwdConfig::Current,
-        NewTerminalCwdConfig::Current | NewTerminalCwdConfig::Path(_) => {
-            NewTerminalCwdConfig::Follow
-        }
-    }
-}
-
-fn cycle_default_shell(current: &str) -> String {
-    let idx = DEFAULT_SHELL_PRESETS
-        .iter()
-        .position(|shell| *shell == current)
-        .unwrap_or(0);
-    DEFAULT_SHELL_PRESETS[(idx + 1) % DEFAULT_SHELL_PRESETS.len()].to_string()
-}
-
-fn cycle_toast_delay(current: u64) -> u64 {
-    let idx = TOAST_DELAY_PRESETS
-        .iter()
-        .position(|delay| *delay == current)
-        .unwrap_or(1);
-    TOAST_DELAY_PRESETS[(idx + 1) % TOAST_DELAY_PRESETS.len()]
-}
-
-fn cycle_toast_herdr_position(current: ToastHerdrPosition) -> ToastHerdrPosition {
-    match current {
-        ToastHerdrPosition::TopLeft => ToastHerdrPosition::TopRight,
-        ToastHerdrPosition::TopRight => ToastHerdrPosition::BottomRight,
-        ToastHerdrPosition::BottomRight => ToastHerdrPosition::BottomLeft,
-        ToastHerdrPosition::BottomLeft => ToastHerdrPosition::TopLeft,
-    }
-}
-
-fn cycle_clipboard_toast_position(current: ToastClipboardPosition) -> ToastClipboardPosition {
-    match current {
-        ToastClipboardPosition::TopLeft => ToastClipboardPosition::TopCenter,
-        ToastClipboardPosition::TopCenter => ToastClipboardPosition::TopRight,
-        ToastClipboardPosition::TopRight => ToastClipboardPosition::BottomRight,
-        ToastClipboardPosition::BottomRight => ToastClipboardPosition::BottomCenter,
-        ToastClipboardPosition::BottomCenter => ToastClipboardPosition::BottomLeft,
-        ToastClipboardPosition::BottomLeft => ToastClipboardPosition::TopLeft,
-    }
-}
-
-fn experiment_toggle_action(state: &AppState, idx: usize) -> Option<SettingsAction> {
-    match ExperimentSetting::ALL.get(idx).copied()? {
-        ExperimentSetting::PaneHistory => Some(SettingsAction::SavePaneHistory(
-            !ExperimentSetting::PaneHistory.enabled(state),
-        )),
-        ExperimentSetting::SwitchAsciiInputSourceInPrefix => {
-            Some(SettingsAction::SaveSwitchAsciiInputSourceInPrefix(
-                !ExperimentSetting::SwitchAsciiInputSourceInPrefix.enabled(state),
-            ))
-        }
-        ExperimentSetting::KittyGraphics => Some(SettingsAction::SaveKittyGraphics(
-            !ExperimentSetting::KittyGraphics.enabled(state),
-        )),
-        ExperimentSetting::AllowNested => Some(SettingsAction::SaveAllowNested(
-            !ExperimentSetting::AllowNested.enabled(state),
-        )),
-        ExperimentSetting::RevealHiddenCursorForCjkIme => {
-            Some(SettingsAction::SaveRevealHiddenCursorForCjkIme(
-                !ExperimentSetting::RevealHiddenCursorForCjkIme.enabled(state),
-            ))
-        }
-    }
-}
+pub(super) use crate::ui::settings::SettingsAction;
 
 impl App {
     pub(crate) fn handle_settings_key(&mut self, key: KeyEvent) {
@@ -178,6 +24,11 @@ impl App {
             && self.state.settings.section == SettingsSection::Agents
         {
             self.refresh_integration_recommendations();
+        }
+        if previous_section != SettingsSection::Plugins
+            && self.state.settings.section == SettingsSection::Plugins
+        {
+            self.reload_plugins_for_settings();
         }
     }
 
@@ -213,10 +64,7 @@ impl App {
             SettingsAction::SaveRedrawOnFocusGained(enabled) => {
                 self.save_redraw_on_focus_gained(enabled)
             }
-            SettingsAction::SaveHostCursor(mode) => {
-                self.state.settings.config_snapshot.host_cursor = mode;
-                self.save_host_cursor(mode);
-            }
+            SettingsAction::SaveHostCursor(mode) => self.save_host_cursor(mode),
             SettingsAction::SaveSidebarCollapsedMode(mode) => {
                 self.save_sidebar_collapsed_mode(mode)
             }
@@ -239,47 +87,34 @@ impl App {
             SettingsAction::SaveClipboardToastPosition(position) => {
                 self.save_clipboard_toast_position(position)
             }
-            SettingsAction::SaveUpdateChannel(channel) => {
-                self.state.settings.config_snapshot.update_channel = channel;
-                self.save_update_channel(channel);
-            }
-            SettingsAction::SaveVersionCheck(enabled) => {
-                self.state.settings.config_snapshot.version_check = enabled;
-                self.save_version_check(enabled);
-            }
-            SettingsAction::SaveManifestCheck(enabled) => {
-                self.state.settings.config_snapshot.manifest_check = enabled;
-                self.save_manifest_check(enabled);
-            }
+            SettingsAction::SaveUpdateChannel(channel) => self.save_update_channel(channel),
+            SettingsAction::SaveVersionCheck(enabled) => self.save_version_check(enabled),
+            SettingsAction::SaveManifestCheck(enabled) => self.save_manifest_check(enabled),
             SettingsAction::SaveResumeAgentsOnRestore(enabled) => {
-                self.state.settings.config_snapshot.resume_agents_on_restore = enabled;
-                self.save_resume_agents_on_restore(enabled);
+                self.save_resume_agents_on_restore(enabled)
             }
-            SettingsAction::SaveManageSshConfig(enabled) => {
-                self.state.settings.config_snapshot.manage_ssh_config = enabled;
-                self.save_manage_ssh_config(enabled);
-            }
+            SettingsAction::SaveManageSshConfig(enabled) => self.save_manage_ssh_config(enabled),
             SettingsAction::SaveClipboardHistoryEnabled(enabled) => {
-                self.state
-                    .settings
-                    .config_snapshot
-                    .clipboard_history_enabled = enabled;
-                self.save_clipboard_history_enabled(enabled);
+                self.save_clipboard_history_enabled(enabled)
             }
-            SettingsAction::SaveAllowNested(enabled) => {
-                self.state.settings.config_snapshot.allow_nested = enabled;
-                self.save_allow_nested(enabled);
-            }
+            SettingsAction::SaveAllowNested(enabled) => self.save_allow_nested(enabled),
             SettingsAction::SaveKittyGraphics(enabled) => self.save_kitty_graphics(enabled),
             SettingsAction::SaveRevealHiddenCursorForCjkIme(enabled) => {
                 self.save_reveal_hidden_cursor_for_cjk_ime(enabled)
             }
-            SettingsAction::SaveThemeAutoSwitch(enabled) => {
-                self.state.settings.config_snapshot.theme_auto_switch = enabled;
-                self.state.theme_runtime.auto_switch = enabled;
-                self.save_theme_auto_switch(enabled);
+            SettingsAction::SaveThemeAutoSwitch(enabled) => self.save_theme_auto_switch(enabled),
+            SettingsAction::SaveFleetOpsBar(enabled) => self.save_fleet_ops_bar(enabled),
+            SettingsAction::TogglePluginEnabled { plugin_id, enabled } => {
+                if let Err(err) = self.settings_set_plugin_enabled(&plugin_id, enabled) {
+                    self.state.plugin_install_messages = vec![err];
+                }
+            }
+            SettingsAction::InstallCatalogPlugin { source } => {
+                self.settings_install_catalog_plugin(&source);
             }
         }
+        self.state.settings.config_snapshot = SettingsConfigSnapshot::load();
+        self.state.theme_runtime.auto_switch = self.state.settings.config_snapshot.theme_auto_switch;
     }
 }
 
@@ -305,7 +140,12 @@ fn preview_selected_theme(state: &mut AppState) {
     if row.kind != SettingsRowKind::Theme {
         return;
     }
-    let name = THEME_NAMES[row.payload];
+    let Some(idx) = theme_index(row.id) else {
+        return;
+    };
+    let Some(name) = THEME_NAMES.get(idx) else {
+        return;
+    };
     if let Some(mut palette) = Palette::from_name(name) {
         if let Some(custom) = &state.theme_runtime.custom {
             palette = palette.with_overrides(custom);
@@ -373,7 +213,7 @@ fn default_selection_for_section(state: &AppState, section: SettingsSection) -> 
             let theme_idx = current_theme_index(&state.theme_name);
             section_rows(state, section)
                 .iter()
-                .position(|row| row.kind == SettingsRowKind::Theme && row.payload == theme_idx)
+                .position(|row| theme_index(row.id) == Some(theme_idx))
                 .unwrap_or(0)
         }
         SettingsSection::Notifications => section_rows(state, section)
@@ -385,155 +225,9 @@ fn default_selection_for_section(state: &AppState, section: SettingsSection) -> 
 }
 
 fn activate_row(state: &AppState, row_index: usize) -> Option<SettingsAction> {
-    let section = state.settings.section;
-    let rows = section_rows(state, section);
+    let rows = section_rows(state, state.settings.section);
     let row = rows.get(row_index)?;
-
-    match (section, row.kind) {
-        (SettingsSection::Appearance, SettingsRowKind::Toggle) => Some(
-            SettingsAction::SaveThemeAutoSwitch(!state.settings.config_snapshot.theme_auto_switch),
-        ),
-        (SettingsSection::Appearance, SettingsRowKind::Spinner) => {
-            spinner_style_for_row(state, row).map(SettingsAction::SaveSpinnerStyle)
-        }
-        (SettingsSection::Layout, SettingsRowKind::Toggle) => match row.payload {
-            0 => Some(SettingsAction::SavePaneBorders(
-                !state.pane_borders_enabled(),
-            )),
-            1 => Some(SettingsAction::SavePaneGaps(!state.pane_gaps_enabled())),
-            2 => Some(SettingsAction::SaveAgentBorderLabels(
-                !state.agent_border_labels_enabled(),
-            )),
-            3 => Some(SettingsAction::SaveHideTabBarWhenSingleTab(
-                !state.hide_tab_bar_when_single_tab_enabled(),
-            )),
-            _ => None,
-        },
-        (SettingsSection::Layout, SettingsRowKind::Choice) => match row.payload {
-            0 => Some(SettingsAction::SaveSidebarCollapsedMode(
-                cycle_sidebar_collapsed_mode(state.sidebar_collapsed_mode),
-            )),
-            1 => Some(SettingsAction::SaveAgentPanelSort(cycle_agent_panel_sort(
-                state.agent_panel_sort,
-            ))),
-            _ => None,
-        },
-        (SettingsSection::Layout, SettingsRowKind::Template) => {
-            crate::pane_template::PaneTemplateId::ALL
-                .get(row.payload)
-                .copied()
-                .map(SettingsAction::ApplyPaneTemplate)
-        }
-        (SettingsSection::Input, SettingsRowKind::Toggle) => match row.payload {
-            0 => Some(SettingsAction::SaveMouseCapture(!state.mouse_capture)),
-            1 => Some(SettingsAction::SaveCopyOnSelect(!state.copy_on_select)),
-            2 => Some(SettingsAction::SaveRedrawOnFocusGained(
-                !state.redraw_on_focus_gained,
-            )),
-            3 => Some(SettingsAction::SaveConfirmClose(!state.confirm_close)),
-            4 => Some(SettingsAction::SavePromptNewTabName(
-                !state.prompt_new_tab_name,
-            )),
-            5 => Some(SettingsAction::SavePromptNewWorkspaceName(
-                !state.prompt_new_workspace_name,
-            )),
-            _ => None,
-        },
-        (SettingsSection::Input, SettingsRowKind::Choice) => Some(SettingsAction::SaveHostCursor(
-            cycle_host_cursor(state.settings.config_snapshot.host_cursor),
-        )),
-        (SettingsSection::Terminal, SettingsRowKind::Choice) => match row.payload {
-            0 => Some(SettingsAction::SaveDefaultShell(cycle_default_shell(
-                &state.default_shell,
-            ))),
-            1 => Some(SettingsAction::SaveShellMode(cycle_shell_mode(
-                state.shell_mode,
-            ))),
-            2 => Some(SettingsAction::SaveNewTerminalCwd(cycle_new_terminal_cwd(
-                &state.new_terminal_cwd,
-            ))),
-            preset_idx if preset_idx >= 3 => scrollback_presets()
-                .get(preset_idx - 3)
-                .map(|(bytes, _)| SettingsAction::SaveScrollbackLimitBytes(*bytes)),
-            _ => None,
-        },
-        (SettingsSection::Agents, SettingsRowKind::Integration) => integrations_need_install(state)
-            .then_some(SettingsAction::InstallRecommendedIntegrations),
-        (SettingsSection::Notifications, SettingsRowKind::Toggle) => {
-            Some(SettingsAction::SaveSound(!state.sound_enabled()))
-        }
-        (SettingsSection::Notifications, SettingsRowKind::Choice) => {
-            if row.label == "toast delay" {
-                return Some(SettingsAction::SaveToastDelaySeconds(cycle_toast_delay(
-                    state.toast_config.delay_seconds,
-                )));
-            }
-            if row.label == "herdr toast position" {
-                return Some(SettingsAction::SaveToastHerdrPosition(
-                    cycle_toast_herdr_position(state.toast_config.herdr.position),
-                ));
-            }
-            if row.label == "clipboard toast" {
-                if !state.toast_config.clipboard.enabled {
-                    return Some(SettingsAction::SaveClipboardToastEnabled(true));
-                }
-                let next = cycle_clipboard_toast_position(state.toast_config.clipboard.position);
-                // After a full position cycle back to TopLeft, turn clipboard toasts off.
-                if next == ToastClipboardPosition::TopLeft
-                    && state.toast_config.clipboard.position == ToastClipboardPosition::BottomLeft
-                {
-                    return Some(SettingsAction::SaveClipboardToastEnabled(false));
-                }
-                return Some(SettingsAction::SaveClipboardToastPosition(next));
-            }
-            let delivery = match row.payload {
-                1 => ToastDelivery::Off,
-                2 => ToastDelivery::Herdr,
-                3 => ToastDelivery::Terminal,
-                4 => ToastDelivery::System,
-                _ => return None,
-            };
-            Some(SettingsAction::SaveToastDelivery(delivery))
-        }
-        (SettingsSection::Agents, SettingsRowKind::Toggle) => {
-            Some(SettingsAction::SaveResumeAgentsOnRestore(
-                !state.settings.config_snapshot.resume_agents_on_restore,
-            ))
-        }
-        (SettingsSection::Updates, SettingsRowKind::Choice) => match row.payload {
-            0 => Some(SettingsAction::SaveUpdateChannel(
-                UpdateChannelConfig::Stable,
-            )),
-            1 => Some(SettingsAction::SaveUpdateChannel(
-                UpdateChannelConfig::Preview,
-            )),
-            _ => None,
-        },
-        (SettingsSection::Updates, SettingsRowKind::Toggle) => match row.payload {
-            0 => Some(SettingsAction::SaveVersionCheck(
-                !state.settings.config_snapshot.version_check,
-            )),
-            1 => Some(SettingsAction::SaveManifestCheck(
-                !state.settings.config_snapshot.manifest_check,
-            )),
-            _ => None,
-        },
-        (SettingsSection::Advanced, SettingsRowKind::Toggle) => {
-            if row.payload >= 100 {
-                return match row.payload - 100 {
-                    0 => Some(SettingsAction::SaveManageSshConfig(
-                        !state.settings.config_snapshot.manage_ssh_config,
-                    )),
-                    1 => Some(SettingsAction::SaveClipboardHistoryEnabled(
-                        !state.settings.config_snapshot.clipboard_history_enabled,
-                    )),
-                    _ => None,
-                };
-            }
-            experiment_toggle_action(state, row.payload)
-        }
-        _ => None,
-    }
+    activate_item(state, row.id)
 }
 
 pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Option<SettingsAction> {
@@ -682,6 +376,7 @@ pub(crate) fn open_settings(state: &mut AppState) {
 
 pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
     state.integration_install_messages.clear();
+    state.plugin_install_messages.clear();
     state.settings.original_palette = Some(state.palette.clone());
     state.settings.original_theme = Some(state.theme_name.clone());
     state.settings.config_snapshot = SettingsConfigSnapshot::load();
@@ -692,6 +387,11 @@ pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
     state.settings.content_scroll = 0;
     state.settings.list.selected = default_selection_for_section(state, section);
     state.mode = Mode::Settings;
+    if section == SettingsSection::Plugins {
+        let _ = crate::app::api::plugins::reload_installed_plugins_state(
+            &mut state.installed_plugins,
+        );
+    }
 }
 
 impl AppState {
@@ -759,6 +459,7 @@ mod tests {
 
     use super::super::{app_for_mouse_test, mouse, state_with_workspaces};
     use super::*;
+    use crate::ui::settings::catalog::SettingsItemId;
 
     #[test]
     fn settings_cancel_restores_previewed_theme_from_other_sections() {
@@ -840,7 +541,7 @@ mod tests {
         open_settings_at(&mut state, SettingsSection::Notifications);
         let sound_row = section_rows(&state, SettingsSection::Notifications)
             .iter()
-            .position(|row| row.label == "sound alerts")
+            .position(|row| row.id == SettingsItemId::SoundAlerts)
             .expect("sound row");
         state.settings.list.selected = sound_row;
 
@@ -881,22 +582,22 @@ mod tests {
     }
 
     #[test]
-    fn terminal_choice_payloads_map_to_distinct_actions() {
+    fn terminal_choice_ids_map_to_distinct_actions() {
         let mut state = state_with_workspaces(&["test"]);
         open_settings_at(&mut state, SettingsSection::Terminal);
         let rows = section_rows(&state, SettingsSection::Terminal);
 
         let shell_mode_idx = rows
             .iter()
-            .position(|row| row.label == "shell mode")
+            .position(|row| row.id == SettingsItemId::ShellMode)
             .expect("shell mode row");
         let cwd_idx = rows
             .iter()
-            .position(|row| row.label == "new pane cwd")
+            .position(|row| row.id == SettingsItemId::NewTerminalCwd)
             .expect("cwd row");
         let scrollback_idx = rows
             .iter()
-            .position(|row| row.label.starts_with("scrollback"))
+            .position(|row| matches!(row.id, SettingsItemId::ScrollbackPreset { .. }))
             .expect("scrollback row");
 
         state.settings.list.selected = shell_mode_idx;

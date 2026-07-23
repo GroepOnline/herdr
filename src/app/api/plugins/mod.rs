@@ -40,9 +40,77 @@ impl App {
         if self.no_session {
             return Ok(());
         }
-        let entries = crate::persist::plugin_registry::try_load()?;
-        self.replace_installed_plugins(entries);
+        reload_installed_plugins_state(&mut self.state.installed_plugins)
+    }
+
+    pub(crate) fn reload_plugins_for_settings(&mut self) {
+        if self.no_session {
+            return;
+        }
+        if let Err(err) = reload_installed_plugins_state(&mut self.state.installed_plugins) {
+            tracing::warn!(error = %err, "failed to reload installed plugins for settings");
+        }
+    }
+
+    pub(crate) fn settings_set_plugin_enabled(
+        &mut self,
+        plugin_id: &str,
+        enabled: bool,
+    ) -> Result<(), String> {
+        let Some(plugin_id) = normalize_plugin_id(plugin_id) else {
+            return Err(
+                "plugin id must be non-empty, <= 120 characters, and contain only ASCII letters, digits, colon, dot, underscore, or hyphen"
+                    .to_string(),
+            );
+        };
+        let found = self
+            .update_installed_plugins(|plugins| {
+                if let Some(plugin) = plugins.get_mut(&plugin_id) {
+                    plugin.enabled = enabled;
+                    true
+                } else {
+                    false
+                }
+            })
+            .map_err(|err| err.to_string())?;
+        if !found {
+            return Err("plugin not found".to_string());
+        }
+        if !enabled {
+            self.clear_agent_view_for_source(&format!("plugin:{plugin_id}"));
+        }
         Ok(())
+    }
+
+    pub(crate) fn settings_install_catalog_plugin(&mut self, source: &str) {
+        self.state.plugin_install_messages.clear();
+        let exe = match std::env::current_exe() {
+            Ok(exe) => exe,
+            Err(err) => {
+                self.state
+                    .plugin_install_messages
+                    .push(format!("failed to locate herdr binary: {err}"));
+                return;
+            }
+        };
+        match std::process::Command::new(&exe)
+            .args(["plugin", "install", source, "--yes"])
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+        {
+            Ok(_) => {
+                self.state
+                    .plugin_install_messages
+                    .push(format!("installing {source}…"));
+            }
+            Err(err) => {
+                self.state
+                    .plugin_install_messages
+                    .push(format!("failed to start install: {err}"));
+            }
+        }
     }
 
     fn update_installed_plugins<T>(
@@ -641,6 +709,21 @@ impl App {
             encode_success(id, ResponseResult::PluginDisabled { plugin })
         }
     }
+}
+
+pub(crate) fn reload_installed_plugins_state(
+    installed_plugins: &mut crate::app::state::InstalledPluginRegistry,
+) -> std::io::Result<()> {
+    let entries = crate::persist::plugin_registry::try_load()?;
+    let entries =
+        crate::persist::plugin_registry::reload_manifests(entries, |path, enabled| {
+            load_plugin_manifest(path, enabled).map_err(|(_, message)| message)
+        });
+    *installed_plugins = entries
+        .into_iter()
+        .map(|plugin| (plugin.plugin_id.clone(), plugin))
+        .collect();
+    Ok(())
 }
 
 fn invalid_plugin_id(id: String) -> String {

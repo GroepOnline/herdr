@@ -1,7 +1,10 @@
+pub(crate) mod catalog;
 mod layout;
 pub(crate) mod rows;
 mod sections;
 pub(crate) mod spinner;
+
+pub(crate) use catalog::{scrollback_presets, SettingsAction};
 
 pub(crate) use layout::{settings_button_rects, settings_show_primary_action, SettingsLayout};
 

@@ -1469,6 +1469,8 @@ pub struct UiConfig {
     pub show_agent_labels_on_pane_borders: bool,
     /// Hide the tab row when the workspace has one tab. Default: false.
     pub hide_tab_bar_when_single_tab: bool,
+    /// Show the Fleet Ops Bar under pane borders. Default: true.
+    pub fleet_ops_bar: bool,
     /// Agent sidebar ordering. Saved values are "spaces" or "priority". Default: "spaces".
     pub agent_panel_sort: AgentPanelSortConfig,
     /// Agent working spinner animation style. Default: "braille".
@@ -1669,6 +1671,7 @@ impl Default for UiConfig {
             pane_gaps: true,
             show_agent_labels_on_pane_borders: false,
             hide_tab_bar_when_single_tab: false,
+            fleet_ops_bar: true,
             agent_panel_sort: AgentPanelSortConfig::Spaces,
             spinner_style: SpinnerStyle::Dots,
             sidebar: SidebarConfig::default(),

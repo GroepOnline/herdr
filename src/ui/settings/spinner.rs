@@ -119,6 +119,27 @@ pub(crate) fn active_spinner_category(index: usize) -> &'static SpinnerCategory 
         .unwrap_or(&SPINNER_CATEGORIES[0])
 }
 
+pub(crate) fn spinner_frame_at(style: SpinnerStyle, tick: u32) -> &'static str {
+    let frames = style.frames();
+    let divisor = style.speed_divisor().max(1);
+    frames[(tick as usize / divisor as usize) % frames.len()]
+}
+
+/// Wide hero strip built from the live frame so the picker feels physical.
+pub(crate) fn spinner_hero_strip(style: SpinnerStyle, tick: u32, width: usize) -> String {
+    let frame = spinner_frame_at(style, tick);
+    let frame_w = frame.chars().count().max(1);
+    let repeats = (width / (frame_w + 1)).clamp(3, 12);
+    let mut out = String::new();
+    for i in 0..repeats {
+        if i > 0 {
+            out.push(' ');
+        }
+        out.push_str(frame);
+    }
+    out
+}
+
 /// Keep the full catalog linked so category coverage stays auditable.
 const _: usize = SpinnerStyle::ALL.len();
 
@@ -130,5 +151,12 @@ mod tests {
     fn spinner_categories_cover_all_styles() {
         let categorized: usize = SPINNER_CATEGORIES.iter().map(|c| c.styles.len()).sum();
         assert_eq!(categorized, SpinnerStyle::ALL.len());
+    }
+
+    #[test]
+    fn spinner_hero_strip_repeats_live_frame() {
+        let strip = spinner_hero_strip(SpinnerStyle::Dots, 0, 40);
+        assert!(strip.contains(spinner_frame_at(SpinnerStyle::Dots, 0)));
+        assert!(strip.chars().count() >= 5);
     }
 }

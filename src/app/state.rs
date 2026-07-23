@@ -989,6 +989,7 @@ pub enum SettingsSection {
     Terminal,
     Notifications,
     Agents,
+    Plugins,
     Updates,
     Advanced,
 }
@@ -1001,6 +1002,7 @@ impl SettingsSection {
         Self::Terminal,
         Self::Notifications,
         Self::Agents,
+        Self::Plugins,
         Self::Updates,
         Self::Advanced,
     ];
@@ -1013,6 +1015,7 @@ impl SettingsSection {
             Self::Terminal => "terminal",
             Self::Notifications => "notifications",
             Self::Agents => "agents",
+            Self::Plugins => "plugins",
             Self::Updates => "updates",
             Self::Advanced => "advanced",
         }
@@ -1026,6 +1029,7 @@ impl SettingsSection {
             Self::Terminal => "Terminal",
             Self::Notifications => "Notifications",
             Self::Agents => "Agents",
+            Self::Plugins => "Plugins",
             Self::Updates => "Updates",
             Self::Advanced => "Advanced",
         }
@@ -1033,12 +1037,13 @@ impl SettingsSection {
 
     pub fn description(self) -> &'static str {
         match self {
-            Self::Appearance => "theme, auto-switch, and spinner animation style",
-            Self::Layout => "pane chrome, sidebar, agent panel, and layout templates",
+            Self::Appearance => "theme and the working spinner — live preview above the list",
+            Self::Layout => "pane chrome, sidebar, and one-shot layout templates",
             Self::Input => "mouse, copy, focus redraw, prompts, and keybind help",
             Self::Terminal => "default shell, cwd policy, and scrollback",
             Self::Notifications => "sound alerts, toast delivery, and clipboard toasts",
             Self::Agents => "resume sessions and agent integration packages",
+            Self::Plugins => "install, enable, and manage herdr plugins",
             Self::Updates => "update channel and background check toggles",
             Self::Advanced => "experiments, graphics, remote, and config paths",
         }
@@ -1686,6 +1691,11 @@ pub struct AppState {
     pub agent_manifest_update_status: crate::detect::manifest_update::ManifestUpdateStatus,
     /// Result messages from the latest integration install action.
     pub integration_install_messages: Vec<String>,
+    pub plugin_install_messages: Vec<String>,
+    /// Show the Fleet Ops Bar under pane borders. Default: true.
+    pub fleet_ops_bar: bool,
+    /// Fleet Ops fragments + git context refreshed off the render path.
+    pub fleet_ops_cache: crate::fleet::FleetOpsCache,
     /// Installed or linked plugins known to this running Herdr instance.
     pub(crate) installed_plugins: InstalledPluginRegistry,
     /// Pane ids opened through the plugin pane API.
@@ -1746,6 +1756,10 @@ impl AppState {
 
     pub fn hide_tab_bar_when_single_tab_enabled(&self) -> bool {
         self.hide_tab_bar_when_single_tab
+    }
+
+    pub fn fleet_ops_bar_enabled(&self) -> bool {
+        self.fleet_ops_bar
     }
 
     pub fn pane_history_persistence_enabled(&self) -> bool {
@@ -2076,6 +2090,9 @@ impl AppState {
             agent_manifest_update_status:
                 crate::detect::manifest_update::ManifestUpdateStatus::default(),
             integration_install_messages: Vec::new(),
+            plugin_install_messages: Vec::new(),
+            fleet_ops_bar: true,
+            fleet_ops_cache: crate::fleet::FleetOpsCache::default(),
             installed_plugins: std::collections::HashMap::new(),
             plugin_panes: std::collections::HashMap::new(),
             pane_graphics_layers: std::collections::HashMap::new(),

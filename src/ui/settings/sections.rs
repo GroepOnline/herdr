@@ -6,21 +6,19 @@ use ratatui::{
     Frame,
 };
 
-use crate::{
-    app::{state::SettingsSection, AppState},
-    pane_template::PaneTemplateId,
-};
+use crate::app::{state::SettingsSection, AppState};
 
 use super::{
+    catalog::{catalog_plugin_index, integration_index, spinner_index},
     layout::{
-        active_spinner_styles, spinner_category_labels, spinner_preview_frame, template_card_rect,
-        SettingsLayout, SETTINGS_SECTION_DESC_ROWS, SETTINGS_SECTION_GAP_ROWS,
-        SETTINGS_SPINNER_CATEGORY_ROWS,
+        active_spinner_styles, spinner_category_labels, SettingsLayout, SETTINGS_SECTION_DESC_ROWS,
+        SETTINGS_SECTION_GAP_ROWS,
     },
     rows::{
         row_choice_selected, row_spinner_current, row_theme_current, row_toggle_checked,
         section_rows, SettingsRowKind,
     },
+    spinner::{active_spinner_category, spinner_frame_at, spinner_hero_strip},
 };
 
 pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout: &SettingsLayout) {
@@ -48,10 +46,10 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
 
     if section == SettingsSection::Appearance {
         render_spinner_categories(app, frame, layout);
+        render_spinner_hero(app, frame, layout);
     }
 
     let rows = section_rows(app, section);
-    let list_area = layout.content_list_area(app);
     let (scroll, visible) = layout.visible_row_range(app);
     let selected = app.settings.list.selected.min(rows.len().saturating_sub(1));
 
@@ -60,10 +58,6 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
         let Some(row) = rows.get(row_index) else {
             break;
         };
-
-        if row.kind == SettingsRowKind::Template {
-            continue;
-        }
 
         let Some(rect) = layout.content_row_rect(app, row_index) else {
             continue;
@@ -108,9 +102,16 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
                     " "
                 }
             }
-            SettingsRowKind::Integration => integration_marker(app, row.payload),
+            SettingsRowKind::Integration => {
+                if catalog_plugin_index(row.id).is_some() {
+                    "+"
+                } else {
+                    integration_marker(app, integration_index(row.id).unwrap_or_default())
+                }
+            }
             SettingsRowKind::Note => "·",
-            SettingsRowKind::Template => " ",
+            // Compact apply-row — no ASCII wireframe cards.
+            SettingsRowKind::Template => "▸",
         };
 
         let mut spans = vec![
@@ -120,22 +121,15 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
 
         if row.kind == SettingsRowKind::Spinner {
             let styles = active_spinner_styles(app);
-            if let Some(style) = styles.get(row.payload) {
-                let tick = app.settings.preview_tick;
-                let frame_char = style.frames()
-                    [(tick as usize / style.speed_divisor() as usize) % style.frames().len()];
+            if let Some(idx) = spinner_index(row.id)
+                && let Some(style) = styles.get(idx)
+            {
+                let frame_char = spinner_frame_at(*style, app.settings.preview_tick);
                 spans.push(Span::styled(
                     format!("  {frame_char} "),
                     Style::default().fg(p.yellow),
                 ));
             }
-        }
-
-        if row.kind == SettingsRowKind::Note && row.label == "spinner preview" {
-            spans.push(Span::styled(
-                format!("  {} ", spinner_preview_frame(app)),
-                Style::default().fg(p.yellow),
-            ));
         }
 
         if let Some(detail) = &row.detail {
@@ -148,22 +142,11 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
         frame.render_widget(Paragraph::new(Line::from(spans)), rect);
     }
 
-    if section == SettingsSection::Layout {
-        let template_area = super::layout::template_list_area(
-            list_area,
-            super::layout::layout_non_template_count(app),
-        );
-        for row in rows
-            .iter()
-            .enumerate()
-            .filter(|(_, row)| row.kind == SettingsRowKind::Template)
-        {
-            render_template_card(app, frame, template_area, row.1.payload, row.0 == selected);
-        }
-    }
-
     if section == SettingsSection::Agents {
         render_agents_footer(app, frame, layout);
+    }
+    if section == SettingsSection::Plugins {
+        render_plugins_footer(app, frame, layout);
     }
 }
 
@@ -189,62 +172,67 @@ fn render_spinner_categories(app: &AppState, frame: &mut Frame, layout: &Setting
         spans.push(Span::styled(format!(" {label} "), style));
     }
     frame.render_widget(Paragraph::new(Line::from(spans)), rect);
-
-    let sep_y = rect.y + SETTINGS_SPINNER_CATEGORY_ROWS + SETTINGS_SECTION_GAP_ROWS - 1;
-    if sep_y >= layout.content.y && sep_y < layout.content.y + layout.content.height {
-        let sep = "─".repeat(layout.content.width as usize);
-        frame.render_widget(
-            Paragraph::new(Span::styled(sep, Style::default().fg(p.surface0))),
-            Rect::new(layout.content.x, sep_y, layout.content.width, 1),
-        );
-    }
 }
 
-fn render_template_card(
-    app: &AppState,
-    frame: &mut Frame,
-    list_area: Rect,
-    template_idx: usize,
-    is_sel: bool,
-) {
+fn render_spinner_hero(app: &AppState, frame: &mut Frame, layout: &SettingsLayout) {
     let p = &app.palette;
-    let Some(card) = template_card_rect(list_area, template_idx) else {
+    let Some(rect) = layout.spinner_hero_rect(app) else {
         return;
     };
-    let id = PaneTemplateId::ALL[template_idx];
-    let tmpl = id.template();
-    let row_style = if is_sel {
-        Style::default()
-            .bg(p.surface0)
-            .fg(p.text)
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(p.subtext0)
-    };
+    let style = focused_spinner_style(app);
+    let category = active_spinner_category(app.settings.spinner_category).label;
+    let tick = app.settings.preview_tick;
+    let strip = spinner_hero_strip(style, tick, rect.width.saturating_sub(4) as usize);
+    let frame_char = spinner_frame_at(style, tick);
 
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::styled("  ", row_style),
-            Span::styled(tmpl.name, row_style),
+            Span::styled(
+                format!(" {frame_char}  "),
+                Style::default().fg(p.yellow).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                style.label(),
+                Style::default()
+                    .fg(p.text)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!("  ·  {category}"),
+                Style::default().fg(p.overlay1),
+            ),
         ])),
-        Rect::new(card.x, card.y, card.width, 1),
+        Rect::new(rect.x, rect.y, rect.width, 1),
     );
     frame.render_widget(
         Paragraph::new(Span::styled(
-            format!("  {}", tmpl.description),
-            Style::default().fg(p.overlay1),
+            format!(" {strip}"),
+            Style::default().fg(p.yellow),
         )),
-        Rect::new(card.x, card.y + 1, card.width, 1),
+        Rect::new(rect.x, rect.y + 1, rect.width, 1),
     );
-    for (line_idx, preview_line) in tmpl.preview.lines().enumerate() {
-        frame.render_widget(
-            Paragraph::new(Span::styled(
-                format!("  {}", preview_line),
-                Style::default().fg(p.subtext0),
-            )),
-            Rect::new(card.x, card.y + 2 + line_idx as u16, card.width, 1),
-        );
+    frame.render_widget(
+        Paragraph::new(Span::styled(
+            "  [ and ] cycle packs · enter picks this style",
+            Style::default().fg(p.overlay0),
+        )),
+        Rect::new(rect.x, rect.y + 2, rect.width, 1),
+    );
+}
+
+fn focused_spinner_style(app: &AppState) -> crate::config::SpinnerStyle {
+    let rows = section_rows(app, SettingsSection::Appearance);
+    if let Some(row) = rows.get(app.settings.list.selected)
+        && row.kind == SettingsRowKind::Spinner
+        && let Some(idx) = spinner_index(row.id)
+        && let Some(style) = active_spinner_category(app.settings.spinner_category)
+            .styles
+            .get(idx)
+            .copied()
+    {
+        return style;
     }
+    app.spinner_style
 }
 
 fn integration_marker(app: &AppState, idx: usize) -> &'static str {
@@ -279,6 +267,25 @@ fn render_agents_footer(app: &AppState, frame: &mut Frame, layout: &SettingsLayo
         "all detected integrations are installed".to_string()
     } else {
         "no supported agent CLIs found on PATH".to_string()
+    };
+    frame.render_widget(
+        Paragraph::new(Span::styled(hint, Style::default().fg(p.overlay1))),
+        Rect::new(layout.content.x, y, layout.content.width, 1),
+    );
+}
+
+fn render_plugins_footer(app: &AppState, frame: &mut Frame, layout: &SettingsLayout) {
+    let p = &app.palette;
+    let y = layout.content.y + layout.content.height.saturating_sub(1);
+    if y <= layout.content.y {
+        return;
+    }
+    let hint = if !app.plugin_install_messages.is_empty() {
+        app.plugin_install_messages.join(" · ")
+    } else if super::catalog::catalog_entries_available(app).is_empty() {
+        "you're caught up — every listed plugin is installed".to_string()
+    } else {
+        "enter installs · space toggles on/off".to_string()
     };
     frame.render_widget(
         Paragraph::new(Span::styled(hint, Style::default().fg(p.overlay1))),

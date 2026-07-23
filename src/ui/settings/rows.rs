@@ -1,10 +1,15 @@
 use crate::{
     app::state::{AppState, SettingsSection, THEME_NAMES},
-    config::{SpinnerStyle, ToastDelivery},
+    config::ToastDelivery,
     pane_template::PaneTemplateId,
 };
 
-use super::spinner::active_spinner_category;
+use super::{
+    catalog::{
+        catalog_entries_available, installed_plugins_sorted, scrollback_presets, SettingsItemId,
+    },
+    spinner::active_spinner_category,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SettingsRowKind {
@@ -22,8 +27,7 @@ pub(crate) struct SettingsRow {
     pub label: String,
     pub detail: Option<String>,
     pub kind: SettingsRowKind,
-    /// Section-local payload index (theme idx, spinner style, template idx, etc.).
-    pub payload: usize,
+    pub id: SettingsItemId,
 }
 
 fn matches_filter(filter: &str, label: &str, detail: Option<&str>) -> bool {
@@ -45,60 +49,74 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 label: "auto-switch theme with host".to_string(),
                 detail: Some("follow terminal light/dark appearance".to_string()),
                 kind: SettingsRowKind::Toggle,
-                payload: 0,
+                id: SettingsItemId::ThemeAutoSwitch,
             });
             for (idx, name) in THEME_NAMES.iter().enumerate() {
                 rows.push(SettingsRow {
                     label: (*name).to_string(),
                     detail: None,
                     kind: SettingsRowKind::Theme,
-                    payload: idx,
+                    id: SettingsItemId::Theme { index: idx },
                 });
             }
-            rows.push(SettingsRow {
-                label: "spinner preview".to_string(),
-                detail: Some("animated preview of the selected style".to_string()),
-                kind: SettingsRowKind::Note,
-                payload: 0,
-            });
             let category = active_spinner_category(app.settings.spinner_category);
             for (idx, style) in category.styles.iter().enumerate() {
+                let frames = style.frames();
+                let trail = frames
+                    .iter()
+                    .take(5)
+                    .copied()
+                    .collect::<Vec<_>>()
+                    .join(" ");
                 rows.push(SettingsRow {
                     label: style.label().to_string(),
-                    detail: None,
+                    detail: Some(trail),
                     kind: SettingsRowKind::Spinner,
-                    payload: idx,
+                    id: SettingsItemId::Spinner { index: idx },
                 });
             }
         }
         SettingsSection::Layout => {
-            for (idx, (label, detail)) in [
-                ("pane borders", "draw borders around split panes"),
-                ("pane gaps", "keep split panes visually separated"),
-                ("agent labels", "show agent names in pane borders"),
-                ("hide tab bar", "hide tab row when only one tab"),
-            ]
-            .iter()
-            .enumerate()
-            {
+            for (label, detail, id) in [
+                (
+                    "pane borders",
+                    "draw borders around split panes",
+                    SettingsItemId::PaneBorders,
+                ),
+                (
+                    "pane gaps",
+                    "keep split panes visually separated",
+                    SettingsItemId::PaneGaps,
+                ),
+                (
+                    "agent labels",
+                    "show agent names in pane borders",
+                    SettingsItemId::AgentLabels,
+                ),
+                (
+                    "hide tab bar",
+                    "hide tab row when only one tab",
+                    SettingsItemId::HideTabBar,
+                ),
+            ] {
                 rows.push(SettingsRow {
-                    label: (*label).to_string(),
-                    detail: Some((*detail).to_string()),
+                    label: label.to_string(),
+                    detail: Some(detail.to_string()),
                     kind: SettingsRowKind::Toggle,
-                    payload: idx,
+                    id,
                 });
             }
             rows.push(SettingsRow {
                 label: "sidebar collapsed mode".to_string(),
                 detail: Some(app.sidebar_collapsed_mode_label()),
                 kind: SettingsRowKind::Choice,
-                payload: 0,
+                id: SettingsItemId::SidebarCollapsedMode,
             });
             rows.push(SettingsRow {
                 label: "agent panel sort".to_string(),
                 detail: Some(app.agent_panel_sort_label()),
                 kind: SettingsRowKind::Choice,
-                payload: 1,
+                id: SettingsItemId::AgentPanelSort,
             });
             for (idx, id) in PaneTemplateId::ALL.iter().enumerate() {
                 let tmpl = id.template();
@@ -106,47 +124,62 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     label: tmpl.name.to_string(),
                     detail: Some(tmpl.description.to_string()),
                     kind: SettingsRowKind::Template,
-                    payload: idx,
+                    id: SettingsItemId::PaneTemplate { index: idx },
                 });
             }
         }
         SettingsSection::Input => {
-            for (idx, (label, detail)) in [
-                ("mouse capture", "capture mouse for Herdr UI chrome"),
-                ("copy on select", "copy selected terminal text to clipboard"),
+            for (label, detail, id) in [
+                (
+                    "mouse capture",
+                    "capture mouse for Herdr UI chrome",
+                    SettingsItemId::MouseCapture,
+                ),
+                (
+                    "copy on select",
+                    "copy selected terminal text to clipboard",
+                    SettingsItemId::CopyOnSelect,
+                ),
                 (
                     "redraw on focus gained",
                     "refresh panes when Herdr regains focus",
+                    SettingsItemId::RedrawOnFocusGained,
                 ),
-                ("confirm close", "ask before closing tabs and workspaces"),
-                ("prompt new tab name", "ask for a name when creating tabs"),
+                (
+                    "confirm close",
+                    "ask before closing tabs and workspaces",
+                    SettingsItemId::ConfirmClose,
+                ),
+                (
+                    "prompt new tab name",
+                    "ask for a name when creating tabs",
+                    SettingsItemId::PromptNewTabName,
+                ),
                 (
                     "prompt new workspace name",
                     "ask for a name when creating workspaces",
+                    SettingsItemId::PromptNewWorkspaceName,
                 ),
-            ]
-            .iter()
-            .enumerate()
-            {
+            ] {
                 rows.push(SettingsRow {
-                    label: (*label).to_string(),
-                    detail: Some((*detail).to_string()),
+                    label: label.to_string(),
+                    detail: Some(detail.to_string()),
                     kind: SettingsRowKind::Toggle,
-                    payload: idx,
+                    id,
                 });
             }
             rows.push(SettingsRow {
                 label: "host cursor".to_string(),
                 detail: Some(app.host_cursor_label()),
                 kind: SettingsRowKind::Choice,
-                payload: 0,
+                id: SettingsItemId::HostCursor,
             });
             let prefix = crate::config::format_key_combo((app.prefix_code, app.prefix_mods));
             rows.push(SettingsRow {
                 label: "keybind help".to_string(),
                 detail: Some(format!("press {prefix}+? or open prefix help")),
                 kind: SettingsRowKind::Note,
-                payload: 1,
+                id: SettingsItemId::KeybindHelp,
             });
         }
         SettingsSection::Terminal => {
@@ -154,26 +187,26 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 label: "default shell".to_string(),
                 detail: Some(app.default_shell_display()),
                 kind: SettingsRowKind::Choice,
-                payload: 0,
+                id: SettingsItemId::DefaultShell,
             });
             rows.push(SettingsRow {
                 label: "shell mode".to_string(),
                 detail: Some(app.shell_mode_label()),
                 kind: SettingsRowKind::Choice,
-                payload: 1,
+                id: SettingsItemId::ShellMode,
             });
             rows.push(SettingsRow {
                 label: "new pane cwd".to_string(),
                 detail: Some(app.new_terminal_cwd_label()),
                 kind: SettingsRowKind::Choice,
-                payload: 2,
+                id: SettingsItemId::NewTerminalCwd,
             });
             for (idx, (_bytes, label)) in scrollback_presets().iter().enumerate() {
                 rows.push(SettingsRow {
                     label: format!("scrollback {label}"),
                     detail: None,
                     kind: SettingsRowKind::Choice,
-                    payload: idx + 3,
+                    id: SettingsItemId::ScrollbackPreset { index: idx },
                 });
             }
         }
@@ -182,41 +215,44 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 label: "sound alerts".to_string(),
                 detail: None,
                 kind: SettingsRowKind::Toggle,
-                payload: 0,
+                id: SettingsItemId::SoundAlerts,
             });
-            for (idx, label) in [
-                "toast off",
-                "toast inside herdr",
-                "toast via terminal",
-                "toast via system",
-            ]
-            .iter()
-            .enumerate()
-            {
+            for delivery in [
+                ToastDelivery::Off,
+                ToastDelivery::Herdr,
+                ToastDelivery::Terminal,
+                ToastDelivery::System,
+            ] {
+                let label = match delivery {
+                    ToastDelivery::Off => "toast off",
+                    ToastDelivery::Herdr => "toast inside herdr",
+                    ToastDelivery::Terminal => "toast via terminal",
+                    ToastDelivery::System => "toast via system",
+                };
                 rows.push(SettingsRow {
-                    label: (*label).to_string(),
+                    label: label.to_string(),
                     detail: None,
                     kind: SettingsRowKind::Choice,
-                    payload: idx + 1,
+                    id: SettingsItemId::ToastDelivery { delivery },
                 });
             }
             rows.push(SettingsRow {
                 label: "toast delay".to_string(),
                 detail: Some(format!("{}s", app.toast_config.delay_seconds)),
                 kind: SettingsRowKind::Choice,
-                payload: 0,
+                id: SettingsItemId::ToastDelay,
             });
             rows.push(SettingsRow {
                 label: "herdr toast position".to_string(),
                 detail: Some(app.toast_herdr_position_label()),
                 kind: SettingsRowKind::Choice,
-                payload: 1,
+                id: SettingsItemId::ToastHerdrPosition,
             });
             rows.push(SettingsRow {
                 label: "clipboard toast".to_string(),
                 detail: Some(app.clipboard_toast_label()),
                 kind: SettingsRowKind::Choice,
-                payload: 2,
+                id: SettingsItemId::ClipboardToast,
             });
         }
         SettingsSection::Agents => {
@@ -224,14 +260,14 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 label: "resume agents on restore".to_string(),
                 detail: Some("resume supported agent sessions when restoring".to_string()),
                 kind: SettingsRowKind::Toggle,
-                payload: 0,
+                id: SettingsItemId::ResumeAgentsOnRestore,
             });
             for (idx, item) in app.integration_recommendations.iter().enumerate() {
                 rows.push(SettingsRow {
                     label: item.label.to_string(),
                     detail: Some(item.status_label().to_string()),
                     kind: SettingsRowKind::Integration,
-                    payload: idx,
+                    id: SettingsItemId::Integration { index: idx },
                 });
             }
             if app.integration_recommendations.is_empty() {
@@ -239,8 +275,55 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     label: "no supported agent CLIs found on PATH".to_string(),
                     detail: None,
                     kind: SettingsRowKind::Note,
-                    payload: 0,
+                    id: SettingsItemId::IntegrationsEmpty,
                 });
+            }
+        }
+        SettingsSection::Plugins => {
+            rows.push(SettingsRow {
+                label: "your plugins".to_string(),
+                detail: Some("toggle to enable or disable".to_string()),
+                kind: SettingsRowKind::Note,
+                id: SettingsItemId::PluginsInstalledHeader,
+            });
+            let installed = installed_plugins_sorted(app);
+            if installed.is_empty() {
+                rows.push(SettingsRow {
+                    label: "nothing installed yet".to_string(),
+                    detail: Some("pick something below to add".to_string()),
+                    kind: SettingsRowKind::Note,
+                    id: SettingsItemId::PluginsEmpty,
+                });
+            } else {
+                for (index, plugin) in installed.iter().enumerate() {
+                    rows.push(SettingsRow {
+                        label: plugin.name.clone(),
+                        detail: Some(if plugin.enabled {
+                            "on".to_string()
+                        } else {
+                            "off".to_string()
+                        }),
+                        kind: SettingsRowKind::Toggle,
+                        id: SettingsItemId::InstalledPlugin { index },
+                    });
+                }
+            }
+            let catalog = catalog_entries_available(app);
+            if !catalog.is_empty() {
+                rows.push(SettingsRow {
+                    label: "available to install".to_string(),
+                    detail: Some("enter installs in one step".to_string()),
+                    kind: SettingsRowKind::Note,
+                    id: SettingsItemId::PluginsCatalogHeader,
+                });
+                for (index, entry) in catalog.iter().enumerate() {
+                    rows.push(SettingsRow {
+                        label: entry.name.to_string(),
+                        detail: Some(entry.blurb.to_string()),
+                        kind: SettingsRowKind::Integration,
+                        id: SettingsItemId::CatalogPlugin { index },
+                    });
+                }
             }
         }
         SettingsSection::Updates => {
@@ -248,73 +331,78 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 label: "stable channel".to_string(),
                 detail: None,
                 kind: SettingsRowKind::Choice,
-                payload: 0,
+                id: SettingsItemId::UpdateChannelStable,
             });
             rows.push(SettingsRow {
                 label: "preview channel".to_string(),
                 detail: None,
                 kind: SettingsRowKind::Choice,
-                payload: 1,
+                id: SettingsItemId::UpdateChannelPreview,
             });
             rows.push(SettingsRow {
                 label: "version check".to_string(),
                 detail: Some("check for herdr updates in the background".to_string()),
                 kind: SettingsRowKind::Toggle,
-                payload: 0,
+                id: SettingsItemId::VersionCheck,
             });
             rows.push(SettingsRow {
                 label: "manifest check".to_string(),
                 detail: Some("check for agent detection manifest updates".to_string()),
                 kind: SettingsRowKind::Toggle,
-                payload: 1,
+                id: SettingsItemId::ManifestCheck,
             });
         }
         SettingsSection::Advanced => {
-            for (idx, setting) in crate::app::state::ExperimentSetting::ALL.iter().enumerate() {
+            for setting in crate::app::state::ExperimentSetting::ALL {
                 rows.push(SettingsRow {
                     label: setting.label().to_string(),
                     detail: None,
                     kind: SettingsRowKind::Toggle,
-                    payload: idx,
+                    id: SettingsItemId::Experiment(setting),
                 });
             }
-            for (idx, (label, detail)) in [
+            rows.push(SettingsRow {
+                label: "fleet ops bar".to_string(),
+                detail: Some("show fleet operations bar above the terminal".to_string()),
+                kind: SettingsRowKind::Toggle,
+                id: SettingsItemId::FleetOpsBar,
+            });
+            for (label, detail, id) in [
                 (
                     "manage ssh config",
                     "add keepalive fallbacks for herdr --remote",
+                    SettingsItemId::ManageSshConfig,
                 ),
                 (
                     "clipboard history",
                     "retain recent global clipboard entries",
+                    SettingsItemId::ClipboardHistory,
                 ),
-            ]
-            .iter()
-            .enumerate()
-            {
+            ] {
                 rows.push(SettingsRow {
-                    label: (*label).to_string(),
-                    detail: Some((*detail).to_string()),
+                    label: label.to_string(),
+                    detail: Some(detail.to_string()),
                     kind: SettingsRowKind::Toggle,
-                    payload: 100 + idx,
+                    id,
                 });
             }
             rows.push(SettingsRow {
                 label: "worktrees path".to_string(),
                 detail: Some(app.worktree_directory.display().to_string()),
                 kind: SettingsRowKind::Note,
-                payload: 0,
+                id: SettingsItemId::WorktreesPath,
             });
             rows.push(SettingsRow {
                 label: "reload config".to_string(),
                 detail: Some("prefix reload or herdr server reload-config".to_string()),
                 kind: SettingsRowKind::Note,
-                payload: 0,
+                id: SettingsItemId::ReloadConfig,
             });
             rows.push(SettingsRow {
                 label: "config file".to_string(),
                 detail: Some(crate::config::config_path().display().to_string()),
                 kind: SettingsRowKind::Note,
-                payload: 0,
+                id: SettingsItemId::ConfigFile,
             });
         }
     }
@@ -323,136 +411,81 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
     rows
 }
 
-pub(crate) fn scrollback_presets() -> &'static [(usize, &'static str)] {
-    &[
-        (1_000_000, "1 MB"),
-        (5_000_000, "5 MB"),
-        (10_000_000, "10 MB"),
-        (50_000_000, "50 MB"),
-    ]
-}
-
-pub(crate) fn row_toggle_checked(
-    app: &AppState,
-    section: SettingsSection,
-    row: &SettingsRow,
-) -> bool {
-    match section {
-        SettingsSection::Appearance if row.kind == SettingsRowKind::Toggle => {
-            app.settings.config_snapshot.theme_auto_switch
-        }
-        SettingsSection::Layout if row.kind == SettingsRowKind::Toggle => match row.payload {
-            0 => app.pane_borders_enabled(),
-            1 => app.pane_gaps_enabled(),
-            2 => app.agent_border_labels_enabled(),
-            3 => app.hide_tab_bar_when_single_tab_enabled(),
-            _ => false,
-        },
-        SettingsSection::Input if row.kind == SettingsRowKind::Toggle => match row.payload {
-            0 => app.mouse_capture,
-            1 => app.copy_on_select,
-            2 => app.redraw_on_focus_gained,
-            3 => app.confirm_close,
-            4 => app.prompt_new_tab_name,
-            5 => app.prompt_new_workspace_name,
-            _ => false,
-        },
-        SettingsSection::Notifications if row.kind == SettingsRowKind::Toggle => {
-            app.sound_enabled()
-        }
-        SettingsSection::Agents if row.kind == SettingsRowKind::Toggle => {
-            app.settings.config_snapshot.resume_agents_on_restore
-        }
-        SettingsSection::Updates if row.kind == SettingsRowKind::Toggle => match row.payload {
-            0 => app.settings.config_snapshot.version_check,
-            1 => app.settings.config_snapshot.manifest_check,
-            _ => false,
-        },
-        SettingsSection::Advanced if row.kind == SettingsRowKind::Toggle => {
-            if row.payload >= 100 {
-                match row.payload - 100 {
-                    0 => app.settings.config_snapshot.manage_ssh_config,
-                    1 => app.settings.config_snapshot.clipboard_history_enabled,
-                    _ => false,
-                }
-            } else {
-                crate::app::state::ExperimentSetting::ALL
-                    .get(row.payload)
-                    .copied()
-                    .is_some_and(|setting| setting.enabled(app))
-            }
-        }
+pub(crate) fn row_toggle_checked(app: &AppState, _section: SettingsSection, row: &SettingsRow) -> bool {
+    match row.id {
+        SettingsItemId::ThemeAutoSwitch => app.settings.config_snapshot.theme_auto_switch,
+        SettingsItemId::PaneBorders => app.pane_borders_enabled(),
+        SettingsItemId::PaneGaps => app.pane_gaps_enabled(),
+        SettingsItemId::AgentLabels => app.agent_border_labels_enabled(),
+        SettingsItemId::HideTabBar => app.hide_tab_bar_when_single_tab_enabled(),
+        SettingsItemId::MouseCapture => app.mouse_capture,
+        SettingsItemId::CopyOnSelect => app.copy_on_select,
+        SettingsItemId::RedrawOnFocusGained => app.redraw_on_focus_gained,
+        SettingsItemId::ConfirmClose => app.confirm_close,
+        SettingsItemId::PromptNewTabName => app.prompt_new_tab_name,
+        SettingsItemId::PromptNewWorkspaceName => app.prompt_new_workspace_name,
+        SettingsItemId::SoundAlerts => app.sound_enabled(),
+        SettingsItemId::ResumeAgentsOnRestore => app.settings.config_snapshot.resume_agents_on_restore,
+        SettingsItemId::VersionCheck => app.settings.config_snapshot.version_check,
+        SettingsItemId::ManifestCheck => app.settings.config_snapshot.manifest_check,
+        SettingsItemId::Experiment(setting) => setting.enabled(app),
+        SettingsItemId::ManageSshConfig => app.settings.config_snapshot.manage_ssh_config,
+        SettingsItemId::ClipboardHistory => app.settings.config_snapshot.clipboard_history_enabled,
+        SettingsItemId::FleetOpsBar => app.fleet_ops_bar_enabled(),
+        SettingsItemId::InstalledPlugin { index } => installed_plugins_sorted(app)
+            .get(index)
+            .is_some_and(|plugin| plugin.enabled),
         _ => false,
     }
 }
 
-pub(crate) fn row_choice_selected(
-    app: &AppState,
-    section: SettingsSection,
-    row: &SettingsRow,
-) -> bool {
-    match section {
-        // Cycling single-row choices always show as active; detail text carries the value.
-        SettingsSection::Layout | SettingsSection::Input if row.kind == SettingsRowKind::Choice => {
-            true
+pub(crate) fn row_choice_selected(app: &AppState, _section: SettingsSection, row: &SettingsRow) -> bool {
+    match row.id {
+        SettingsItemId::SidebarCollapsedMode
+        | SettingsItemId::AgentPanelSort
+        | SettingsItemId::HostCursor
+        | SettingsItemId::DefaultShell
+        | SettingsItemId::ShellMode
+        | SettingsItemId::NewTerminalCwd
+        | SettingsItemId::ToastDelay
+        | SettingsItemId::ToastHerdrPosition
+        | SettingsItemId::ClipboardToast => true,
+        SettingsItemId::ScrollbackPreset { index } => scrollback_presets()
+            .get(index)
+            .is_some_and(|(bytes, _)| app.pane_scrollback_limit_bytes == *bytes),
+        SettingsItemId::UpdateChannelStable => {
+            app.settings.config_snapshot.update_channel
+                == crate::config::UpdateChannelConfig::Stable
         }
-        SettingsSection::Terminal if row.kind == SettingsRowKind::Choice => match row.payload {
-            0..=2 => true,
-            preset_idx if preset_idx >= 3 => scrollback_presets()
-                .get(preset_idx - 3)
-                .is_some_and(|(bytes, _)| app.pane_scrollback_limit_bytes == *bytes),
-            _ => false,
-        },
-        SettingsSection::Updates if row.kind == SettingsRowKind::Choice => match row.payload {
-            0 => {
-                app.settings.config_snapshot.update_channel
-                    == crate::config::UpdateChannelConfig::Stable
-            }
-            1 => {
-                app.settings.config_snapshot.update_channel
-                    == crate::config::UpdateChannelConfig::Preview
-            }
-            _ => false,
-        },
-        SettingsSection::Notifications if row.kind == SettingsRowKind::Choice => {
-            if matches!(
-                row.label.as_str(),
-                "toast delay" | "herdr toast position" | "clipboard toast"
-            ) {
-                return true;
-            }
-            let delivery = match row.payload {
-                1 => ToastDelivery::Off,
-                2 => ToastDelivery::Herdr,
-                3 => ToastDelivery::Terminal,
-                4 => ToastDelivery::System,
-                _ => return false,
-            };
-            app.toast_delivery() == delivery
+        SettingsItemId::UpdateChannelPreview => {
+            app.settings.config_snapshot.update_channel
+                == crate::config::UpdateChannelConfig::Preview
         }
+        SettingsItemId::ToastDelivery { delivery } => app.toast_delivery() == delivery,
         _ => false,
     }
 }
 
 pub(crate) fn row_theme_current(app: &AppState, row: &SettingsRow) -> bool {
-    THEME_NAMES
-        .get(row.payload)
-        .is_some_and(|name| themes_match(name, &app.theme_name))
+    if let SettingsItemId::Theme { index } = row.id {
+        THEME_NAMES
+            .get(index)
+            .is_some_and(|name| themes_match(name, &app.theme_name))
+    } else {
+        false
+    }
 }
 
 pub(crate) fn row_spinner_current(app: &AppState, row: &SettingsRow) -> bool {
-    active_spinner_category(app.settings.spinner_category)
-        .styles
-        .get(row.payload)
-        .copied()
-        .is_some_and(|style| style == app.spinner_style)
-}
-
-pub(crate) fn spinner_style_for_row(app: &AppState, row: &SettingsRow) -> Option<SpinnerStyle> {
-    active_spinner_category(app.settings.spinner_category)
-        .styles
-        .get(row.payload)
-        .copied()
+    if let SettingsItemId::Spinner { index } = row.id {
+        active_spinner_category(app.settings.spinner_category)
+            .styles
+            .get(index)
+            .copied()
+            .is_some_and(|style| style == app.spinner_style)
+    } else {
+        false
+    }
 }
 
 fn themes_match(a: &str, b: &str) -> bool {
