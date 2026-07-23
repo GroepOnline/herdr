@@ -2141,13 +2141,19 @@ fn write_encoded_frame_with_graphics(
 
     record_received_kitty_graphics(graphics);
 
-    // The blit encoder may append a post-sync cursor anchor after CSI ? 2026 l.
-    // Keep that anchor part of the text blit, then draw graphics without moving
-    // the host cursor.
-    writer.write_all(encoded)?;
-    writer.write_all(b"\x1b7")?;
-    writer.write_all(graphics)?;
-    writer.write_all(b"\x1b8")
+    const SYNC_END: &[u8] = b"\x1b[?2026l";
+    if let Some(pos) = encoded.windows(SYNC_END.len()).rposition(|w| w == SYNC_END) {
+        writer.write_all(&encoded[..pos])?;
+        writer.write_all(b"\x1b7")?;
+        writer.write_all(graphics)?;
+        writer.write_all(b"\x1b8")?;
+        writer.write_all(&encoded[pos..])
+    } else {
+        writer.write_all(encoded)?;
+        writer.write_all(b"\x1b7")?;
+        writer.write_all(graphics)?;
+        writer.write_all(b"\x1b8")
+    }
 }
 fn contains_kitty_graphics_bytes(bytes: &[u8]) -> bool {
     bytes.windows(3).any(|window| window == b"\x1b_G")
@@ -2525,7 +2531,7 @@ mod tests {
 
         assert_eq!(
             output,
-            b"\x1b[?2026htext\x1b[?2026lcursor\x1b7graphics\x1b8"
+            b"\x1b[?2026htext\x1b7graphics\x1b8\x1b[?2026lcursor"
         );
     }
 

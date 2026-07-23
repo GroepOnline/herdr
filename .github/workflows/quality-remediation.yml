@@ -30,6 +30,7 @@ jobs:
   prepare-remediation:
     name: Prepare remediation brief
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (
@@ -89,6 +90,22 @@ jobs:
           head_sha="$(jq -r '.headRefOid' <<<"$pr_json")"
           pr_url="$(jq -r '.url' <<<"$pr_json")"
           short_sha="${head_sha:0:12}"
+
+          if [ "$EVENT_NAME" != "workflow_dispatch" ] && [ -n "${WORKFLOW_HEAD_SHA:-}" ]; then
+            if [ "$head_sha" != "$WORKFLOW_HEAD_SHA" ]; then
+              echo "PR head moved from ${WORKFLOW_HEAD_SHA:0:12} to $short_sha; skipping stale remediation."
+              exit 0
+            fi
+          fi
+
+          autofix_in_progress="$(
+            gh run list --repo "$REPO" --workflow "quality-autofix.yml" --branch "$branch" \
+              --status in_progress --json databaseId --jq 'length'
+          )"
+          if [ "${autofix_in_progress:-0}" -gt 0 ]; then
+            echo "Autofix workflow still running on $branch; skipping remediation to avoid race."
+            exit 0
+          fi
 
           mkdir -p remediation-logs
           gh api --paginate "/repos/$REPO/actions/runs/$run_id/jobs?filter=latest&per_page=100" \
@@ -237,3 +254,68 @@ jobs:
             }' > repository_dispatch.json
 
           gh api -X POST "/repos/$REPO/dispatches" --input repository_dispatch.json
+
+  clear-remediation:
+    name: Clear remediation state
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.event == 'pull_request' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      COMMENT_MARKER: "<!-- herdr-quality-remediation -->"
+      EVENT_NAME: ${{ github.event_name }}
+      DISPATCH_PR_NUMBER: ${{ github.event.inputs.pr_number }}
+      WORKFLOW_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+      WORKFLOW_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Remove remediation label and resolve sticky comment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            pr_number="$DISPATCH_PR_NUMBER"
+          else
+            pr_number="${WORKFLOW_PR_NUMBER:-}"
+            if [ -z "$pr_number" ] && [ -n "${WORKFLOW_HEAD_SHA:-}" ]; then
+              pr_number="$(
+                gh api "/repos/$REPO/commits/$WORKFLOW_HEAD_SHA/pulls" \
+                  --jq '[.[] | select(.head.repo.full_name == "'"$REPO"'")][0].number // empty'
+              )"
+            fi
+          fi
+
+          if [ -z "$pr_number" ]; then
+            echo "No pull request was available to clear remediation state."
+            exit 0
+          fi
+
+          pr_json="$(gh pr view "$pr_number" --repo "$REPO" --json labels)"
+          jq -r '.labels[].name' <<<"$pr_json" > labels.txt
+          if grep -Fxq "quality-remediation" labels.txt; then
+            gh api -X DELETE "/repos/$REPO/issues/$pr_number/labels/quality-remediation" >/dev/null
+          fi
+
+          existing_comment_id="$(
+            gh api --paginate "/repos/$REPO/issues/$pr_number/comments?per_page=100" \
+              --jq '.[] | select(.body | contains("<!-- herdr-quality-remediation -->")) | .id' \
+              | tail -n 1
+          )"
+
+          if [ -n "$existing_comment_id" ]; then
+            cat > resolved.md <<EOF
+          $COMMENT_MARKER
+          ## Quality remediation resolved
+
+          CI is green again for PR #$pr_number. This sticky brief is kept for history; the \`quality-remediation\` label was removed.
+          EOF
+            sed -i 's/^          //' resolved.md
+            gh api -X PATCH "/repos/$REPO/issues/comments/$existing_comment_id" -F "body=@resolved.md" >/dev/null
+          fi

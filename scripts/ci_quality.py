@@ -4,6 +4,8 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -177,10 +179,28 @@ def sync_release_metadata(root: Path) -> bool:
     return changed
 
 
+def needs_rustfmt(root: Path) -> bool:
+    if shutil.which("cargo") is None:
+        return False
+    result = subprocess.run(
+        ["cargo", "fmt", "--all", "--", "--check"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        return False
+    combined = f"{result.stdout}\n{result.stderr}"
+    if "no targets specified" in combined or "failed to parse manifest" in combined:
+        return False
+    return True
+
+
 def detect_autofix(root: Path) -> dict[str, bool]:
     version = read_cargo_version(root)
     return {
-        "needs_fmt": False,
+        "needs_fmt": needs_rustfmt(root),
         "needs_metadata_sync": read_npm_package_version(root) != version
         or read_installer_version(root) != version,
     }

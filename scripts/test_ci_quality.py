@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.ci_quality import (
     QualityError,
@@ -17,7 +18,10 @@ class CiQualityTests(unittest.TestCase):
     def write_fixture(self, root: Path, cargo_version: str, npm_version: str) -> None:
         (root / "npm").mkdir()
         (root / "src/bin").mkdir(parents=True)
+        (root / "src").mkdir(parents=True, exist_ok=True)
         (root / "scripts").mkdir()
+
+        (root / "src/lib.rs").write_text("\n", encoding="utf-8")
 
         (root / "Cargo.toml").write_text(
             f'[package]\nname = "herdr"\nversion = "{cargo_version}"\n',
