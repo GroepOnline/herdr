@@ -1013,10 +1013,13 @@ mod tests {
         };
 
         assert!(restore_plan_for_snapshot(&session, false).is_none());
-        assert_eq!(
-            restore_plan_for_snapshot(&session, true).unwrap().argv,
-            vec!["pi", "--session", pi_session_path.as_str()]
-        );
+        let plan = restore_plan_for_snapshot(&session, true).expect("pi restore plan");
+        assert_eq!(plan.argv.len(), 3);
+        assert_eq!(plan.argv[0], "sh");
+        assert_eq!(plan.argv[1], "-lc");
+        assert!(plan.argv[2].contains("pi --session"));
+        assert!(plan.argv[2].contains("PI_MEMORY_BIN") || plan.argv[2].contains("pi-memory"));
+        assert!(plan.argv[2].contains(pi_session_path.as_str()));
 
         let unsupported_path = super::super::snapshot::PaneAgentSessionSnapshot {
             source: "herdr:claude".into(),
@@ -1043,10 +1046,12 @@ mod tests {
 
         let first = take_restore_plan_for_snapshot(&session, true, &mut resumed)
             .expect("first restore should get a plan");
-        assert_eq!(
-            first.argv,
-            vec!["pi", "--session", pi_session_path.as_str()]
-        );
+        assert_eq!(first.argv.len(), 3);
+        assert_eq!(first.argv[0], "sh");
+        assert_eq!(first.argv[1], "-lc");
+        assert!(first.argv[2].contains("pi --session"));
+        assert!(first.argv[2].contains("PI_MEMORY_BIN") || first.argv[2].contains("pi-memory"));
+        assert!(first.argv[2].contains(pi_session_path.as_str()));
         assert!(take_restore_plan_for_snapshot(&session, true, &mut resumed).is_none());
     }
 
