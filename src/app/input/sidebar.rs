@@ -400,7 +400,7 @@ impl AppState {
 
         let mut best: Option<(usize, u16)> = None;
         for insert_idx in insert_indices {
-            let Some(slot_row) = crate::ui::workspace_drop_indicator_row(&cards, area, insert_idx)
+            let Some(slot_row) = crate::ui::workspace_drop_indicator_row(cards, area, insert_idx)
             else {
                 continue;
             };
