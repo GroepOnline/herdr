@@ -210,11 +210,7 @@ fn pi_resume_argv(session_ref: &AgentSessionRef) -> Vec<String> {
     }
     #[cfg(windows)]
     {
-        vec![
-            "pi".into(),
-            "--session".into(),
-            session_ref.value.clone(),
-        ]
+        vec!["pi".into(), "--session".into(), session_ref.value.clone()]
     }
 }
 
@@ -396,9 +392,7 @@ mod tests {
         assert_eq!(pi_argv[0], "sh");
         assert_eq!(pi_argv[1], "-lc");
         assert!(pi_argv[2].contains("pi --session"));
-        assert!(
-            pi_argv[2].contains("PI_MEMORY_BIN") || pi_argv[2].contains("pi-memory")
-        );
+        assert!(pi_argv[2].contains("PI_MEMORY_BIN") || pi_argv[2].contains("pi-memory"));
         assert!(pi_argv[2].contains(&pi_session));
         assert_eq!(
             plan(

@@ -1041,10 +1041,7 @@ pub(crate) enum ExperimentSetting {
 }
 
 impl ExperimentSetting {
-    pub(crate) const ALL: [Self; 2] = [
-        Self::PaneHistory,
-        Self::SwitchAsciiInputSourceInPrefix,
-    ];
+    pub(crate) const ALL: [Self; 2] = [Self::PaneHistory, Self::SwitchAsciiInputSourceInPrefix];
 
     pub(crate) fn label(self) -> &'static str {
         match self {

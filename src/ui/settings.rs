@@ -546,7 +546,11 @@ fn render_settings_fleet(app: &AppState, frame: &mut Frame, area: Rect) {
     } else {
         default_preview
     };
-    let preview_label = if enabled { preview } else { "preview hidden".to_string() };
+    let preview_label = if enabled {
+        preview
+    } else {
+        "preview hidden".to_string()
+    };
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(" preview ", Style::default().fg(p.overlay1)),
@@ -586,13 +590,20 @@ fn render_settings_plugins(app: &AppState, frame: &mut Frame, area: Rect) {
 
     if installed.is_empty() {
         frame.render_widget(
-            Paragraph::new(Span::styled(" no linked plugins", Style::default().fg(p.overlay1))),
+            Paragraph::new(Span::styled(
+                " no linked plugins",
+                Style::default().fg(p.overlay1),
+            )),
             Rect::new(list_area.x, list_area.y, list_area.width, 1),
         );
     } else {
         for (idx, plugin) in installed.iter().enumerate() {
             let is_sel = selected == idx;
-            let marker = if plugin.enabled { "enabled" } else { "disabled" };
+            let marker = if plugin.enabled {
+                "enabled"
+            } else {
+                "disabled"
+            };
             let row_style = if is_sel {
                 Style::default()
                     .bg(p.surface0)
