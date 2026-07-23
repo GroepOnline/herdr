@@ -16,7 +16,7 @@ Merge-base reference: see `git merge-base origin/main upstream/master`.
 | `58e812b2` | url click gestures | open |
 | `2a20e90a` | physical escape on Windows | open |
 | `e7fc85bf` | kitty printable key releases | open (protocol care) |
-| `36de78dd` | kitty graphics host repaints | open |
+| `36de78dd` | kitty graphics host repaints | **ported** (`fix/kitty-graphics-host-repaints`) |
 | `8afd52ae` | bundle modern ConPTY | open (packaging) |
 | `7e821ba7` | OMP `PI_CONFIG_DIR` override | **ported** |
 | `e608a751` | known-agent exit process-owned | open (strip Hermes files) |

@@ -1042,15 +1042,15 @@ impl SettingsSection {
 
     pub fn description(self) -> &'static str {
         match self {
-            Self::Appearance => "theme and the working spinner — live preview above the list",
-            Self::Layout => "pane chrome, sidebar, and one-shot layout templates",
-            Self::Input => "mouse, copy, focus redraw, prompts, and keybind help",
-            Self::Terminal => "default shell, cwd policy, and scrollback",
-            Self::Notifications => "sound alerts, toast delivery, and clipboard toasts",
-            Self::Agents => "resume sessions and agent integration packages",
-            Self::Plugins => "install, enable, and manage herdr plugins",
-            Self::Updates => "update channel and background check toggles",
-            Self::Advanced => "experiments, graphics, remote, and config paths",
+            Self::Appearance => "theme and spinner — live preview above",
+            Self::Layout => "pane chrome, sidebar, and layout templates",
+            Self::Input => "mouse, copy, focus redraw, and keybind help",
+            Self::Terminal => "shell, cwd policy, and scrollback",
+            Self::Notifications => "sound, toasts, and clipboard notices",
+            Self::Agents => "resume sessions and integrations",
+            Self::Plugins => "install and manage herdr plugins",
+            Self::Updates => "channel and background checks",
+            Self::Advanced => "experiments, graphics, remote, config",
         }
     }
 
