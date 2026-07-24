@@ -251,13 +251,52 @@ If you are helping an external contributor, never open a GitHub issue for them. 
 
 ## Cursor Cloud specific instructions
 
-The Cursor Cloud VM needs Rust (via `rust-toolchain.toml`), Zig `0.15.2` on `PATH` (mandatory — `build.rs` runs `zig build` for vendored `libghostty-vt`), plus `just`, `cargo-nextest`, and `bun` for full `just check`.
+**Local Rust/Zig builds are blocked on the Cloud VM.** A fail-closed shell hook (`.cursor/hooks.json` → `.cursor/hooks/deny-rust-builds.sh`) denies `cargo`, `rustc`, `rustup`, `cargo-nextest`, `clippy`, `zig build`, and `just test|check|lint|ci` because they saturate the VM CPU. Do not try to build/test/lint locally and do not work around the hook. **Validate with GitHub Actions instead:** `gh pr checks` for the PR, `gh run list --workflow=ci.yml`, and `gh run view <id> --log-failed` for failures. CI (`.github/workflows/ci.yml`) runs fmt, `cargo check`, `cargo nextest`, `clippy`, Windows lint, and a release smoke build.
 
-Standard workflow commands are documented above (Testing section) and in `justfile`: `just lint`, `just test`, `just check`, `cargo build`.
+Because of the hook, the "Testing" section commands above (`just test`, `just check`, `cargo build`, `./target/debug/herdr ...`) are for a normal dev machine, not this VM. Treat them as the CI contract, run on GitHub Actions.
 
-Non-obvious caveats for this environment:
+**Run the real binary without building.** The CI `release-build` job uploads a runnable static binary artifact (`ci-smoke-herdr-linux-x86_64`). To exercise herdr on the VM, download it from a green run and run it headlessly — this does not trip the build hook:
 
-- The `justfile` uses `bun`; `just test`/`just check` run the Bun suites (`integration-assets-test`, `plugin-marketplace-test`). `just check` also runs `windows-lint`, which does `rustup target add x86_64-pc-windows-msvc` and a cross-clippy — the target add needs network on first run.
-- Running the source build from a plain shell (not inside a Herdr session) auto-spawns a debug server in the separate `herdr-dev` namespace (socket `~/.config/herdr-dev/herdr.sock`), so it never touches an installed stable server. Clear `HERDR_SOCKET_PATH`/`HERDR_CLIENT_SOCKET_PATH` when running from source.
-- The TUI needs a real terminal (TTY). For headless verification, run `./target/debug/herdr server` and drive it with the CLI/socket API.
+```bash
+gh run download <run-id> -n ci-smoke-herdr-linux-x86_64 -D /tmp/herdr-bin
+chmod +x /tmp/herdr-bin/herdr-linux-x86_64
+# isolate config, then start the headless server and drive it via the socket API/CLI
+HOME=/tmp/herdr-home /tmp/herdr-bin/herdr-linux-x86_64 server &      # api socket under $HOME/.config/herdr/
+HOME=/tmp/herdr-home /tmp/herdr-bin/herdr-linux-x86_64 workspace create --cwd /tmp/herdr-home --focus
+HOME=/tmp/herdr-home /tmp/herdr-bin/herdr-linux-x86_64 pane run w1:p1 echo hello
+HOME=/tmp/herdr-home /tmp/herdr-bin/herdr-linux-x86_64 pane read w1:p1 --source recent --format text
+```
+
+Toolchain state on the VM: Rust `1.96.1` is pre-baked at `/usr/local/cargo/bin` (matches `rust-toolchain.toml`). Zig `0.15.2`, `just`, `cargo-nextest`, and `bun` are NOT installed locally — they exist only in CI, and their names themselves trip the deny hook, so do not install them here.
+
+Other non-obvious caveats:
+
+- Running the source build from a plain shell (not inside a Herdr session) auto-spawns a debug server in the separate `herdr-dev` namespace (socket `~/.config/herdr-dev/herdr.sock`), so it never touches an installed stable server. Clear `HERDR_SOCKET_PATH`/`HERDR_CLIENT_SOCKET_PATH` when running from source or a downloaded binary.
+- The TUI needs a real terminal (TTY). For headless verification, run `herdr server` and drive it with the CLI/socket API (see the block above).
 - On Linux containers where `/dev/ptmx` is a symlink to `/dev/pts/ptmx`, the `live_handoff` PTY master fd check accepts both paths.
+
+### GUI desktop (VNC)
+
+An xfce4 desktop runs at boot via TigerVNC on display `:1` (noVNC/websockify front it); nothing extra is needed to start it. To demo the *interactive* herdr TUI (not just the headless server) on that desktop, symlink the downloaded CI binary onto `PATH` and launch it in the xfce4 terminal:
+
+```bash
+sudo ln -sf /tmp/herdr-bin/herdr-linux-x86_64 /usr/local/bin/herdr
+# then, in the desktop terminal: `herdr`  (prefix key is ctrl+b; ctrl+b then o splits)
+```
+
+### Tailscale (userspace networking)
+
+Tailscale is not pre-installed and its default kernel/TUN mode does NOT work on the Cloud VM. Install it (`curl -fsSL https://tailscale.com/install.sh | sh`) and always run the daemon in userspace mode:
+
+```bash
+sudo tailscaled --tun=userspace-networking \
+  --outbound-http-proxy-listen=localhost:1054 --socks5-server=localhost:1055 &
+sudo tailscale up --authkey="$TS_AUTH_KEY_RESUABLE" --hostname=cursor-cloud-herdr --accept-dns=false
+```
+
+Non-obvious caveats:
+
+- The reusable node auth key is provided as the secret `TS_AUTH_KEY_RESUABLE` (note the spelling); `TS_API_KEY` is the tailnet API key, not a node key.
+- `tailscaled` runs as root here, so `tailscale status|ip|ping` need `sudo` (root-owned socket).
+- In userspace mode the host kernel cannot route `100.x`/`fd7a:` addresses directly. `tailscale ping` works (it goes through tailscaled), but for app egress onto the tailnet use the SOCKS5 proxy `localhost:1055` or HTTP proxy `localhost:1054` (e.g. `curl --socks5-hostname localhost:1055 ...`, or `export ALL_PROXY=socks5h://localhost:1055/`).
+- This is a per-session runtime setup (system package + running daemon); it is intentionally NOT in the update script.
