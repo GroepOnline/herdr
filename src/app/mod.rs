@@ -633,7 +633,6 @@ impl App {
             show_agent_labels_on_pane_borders: config.ui.show_agent_labels_on_pane_borders,
             fleet_ops_bar: config.ui.fleet_ops_bar,
             hide_tab_bar_when_single_tab: config.ui.hide_tab_bar_when_single_tab,
-            fleet_ops_bar: config.ui.fleet_ops_bar,
             fleet_ops_cache: crate::fleet::FleetOpsCache::default(),
             pane_history_persistence: config.experimental.pane_history,
             reveal_hidden_cursor_for_cjk_ime: config.experimental.reveal_hidden_cursor_for_cjk_ime,

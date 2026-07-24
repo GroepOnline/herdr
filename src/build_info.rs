@@ -20,8 +20,16 @@ pub fn version() -> String {
     }
 }
 
+// Only consumed by the Unix remote-update path (`src/remote/unix.rs`); gated to
+// avoid a dead-code lint failure on the Windows build under `-D warnings`.
+#[cfg(unix)]
 pub fn is_preview() -> bool {
     channel() == "preview"
+}
+
+#[cfg(unix)]
+pub fn is_dev() -> bool {
+    channel() == "dev"
 }
 
 /// Any non-stable build (preview or dev). Used so the stable channel always
