@@ -205,7 +205,36 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
 
       - name: Locate build artifacts (debug)
-        run: find . -path ./node_modules -prune -o -name 'herdr-linux*' -type f -print
+        run: find . -path ./node_modules -prune -o -name 'herdr-linux*' -print
+
+      # download-artifact v8 may extract flat (./herdr-linux-x86_64 + .sha256)
+      # or nested (./herdr-linux-x86_64/herdr-linux-x86_64). Stage a stable layout.
+      - name: Stage release binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p staged
+          staged=0
+          if [ -f herdr-linux-x86_64 ]; then
+            cp -f herdr-linux-x86_64 staged/herdr-linux-x86_64
+            staged=1
+          elif [ -f herdr-linux-x86_64/herdr-linux-x86_64 ]; then
+            cp -f herdr-linux-x86_64/herdr-linux-x86_64 staged/herdr-linux-x86_64
+            staged=1
+          fi
+          if [ "$staged" -ne 1 ]; then
+            echo "error: herdr-linux-x86_64 binary not found after artifact download" >&2
+            find . -path ./node_modules -prune -o -name 'herdr-linux*' -print >&2
+            exit 1
+          fi
+          if [ -f herdr-linux-x86_64.sha256 ]; then
+            cp -f herdr-linux-x86_64.sha256 staged/herdr-linux-x86_64.sha256
+          elif [ -f herdr-linux-x86_64/herdr-linux-x86_64.sha256 ]; then
+            cp -f herdr-linux-x86_64/herdr-linux-x86_64.sha256 staged/herdr-linux-x86_64.sha256
+          else
+            python3 -c 'import hashlib,pathlib; p=pathlib.Path("staged/herdr-linux-x86_64"); pathlib.Path("staged/herdr-linux-x86_64.sha256").write_text(f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n")'
+          fi
+          ls -la staged
 
       - name: Record previous dev commit
         id: previous-dev
@@ -235,12 +264,12 @@ jobs:
           python3 - <<'PY'
           import json, pathlib
           result = {}
-          for path in pathlib.Path('.').glob('herdr-*/*.sha256'):
+          for path in pathlib.Path('staged').glob('herdr-*.sha256'):
               digest, name = path.read_text().split()[:2]
               target = name.removeprefix('herdr-').removesuffix('.exe')
               result[target] = digest
           if not result:
-              raise SystemExit('error: no herdr-*/.sha256 digests found after artifact download')
+              raise SystemExit('error: no staged herdr-*.sha256 digests found')
           pathlib.Path('dev-sha256.json').write_text(json.dumps(result, indent=2) + '\n')
           PY
 
@@ -254,9 +283,9 @@ jobs:
           make_latest: false
           overwrite_files: true
           target_commitish: ${{ needs.preflight.outputs.commit }}
-          # Permissive glob: exact nested path previously matched nothing on the runner.
           files: |
-            herdr-linux-x86_64/**
+            staged/herdr-linux-x86_64
+            staged/herdr-linux-x86_64.sha256
 
       - name: Update dev manifest
         run: |
