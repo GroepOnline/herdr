@@ -1,0 +1,8 @@
+{
+  "name": "@chefgroep/issue-provision",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "description": "CHEF issue-to-workspace provisioning from Linear URLs"
+}

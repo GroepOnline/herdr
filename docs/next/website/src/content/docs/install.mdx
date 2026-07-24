@@ -118,7 +118,7 @@ herdr update
 
 `herdr update` is for installs managed by Herdr's own installer. Homebrew, mise, and Nix installs are updated through those package managers instead.
 
-On Linux and macOS, Herdr uses the stable update channel by default. To opt into preview builds from `master`, set the channel:
+On Linux and macOS, Herdr uses the stable update channel by default. To opt into preview builds from `main`, set the channel:
 
 ```bash
 herdr channel set preview
@@ -132,7 +132,19 @@ herdr channel set stable
 
 For direct installs, changing channels also checks that channel and installs its latest binary. If that update fails, run `herdr update` to retry from the configured channel.
 
-Preview builds are manually published GitHub prereleases from the current development branch. They are useful when you want fixes before the next stable release, but they can regress. Homebrew, mise, and Nix installs do not use the preview channel.
+Preview builds are manually published GitHub prereleases from the current development branch. They are useful when you want fixes before the next stable release, but they can regress. Homebrew, mise, and Nix installs do not use the preview or dev channels.
+
+Dev builds are published automatically after CI succeeds on `main`. They are meant for smoke testing merge results. To opt into dev builds, set the channel:
+
+```bash
+herdr channel set dev
+```
+
+To install or refresh the latest dev build without changing Herdr's saved update channel, rerun the installer with `HERDR_CHANNEL=dev`:
+
+```bash
+curl -fsSL https://herdr.chefgroep.nl/install.sh | HERDR_CHANNEL=dev sh
+```
 
 Windows beta builds are preview-only for now. `herdr channel set stable` is rejected on Windows until stable Windows releases are available.
 

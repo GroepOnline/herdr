@@ -48,7 +48,18 @@ Herdr plugins use `herdr-plugin.toml` with: `id`, `name`, `version`, `min_herdr_
 
 ## Fleet Ops Bar (Aggregator)
 
-Reads `fleet_ops.json` from all plugin state dirs, merges into unified view:
+**Core host (herdr):** refreshes a `FleetOpsCache` on a timer from *installed*
+plugin ids only (no hardcoded `com.chefgroep.*` allowlist, no sync disk I/O in
+`render()`). Issue labels that already look like `KEY-123` (e.g. `ENG-432`)
+are shown as-is; bare numeric ids get a neutral `LIN-` prefix. Plugins write
+personalized keys into `issue.id`.
+
+**Plugin home:** CHEF scaffolds + Linear/GitHub implementations live in
+`OnlineChefGroep/herdr-plugins` (make that repo private for personalization).
+Do not land kitchen-sink Fleet/Plugins settings tabs or Utrecht/Kater copy in
+core.
+
+Reads `fleet_ops.json` from installed plugin state dirs, merges into unified view:
 ```
 ENG-432 ● In Progress · joep · Sprint W28 │ PR #42 ✓ CI: passing
 Fleet: 2/3 online (jan↓) · RAM avg 44%    │ CF: 2 tunnels healthy

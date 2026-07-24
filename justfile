@@ -3,7 +3,11 @@
 # Run tests
 test:
     cargo nextest run --locked --status-level fail --final-status-level fail --failure-output final --success-output never
-    python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_config_reference_check scripts.test_dev scripts.test_docs_translation_parity scripts.test_preview scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
+    just maintenance
+
+# Run maintenance script and Bun tests
+maintenance:
+    python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_ci_quality scripts.test_config_reference_check scripts.test_dev scripts.test_docs_translation_parity scripts.test_preview scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
     just integration-assets-test
     just plugin-marketplace-test
 
@@ -13,23 +17,29 @@ test-one filter:
 
 # Run fast local lint checks
 lint:
-    cargo fmt --check
+    cargo fmt --all -- --check
     cargo clippy --all-targets --locked -- -D warnings
 
+# Check release metadata consistency
+release-metadata:
+    python3 scripts/changelog.py validate-product-announcement
+    node --check npm/install.js
+    node --check npm/bin/herdr.js
+    (cd npm && npm pack --dry-run --ignore-scripts)
+    python3 scripts/ci_quality.py check-release-metadata
+
 # Run PR CI checks
-ci filter='all()': lint
+ci filter='all()': lint release-metadata
     cargo nextest run --locked -E "{{filter}}" --status-level fail --final-status-level slow --failure-output final --success-output never
-    just integration-assets-test
-    just plugin-marketplace-test
+    just maintenance
 
 # Run Windows target lint from Unix/macOS to catch cfg(windows) compile and clippy failures before CI
 windows-lint:
     rustup target add x86_64-pc-windows-msvc
     LIBGHOSTTY_VT_SIMD=false cargo clippy --bin herdr --locked --target x86_64-pc-windows-msvc -- -D warnings
 
-# Check formatting + run unit tests + Windows target lint + maintenance script tests
+# Check formatting, tests, release metadata, Windows target lint, and maintenance scripts
 check: ci windows-lint
-    python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_config_reference_check scripts.test_dev scripts.test_docs_translation_parity scripts.test_preview scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
     @echo "docs reminder: if this changes user-facing behavior, make sure the relevant release docs are updated or called out before release."
 
 # Install repo-local git hooks

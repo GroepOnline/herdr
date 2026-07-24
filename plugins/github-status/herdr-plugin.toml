@@ -1,0 +1,31 @@
+id = "com.chefgroep.github-status"
+name = "GitHub PR/CI Status"
+version = "0.1.0"
+min_herdr_version = "0.7.5"
+description = "GitHub PR and CI status for Fleet Ops Bar (SSOT: GitHub API)"
+platforms = ["linux", "macos", "windows"]
+
+[[actions]]
+id = "check-pr"
+title = "Check PR status"
+description = "Refresh PR/CI fragment into fleet_ops.json"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "check-pr"]
+
+[[actions]]
+id = "list-open-prs"
+title = "List open PRs"
+description = "List open PRs and refresh fleet_ops.json"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "list-open-prs"]
+
+[[actions]]
+id = "watch-checks"
+title = "Watch CI checks"
+description = "Refresh CI check summary into fleet_ops.json"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "watch-checks"]
+
+[[events]]
+on = "worktree.opened"
+command = ["node", "src/index.js", "on-worktree-opened"]

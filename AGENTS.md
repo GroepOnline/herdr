@@ -91,6 +91,18 @@ just check              # formatting check + cargo nextest + maintenance script 
 
 Run `just check` before committing unless Can explicitly accepts narrower validation. Do not bypass failing checks; fix the failure or explain exactly why a narrower check is enough.
 
+### Quality CI
+
+Quality CI is the required parallel gate for PRs. The single required check is `CI / Quality gate` (aggregates Lint, Test, Maintenance, Windows lint, Release metadata, and Release smoke). Spec: `.github/quality-ci.md`.
+
+Mechanical failures are auto-committed by `quality-autofix.yml` (`ci: autofix mechanical quality`). Non-mechanical failures get one sticky `<!-- herdr-quality-remediation -->` PR comment, the `quality-remediation` label, and a `repository_dispatch` event `herdr-quality-remediation` for Cursor Automations / cloud agents. Agents should inspect `gh run view <run_id> --log-failed`, fix the real failure, push to the PR branch, and validate with `gh pr checks <pr> --watch`. This Cloud VM forbids local Cargo builds; use GitHub Actions as the source of truth. Opt out with PR label `ci-autofix-disabled`.
+
+Agent entrypoints:
+
+- Skill: `.cursor/skills/herdr-quality-ci-remediation/` (Codex mirror: `.codex/skills/herdr-quality-ci-remediation/`)
+- Subagent (fix): `.cursor/agents/herdr-quality-ci-remediator.md`
+- Subagent (read-only triage): `.cursor/agents/herdr-quality-ci-diagnoser.md`
+
 Unit tests live next to the code (`#[cfg(test)] mod tests`). New `AppState` or `Workspace` behavior should be testable with `AppState::test_new()` and `Workspace::test_new()` without PTYs.
 
 For broad refactors or release-risk regressions, classify the risk before editing. Treat changes as refactor-risk when they touch two or more core surfaces, persisted state, protocol/API IDs, workspace/tab/pane identity, restore/handoff, agent detection authority, or UI/input state projection. Before moving code, identify the protected behavior and add or name characterization tests. Identity/state refactors should use the test-only invariants `AppState::assert_invariants_for_test()` or `Workspace::assert_invariants_for_test()` with adversarial state from `AppState::test_with_adversarial_identity_state()` or `Workspace::test_adversarial_identity_state()`. Run a roundtable for broad refactors and release-risk regressions, not for routine local fixes.
@@ -198,6 +210,13 @@ Preview is opt-in for direct Herdr installs:
 
 ```bash
 herdr channel set preview
+herdr update
+```
+
+Dev is opt-in for direct Herdr installs:
+
+```bash
+herdr channel set dev
 herdr update
 ```
 

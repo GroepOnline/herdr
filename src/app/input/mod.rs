@@ -61,7 +61,6 @@ use self::{
         modal_action_from_key, ModalAction, ONBOARDING_WELCOME_ACTIONS, RELEASE_NOTES_ACTIONS,
     },
     mouse::MouseAction,
-    settings::SettingsAction,
 };
 use super::state::{AppState, Mode};
 use super::App;
@@ -316,34 +315,7 @@ impl App {
                     MouseAction::NewWorkspace => {
                         self.begin_tui_workspace_create("tui.mouse.workspace.create")
                     }
-                    MouseAction::Settings(action) => match action {
-                        SettingsAction::SaveTheme(name) => self.save_theme(&name),
-                        SettingsAction::SaveSound(enabled) => self.save_sound(enabled),
-                        SettingsAction::SaveToastDelivery(delivery) => {
-                            self.save_toast_delivery(delivery)
-                        }
-                        SettingsAction::SaveAgentBorderLabels(enabled) => {
-                            self.save_agent_border_labels(enabled)
-                        }
-                        SettingsAction::SavePaneBorders(enabled) => self.save_pane_borders(enabled),
-                        SettingsAction::SavePaneGaps(enabled) => self.save_pane_gaps(enabled),
-                        SettingsAction::SaveHideTabBarWhenSingleTab(enabled) => {
-                            self.save_hide_tab_bar_when_single_tab(enabled)
-                        }
-                        SettingsAction::SavePaneHistory(enabled) => {
-                            self.save_pane_history_persistence(enabled)
-                        }
-                        SettingsAction::SaveSwitchAsciiInputSourceInPrefix(enabled) => {
-                            self.save_switch_ascii_input_source_in_prefix(enabled)
-                        }
-                        SettingsAction::SaveSpinnerStyle(style) => self.save_spinner_style(style),
-                        SettingsAction::ApplyPaneTemplate(template) => {
-                            self.apply_pane_template(template)
-                        }
-                        SettingsAction::InstallRecommendedIntegrations => {
-                            self.install_recommended_integrations()
-                        }
-                    },
+                    MouseAction::Settings(action) => self.apply_settings_action(action),
                     MouseAction::FocusWorkspace { ws_idx } => {
                         self.focus_workspace_idx_via_api(ws_idx)
                     }
@@ -383,10 +355,15 @@ impl App {
                 self.selection_highlight_clear_deadline = None;
             }
         }
-        if previous_settings_section != crate::app::state::SettingsSection::Integrations
-            && self.state.settings.section == crate::app::state::SettingsSection::Integrations
+        if previous_settings_section != crate::app::state::SettingsSection::Agents
+            && self.state.settings.section == crate::app::state::SettingsSection::Agents
         {
             self.refresh_integration_recommendations();
+        }
+        if previous_settings_section != crate::app::state::SettingsSection::Plugins
+            && self.state.settings.section == crate::app::state::SettingsSection::Plugins
+        {
+            self.reload_plugins_for_settings();
         }
         if self.state.agent_panel_sort != previous_agent_panel_sort {
             self.save_agent_panel_sort(self.state.agent_panel_sort);

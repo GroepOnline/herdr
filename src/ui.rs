@@ -14,7 +14,7 @@ mod onboarding;
 mod panes;
 mod release_notes;
 mod scrollbar;
-mod settings;
+pub(crate) mod settings;
 mod sidebar;
 mod status;
 mod tab_surface;
@@ -69,11 +69,7 @@ pub(crate) use self::{
         open_existing_worktree_visible_start, remove_worktree_button_rects,
         remove_worktree_popup_rect, rename_button_rects,
     },
-    settings::{
-        settings_button_rects, settings_list_area, settings_popup_height,
-        settings_show_primary_action, settings_sound_index_at, settings_template_index_at,
-        settings_ui_index_at, SETTINGS_POPUP_WIDTH,
-    },
+    settings::{settings_button_rects, settings_show_primary_action},
     sidebar::{
         agent_entry_gap, agent_entry_height_in_body, agent_panel_body_rect, agent_panel_entries,
         agent_panel_scroll_for_target, agent_panel_scroll_metrics, agent_panel_scrollbar_rect,
