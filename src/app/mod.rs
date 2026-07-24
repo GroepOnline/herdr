@@ -1445,7 +1445,6 @@ impl App {
                     config.ui.show_agent_labels_on_pane_borders;
                 self.state.fleet_ops_bar = config.ui.fleet_ops_bar;
                 self.state.hide_tab_bar_when_single_tab = config.ui.hide_tab_bar_when_single_tab;
-                self.state.fleet_ops_bar = config.ui.fleet_ops_bar;
                 self.state.agent_panel_sort =
                     agent_panel_sort_from_config(config.ui.agent_panel_sort);
                 self.state.sidebar_agents = config.ui.sidebar.agents.clone();
