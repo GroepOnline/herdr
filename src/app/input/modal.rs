@@ -685,7 +685,7 @@ pub(super) fn confirm_close_accept(state: &mut AppState) {
 }
 
 pub(super) fn confirm_close_cancel(state: &mut AppState) {
-    state.mode = Mode::Navigate;
+    leave_modal(state);
 }
 
 #[cfg(test)]
@@ -1932,7 +1932,8 @@ mod tests {
             &mut state,
             KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()),
         );
-        assert_eq!(state.mode, Mode::Navigate);
+        // Cancel returns to Terminal when a workspace is still active.
+        assert_eq!(state.mode, Mode::Terminal);
         assert_eq!(state.workspaces.len(), 2);
 
         state.mode = Mode::ConfirmClose;
@@ -1941,6 +1942,17 @@ mod tests {
             KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
         );
         assert_eq!(state.workspaces.len(), 1);
+    }
+
+    #[test]
+    fn confirm_close_cancel_enters_navigate_without_active_workspace() {
+        let mut state = state_with_workspaces(&["only"]);
+        state.active = None;
+        state.mode = Mode::ConfirmClose;
+
+        confirm_close_cancel(&mut state);
+
+        assert_eq!(state.mode, Mode::Navigate);
     }
 
     #[test]

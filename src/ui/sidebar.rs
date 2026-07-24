@@ -769,8 +769,11 @@ pub(super) fn render_sidebar_collapsed(app: &AppState, frame: &mut Frame, area: 
         return;
     }
 
-    for (visible_idx, ws) in app.workspaces.iter().enumerate() {
-        let y = ws_area.y + visible_idx as u16;
+    let scroll = app
+        .workspace_scroll
+        .min(app.workspaces.len().saturating_sub(1));
+    for (visible_idx, ws) in app.workspaces.iter().enumerate().skip(scroll) {
+        let y = ws_area.y + (visible_idx - scroll) as u16;
         if y >= ws_area.y + ws_area.height {
             break;
         }

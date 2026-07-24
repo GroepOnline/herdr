@@ -305,10 +305,12 @@ impl AppState {
             return None;
         }
 
+        let owned;
         let cards = if self.view.workspace_card_areas.is_empty() {
-            crate::ui::compute_workspace_card_areas(self, self.view.sidebar_rect)
+            owned = crate::ui::compute_workspace_card_areas(self, self.view.sidebar_rect);
+            owned.as_slice()
         } else {
-            self.view.workspace_card_areas.clone()
+            self.view.workspace_card_areas.as_slice()
         };
 
         cards.iter().find_map(|card| {
@@ -326,7 +328,7 @@ impl AppState {
             return None;
         }
 
-        let idx = (row - ws_area.y) as usize;
+        let idx = (row - ws_area.y) as usize + self.workspace_scroll;
         (idx < self.workspaces.len()).then_some(idx)
     }
 
@@ -365,10 +367,12 @@ impl AppState {
             return None;
         }
 
+        let owned;
         let cards = if self.view.workspace_card_areas.is_empty() {
-            crate::ui::compute_workspace_card_areas(self, self.view.sidebar_rect)
+            owned = crate::ui::compute_workspace_card_areas(self, self.view.sidebar_rect);
+            owned.as_slice()
         } else {
-            self.view.workspace_card_areas.clone()
+            self.view.workspace_card_areas.as_slice()
         };
         if cards.is_empty() {
             return Some(0);
@@ -396,7 +400,7 @@ impl AppState {
 
         let mut best: Option<(usize, u16)> = None;
         for insert_idx in insert_indices {
-            let Some(slot_row) = crate::ui::workspace_drop_indicator_row(&cards, area, insert_idx)
+            let Some(slot_row) = crate::ui::workspace_drop_indicator_row(cards, area, insert_idx)
             else {
                 continue;
             };
@@ -475,7 +479,9 @@ mod tests {
     use crossterm::event::{MouseButton, MouseEventKind};
     use ratatui::layout::Rect;
 
-    use super::super::{app_for_mouse_test, capture_snapshot, mouse, unique_temp_path};
+    use super::super::{
+        app_for_mouse_test, capture_snapshot, mouse, state_with_workspaces, unique_temp_path,
+    };
     use crate::{
         app::state::{AgentPanelSort, DragTarget, Mode},
         config::SidebarCollapsedModeConfig,
@@ -1713,5 +1719,19 @@ mod tests {
         assert!(app.state.drag.is_none());
         let snapshot = capture_snapshot(&app.state);
         assert_eq!(snapshot.sidebar_width, Some(26));
+    }
+
+    #[test]
+    fn collapsed_sidebar_workspace_hit_respects_scroll() {
+        let mut state = state_with_workspaces(&["a", "b", "c", "d", "e", "f"]);
+        state.sidebar_collapsed = true;
+        state.workspace_scroll = 2;
+        state.view.sidebar_rect = Rect::new(0, 0, 4, 8);
+        let (ws_area, _, _) = crate::ui::collapsed_sidebar_sections(state.view.sidebar_rect);
+        assert!(ws_area.height >= 1);
+        assert!(state.workspace_scroll + usize::from(ws_area.height) <= state.workspaces.len());
+
+        let hit = state.collapsed_workspace_at_row(ws_area.y);
+        assert_eq!(hit, Some(2));
     }
 }

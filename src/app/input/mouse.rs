@@ -105,17 +105,14 @@ impl AppState {
             return None;
         }
 
-        if self.mode == Mode::Terminal
-            && self.clickable_toast_at(mouse.column, mouse.row)
-            && matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
-        {
+        let toast_clickable = self.clickable_toast_at(mouse.column, mouse.row)
+            && (matches!(self.mode, Mode::Terminal | Mode::Navigate)
+                || self.view.layout == ViewLayout::Mobile);
+        if toast_clickable && matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
             return Some(MouseAction::FocusToastTarget);
         }
 
-        if self.mode == Mode::Terminal
-            && self.clickable_toast_at(mouse.column, mouse.row)
-            && matches!(mouse.kind, MouseEventKind::Up(MouseButton::Left))
-        {
+        if toast_clickable && matches!(mouse.kind, MouseEventKind::Up(MouseButton::Left)) {
             return None;
         }
 
@@ -243,7 +240,10 @@ impl AppState {
                         Some(ModalAction::Confirm) => {
                             return Some(MouseAction::ConfirmCloseAccept);
                         }
-                        Some(ModalAction::Cancel) | None => confirm_close_cancel(self),
+                        Some(ModalAction::Cancel) => confirm_close_cancel(self),
+                        None if !rect_contains(popup, mouse.column, mouse.row) => {
+                            confirm_close_cancel(self);
+                        }
                         _ => {}
                     }
                     return None;
@@ -389,22 +389,25 @@ impl AppState {
                     self.mode,
                     Mode::RenameWorkspace | Mode::RenameTab | Mode::RenamePane
                 ) {
-                    let action = self
-                        .rename_modal_inner()
-                        .map(crate::ui::rename_button_rects)
-                        .and_then(|(save, clear, cancel)| {
-                            modal_action_from_buttons(
-                                mouse.column,
-                                mouse.row,
-                                &[
-                                    (save, ModalAction::Save),
-                                    (clear, ModalAction::Clear),
-                                    (cancel, ModalAction::Cancel),
-                                ],
-                            )
-                        })
-                        .unwrap_or(ModalAction::Cancel);
-                    return Some(MouseAction::RenameModal(action));
+                    // Buttons act; inside body is a no-op; outside cancels (keeps
+                    // mobile switch / other chrome from trapping the modal).
+                    let inner = self.rename_modal_inner()?;
+                    let (save, clear, cancel) = crate::ui::rename_button_rects(inner);
+                    if let Some(action) = modal_action_from_buttons(
+                        mouse.column,
+                        mouse.row,
+                        &[
+                            (save, ModalAction::Save),
+                            (clear, ModalAction::Clear),
+                            (cancel, ModalAction::Cancel),
+                        ],
+                    ) {
+                        return Some(MouseAction::RenameModal(action));
+                    }
+                    if rect_contains(inner, mouse.column, mouse.row) {
+                        return None;
+                    }
+                    return Some(MouseAction::RenameModal(ModalAction::Cancel));
                 }
 
                 if self.mode == Mode::ContextMenu {
@@ -555,15 +558,21 @@ impl AppState {
                         return None;
                     }
 
+                    let owned_cards;
                     let cards = if self.view.workspace_card_areas.is_empty() {
-                        crate::ui::compute_workspace_card_areas(self, self.view.sidebar_rect)
+                        owned_cards =
+                            crate::ui::compute_workspace_card_areas(self, self.view.sidebar_rect);
+                        owned_cards.as_slice()
                     } else {
-                        self.view.workspace_card_areas.clone()
+                        self.view.workspace_card_areas.as_slice()
                     };
+                    // Widen caret slightly (x..x+1) without stealing the parent
+                    // row body click at x+2 used for focus-without-toggle.
                     if let Some(card) = cards.iter().find(|card| {
                         mouse.row == card.rect.y
-                            && mouse.column == card.rect.x
-                            && mouse.column < card.rect.x + card.rect.width
+                            && mouse.column >= card.rect.x
+                            && mouse.column <= card.rect.x.saturating_add(1)
+                            && mouse.column < card.rect.x.saturating_add(card.rect.width)
                     }) {
                         if let Some((key, collapsed)) =
                             crate::ui::workspace_parent_group_state(self, card.ws_idx)
@@ -2569,6 +2578,42 @@ mod tests {
     }
 
     #[test]
+    fn toast_click_focuses_target_from_navigate_mode() {
+        let mut app = app_for_mouse_test();
+        let active = Workspace::test_new("active");
+        let background = Workspace::test_new("background");
+        let target_pane = background.tabs[0].root_pane;
+        let workspace_id = background.id.clone();
+
+        app.state.workspaces = vec![active, background];
+        app.state.active = Some(0);
+        app.state.selected = 0;
+        app.state.mode = Mode::Navigate;
+        app.state.toast = Some(crate::app::state::ToastNotification {
+            kind: crate::app::state::ToastKind::NeedsAttention,
+            title: "pi needs attention".into(),
+            context: "background · 2".into(),
+            position: None,
+            target: Some(crate::app::state::ToastTarget {
+                workspace_id,
+                pane_id: target_pane,
+            }),
+        });
+        crate::ui::compute_view(&mut app.state, Rect::new(0, 0, 106, 20));
+
+        let hit = app.state.view.toast_hit_area;
+        app.handle_mouse(mouse(
+            MouseEventKind::Down(MouseButton::Left),
+            hit.x + 1,
+            hit.y + 1,
+        ));
+
+        assert_eq!(app.state.active, Some(1));
+        assert_eq!(app.state.workspaces[1].focused_pane_id(), Some(target_pane));
+        assert!(app.state.toast.is_none());
+    }
+
+    #[test]
     fn clicking_confirm_close_accepts_workspace_close() {
         let mut app = app_for_mouse_test();
         app.state.workspaces = vec![Workspace::test_new("a"), Workspace::test_new("b")];
@@ -2596,6 +2641,37 @@ mod tests {
     }
 
     #[test]
+    fn clicking_confirm_close_body_does_not_cancel() {
+        let mut app = app_for_mouse_test();
+        app.state.workspaces = vec![Workspace::test_new("a"), Workspace::test_new("b")];
+        app.state.active = Some(0);
+        app.state.selected = 1;
+        app.state.mode = Mode::ConfirmClose;
+
+        let popup = app.state.confirm_close_rect();
+        let inner = Rect::new(
+            popup.x + 1,
+            popup.y + 1,
+            popup.width.saturating_sub(2),
+            popup.height.saturating_sub(2),
+        );
+        let (confirm, cancel) = crate::ui::confirm_close_button_rects(inner);
+        let body_col = inner.x + 2;
+        let body_row = inner.y + 1;
+        assert!(!rect_contains(confirm, body_col, body_row));
+        assert!(!rect_contains(cancel, body_col, body_row));
+
+        app.handle_mouse(mouse(
+            MouseEventKind::Down(MouseButton::Left),
+            body_col,
+            body_row,
+        ));
+
+        assert_eq!(app.state.mode, Mode::ConfirmClose);
+        assert_eq!(app.state.workspaces.len(), 2);
+    }
+
+    #[test]
     fn clicking_rename_save_submits_workspace_rename_through_api_path() {
         let mut app = app_for_mouse_test();
         app.state.workspaces = vec![Workspace::test_new("old")];
@@ -2618,6 +2694,34 @@ mod tests {
         assert!(app.event_hub.events_after(0).iter().any(|(_, event)| {
             matches!(event.event, crate::api::schema::EventKind::WorkspaceRenamed)
         }));
+    }
+
+    #[test]
+    fn clicking_rename_modal_body_does_not_cancel() {
+        let mut app = app_for_mouse_test();
+        app.state.workspaces = vec![Workspace::test_new("old")];
+        app.state.active = Some(0);
+        app.state.selected = 0;
+        app.state.mode = Mode::RenameWorkspace;
+        app.state.name_input = "draft".into();
+
+        crate::ui::compute_view(&mut app.state, Rect::new(0, 0, 106, 24));
+        let inner = app.state.rename_modal_inner().unwrap();
+        let (save, clear, cancel) = crate::ui::rename_button_rects(inner);
+        let body_col = inner.x + 2;
+        let body_row = inner.y + 1;
+        assert!(!rect_contains(save, body_col, body_row));
+        assert!(!rect_contains(clear, body_col, body_row));
+        assert!(!rect_contains(cancel, body_col, body_row));
+
+        app.handle_mouse(mouse(
+            MouseEventKind::Down(MouseButton::Left),
+            body_col,
+            body_row,
+        ));
+
+        assert_eq!(app.state.mode, Mode::RenameWorkspace);
+        assert_eq!(app.state.name_input, "draft");
     }
 
     #[test]

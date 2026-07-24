@@ -36,10 +36,16 @@ pub(super) fn render_navigator_overlay(
     render_search(app, frame, search);
 
     if body.height > 0 {
-        let rows = app.navigator_rows_from(terminal_runtimes);
-        let lines = navigator_display_lines(&rows);
+        let owned_rows;
+        let rows = if app.view.navigator_rows.is_empty() {
+            owned_rows = app.navigator_rows_from(terminal_runtimes);
+            owned_rows.as_slice()
+        } else {
+            app.view.navigator_rows.as_slice()
+        };
+        let lines = navigator_display_lines(rows);
         render_separator(frame, Rect::new(inner.x, search.y + 1, inner.width, 1), app);
-        render_rows(app, &rows, &lines, frame, body);
+        render_rows(app, rows, &lines, frame, body);
         render_navigator_scrollbar(app, lines.len(), frame, body);
     }
     render_detail(app, terminal_runtimes, frame, detail);
