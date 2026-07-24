@@ -262,6 +262,317 @@ impl App {
         }
     }
 
+    pub(super) fn save_mouse_capture(&mut self, enabled: bool) {
+        if self.update_config_file("mouse capture", |content| {
+            crate::config::upsert_section_bool(content, "ui", "mouse_capture", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_copy_on_select(&mut self, enabled: bool) {
+        if self.update_config_file("copy on select", |content| {
+            crate::config::upsert_section_bool(content, "ui", "copy_on_select", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_confirm_close(&mut self, enabled: bool) {
+        if self.update_config_file("confirm close", |content| {
+            crate::config::upsert_section_bool(content, "ui", "confirm_close", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_prompt_new_tab_name(&mut self, enabled: bool) {
+        if self.update_config_file("prompt new tab name", |content| {
+            crate::config::upsert_section_bool(content, "ui", "prompt_new_tab_name", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_prompt_new_workspace_name(&mut self, enabled: bool) {
+        if self.update_config_file("prompt new workspace name", |content| {
+            crate::config::upsert_section_bool(content, "ui", "prompt_new_workspace_name", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_redraw_on_focus_gained(&mut self, enabled: bool) {
+        if self.update_config_file("redraw on focus gained", |content| {
+            crate::config::upsert_section_bool(content, "ui", "redraw_on_focus_gained", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_host_cursor(&mut self, mode: crate::config::HostCursorModeConfig) {
+        let value = match mode {
+            crate::config::HostCursorModeConfig::Auto => "\"auto\"",
+            crate::config::HostCursorModeConfig::Native => "\"native\"",
+            crate::config::HostCursorModeConfig::Drawn => "\"drawn\"",
+        };
+        if self.update_config_file("host cursor", |content| {
+            crate::config::upsert_section_value(content, "ui", "host_cursor", value)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_sidebar_collapsed_mode(
+        &mut self,
+        mode: crate::config::SidebarCollapsedModeConfig,
+    ) {
+        let value = match mode {
+            crate::config::SidebarCollapsedModeConfig::Compact => "\"compact\"",
+            crate::config::SidebarCollapsedModeConfig::Hidden => "\"hidden\"",
+        };
+        if self.update_config_file("sidebar collapsed mode", |content| {
+            crate::config::upsert_section_value(content, "ui", "sidebar_collapsed_mode", value)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_shell_mode(&mut self, mode: crate::config::ShellModeConfig) {
+        let value = match mode {
+            crate::config::ShellModeConfig::Auto => "\"auto\"",
+            crate::config::ShellModeConfig::Login => "\"login\"",
+            crate::config::ShellModeConfig::NonLogin => "\"non_login\"",
+        };
+        if self.update_config_file("shell mode", |content| {
+            crate::config::upsert_section_value(content, "terminal", "shell_mode", value)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_default_shell(&mut self, shell: &str) {
+        let shell = shell.to_string();
+        if self.update_config_file("default shell", |content| {
+            if shell.is_empty() {
+                crate::config::remove_section_key(content, "terminal", "default_shell")
+            } else {
+                crate::config::upsert_section_value(
+                    content,
+                    "terminal",
+                    "default_shell",
+                    &format!("\"{shell}\""),
+                )
+            }
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_new_terminal_cwd(&mut self, cwd: crate::config::NewTerminalCwdConfig) {
+        let value = match cwd {
+            crate::config::NewTerminalCwdConfig::Follow => "\"follow\"",
+            crate::config::NewTerminalCwdConfig::Home => "\"home\"",
+            crate::config::NewTerminalCwdConfig::Current => "\"current\"",
+            crate::config::NewTerminalCwdConfig::Path(path) => {
+                self.save_new_terminal_cwd_path(&path);
+                return;
+            }
+        };
+        if self.update_config_file("new terminal cwd", |content| {
+            crate::config::upsert_section_value(content, "terminal", "new_cwd", value)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    fn save_new_terminal_cwd_path(&mut self, path: &str) {
+        let path = path.to_string();
+        if self.update_config_file("new terminal cwd", |content| {
+            crate::config::upsert_section_value(
+                content,
+                "terminal",
+                "new_cwd",
+                &format!("\"{path}\""),
+            )
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_scrollback_limit_bytes(&mut self, bytes: usize) {
+        if self.update_config_file("scrollback limit", |content| {
+            crate::config::upsert_section_value(
+                content,
+                "advanced",
+                "scrollback_limit_bytes",
+                &bytes.to_string(),
+            )
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_toast_delay_seconds(&mut self, seconds: u64) {
+        if self.update_config_file("toast delay", |content| {
+            crate::config::upsert_section_value(
+                content,
+                "ui.toast",
+                "delay_seconds",
+                &seconds.to_string(),
+            )
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_toast_herdr_position(
+        &mut self,
+        position: crate::config::ToastHerdrPosition,
+    ) {
+        let value = match position {
+            crate::config::ToastHerdrPosition::TopLeft => "\"top-left\"",
+            crate::config::ToastHerdrPosition::TopRight => "\"top-right\"",
+            crate::config::ToastHerdrPosition::BottomLeft => "\"bottom-left\"",
+            crate::config::ToastHerdrPosition::BottomRight => "\"bottom-right\"",
+        };
+        if self.update_config_file("toast position", |content| {
+            crate::config::upsert_section_value(content, "ui.toast.herdr", "position", value)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_clipboard_toast_enabled(&mut self, enabled: bool) {
+        if self.update_config_file("clipboard toast", |content| {
+            crate::config::upsert_section_bool(content, "ui.toast.clipboard", "enabled", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_clipboard_toast_position(
+        &mut self,
+        position: crate::config::ToastClipboardPosition,
+    ) {
+        let value = match position {
+            crate::config::ToastClipboardPosition::TopLeft => "\"top-left\"",
+            crate::config::ToastClipboardPosition::TopCenter => "\"top-center\"",
+            crate::config::ToastClipboardPosition::TopRight => "\"top-right\"",
+            crate::config::ToastClipboardPosition::BottomLeft => "\"bottom-left\"",
+            crate::config::ToastClipboardPosition::BottomCenter => "\"bottom-center\"",
+            crate::config::ToastClipboardPosition::BottomRight => "\"bottom-right\"",
+        };
+        if self.update_config_file("clipboard toast position", |content| {
+            crate::config::upsert_section_value(content, "ui.toast.clipboard", "position", value)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_update_channel(&mut self, channel: crate::config::UpdateChannelConfig) {
+        if self.update_config_file("update channel", |content| {
+            crate::config::upsert_section_value(
+                content,
+                "update",
+                "channel",
+                &format!("\"{}\"", channel.as_str()),
+            )
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_version_check(&mut self, enabled: bool) {
+        if self.update_config_file("version check", |content| {
+            crate::config::upsert_section_bool(content, "update", "version_check", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_manifest_check(&mut self, enabled: bool) {
+        if self.update_config_file("manifest check", |content| {
+            crate::config::upsert_section_bool(content, "update", "manifest_check", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_resume_agents_on_restore(&mut self, enabled: bool) {
+        if self.update_config_file("resume agents on restore", |content| {
+            crate::config::upsert_section_bool(
+                content,
+                "session",
+                "resume_agents_on_restore",
+                enabled,
+            )
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_manage_ssh_config(&mut self, enabled: bool) {
+        if self.update_config_file("manage ssh config", |content| {
+            crate::config::upsert_section_bool(content, "remote", "manage_ssh_config", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_clipboard_history_enabled(&mut self, enabled: bool) {
+        if self.update_config_file("clipboard history", |content| {
+            crate::config::upsert_section_bool(content, "clipboard", "history_enabled", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_allow_nested(&mut self, enabled: bool) {
+        if self.update_config_file("allow nested", |content| {
+            crate::config::upsert_section_bool(content, "experimental", "allow_nested", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_kitty_graphics(&mut self, enabled: bool) {
+        if self.update_config_file("kitty graphics", |content| {
+            crate::config::upsert_section_bool(content, "experimental", "kitty_graphics", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_reveal_hidden_cursor_for_cjk_ime(&mut self, enabled: bool) {
+        if self.update_config_file("reveal hidden cursor for cjk ime", |content| {
+            crate::config::upsert_section_bool(
+                content,
+                "experimental",
+                "reveal_hidden_cursor_for_cjk_ime",
+                enabled,
+            )
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_theme_auto_switch(&mut self, enabled: bool) {
+        if self.update_config_file("theme auto switch", |content| {
+            crate::config::upsert_section_bool(content, "theme", "auto_switch", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_fleet_ops_bar(&mut self, enabled: bool) {
+        if self.update_config_file("fleet ops bar", |content| {
+            crate::config::upsert_section_bool(content, "ui", "fleet_ops_bar", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
     /// Apply a pane layout template to the current tab by performing a sequence
     /// of splits. Leaves settings mode first so the user sees the result.
     pub(super) fn apply_pane_template(&mut self, template: crate::pane_template::PaneTemplateId) {
@@ -318,26 +629,43 @@ impl App {
                 self.focus_pane_direction_via_api(NavDirection::Right);
                 self.split_focused_pane_via_api(SplitDirection::Down);
             }
-            T::TripleHorizontal => {
+            T::TripleHorizontal | T::OpsTriple => {
                 self.split_focused_pane_via_api(SplitDirection::Right);
                 self.focus_pane_direction_via_api(NavDirection::Left);
                 self.split_focused_pane_via_api(SplitDirection::Right);
             }
             T::MainSidebar => {
-                self.runtime_pane_split(
-                    "tui.pane.split",
-                    crate::api::schema::PaneSplitParams {
-                        workspace_id: None,
-                        target_pane_id: None,
-                        direction: SplitDirection::Right,
-                        ratio: Some(0.7),
-                        cwd: None,
-                        focus: true,
-                        env: Default::default(),
-                        command: None,
-                    },
-                );
+                self.split_with_ratio(SplitDirection::Right, 0.7);
+            }
+            T::MonitorBottom => {
+                self.split_with_ratio(SplitDirection::Down, 0.72);
+            }
+            T::MonitorSide => {
+                self.split_with_ratio(SplitDirection::Right, 0.62);
+                self.split_focused_pane_via_api(SplitDirection::Down);
+                self.focus_pane_direction_via_api(NavDirection::Left);
+            }
+            T::ReviewDeck => {
+                self.split_with_ratio(SplitDirection::Right, 0.68);
+                self.split_focused_pane_via_api(SplitDirection::Down);
+                self.focus_pane_direction_via_api(NavDirection::Left);
             }
         }
+    }
+
+    fn split_with_ratio(&mut self, direction: crate::api::schema::SplitDirection, ratio: f32) {
+        self.runtime_pane_split(
+            "tui.pane.split",
+            crate::api::schema::PaneSplitParams {
+                workspace_id: None,
+                target_pane_id: None,
+                direction,
+                ratio: Some(ratio),
+                cwd: None,
+                focus: true,
+                env: Default::default(),
+                command: None,
+            },
+        );
     }
 }

@@ -1,8 +1,8 @@
 //! Pane layout templates.
 //!
 //! Predefined split structures that can be applied to the current tab to
-//! quickly arrange panes for common workflows (dual-agent review, main+sidebar,
-//! quad grid, etc.).
+//! quickly arrange panes for common workflows (dual-agent review, monitoring,
+//! ops dashboards, etc.).
 
 /// A predefined pane layout that can be applied to the current tab.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -10,8 +10,6 @@ pub struct PaneTemplate {
     pub id: PaneTemplateId,
     pub name: &'static str,
     pub description: &'static str,
-    /// ASCII-art preview shown in the settings picker.
-    pub preview: &'static str,
 }
 
 /// Identifier for a built-in pane template.
@@ -29,6 +27,14 @@ pub enum PaneTemplateId {
     TripleHorizontal,
     /// One large pane (70%) + one narrow sidebar (30%).
     MainSidebar,
+    /// Large agent pane on top, monitor/logs strip below.
+    MonitorBottom,
+    /// Agent left, stacked monitor panes on the right.
+    MonitorSide,
+    /// Three equal columns: agent · status · logs.
+    OpsTriple,
+    /// Wide main + two stacked side panels (review / preview).
+    ReviewDeck,
 }
 
 impl PaneTemplateId {
@@ -37,48 +43,66 @@ impl PaneTemplateId {
         Self::Single,
         Self::HorizontalSplit,
         Self::VerticalSplit,
-        Self::Quad,
-        Self::TripleHorizontal,
         Self::MainSidebar,
+        Self::MonitorBottom,
+        Self::MonitorSide,
+        Self::OpsTriple,
+        Self::ReviewDeck,
+        Self::TripleHorizontal,
+        Self::Quad,
     ];
 
     pub const fn template(self) -> PaneTemplate {
         match self {
             Self::Single => PaneTemplate {
                 id: self,
-                name: "single",
-                description: "one pane, no splits",
-                preview: "┌─────────────────┐\n│                 │\n│                 │\n│                 │\n└─────────────────┘",
+                name: "focus",
+                description: "one pane, full attention",
             },
             Self::HorizontalSplit => PaneTemplate {
                 id: self,
-                name: "horizontal split",
-                description: "two panes side by side",
-                preview: "┌────────┬────────┐\n│        │        │\n│        │        │\n│        │        │\n└────────┴────────┘",
+                name: "side by side",
+                description: "two agents or agent + tool",
             },
             Self::VerticalSplit => PaneTemplate {
                 id: self,
-                name: "vertical split",
-                description: "two panes stacked",
-                preview: "┌─────────────────┐\n│                 │\n├─────────────────┤\n│                 │\n└─────────────────┘",
+                name: "stacked",
+                description: "two panes, one above the other",
+            },
+            Self::MainSidebar => PaneTemplate {
+                id: self,
+                name: "main + rail",
+                description: "wide work area with a narrow side pane",
+            },
+            Self::MonitorBottom => PaneTemplate {
+                id: self,
+                name: "monitor strip",
+                description: "agent on top, logs/metrics along the bottom",
+            },
+            Self::MonitorSide => PaneTemplate {
+                id: self,
+                name: "monitor column",
+                description: "agent left, two stacked monitors on the right",
+            },
+            Self::OpsTriple => PaneTemplate {
+                id: self,
+                name: "ops board",
+                description: "agent · status · logs — three equal columns",
+            },
+            Self::ReviewDeck => PaneTemplate {
+                id: self,
+                name: "review deck",
+                description: "wide main plus two stacked side panels",
+            },
+            Self::TripleHorizontal => PaneTemplate {
+                id: self,
+                name: "three wide",
+                description: "three panes across",
             },
             Self::Quad => PaneTemplate {
                 id: self,
                 name: "quad",
                 description: "four panes in a 2×2 grid",
-                preview: "┌────────┬────────┐\n│        │        │\n├────────┼────────┤\n│        │        │\n└────────┴────────┘",
-            },
-            Self::TripleHorizontal => PaneTemplate {
-                id: self,
-                name: "triple horizontal",
-                description: "three panes side by side",
-                preview: "┌──────┬──────┬──────┐\n│      │      │      │\n│      │      │      │\n│      │      │      │\n└──────┴──────┴──────┘",
-            },
-            Self::MainSidebar => PaneTemplate {
-                id: self,
-                name: "main + sidebar",
-                description: "one large pane + narrow sidebar",
-                preview: "┌──────────────┬───┐\n│              │   │\n│    main      │ s │\n│              │   │\n└──────────────┴───┘",
             },
         }
     }

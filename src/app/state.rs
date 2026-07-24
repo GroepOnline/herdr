@@ -776,8 +776,6 @@ pub struct ViewState {
     pub layout: ViewLayout,
     pub sidebar_rect: Rect,
     pub workspace_card_areas: Vec<WorkspaceCardArea>,
-    /// Frame cache for navigator rows (filled in `compute_view` when mode is Navigator).
-    pub(crate) navigator_rows: Vec<NavigatorRow>,
     pub tab_bar_rect: Rect,
     pub tab_hit_areas: Vec<Rect>,
     pub tab_scroll_left_hit_area: Rect,
@@ -985,63 +983,156 @@ pub enum AgentPanelSort {
 /// Which section of the settings panel is focused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsSection {
-    /// Theme picker.
-    Theme,
-    /// Spinner style + UI toggles (borders, gaps, labels, tab bar).
-    Ui,
-    /// Sound alerts + toast delivery.
-    Sound,
-    /// System experiments.
-    System,
-    /// Personal CHEF fleet context.
-    Fleet,
-    /// Installed and browsable CHEF plugins.
+    Appearance,
+    Layout,
+    Input,
+    Terminal,
+    Notifications,
+    Agents,
     Plugins,
-    /// Pane layout templates.
-    Templates,
-    /// Integration recommendations.
-    Integrations,
+    Updates,
+    Advanced,
 }
 
 impl SettingsSection {
     pub const ALL: &[Self] = &[
-        Self::Theme,
-        Self::Ui,
-        Self::Sound,
-        Self::System,
-        Self::Fleet,
+        Self::Appearance,
+        Self::Layout,
+        Self::Input,
+        Self::Terminal,
+        Self::Notifications,
+        Self::Agents,
         Self::Plugins,
-        Self::Templates,
-        Self::Integrations,
+        Self::Updates,
+        Self::Advanced,
     ];
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::Theme => "theme",
-            Self::Ui => "ui",
-            Self::Sound => "sound",
-            Self::System => "system",
-            Self::Fleet => "fleet",
+            Self::Appearance => "appearance",
+            Self::Layout => "layout",
+            Self::Input => "input",
+            Self::Terminal => "terminal",
+            Self::Notifications => "notifications",
+            Self::Agents => "agents",
             Self::Plugins => "plugins",
-            Self::Templates => "templates",
-            Self::Integrations => "integrations",
+            Self::Updates => "updates",
+            Self::Advanced => "advanced",
         }
+    }
+
+    pub fn title(self) -> &'static str {
+        match self {
+            Self::Appearance => "Appearance",
+            Self::Layout => "Layout",
+            Self::Input => "Input",
+            Self::Terminal => "Terminal",
+            Self::Notifications => "Notifications",
+            Self::Agents => "Agents",
+            Self::Plugins => "Plugins",
+            Self::Updates => "Updates",
+            Self::Advanced => "Advanced",
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::Appearance => "theme and the working spinner — live preview above the list",
+            Self::Layout => "pane chrome, sidebar, and one-shot layout templates",
+            Self::Input => "mouse, copy, focus redraw, prompts, and keybind help",
+            Self::Terminal => "default shell, cwd policy, and scrollback",
+            Self::Notifications => "sound alerts, toast delivery, and clipboard toasts",
+            Self::Agents => "resume sessions and agent integration packages",
+            Self::Plugins => "install, enable, and manage herdr plugins",
+            Self::Updates => "update channel and background check toggles",
+            Self::Advanced => "experiments, graphics, remote, and config paths",
+        }
+    }
+
+    pub fn next(self) -> Self {
+        let idx = Self::ALL
+            .iter()
+            .position(|section| *section == self)
+            .unwrap_or(0);
+        Self::ALL[(idx + 1) % Self::ALL.len()]
+    }
+
+    pub fn prev(self) -> Self {
+        let idx = Self::ALL
+            .iter()
+            .position(|section| *section == self)
+            .unwrap_or(0);
+        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
     }
 }
 
-/// Number of toggle rows in the Ui tab before the spinner grid.
-pub(crate) const UI_TOGGLE_COUNT: usize = 4;
-/// Index in the Ui tab where the spinner grid starts.
-pub(crate) const UI_SPINNER_OFFSET: usize = UI_TOGGLE_COUNT;
+/// Keyboard/mouse focus within the settings modal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SettingsFocus {
+    #[default]
+    Nav,
+    Content,
+    Search,
+}
+
+/// Config fields surfaced in settings that are not mirrored on [`AppState`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SettingsConfigSnapshot {
+    pub update_channel: crate::config::UpdateChannelConfig,
+    pub version_check: bool,
+    pub manifest_check: bool,
+    pub resume_agents_on_restore: bool,
+    pub manage_ssh_config: bool,
+    pub clipboard_history_enabled: bool,
+    pub allow_nested: bool,
+    pub theme_auto_switch: bool,
+    pub theme_dark_name: String,
+    pub theme_light_name: String,
+    pub host_cursor: crate::config::HostCursorModeConfig,
+}
+
+impl SettingsConfigSnapshot {
+    pub(crate) fn load() -> Self {
+        let config = crate::config::Config::load().config;
+        Self {
+            update_channel: config.update.channel,
+            version_check: config.update.version_check,
+            manifest_check: config.update.manifest_check,
+            resume_agents_on_restore: config.session.resume_agents_on_restore,
+            manage_ssh_config: config.remote.manage_ssh_config,
+            clipboard_history_enabled: config.clipboard.history_enabled,
+            allow_nested: config.experimental.allow_nested,
+            theme_auto_switch: config.theme.auto_switch,
+            theme_dark_name: config
+                .theme
+                .dark_name
+                .unwrap_or_else(|| "catppuccin".to_string()),
+            theme_light_name: config
+                .theme
+                .light_name
+                .unwrap_or_else(|| "catppuccin-latte".to_string()),
+            host_cursor: config.ui.host_cursor,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ExperimentSetting {
     PaneHistory,
     SwitchAsciiInputSourceInPrefix,
+    KittyGraphics,
+    AllowNested,
+    RevealHiddenCursorForCjkIme,
 }
 
 impl ExperimentSetting {
-    pub(crate) const ALL: [Self; 2] = [Self::PaneHistory, Self::SwitchAsciiInputSourceInPrefix];
+    pub(crate) const ALL: [Self; 5] = [
+        Self::PaneHistory,
+        Self::SwitchAsciiInputSourceInPrefix,
+        Self::KittyGraphics,
+        Self::AllowNested,
+        Self::RevealHiddenCursorForCjkIme,
+    ];
 
     pub(crate) fn label(self) -> &'static str {
         match self {
@@ -1049,6 +1140,9 @@ impl ExperimentSetting {
             Self::SwitchAsciiInputSourceInPrefix => {
                 "switch to ascii input source in prefix (macOS)"
             }
+            Self::KittyGraphics => "kitty graphics protocol",
+            Self::AllowNested => "allow nested herdr sessions",
+            Self::RevealHiddenCursorForCjkIme => "reveal hidden cursor for cjk ime",
         }
     }
 
@@ -1058,6 +1152,9 @@ impl ExperimentSetting {
             Self::SwitchAsciiInputSourceInPrefix => {
                 state.switch_ascii_input_source_in_prefix_enabled()
             }
+            Self::KittyGraphics => state.kitty_graphics_enabled,
+            Self::AllowNested => state.settings.config_snapshot.allow_nested,
+            Self::RevealHiddenCursorForCjkIme => state.reveal_hidden_cursor_for_cjk_ime,
         }
     }
 }
@@ -1147,17 +1244,26 @@ pub struct ThemeRuntimeConfig {
 }
 
 pub struct SettingsState {
-    /// Which section tab is active.
+    /// Which left-nav section is active.
     pub section: SettingsSection,
-    /// Selected item index within the current section.
+    /// Selected item index within the current section content list.
     pub list: SelectionListState,
+    /// Filter query for the settings search box.
+    pub search: String,
+    /// Which region of the settings modal has keyboard focus.
+    pub focus: SettingsFocus,
+    /// Active spinner style category in appearance.
+    pub spinner_category: usize,
+    /// Scroll offset for the active section content list.
+    pub content_scroll: u16,
     /// The palette before opening settings (for cancel/restore).
     pub original_palette: Option<Palette>,
     /// The theme name before opening settings.
     pub original_theme: Option<String>,
-    /// Independent tick for the Appearance spinner preview so it animates
-    /// even when no working agent drives `spinner_tick`.
+    /// Independent tick for animated settings previews.
     pub preview_tick: u32,
+    /// Snapshot of config fields not mirrored on [`AppState`].
+    pub config_snapshot: SettingsConfigSnapshot,
 }
 
 pub(crate) enum DragTarget {
@@ -1534,7 +1640,6 @@ pub struct AppState {
     pub pane_borders: bool,
     pub pane_gaps: bool,
     pub show_agent_labels_on_pane_borders: bool,
-    pub fleet_ops_bar: bool,
     pub hide_tab_bar_when_single_tab: bool,
     pub pane_history_persistence: bool,
     /// Expose the focused pane's cursor anchor to the outer terminal even when
@@ -1586,6 +1691,11 @@ pub struct AppState {
     pub agent_manifest_update_status: crate::detect::manifest_update::ManifestUpdateStatus,
     /// Result messages from the latest integration install action.
     pub integration_install_messages: Vec<String>,
+    pub plugin_install_messages: Vec<String>,
+    /// Show the Fleet Ops Bar under pane borders. Default: true.
+    pub fleet_ops_bar: bool,
+    /// Fleet Ops fragments + git context refreshed off the render path.
+    pub fleet_ops_cache: crate::fleet::FleetOpsCache,
     /// Installed or linked plugins known to this running Herdr instance.
     pub(crate) installed_plugins: InstalledPluginRegistry,
     /// Pane ids opened through the plugin pane API.
@@ -1648,16 +1758,16 @@ impl AppState {
         self.hide_tab_bar_when_single_tab
     }
 
+    pub fn fleet_ops_bar_enabled(&self) -> bool {
+        self.fleet_ops_bar
+    }
+
     pub fn pane_history_persistence_enabled(&self) -> bool {
         self.pane_history_persistence
     }
 
     pub fn switch_ascii_input_source_in_prefix_enabled(&self) -> bool {
         self.switch_ascii_input_source_in_prefix
-    }
-
-    pub fn fleet_ops_bar_enabled(&self) -> bool {
-        self.fleet_ops_bar
     }
 
     pub(crate) fn pane_exposes_host_cursor(
@@ -1688,7 +1798,7 @@ impl AppState {
     }
 
     pub(crate) fn settings_section_has_badge(&self, section: SettingsSection) -> bool {
-        section == SettingsSection::Integrations && self.integration_updates_available()
+        section == SettingsSection::Agents && self.integration_updates_available()
     }
 
     pub(crate) fn focused_pane_requests_mouse_capture_from(
@@ -1873,7 +1983,6 @@ impl AppState {
                 layout: ViewLayout::Desktop,
                 sidebar_rect: Rect::default(),
                 workspace_card_areas: Vec::new(),
-                navigator_rows: Vec::new(),
                 tab_bar_rect: Rect::default(),
                 tab_hit_areas: Vec::new(),
                 tab_scroll_left_hit_area: Rect::default(),
@@ -1930,7 +2039,6 @@ impl AppState {
             pane_borders: true,
             pane_gaps: false,
             show_agent_labels_on_pane_borders: false,
-            fleet_ops_bar: true,
             hide_tab_bar_when_single_tab: false,
             pane_history_persistence: false,
             reveal_hidden_cursor_for_cjk_ime: false,
@@ -1966,17 +2074,25 @@ impl AppState {
             host_terminal_appearance: None,
             host_terminal_appearance_explicit: false,
             settings: SettingsState {
-                section: SettingsSection::Theme,
+                section: SettingsSection::Appearance,
                 list: SelectionListState::new(0),
+                search: String::new(),
+                focus: SettingsFocus::Content,
+                spinner_category: 0,
+                content_scroll: 0,
                 original_palette: None,
                 original_theme: None,
                 preview_tick: 0,
+                config_snapshot: SettingsConfigSnapshot::load(),
             },
             integration_recommendations: Vec::new(),
             agent_manifest_summaries: Vec::new(),
             agent_manifest_update_status:
                 crate::detect::manifest_update::ManifestUpdateStatus::default(),
             integration_install_messages: Vec::new(),
+            plugin_install_messages: Vec::new(),
+            fleet_ops_bar: true,
+            fleet_ops_cache: crate::fleet::FleetOpsCache::default(),
             installed_plugins: std::collections::HashMap::new(),
             plugin_panes: std::collections::HashMap::new(),
             pane_graphics_layers: std::collections::HashMap::new(),

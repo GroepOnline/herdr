@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
@@ -7,19 +7,12 @@ use crate::detect::AgentState;
 use crate::plugin_paths::plugin_state_dir;
 use crate::terminal::state::TerminalState;
 
-/// Plugin ids that contribute `fleet_ops.json` fragments for the CHEF bar.
-pub const FLEET_OPS_PLUGIN_IDS: &[&str] = &[
-    "com.chefgroep.linear-context",
-    "com.chefgroep.github-status",
-    "com.chefgroep.fleet-health",
-    "com.chefgroep.cloudflare-tunnel",
-    "com.chefgroep.kater-bridge",
-    "com.chefgroep.udo-metrics",
-    "com.chefgroep.session-park",
-];
-
-#[derive(Debug, Clone, Default, Deserialize)]
-#[allow(dead_code)] // reserved JSON fields for future fleet/cloudflare/parked bar segments
+/// Plugin-owned `fleet_ops.json` fragment written under `HERDR_PLUGIN_STATE_DIR`.
+///
+/// Core merges fragments from *installed* plugin ids only (no hardcoded vendor
+/// allowlist). Personalized issue keys (e.g. `ENG-432`) belong in the fragment
+/// `issue.id` field — see [`format_issue_label`].
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct PluginFleetFragment {
     pub source: Option<String>,
     pub updated_at: Option<String>,
@@ -31,8 +24,7 @@ pub struct PluginFleetFragment {
     pub parked: Option<PluginParkedSummary>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
-#[allow(dead_code)] // title/status reserved for richer Linear bar segments
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct PluginIssueFragment {
     pub id: Option<String>,
     pub title: Option<String>,
@@ -41,32 +33,44 @@ pub struct PluginIssueFragment {
     pub cycle: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct PluginPrFragment {
     pub number: Option<u32>,
     pub checks: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
-#[allow(dead_code)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct PluginFleetSummary {
     pub online: Option<u32>,
     pub total: Option<u32>,
     pub summary: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
-#[allow(dead_code)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct PluginCloudflareSummary {
     pub tunnels_healthy: Option<u32>,
     pub summary: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
-#[allow(dead_code)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct PluginParkedSummary {
     pub count: Option<u32>,
     pub oldest_hours: Option<u32>,
+}
+
+/// Cached fleet-ops inputs refreshed off the render path.
+#[derive(Clone, Debug, Default)]
+pub struct FleetOpsCache {
+    pub fragments: Vec<PluginFleetFragment>,
+    /// Git context keyed by terminal cwd (repo, worktree, branch).
+    pub git_by_cwd: std::collections::HashMap<PathBuf, CachedGitContext>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CachedGitContext {
+    pub repo: Option<String>,
+    pub worktree: Option<String>,
+    pub branch: Option<String>,
 }
 
 /// Fleet operations metadata for a single pane/agent.
@@ -123,14 +127,25 @@ pub enum CiStatus {
 }
 
 impl FleetOpsMetadata {
-    /// Build metadata from terminal state + runtime context.
-    pub fn from_terminal(term: &TerminalState, host: &str) -> Self {
-        let (repo, worktree, branch) = derive_git_context(&term.cwd);
+    /// Build metadata from terminal state + cached plugin fragments.
+    ///
+    /// Does not touch the filesystem. Callers must refresh [`FleetOpsCache`]
+    /// from scheduled tasks / event hooks.
+    pub fn from_terminal(term: &TerminalState, host: &str, cache: &FleetOpsCache) -> Self {
+        let git = cache
+            .git_by_cwd
+            .get(&term.cwd)
+            .cloned()
+            .unwrap_or(CachedGitContext {
+                repo: None,
+                worktree: None,
+                branch: None,
+            });
 
         let mut meta = FleetOpsMetadata {
-            repo,
-            worktree,
-            branch,
+            repo: git.repo,
+            worktree: git.worktree,
+            branch: git.branch,
             host: host.to_string(),
             elapsed: None,
             retry_count: 0,
@@ -147,11 +162,11 @@ impl FleetOpsMetadata {
                 .next(),
             ..Default::default()
         };
-        meta.merge_plugin_fragments(&load_plugin_fleet_fragments());
+        meta.merge_plugin_fragments(&cache.fragments);
         meta
     }
 
-    /// Merge CHEF plugin `fleet_ops.json` fragments (Linear/GitHub/fleet/…).
+    /// Merge plugin `fleet_ops.json` fragments (issue/PR fields today).
     pub fn merge_plugin_fragments(&mut self, fragments: &[PluginFleetFragment]) {
         for fragment in fragments {
             if fragment_expired(fragment) {
@@ -184,11 +199,12 @@ impl FleetOpsMetadata {
         }
     }
 
-    /// Personal one-line summary used by the settings Fleet tab / toasts.
-    pub fn personal_summary_line(&self) -> String {
+    /// One-line summary for diagnostics / plugin-facing previews.
+    #[cfg(test)]
+    pub fn summary_line(&self) -> String {
         let mut parts = Vec::new();
         if let Some(issue) = &self.linear_issue {
-            parts.push(format!("ENG-{issue}"));
+            parts.push(format_issue_label(issue));
         }
         if let Some(assignee) = self.linear_assignee.as_ref().filter(|v| !v.is_empty()) {
             parts.push(assignee.clone());
@@ -236,8 +252,8 @@ impl FleetOpsMetadata {
 
         if let Some(repo) = &self.repo {
             let git_info = match (&self.branch, &self.worktree) {
-                (Some(br), Some(wt)) => format!("{}:{} ({})", repo, br, wt),
-                (Some(br), None) => format!("{}:{}", repo, br),
+                (Some(br), Some(wt)) => format!("{repo}:{br} ({wt})"),
+                (Some(br), None) => format!("{repo}:{br}"),
                 (None, _) => repo.clone(),
             };
             parts.push(FleetOpsBarPart {
@@ -247,18 +263,9 @@ impl FleetOpsMetadata {
         }
 
         if let Some(issue) = &self.linear_issue {
-            let mut text = format!("ENG-{issue}");
-            if let Some(assignee) = self.linear_assignee.as_ref().filter(|v| !v.is_empty()) {
-                text.push_str(" · ");
-                text.push_str(assignee);
-            }
-            if let Some(cycle) = self.linear_cycle.as_ref().filter(|v| !v.is_empty()) {
-                text.push_str(" · ");
-                text.push_str(cycle);
-            }
             parts.push(FleetOpsBarPart {
                 kind: FleetOpsBarKind::Linear,
-                text,
+                text: format_issue_label(issue),
             });
         }
 
@@ -271,7 +278,7 @@ impl FleetOpsMetadata {
             };
             parts.push(FleetOpsBarPart {
                 kind: FleetOpsBarKind::Pr,
-                text: format!("#{}{}", pr, ci),
+                text: format!("#{pr}{ci}"),
             });
         }
 
@@ -280,7 +287,7 @@ impl FleetOpsMetadata {
             let text = if provider.is_empty() {
                 model.clone()
             } else {
-                format!("{}/{}", provider, model)
+                format!("{provider}/{model}")
             };
             parts.push(FleetOpsBarPart {
                 kind: FleetOpsBarKind::Model,
@@ -318,6 +325,26 @@ impl FleetOpsMetadata {
     }
 }
 
+/// Display issue ids that already look like `KEY-123` as-is; otherwise prefix `LIN-`.
+///
+/// Personalized keys (e.g. `ENG-432`) are written by plugins into `issue.id`.
+pub fn format_issue_label(issue: &str) -> String {
+    let trimmed = issue.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    if let Some((prefix, rest)) = trimmed.split_once('-') {
+        if !prefix.is_empty()
+            && prefix.chars().all(|c| c.is_ascii_alphabetic())
+            && !rest.is_empty()
+            && rest.chars().all(|c| c.is_ascii_digit() || c == '-')
+        {
+            return trimmed.to_string();
+        }
+    }
+    format!("LIN-{trimmed}")
+}
+
 fn state_label(state: AgentState) -> &'static str {
     match state {
         AgentState::Idle => "idle",
@@ -330,12 +357,104 @@ fn state_label(state: AgentState) -> &'static str {
 fn format_duration(d: Duration) -> String {
     let secs = d.as_secs();
     if secs < 60 {
-        format!("{}s", secs)
+        format!("{secs}s")
     } else if secs < 3600 {
         format!("{}m", secs / 60)
     } else {
         format!("{}h{}m", secs / 3600, (secs % 3600) / 60)
     }
+}
+
+/// Refresh fragment + git caches. Intended for scheduled tasks, never render.
+pub fn refresh_fleet_ops_cache(
+    cache: &mut FleetOpsCache,
+    plugin_ids: impl IntoIterator<Item = impl AsRef<str>>,
+    cwds: impl IntoIterator<Item = PathBuf>,
+) {
+    cache.fragments = load_plugin_fleet_fragments(plugin_ids);
+    for cwd in cwds {
+        let (repo, worktree, branch) = derive_git_context(&cwd);
+        cache.git_by_cwd.insert(
+            cwd,
+            CachedGitContext {
+                repo,
+                worktree,
+                branch,
+            },
+        );
+    }
+}
+
+/// Load `fleet_ops.json` for the given installed plugin ids (disk I/O).
+pub fn load_plugin_fleet_fragments(
+    plugin_ids: impl IntoIterator<Item = impl AsRef<str>>,
+) -> Vec<PluginFleetFragment> {
+    plugin_ids
+        .into_iter()
+        .filter_map(|plugin_id| read_plugin_fleet_fragment(&plugin_state_dir(plugin_id.as_ref())))
+        .collect()
+}
+
+fn read_plugin_fleet_fragment(state_dir: &Path) -> Option<PluginFleetFragment> {
+    let path = state_dir.join("fleet_ops.json");
+    let bytes = std::fs::read(path).ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+fn fragment_expired(fragment: &PluginFleetFragment) -> bool {
+    let Some(ttl) = fragment.ttl_seconds.filter(|ttl| *ttl > 0) else {
+        return false;
+    };
+    let Some(updated_at) = fragment.updated_at.as_deref() else {
+        return false;
+    };
+    let Ok(parsed) = chrono_lite_parse_rfc3339(updated_at) else {
+        return false;
+    };
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    now.saturating_sub(parsed) > ttl
+}
+
+/// Minimal RFC3339 / ISO-8601 parser for `YYYY-MM-DDTHH:MM:SSZ` style stamps.
+fn chrono_lite_parse_rfc3339(value: &str) -> Result<u64, ()> {
+    if let Ok(secs) = value.parse::<u64>() {
+        return Ok(secs);
+    }
+    let trimmed = value.trim().trim_end_matches('Z');
+    let (date, time) = trimmed.split_once('T').ok_or(())?;
+    let mut date_parts = date.split('-');
+    let year: i64 = date_parts.next().ok_or(())?.parse().map_err(|_| ())?;
+    let month: u64 = date_parts.next().ok_or(())?.parse().map_err(|_| ())?;
+    let day: u64 = date_parts.next().ok_or(())?.parse().map_err(|_| ())?;
+    let mut time_parts = time.split(':');
+    let hour: u64 = time_parts.next().ok_or(())?.parse().map_err(|_| ())?;
+    let minute: u64 = time_parts.next().ok_or(())?.parse().map_err(|_| ())?;
+    let second_str = time_parts.next().unwrap_or("0");
+    let second: u64 = second_str
+        .split(['.', '+', '-'])
+        .next()
+        .unwrap_or("0")
+        .parse()
+        .map_err(|_| ())?;
+    if !(1..=12).contains(&month)
+        || !(1..=31).contains(&day)
+        || hour > 23
+        || minute > 59
+        || second > 59
+    {
+        return Err(());
+    }
+    let y = if month <= 2 { year - 1 } else { year };
+    let era = y.div_euclid(400);
+    let yoe = (y - era * 400) as u64;
+    let mp = if month > 2 { month - 3 } else { month + 9 };
+    let doy = (153 * mp + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146097 + doe as i64 - 719468;
+    Ok((days * 86400) as u64 + hour * 3600 + minute * 60 + second)
 }
 
 fn derive_git_context(cwd: &Path) -> (Option<String>, Option<String>, Option<String>) {
@@ -375,77 +494,6 @@ fn find_git_repo(path: &Path) -> Option<std::path::PathBuf> {
     }
 }
 
-pub fn load_plugin_fleet_fragments() -> Vec<PluginFleetFragment> {
-    FLEET_OPS_PLUGIN_IDS
-        .iter()
-        .filter_map(|plugin_id| read_plugin_fleet_fragment(&plugin_state_dir(plugin_id)))
-        .collect()
-}
-
-fn read_plugin_fleet_fragment(state_dir: &Path) -> Option<PluginFleetFragment> {
-    let path = state_dir.join("fleet_ops.json");
-    let bytes = std::fs::read(path).ok()?;
-    serde_json::from_slice(&bytes).ok()
-}
-
-fn fragment_expired(fragment: &PluginFleetFragment) -> bool {
-    let Some(ttl) = fragment.ttl_seconds.filter(|ttl| *ttl > 0) else {
-        return false;
-    };
-    let Some(updated_at) = fragment.updated_at.as_deref() else {
-        return false;
-    };
-    let Ok(parsed) = chrono_lite_parse_rfc3339(updated_at) else {
-        return false;
-    };
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    now.saturating_sub(parsed) > ttl
-}
-
-/// Minimal RFC3339 / ISO-8601 parser for `YYYY-MM-DDTHH:MM:SSZ` style stamps.
-fn chrono_lite_parse_rfc3339(value: &str) -> Result<u64, ()> {
-    // Prefer unix seconds if plugins write them.
-    if let Ok(secs) = value.parse::<u64>() {
-        return Ok(secs);
-    }
-    let trimmed = value.trim().trim_end_matches('Z');
-    let (date, time) = trimmed.split_once('T').ok_or(())?;
-    let mut date_parts = date.split('-');
-    let year: i64 = date_parts.next().ok_or(())?.parse().map_err(|_| ())?;
-    let month: u64 = date_parts.next().ok_or(())?.parse().map_err(|_| ())?;
-    let day: u64 = date_parts.next().ok_or(())?.parse().map_err(|_| ())?;
-    let mut time_parts = time.split(':');
-    let hour: u64 = time_parts.next().ok_or(())?.parse().map_err(|_| ())?;
-    let minute: u64 = time_parts.next().ok_or(())?.parse().map_err(|_| ())?;
-    let second_str = time_parts.next().unwrap_or("0");
-    let second: u64 = second_str
-        .split(['.', '+', '-'])
-        .next()
-        .unwrap_or("0")
-        .parse()
-        .map_err(|_| ())?;
-    if !(1..=12).contains(&month)
-        || !(1..=31).contains(&day)
-        || hour > 23
-        || minute > 59
-        || second > 59
-    {
-        return Err(());
-    }
-    // Approximate days-from-civil (Howard Hinnant) → unix seconds.
-    let y = if month <= 2 { year - 1 } else { year };
-    let era = y.div_euclid(400);
-    let yoe = (y - era * 400) as u64;
-    let mp = if month > 2 { month - 3 } else { month + 9 };
-    let doy = (153 * mp + 2) / 5 + day - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    let days = era * 146097 + doe as i64 - 719468;
-    Ok((days * 86400) as u64 + hour * 3600 + minute * 60 + second)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -463,6 +511,13 @@ mod tests {
         assert_eq!(format_duration(Duration::from_secs(30)), "30s");
         assert_eq!(format_duration(Duration::from_secs(90)), "1m");
         assert_eq!(format_duration(Duration::from_secs(3700)), "1h1m");
+    }
+
+    #[test]
+    fn format_issue_label_keeps_personalized_keys() {
+        assert_eq!(format_issue_label("ENG-432"), "ENG-432");
+        assert_eq!(format_issue_label("LIN-12"), "LIN-12");
+        assert_eq!(format_issue_label("432"), "LIN-432");
     }
 
     #[test]
@@ -533,7 +588,7 @@ mod tests {
             source: Some("linear-context".into()),
             ttl_seconds: Some(0),
             issue: Some(PluginIssueFragment {
-                id: Some("432".into()),
+                id: Some("ENG-432".into()),
                 assignee: Some("joep".into()),
                 cycle: Some("Sprint".into()),
                 ..Default::default()
@@ -544,14 +599,30 @@ mod tests {
             }),
             ..Default::default()
         }]);
-        assert_eq!(meta.linear_issue.as_deref(), Some("432"));
+        assert_eq!(meta.linear_issue.as_deref(), Some("ENG-432"));
         assert_eq!(meta.linear_assignee.as_deref(), Some("joep"));
         assert_eq!(meta.github_pr, Some(42));
         assert!(matches!(meta.ci_status, Some(CiStatus::Success)));
-        let summary = meta.personal_summary_line();
+        let summary = meta.summary_line();
         assert!(summary.contains("ENG-432"));
         assert!(summary.contains("joep"));
         assert!(summary.contains("Sprint"));
         assert!(summary.contains("PR #42"));
+    }
+
+    #[test]
+    fn from_terminal_uses_cache_without_disk_ids() {
+        let term = TerminalState::new(crate::terminal::TerminalId::alloc(), PathBuf::from("/tmp"));
+        let mut cache = FleetOpsCache::default();
+        cache.fragments.push(PluginFleetFragment {
+            issue: Some(PluginIssueFragment {
+                id: Some("ENG-7".into()),
+                ..Default::default()
+            }),
+            ttl_seconds: Some(0),
+            ..Default::default()
+        });
+        let meta = FleetOpsMetadata::from_terminal(&term, "local", &cache);
+        assert_eq!(meta.linear_issue.as_deref(), Some("ENG-7"));
     }
 }

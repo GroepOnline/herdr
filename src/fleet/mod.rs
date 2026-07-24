@@ -1,3 +1,3 @@
 pub mod ops;
 
-pub use ops::{FleetOpsBarKind, FleetOpsMetadata, FLEET_OPS_PLUGIN_IDS};
+pub use ops::{refresh_fleet_ops_cache, FleetOpsBarKind, FleetOpsCache, FleetOpsMetadata};

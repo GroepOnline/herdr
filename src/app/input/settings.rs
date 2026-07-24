@@ -1,82 +1,121 @@
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
-use ratatui::layout::Rect;
 
 use crate::{
     app::{
-        state::{AppState, ExperimentSetting, SettingsSection, THEME_NAMES, UI_SPINNER_OFFSET},
+        state::{AppState, SettingsConfigSnapshot, SettingsFocus, SettingsSection, THEME_NAMES},
         App, Mode,
     },
-    config::ToastDelivery,
+    ui::settings::{
+        catalog::{activate_item, theme_index},
+        rows::{section_rows, SettingsRowKind},
+        SettingsLayout,
+    },
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-// The shared `Save` verb is semantic: these actions persist settings.
-#[allow(clippy::enum_variant_names)]
-pub(super) enum SettingsAction {
-    SaveTheme(String),
-    SaveSound(bool),
-    SaveToastDelivery(ToastDelivery),
-    SaveAgentBorderLabels(bool),
-    SavePaneBorders(bool),
-    SavePaneGaps(bool),
-    SaveHideTabBarWhenSingleTab(bool),
-    SavePaneHistory(bool),
-    SaveSwitchAsciiInputSourceInPrefix(bool),
-    SaveFleetOpsBar(bool),
-    SaveSpinnerStyle(crate::config::SpinnerStyle),
-    ApplyPaneTemplate(crate::pane_template::PaneTemplateId),
-    InstallRecommendedIntegrations,
-}
-
-/// Map an Experiments row index to the toggle action that flips it.
-fn experiment_toggle_action(state: &AppState, idx: usize) -> Option<SettingsAction> {
-    match ExperimentSetting::ALL.get(idx).copied()? {
-        ExperimentSetting::PaneHistory => Some(SettingsAction::SavePaneHistory(
-            !ExperimentSetting::PaneHistory.enabled(state),
-        )),
-        ExperimentSetting::SwitchAsciiInputSourceInPrefix => {
-            Some(SettingsAction::SaveSwitchAsciiInputSourceInPrefix(
-                !ExperimentSetting::SwitchAsciiInputSourceInPrefix.enabled(state),
-            ))
-        }
-    }
-}
+pub(super) use crate::ui::settings::SettingsAction;
 
 impl App {
     pub(crate) fn handle_settings_key(&mut self, key: KeyEvent) {
         let previous_section = self.state.settings.section;
         if let Some(action) = update_settings_state(&mut self.state, key) {
-            match action {
-                SettingsAction::SaveTheme(name) => self.save_theme(&name),
-                SettingsAction::SaveSound(enabled) => self.save_sound(enabled),
-                SettingsAction::SaveToastDelivery(delivery) => self.save_toast_delivery(delivery),
-                SettingsAction::SaveAgentBorderLabels(enabled) => {
-                    self.save_agent_border_labels(enabled)
-                }
-                SettingsAction::SavePaneBorders(enabled) => self.save_pane_borders(enabled),
-                SettingsAction::SavePaneGaps(enabled) => self.save_pane_gaps(enabled),
-                SettingsAction::SaveHideTabBarWhenSingleTab(enabled) => {
-                    self.save_hide_tab_bar_when_single_tab(enabled)
-                }
-                SettingsAction::SavePaneHistory(enabled) => {
-                    self.save_pane_history_persistence(enabled)
-                }
-                SettingsAction::SaveSwitchAsciiInputSourceInPrefix(enabled) => {
-                    self.save_switch_ascii_input_source_in_prefix(enabled)
-                }
-                SettingsAction::SaveFleetOpsBar(enabled) => self.save_fleet_ops_bar(enabled),
-                SettingsAction::SaveSpinnerStyle(style) => self.save_spinner_style(style),
-                SettingsAction::ApplyPaneTemplate(template) => self.apply_pane_template(template),
-                SettingsAction::InstallRecommendedIntegrations => {
-                    self.install_recommended_integrations()
-                }
-            }
+            self.apply_settings_action(action);
         }
-        if previous_section != SettingsSection::Integrations
-            && self.state.settings.section == SettingsSection::Integrations
+        if previous_section != SettingsSection::Agents
+            && self.state.settings.section == SettingsSection::Agents
         {
             self.refresh_integration_recommendations();
         }
+        if previous_section != SettingsSection::Plugins
+            && self.state.settings.section == SettingsSection::Plugins
+        {
+            self.reload_plugins_for_settings();
+        }
+    }
+
+    pub(super) fn apply_settings_action(&mut self, action: SettingsAction) {
+        match action {
+            SettingsAction::SaveTheme(name) => self.save_theme(&name),
+            SettingsAction::SaveSound(enabled) => self.save_sound(enabled),
+            SettingsAction::SaveToastDelivery(delivery) => self.save_toast_delivery(delivery),
+            SettingsAction::SaveAgentBorderLabels(enabled) => {
+                self.save_agent_border_labels(enabled)
+            }
+            SettingsAction::SavePaneBorders(enabled) => self.save_pane_borders(enabled),
+            SettingsAction::SavePaneGaps(enabled) => self.save_pane_gaps(enabled),
+            SettingsAction::SaveHideTabBarWhenSingleTab(enabled) => {
+                self.save_hide_tab_bar_when_single_tab(enabled)
+            }
+            SettingsAction::SavePaneHistory(enabled) => self.save_pane_history_persistence(enabled),
+            SettingsAction::SaveSwitchAsciiInputSourceInPrefix(enabled) => {
+                self.save_switch_ascii_input_source_in_prefix(enabled)
+            }
+            SettingsAction::SaveSpinnerStyle(style) => self.save_spinner_style(style),
+            SettingsAction::ApplyPaneTemplate(template) => self.apply_pane_template(template),
+            SettingsAction::InstallRecommendedIntegrations => {
+                self.install_recommended_integrations()
+            }
+            SettingsAction::SaveMouseCapture(enabled) => self.save_mouse_capture(enabled),
+            SettingsAction::SaveCopyOnSelect(enabled) => self.save_copy_on_select(enabled),
+            SettingsAction::SaveConfirmClose(enabled) => self.save_confirm_close(enabled),
+            SettingsAction::SavePromptNewTabName(enabled) => self.save_prompt_new_tab_name(enabled),
+            SettingsAction::SavePromptNewWorkspaceName(enabled) => {
+                self.save_prompt_new_workspace_name(enabled)
+            }
+            SettingsAction::SaveRedrawOnFocusGained(enabled) => {
+                self.save_redraw_on_focus_gained(enabled)
+            }
+            SettingsAction::SaveHostCursor(mode) => self.save_host_cursor(mode),
+            SettingsAction::SaveSidebarCollapsedMode(mode) => {
+                self.save_sidebar_collapsed_mode(mode)
+            }
+            SettingsAction::SaveAgentPanelSort(sort) => self.save_agent_panel_sort(sort),
+            SettingsAction::SaveShellMode(mode) => self.save_shell_mode(mode),
+            SettingsAction::SaveDefaultShell(shell) => self.save_default_shell(&shell),
+            SettingsAction::SaveNewTerminalCwd(cwd) => self.save_new_terminal_cwd(cwd),
+            SettingsAction::SaveScrollbackLimitBytes(bytes) => {
+                self.save_scrollback_limit_bytes(bytes)
+            }
+            SettingsAction::SaveToastDelaySeconds(seconds) => {
+                self.save_toast_delay_seconds(seconds)
+            }
+            SettingsAction::SaveToastHerdrPosition(position) => {
+                self.save_toast_herdr_position(position)
+            }
+            SettingsAction::SaveClipboardToastEnabled(enabled) => {
+                self.save_clipboard_toast_enabled(enabled)
+            }
+            SettingsAction::SaveClipboardToastPosition(position) => {
+                self.save_clipboard_toast_position(position)
+            }
+            SettingsAction::SaveUpdateChannel(channel) => self.save_update_channel(channel),
+            SettingsAction::SaveVersionCheck(enabled) => self.save_version_check(enabled),
+            SettingsAction::SaveManifestCheck(enabled) => self.save_manifest_check(enabled),
+            SettingsAction::SaveResumeAgentsOnRestore(enabled) => {
+                self.save_resume_agents_on_restore(enabled)
+            }
+            SettingsAction::SaveManageSshConfig(enabled) => self.save_manage_ssh_config(enabled),
+            SettingsAction::SaveClipboardHistoryEnabled(enabled) => {
+                self.save_clipboard_history_enabled(enabled)
+            }
+            SettingsAction::SaveAllowNested(enabled) => self.save_allow_nested(enabled),
+            SettingsAction::SaveKittyGraphics(enabled) => self.save_kitty_graphics(enabled),
+            SettingsAction::SaveRevealHiddenCursorForCjkIme(enabled) => {
+                self.save_reveal_hidden_cursor_for_cjk_ime(enabled)
+            }
+            SettingsAction::SaveThemeAutoSwitch(enabled) => self.save_theme_auto_switch(enabled),
+            SettingsAction::SaveFleetOpsBar(enabled) => self.save_fleet_ops_bar(enabled),
+            SettingsAction::TogglePluginEnabled { plugin_id, enabled } => {
+                if let Err(err) = self.settings_set_plugin_enabled(&plugin_id, enabled) {
+                    self.state.plugin_install_messages = vec![err];
+                }
+            }
+            SettingsAction::InstallCatalogPlugin { source } => {
+                self.settings_install_catalog_plugin(&source);
+            }
+        }
+        self.state.settings.config_snapshot = SettingsConfigSnapshot::load();
+        self.state.theme_runtime.auto_switch =
+            self.state.settings.config_snapshot.theme_auto_switch;
     }
 }
 
@@ -92,19 +131,22 @@ fn current_theme_index(theme_name: &str) -> usize {
         .unwrap_or(0)
 }
 
-fn toast_delivery_for_index(idx: usize) -> ToastDelivery {
-    match idx {
-        0 => ToastDelivery::Off,
-        1 => ToastDelivery::Herdr,
-        2 => ToastDelivery::Terminal,
-        _ => ToastDelivery::System,
-    }
-}
-
 fn preview_selected_theme(state: &mut AppState) {
     use crate::app::state::Palette;
 
-    let name = THEME_NAMES[state.settings.list.selected];
+    let rows = section_rows(state, SettingsSection::Appearance);
+    let Some(row) = rows.get(state.settings.list.selected) else {
+        return;
+    };
+    if row.kind != SettingsRowKind::Theme {
+        return;
+    }
+    let Some(idx) = theme_index(row.id) else {
+        return;
+    };
+    let Some(name) = THEME_NAMES.get(idx) else {
+        return;
+    };
     if let Some(mut palette) = Palette::from_name(name) {
         if let Some(custom) = &state.theme_runtime.custom {
             palette = palette.with_overrides(custom);
@@ -136,582 +178,263 @@ fn integrations_need_install(state: &AppState) -> bool {
 
 fn apply_settings(state: &mut AppState) -> Option<SettingsAction> {
     match state.settings.section {
-        SettingsSection::Theme => {
+        SettingsSection::Appearance => {
             let theme_name = state.theme_name.clone();
             state.settings.original_palette = None;
             state.settings.original_theme = None;
             super::modal::leave_modal(state);
             Some(SettingsAction::SaveTheme(theme_name))
         }
-        SettingsSection::Integrations if integrations_need_install(state) => {
+        SettingsSection::Agents if integrations_need_install(state) => {
             Some(SettingsAction::InstallRecommendedIntegrations)
         }
-        SettingsSection::Integrations => None,
-        SettingsSection::Fleet => Some(SettingsAction::SaveFleetOpsBar(
-            !state.fleet_ops_bar_enabled(),
-        )),
-        SettingsSection::Plugins => None,
-        SettingsSection::Ui
-        | SettingsSection::Sound
-        | SettingsSection::System
-        | SettingsSection::Templates => {
+        SettingsSection::Agents => None,
+        _ => {
             super::modal::leave_modal(state);
             None
         }
     }
 }
 
-/// Total items in the Sound tab: 1 sound toggle + 4 toast delivery options.
-const SOUND_TOTAL: usize = 5;
-
-fn ui_total_items() -> usize {
-    crate::app::state::UI_SPINNER_OFFSET + crate::config::SpinnerStyle::ALL.len()
+fn section_item_count(state: &AppState) -> usize {
+    section_rows(state, state.settings.section).len()
 }
 
-fn plugins_total_items(state: &AppState) -> usize {
-    state.installed_plugins.len() + crate::fleet::FLEET_OPS_PLUGIN_IDS.len()
+fn next_section(section: SettingsSection) -> SettingsSection {
+    section.next()
 }
 
-fn default_settings_index(state: &AppState, section: SettingsSection) -> usize {
+fn prev_section(section: SettingsSection) -> SettingsSection {
+    section.prev()
+}
+
+fn default_selection_for_section(state: &AppState, section: SettingsSection) -> usize {
     match section {
-        SettingsSection::Theme => current_theme_index(&state.theme_name),
-        SettingsSection::Ui => 0,
-        SettingsSection::Sound => usize::from(!state.sound_enabled()),
-        SettingsSection::System => 0,
-        SettingsSection::Fleet => 0,
-        SettingsSection::Plugins => 0,
-        SettingsSection::Templates => 0,
-        SettingsSection::Integrations => 0,
+        SettingsSection::Appearance => {
+            let theme_idx = current_theme_index(&state.theme_name);
+            section_rows(state, section)
+                .iter()
+                .position(|row| theme_index(row.id) == Some(theme_idx))
+                .unwrap_or(0)
+        }
+        SettingsSection::Notifications => section_rows(state, section)
+            .iter()
+            .position(|row| row.label == "sound alerts")
+            .unwrap_or(0),
+        _ => 0,
     }
 }
 
-fn select_settings_section(state: &mut AppState, section: SettingsSection) {
-    state.settings.section = section;
-    state.settings.list.selected = default_settings_index(state, section);
-}
-
-fn adjacent_settings_section(current: SettingsSection, direction: isize) -> SettingsSection {
-    let len = SettingsSection::ALL.len() as isize;
-    let idx = SettingsSection::ALL
-        .iter()
-        .position(|section| *section == current)
-        .unwrap_or(0) as isize;
-    let next = (idx + direction).rem_euclid(len) as usize;
-    SettingsSection::ALL[next]
-}
-
-fn select_next_settings_section(state: &mut AppState) {
-    select_settings_section(state, adjacent_settings_section(state.settings.section, 1));
-}
-
-fn select_previous_settings_section(state: &mut AppState) {
-    select_settings_section(state, adjacent_settings_section(state.settings.section, -1));
+fn activate_row(state: &AppState, row_index: usize) -> Option<SettingsAction> {
+    let rows = section_rows(state, state.settings.section);
+    let row = rows.get(row_index)?;
+    activate_item(state, row.id)
 }
 
 pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Option<SettingsAction> {
-    match state.settings.section {
-        // ── Theme tab ──────────────────────────────────────────────
-        SettingsSection::Theme => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                let prev = state.settings.list.selected;
-                state.settings.list.move_prev();
-                if state.settings.list.selected != prev {
-                    preview_selected_theme(state);
-                }
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                let prev = state.settings.list.selected;
-                state.settings.list.move_next(THEME_NAMES.len());
-                if state.settings.list.selected != prev {
-                    preview_selected_theme(state);
-                }
-            }
-            KeyCode::Tab => {
-                select_next_settings_section(state);
-            }
-            KeyCode::Right | KeyCode::Char('l') => {
-                select_next_settings_section(state);
-            }
-            KeyCode::BackTab => {
-                select_previous_settings_section(state);
-            }
-            KeyCode::Left | KeyCode::Char('h') => {
-                select_previous_settings_section(state);
-            }
-            _ => match super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS) {
-                Some(super::modal::ModalAction::Apply) => return apply_settings(state),
-                Some(super::modal::ModalAction::Close) => cancel_settings(state),
-                _ => {}
-            },
-        },
+    if matches!(key.code, KeyCode::Char('/')) && key.modifiers.is_empty() {
+        state.settings.focus = SettingsFocus::Search;
+        state.settings.search.clear();
+        return None;
+    }
 
-        // ── Ui tab: toggles + spinner grid ─────────────────────────
-        SettingsSection::Ui => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                let s = state.settings.list.selected;
-                if s >= UI_SPINNER_OFFSET + 2 {
-                    state.settings.list.selected = s - 2;
-                } else if s >= UI_SPINNER_OFFSET {
-                    // First spinner row: jump to last toggle.
-                    state.settings.list.selected = UI_SPINNER_OFFSET - 1;
-                } else {
-                    state.settings.list.selected = s.saturating_sub(1);
-                }
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                let max = ui_total_items() - 1;
-                let s = state.settings.list.selected;
-                if s < UI_SPINNER_OFFSET {
-                    state.settings.list.selected = (s + 1).min(max);
-                } else {
-                    state.settings.list.selected = (s + 2).min(max);
-                }
-            }
-            KeyCode::Left | KeyCode::Char('h') => {
-                state.settings.list.selected = state.settings.list.selected.saturating_sub(1);
-            }
-            KeyCode::Right | KeyCode::Char('l') => {
-                let max = ui_total_items() - 1;
-                state.settings.list.selected = (state.settings.list.selected + 1).min(max);
-            }
-            KeyCode::Enter | KeyCode::Char(' ') => {
-                let s = state.settings.list.selected;
-                if s < UI_SPINNER_OFFSET {
-                    return match s {
-                        0 => Some(SettingsAction::SavePaneBorders(
-                            !state.pane_borders_enabled(),
-                        )),
-                        1 => Some(SettingsAction::SavePaneGaps(!state.pane_gaps_enabled())),
-                        2 => Some(SettingsAction::SaveAgentBorderLabels(
-                            !state.agent_border_labels_enabled(),
-                        )),
-                        3 => Some(SettingsAction::SaveHideTabBarWhenSingleTab(
-                            !state.hide_tab_bar_when_single_tab_enabled(),
-                        )),
-                        _ => None,
-                    };
-                }
-                let spinner_idx = s - UI_SPINNER_OFFSET;
-                return crate::config::SpinnerStyle::ALL
-                    .get(spinner_idx)
-                    .copied()
-                    .map(SettingsAction::SaveSpinnerStyle);
-            }
-            KeyCode::Tab => {
-                select_next_settings_section(state);
-            }
-            KeyCode::BackTab => {
-                select_previous_settings_section(state);
-            }
-            _ => {
-                if let Some(super::modal::ModalAction::Close) =
-                    super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS)
-                {
-                    cancel_settings(state);
-                }
-            }
-        },
+    if state.settings.focus == SettingsFocus::Search {
+        return handle_settings_search_key(state, key);
+    }
 
-        // ── Sound tab: sound toggle + toast delivery ───────────────
-        SettingsSection::Sound => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                state.settings.list.move_prev();
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                state.settings.list.move_next(SOUND_TOTAL);
-            }
-            KeyCode::Enter | KeyCode::Char(' ') => {
-                let s = state.settings.list.selected;
-                if s == 0 {
-                    return Some(SettingsAction::SaveSound(!state.sound_enabled()));
-                }
-                let delivery = toast_delivery_for_index(s - 1);
-                return Some(SettingsAction::SaveToastDelivery(delivery));
-            }
-            KeyCode::Tab => {
-                select_next_settings_section(state);
-            }
-            KeyCode::Right | KeyCode::Char('l') => {
-                select_next_settings_section(state);
-            }
-            KeyCode::BackTab => {
-                select_previous_settings_section(state);
-            }
-            KeyCode::Left | KeyCode::Char('h') => {
-                select_previous_settings_section(state);
-            }
-            _ => {
-                if let Some(super::modal::ModalAction::Close) =
-                    super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS)
-                {
-                    cancel_settings(state);
-                }
-            }
-        },
+    if state.settings.focus == SettingsFocus::Nav {
+        return handle_settings_nav_key(state, key);
+    }
 
-        // ── System tab: experiments ────────────────────────────────
-        SettingsSection::System => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                state.settings.list.move_prev();
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                state.settings.list.move_next(ExperimentSetting::ALL.len());
-            }
-            KeyCode::Enter | KeyCode::Char(' ') => {
-                return experiment_toggle_action(state, state.settings.list.selected);
-            }
-            KeyCode::Tab => {
-                select_next_settings_section(state);
-            }
-            KeyCode::Right | KeyCode::Char('l') => {
-                select_next_settings_section(state);
-            }
-            KeyCode::BackTab => {
-                select_previous_settings_section(state);
-            }
-            KeyCode::Left | KeyCode::Char('h') => {
-                select_previous_settings_section(state);
-            }
-            _ => {
-                if let Some(super::modal::ModalAction::Close) =
-                    super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS)
-                {
-                    cancel_settings(state);
-                }
-            }
-        },
+    if let KeyCode::Char(ch) = key.code {
+        if key.modifiers.is_empty()
+            && ch.is_ascii()
+            && !matches!(ch, ' ' | '\t' | '\x1b' | '\n' | '\r' | '/')
+        {
+            state.settings.focus = SettingsFocus::Search;
+            state.settings.search.push(ch);
+            state.settings.list.selected = 0;
+            return None;
+        }
+    }
 
-        // ── Fleet tab: CHEF personal context ───────────────────────
-        SettingsSection::Fleet => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                state.settings.list.move_prev();
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                state.settings.list.move_next(1);
-            }
-            KeyCode::Enter | KeyCode::Char(' ') => {
-                return Some(SettingsAction::SaveFleetOpsBar(
-                    !state.fleet_ops_bar_enabled(),
-                ));
-            }
-            KeyCode::Tab => {
-                select_next_settings_section(state);
-            }
-            KeyCode::Right | KeyCode::Char('l') => {
-                select_next_settings_section(state);
-            }
-            KeyCode::BackTab => {
-                select_previous_settings_section(state);
-            }
-            KeyCode::Left | KeyCode::Char('h') => {
-                select_previous_settings_section(state);
-            }
-            _ => match super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS) {
-                Some(super::modal::ModalAction::Apply) => {
-                    return Some(SettingsAction::SaveFleetOpsBar(
-                        !state.fleet_ops_bar_enabled(),
-                    ));
-                }
-                Some(super::modal::ModalAction::Close) => cancel_settings(state),
-                _ => {}
-            },
-        },
+    if matches!(key.code, KeyCode::Backspace) && key.modifiers.is_empty() {
+        if !state.settings.search.is_empty() {
+            state.settings.search.pop();
+            state.settings.list.selected = 0;
+        }
+        return None;
+    }
 
-        // ── Plugins tab: installed + browse catalog ────────────────
-        SettingsSection::Plugins => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                state.settings.list.move_prev();
+    match key.code {
+        KeyCode::Up | KeyCode::Char('k') => {
+            state.settings.list.move_prev();
+            if state.settings.section == SettingsSection::Appearance {
+                preview_selected_theme(state);
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                state.settings.list.move_next(plugins_total_items(state));
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            state.settings.list.move_next(section_item_count(state));
+            if state.settings.section == SettingsSection::Appearance {
+                preview_selected_theme(state);
             }
-            KeyCode::Tab => {
-                select_next_settings_section(state);
+        }
+        KeyCode::Left | KeyCode::Char('h') => {
+            state.settings.focus = SettingsFocus::Nav;
+        }
+        KeyCode::Char('[') if state.settings.section == SettingsSection::Appearance => {
+            if state.settings.spinner_category > 0 {
+                state.settings.spinner_category -= 1;
             }
-            KeyCode::Right | KeyCode::Char('l') => {
-                select_next_settings_section(state);
+        }
+        KeyCode::Char(']') if state.settings.section == SettingsSection::Appearance => {
+            let max = crate::ui::settings::spinner::SPINNER_CATEGORIES
+                .len()
+                .saturating_sub(1);
+            if state.settings.spinner_category < max {
+                state.settings.spinner_category += 1;
             }
-            KeyCode::BackTab => {
-                select_previous_settings_section(state);
-            }
-            KeyCode::Left | KeyCode::Char('h') => {
-                select_previous_settings_section(state);
-            }
-            _ => {
-                if let Some(super::modal::ModalAction::Close) =
-                    super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS)
-                {
-                    cancel_settings(state);
-                }
-            }
-        },
-
-        // ── Templates tab: pane layout templates ───────────────────
-        SettingsSection::Templates => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                state.settings.list.move_prev();
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                state
-                    .settings
-                    .list
-                    .move_next(crate::pane_template::PaneTemplateId::ALL.len());
-            }
-            KeyCode::Enter | KeyCode::Char(' ') => {
-                return crate::pane_template::PaneTemplateId::ALL
-                    .get(state.settings.list.selected)
-                    .copied()
-                    .map(SettingsAction::ApplyPaneTemplate);
-            }
-            KeyCode::Tab => {
-                select_next_settings_section(state);
-            }
-            KeyCode::Right | KeyCode::Char('l') => {
-                select_next_settings_section(state);
-            }
-            KeyCode::BackTab => {
-                select_previous_settings_section(state);
-            }
-            KeyCode::Left | KeyCode::Char('h') => {
-                select_previous_settings_section(state);
-            }
-            _ => {
-                if let Some(super::modal::ModalAction::Close) =
-                    super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS)
-                {
-                    cancel_settings(state);
-                }
-            }
-        },
-
-        // ── Integrations tab ──────────────────────────────────────
-        SettingsSection::Integrations => match key.code {
-            KeyCode::Enter | KeyCode::Char(' ') if integrations_need_install(state) => {
-                return Some(SettingsAction::InstallRecommendedIntegrations);
-            }
-            KeyCode::Tab => {
-                select_next_settings_section(state);
-            }
-            KeyCode::Right | KeyCode::Char('l') => {
-                select_next_settings_section(state);
-            }
-            KeyCode::BackTab => {
-                select_previous_settings_section(state);
-            }
-            KeyCode::Left | KeyCode::Char('h') => {
-                select_previous_settings_section(state);
-            }
-            _ => match super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS) {
-                Some(super::modal::ModalAction::Apply) => return apply_settings(state),
-                Some(super::modal::ModalAction::Close) => cancel_settings(state),
-                _ => {}
-            },
+        }
+        KeyCode::Tab => {
+            let next = next_section(state.settings.section);
+            state.settings.section = next;
+            state.settings.list.selected = default_selection_for_section(state, next);
+            state.settings.content_scroll = 0;
+        }
+        KeyCode::BackTab => {
+            let prev = prev_section(state.settings.section);
+            state.settings.section = prev;
+            state.settings.list.selected = default_selection_for_section(state, prev);
+            state.settings.content_scroll = 0;
+        }
+        KeyCode::Enter | KeyCode::Char(' ') => {
+            return activate_row(state, state.settings.list.selected);
+        }
+        _ => match super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS) {
+            Some(super::modal::ModalAction::Apply) => return apply_settings(state),
+            Some(super::modal::ModalAction::Close) => cancel_settings(state),
+            _ => {}
         },
     }
 
     None
 }
 
+fn handle_settings_search_key(state: &mut AppState, key: KeyEvent) -> Option<SettingsAction> {
+    match key.code {
+        KeyCode::Esc => {
+            state.settings.focus = SettingsFocus::Content;
+            state.settings.search.clear();
+        }
+        KeyCode::Backspace => {
+            state.settings.search.pop();
+            state.settings.list.selected = 0;
+        }
+        KeyCode::Enter => state.settings.focus = SettingsFocus::Content,
+        KeyCode::Char(ch) if key.modifiers.is_empty() => {
+            state.settings.search.push(ch);
+            state.settings.list.selected = 0;
+        }
+        _ => {}
+    }
+    None
+}
+
+fn handle_settings_nav_key(state: &mut AppState, key: KeyEvent) -> Option<SettingsAction> {
+    match key.code {
+        KeyCode::Up | KeyCode::Char('k') => {
+            state.settings.section = prev_section(state.settings.section);
+            state.settings.list.selected =
+                default_selection_for_section(state, state.settings.section);
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            state.settings.section = next_section(state.settings.section);
+            state.settings.list.selected =
+                default_selection_for_section(state, state.settings.section);
+        }
+        KeyCode::Right | KeyCode::Enter | KeyCode::Char('l') | KeyCode::Tab => {
+            state.settings.focus = SettingsFocus::Content;
+        }
+        KeyCode::BackTab => {
+            state.settings.section = prev_section(state.settings.section);
+            state.settings.list.selected =
+                default_selection_for_section(state, state.settings.section);
+        }
+        _ => {
+            if let Some(super::modal::ModalAction::Close) =
+                super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS)
+            {
+                cancel_settings(state);
+            }
+        }
+    }
+    None
+}
+
 pub(crate) fn open_settings(state: &mut AppState) {
-    open_settings_at(state, SettingsSection::Theme);
+    open_settings_at(state, SettingsSection::Appearance);
 }
 
 pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
     state.integration_install_messages.clear();
+    state.plugin_install_messages.clear();
     state.settings.original_palette = Some(state.palette.clone());
     state.settings.original_theme = Some(state.theme_name.clone());
+    state.settings.config_snapshot = SettingsConfigSnapshot::load();
     state.settings.section = section;
-    state.settings.list.selected = default_settings_index(state, section);
+    state.settings.search.clear();
+    state.settings.focus = SettingsFocus::Content;
+    state.settings.spinner_category = 0;
+    state.settings.content_scroll = 0;
+    state.settings.list.selected = default_selection_for_section(state, section);
     state.mode = Mode::Settings;
+    if section == SettingsSection::Plugins {
+        let _ =
+            crate::app::api::plugins::reload_installed_plugins_state(&mut state.installed_plugins);
+    }
 }
 
 impl AppState {
-    fn settings_popup_rect(&self) -> Rect {
-        crate::ui::centered_popup_rect(
-            self.screen_rect(),
-            crate::ui::SETTINGS_POPUP_WIDTH,
-            crate::ui::settings_popup_height(self),
-        )
-        .unwrap_or_default()
-    }
-
-    fn settings_inner_rect(&self) -> Rect {
-        let popup = self.settings_popup_rect();
-        Rect::new(
-            popup.x + 1,
-            popup.y + 1,
-            popup.width.saturating_sub(2),
-            popup.height.saturating_sub(2),
-        )
-    }
-
-    fn settings_tab_at(&self, col: u16, row: u16) -> Option<SettingsSection> {
-        let inner = self.settings_inner_rect();
-        let tab_y = inner.y + 1;
-        if row != tab_y {
-            return None;
-        }
-        let mut x = inner.x;
-        for section in SettingsSection::ALL {
-            let badge_width = if self.settings_section_has_badge(*section) {
-                2
-            } else {
-                0
-            };
-            let width = section.label().len() as u16 + 2 + badge_width;
-            if col >= x && col < x + width {
-                return Some(*section);
-            }
-            x += width + 1;
-        }
-        None
-    }
-
-    pub(crate) fn settings_content_rect(&self) -> Rect {
-        let inner = self.settings_inner_rect();
-        crate::ui::modal_stack_areas(inner, 3, 2, 0, 1).content
-    }
-
-    fn settings_list_index_at(&self, col: u16, row: u16) -> Option<usize> {
-        let area = self.settings_content_rect();
-        if row < area.y || row >= area.y + area.height || col < area.x || col >= area.x + area.width
-        {
-            return None;
-        }
-
-        let list_area = crate::ui::settings_list_area(area);
-
-        match self.settings.section {
-            SettingsSection::Ui => {
-                crate::ui::settings_ui_index_at(list_area, col, row, self.settings.list.selected)
-            }
-            SettingsSection::Theme => {
-                let max_visible = area.height as usize;
-                let scroll = if self.settings.list.selected >= max_visible {
-                    self.settings.list.selected - max_visible + 1
-                } else {
-                    0
-                };
-                let idx = scroll + (row - area.y) as usize;
-                (idx < THEME_NAMES.len()).then_some(idx)
-            }
-            SettingsSection::Sound => crate::ui::settings_sound_index_at(list_area, col, row),
-            SettingsSection::System => {
-                if row >= list_area.y && row < list_area.y + ExperimentSetting::ALL.len() as u16 {
-                    Some((row - list_area.y) as usize)
-                } else {
-                    None
-                }
-            }
-            SettingsSection::Fleet => {
-                if row == list_area.y {
-                    Some(0)
-                } else {
-                    None
-                }
-            }
-            SettingsSection::Plugins => {
-                let installed_count = self.installed_plugins.len();
-                if row >= list_area.y && row < list_area.y + installed_count as u16 {
-                    return Some((row - list_area.y) as usize);
-                }
-                let browse_y = list_area.y + installed_count.max(1) as u16 + 1;
-                if row >= browse_y
-                    && row < browse_y + crate::fleet::FLEET_OPS_PLUGIN_IDS.len() as u16
-                {
-                    Some(installed_count + (row - browse_y) as usize)
-                } else {
-                    None
-                }
-            }
-            SettingsSection::Templates => {
-                crate::ui::settings_template_index_at(list_area, col, row)
-            }
-            SettingsSection::Integrations => {
-                if row >= list_area.y
-                    && !self.integration_recommendations.is_empty()
-                    && row < list_area.y + self.integration_recommendations.len() as u16
-                {
-                    Some((row - list_area.y) as usize)
-                } else {
-                    None
-                }
-            }
-        }
+    fn settings_layout(&self) -> Option<SettingsLayout> {
+        SettingsLayout::compute(self.screen_rect(), self)
     }
 
     pub(super) fn handle_settings_mouse(&mut self, mouse: MouseEvent) -> Option<SettingsAction> {
+        let layout = self.settings_layout()?;
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) => {
-                if let Some(section) = self.settings_tab_at(mouse.column, mouse.row) {
-                    select_settings_section(self, section);
+                if layout.search_index_at(mouse.column, mouse.row) {
+                    self.settings.focus = SettingsFocus::Search;
                     return None;
                 }
-                if let Some(idx) = self.settings_list_index_at(mouse.column, mouse.row) {
-                    self.settings.list.select(idx);
-                    return match self.settings.section {
-                        SettingsSection::Theme => {
-                            preview_selected_theme(self);
-                            None
-                        }
-                        SettingsSection::Ui => {
-                            if idx < UI_SPINNER_OFFSET {
-                                match idx {
-                                    0 => Some(SettingsAction::SavePaneBorders(
-                                        !self.pane_borders_enabled(),
-                                    )),
-                                    1 => Some(SettingsAction::SavePaneGaps(
-                                        !self.pane_gaps_enabled(),
-                                    )),
-                                    2 => Some(SettingsAction::SaveAgentBorderLabels(
-                                        !self.agent_border_labels_enabled(),
-                                    )),
-                                    3 => Some(SettingsAction::SaveHideTabBarWhenSingleTab(
-                                        !self.hide_tab_bar_when_single_tab_enabled(),
-                                    )),
-                                    _ => None,
-                                }
-                            } else {
-                                crate::config::SpinnerStyle::ALL
-                                    .get(idx - UI_SPINNER_OFFSET)
-                                    .copied()
-                                    .map(SettingsAction::SaveSpinnerStyle)
-                            }
-                        }
-                        SettingsSection::Sound => {
-                            if idx == 0 {
-                                Some(SettingsAction::SaveSound(!self.sound_enabled()))
-                            } else {
-                                let delivery = toast_delivery_for_index(idx - 1);
-                                Some(SettingsAction::SaveToastDelivery(delivery))
-                            }
-                        }
-                        SettingsSection::System => experiment_toggle_action(self, idx),
-                        SettingsSection::Fleet => {
-                            if idx == 0 {
-                                Some(SettingsAction::SaveFleetOpsBar(
-                                    !self.fleet_ops_bar_enabled(),
-                                ))
-                            } else {
-                                None
-                            }
-                        }
-                        SettingsSection::Plugins => None,
-                        SettingsSection::Templates => crate::pane_template::PaneTemplateId::ALL
-                            .get(idx)
-                            .copied()
-                            .map(SettingsAction::ApplyPaneTemplate),
-                        SettingsSection::Integrations => {
-                            // Selecting a row highlights it; Install remains the primary action.
-                            None
-                        }
-                    };
+
+                if let Some(nav_idx) = layout.nav_index_at(mouse.column, mouse.row) {
+                    let section = SettingsSection::ALL[nav_idx];
+                    self.settings.section = section;
+                    self.settings.list.selected = default_selection_for_section(self, section);
+                    self.settings.focus = SettingsFocus::Nav;
+                    return None;
                 }
 
-                let inner = self.settings_inner_rect();
+                if let Some(category) =
+                    layout.spinner_category_index_at(self, mouse.column, mouse.row)
+                {
+                    self.settings.spinner_category = category;
+                    return None;
+                }
+
+                if let Some(idx) = layout.content_index_at(self, mouse.column, mouse.row) {
+                    self.settings.list.select(idx);
+                    self.settings.focus = SettingsFocus::Content;
+                    if self.settings.section == SettingsSection::Appearance {
+                        preview_selected_theme(self);
+                    }
+                    return activate_row(self, idx);
+                }
+
                 let show_primary = crate::ui::settings_show_primary_action(self);
                 let (apply, close) =
-                    crate::ui::settings_button_rects(inner, self.settings.section, show_primary);
+                    crate::ui::settings_button_rects(&layout, self.settings.section, show_primary);
                 let mut buttons = vec![(close, super::modal::ModalAction::Close)];
                 if let Some(apply) = apply {
                     buttons.insert(0, (apply, super::modal::ModalAction::Apply));
@@ -722,18 +445,7 @@ impl AppState {
                         cancel_settings(self);
                         None
                     }
-                    _ => {
-                        // Inside chrome: no-op. Outside popup: dismiss (navigator pattern).
-                        let popup = self.settings_popup_rect();
-                        let inside = mouse.column >= popup.x
-                            && mouse.column < popup.x.saturating_add(popup.width)
-                            && mouse.row >= popup.y
-                            && mouse.row < popup.y.saturating_add(popup.height);
-                        if !inside {
-                            cancel_settings(self);
-                        }
-                        None
-                    }
+                    _ => None,
                 }
             }
             _ => None,
@@ -747,6 +459,7 @@ mod tests {
 
     use super::super::{app_for_mouse_test, mouse, state_with_workspaces};
     use super::*;
+    use crate::ui::settings::catalog::SettingsItemId;
 
     #[test]
     fn settings_cancel_restores_previewed_theme_from_other_sections() {
@@ -765,10 +478,7 @@ mod tests {
             &mut state,
             KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
         );
-        assert_eq!(
-            state.settings.section,
-            crate::app::state::SettingsSection::Ui
-        );
+        assert_eq!(state.settings.section, SettingsSection::Layout);
 
         update_settings_state(
             &mut state,
@@ -782,11 +492,58 @@ mod tests {
     }
 
     #[test]
-    fn settings_sound_toggle_returns_save_action() {
+    fn settings_nav_cycle_forward_and_back() {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::Appearance);
+        state.settings.focus = SettingsFocus::Nav;
+
+        update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Down, KeyModifiers::empty()),
+        );
+        assert_eq!(state.settings.section, SettingsSection::Layout);
+
+        update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Up, KeyModifiers::empty()),
+        );
+        assert_eq!(state.settings.section, SettingsSection::Appearance);
+    }
+
+    #[test]
+    fn settings_search_focus_and_clear() {
         let mut state = state_with_workspaces(&["test"]);
         open_settings(&mut state);
-        state.settings.section = crate::app::state::SettingsSection::Sound;
-        state.settings.list.selected = 0;
+
+        update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Char('/'), KeyModifiers::empty()),
+        );
+        assert_eq!(state.settings.focus, SettingsFocus::Search);
+
+        update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Char('m'), KeyModifiers::empty()),
+        );
+        assert_eq!(state.settings.search, "m");
+
+        update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()),
+        );
+        assert_eq!(state.settings.focus, SettingsFocus::Content);
+        assert!(state.settings.search.is_empty());
+    }
+
+    #[test]
+    fn settings_notifications_toggle_returns_save_action() {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::Notifications);
+        let sound_row = section_rows(&state, SettingsSection::Notifications)
+            .iter()
+            .position(|row| row.id == SettingsItemId::SoundAlerts)
+            .expect("sound row");
+        state.settings.list.selected = sound_row;
 
         let action = update_settings_state(
             &mut state,
@@ -799,10 +556,10 @@ mod tests {
     }
 
     #[test]
-    fn settings_system_toggles_pane_history() {
+    fn settings_advanced_toggles_pane_history() {
         let mut state = state_with_workspaces(&["test"]);
         state.pane_history_persistence = false;
-        open_settings_at(&mut state, SettingsSection::System);
+        open_settings_at(&mut state, SettingsSection::Advanced);
 
         let action = update_settings_state(
             &mut state,
@@ -814,126 +571,67 @@ mod tests {
     }
 
     #[test]
-    fn settings_system_down_then_toggle_switches_ascii_input_source() {
+    fn settings_tab_advances_sections() {
         let mut state = state_with_workspaces(&["test"]);
-        state.switch_ascii_input_source_in_prefix = false;
-        open_settings_at(&mut state, SettingsSection::System);
-
-        update_settings_state(
-            &mut state,
-            KeyEvent::new(KeyCode::Down, KeyModifiers::empty()),
-        );
-        assert_eq!(state.settings.list.selected, 1);
-
-        let action = update_settings_state(
-            &mut state,
-            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
-        );
-
-        assert_eq!(
-            action,
-            Some(SettingsAction::SaveSwitchAsciiInputSourceInPrefix(true))
-        );
-        assert_eq!(state.mode, Mode::Settings);
-    }
-
-    #[test]
-    fn settings_fleet_enter_toggles_fleet_ops_bar() {
-        let mut state = state_with_workspaces(&["test"]);
-        state.fleet_ops_bar = false;
-        open_settings_at(&mut state, SettingsSection::Fleet);
-
-        let action = update_settings_state(
-            &mut state,
-            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
-        );
-
-        assert_eq!(action, Some(SettingsAction::SaveFleetOpsBar(true)));
-        assert_eq!(state.mode, Mode::Settings);
-    }
-
-    #[test]
-    fn settings_tab_ui_to_sound() {
-        let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Ui);
+        open_settings_at(&mut state, SettingsSection::Appearance);
         update_settings_state(
             &mut state,
             KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::Sound);
+        assert_eq!(state.settings.section, SettingsSection::Layout);
     }
 
     #[test]
-    fn settings_tab_sound_to_system() {
+    fn terminal_choice_ids_map_to_distinct_actions() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Sound);
-        update_settings_state(
-            &mut state,
-            KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
-        );
-        assert_eq!(state.settings.section, SettingsSection::System);
+        open_settings_at(&mut state, SettingsSection::Terminal);
+        let rows = section_rows(&state, SettingsSection::Terminal);
+
+        let shell_mode_idx = rows
+            .iter()
+            .position(|row| row.id == SettingsItemId::ShellMode)
+            .expect("shell mode row");
+        let cwd_idx = rows
+            .iter()
+            .position(|row| row.id == SettingsItemId::NewTerminalCwd)
+            .expect("cwd row");
+        let scrollback_idx = rows
+            .iter()
+            .position(|row| matches!(row.id, SettingsItemId::ScrollbackPreset { .. }))
+            .expect("scrollback row");
+
+        state.settings.list.selected = shell_mode_idx;
+        assert!(matches!(
+            activate_row(&state, shell_mode_idx),
+            Some(SettingsAction::SaveShellMode(_))
+        ));
+        state.settings.list.selected = cwd_idx;
+        assert!(matches!(
+            activate_row(&state, cwd_idx),
+            Some(SettingsAction::SaveNewTerminalCwd(_))
+        ));
+        state.settings.list.selected = scrollback_idx;
+        assert!(matches!(
+            activate_row(&state, scrollback_idx),
+            Some(SettingsAction::SaveScrollbackLimitBytes(_))
+        ));
     }
 
     #[test]
-    fn settings_tab_system_to_fleet() {
+    fn agents_enter_toggles_resume_when_no_install_needed() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::System);
-        update_settings_state(
-            &mut state,
-            KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
-        );
-        assert_eq!(state.settings.section, SettingsSection::Fleet);
-    }
-
-    #[test]
-    fn settings_tab_fleet_to_plugins() {
-        let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Fleet);
-        update_settings_state(
-            &mut state,
-            KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
-        );
-        assert_eq!(state.settings.section, SettingsSection::Plugins);
-    }
-
-    #[test]
-    fn settings_tab_plugins_to_templates() {
-        let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Plugins);
-        update_settings_state(
-            &mut state,
-            KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
-        );
-        assert_eq!(state.settings.section, SettingsSection::Templates);
-    }
-
-    #[test]
-    fn settings_backtab_templates_to_plugins() {
-        let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Templates);
-        update_settings_state(
-            &mut state,
-            KeyEvent::new(KeyCode::BackTab, KeyModifiers::empty()),
-        );
-        assert_eq!(state.settings.section, SettingsSection::Plugins);
-    }
-
-    #[test]
-    fn integrations_enter_does_nothing_when_nothing_needs_install() {
-        let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Integrations);
+        open_settings_at(&mut state, SettingsSection::Agents);
 
         let enter_action = update_settings_state(
             &mut state,
             KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
         );
-        assert_eq!(enter_action, None);
-
-        let space_action = update_settings_state(
-            &mut state,
-            KeyEvent::new(KeyCode::Char(' '), KeyModifiers::empty()),
+        assert_eq!(
+            enter_action,
+            Some(SettingsAction::SaveResumeAgentsOnRestore(
+                !state.settings.config_snapshot.resume_agents_on_restore
+            ))
         );
-        assert_eq!(space_action, None);
     }
 
     #[test]
@@ -942,65 +640,19 @@ mod tests {
         open_settings(&mut app.state);
         app.state.settings.list.select(0);
 
-        let area = app.state.settings_content_rect();
+        let area = app.state.settings_layout().expect("layout").content;
         app.handle_mouse(mouse(MouseEventKind::Moved, area.x + 2, area.y + 2));
 
         assert_eq!(app.state.settings.list.selected, 0);
     }
 
     #[test]
-    fn settings_click_inside_chrome_does_not_cancel() {
-        let mut app = app_for_mouse_test();
-        let original_theme = app.state.theme_name.clone();
-        open_settings(&mut app.state);
-        crate::ui::compute_view(&mut app.state, ratatui::layout::Rect::new(0, 0, 106, 28));
-
-        let popup = app.state.settings_popup_rect();
-        // Title row inside the border — not a tab, list row, or button.
-        let chrome_col = popup.x + 2;
-        let chrome_row = popup.y + 1;
-        assert!(app.state.settings_tab_at(chrome_col, chrome_row).is_none());
-        assert!(app
-            .state
-            .settings_list_index_at(chrome_col, chrome_row)
-            .is_none());
-
-        let action = app.state.handle_settings_mouse(mouse(
-            MouseEventKind::Down(crossterm::event::MouseButton::Left),
-            chrome_col,
-            chrome_row,
-        ));
-
-        assert_eq!(action, None);
-        assert_eq!(app.state.mode, Mode::Settings);
-        assert_eq!(app.state.theme_name, original_theme);
-    }
-
-    #[test]
-    fn settings_click_outside_popup_cancels() {
-        let mut app = app_for_mouse_test();
-        open_settings(&mut app.state);
-        crate::ui::compute_view(&mut app.state, ratatui::layout::Rect::new(0, 0, 106, 28));
-        let popup = app.state.settings_popup_rect();
-
-        let action = app.state.handle_settings_mouse(mouse(
-            MouseEventKind::Down(crossterm::event::MouseButton::Left),
-            0,
-            0,
-        ));
-
-        assert_eq!(action, None);
-        assert_ne!(app.state.mode, Mode::Settings);
-        assert!(popup.width > 0);
-    }
-
-    #[test]
     fn settings_mouse_click_toggles_pane_history() {
         let mut app = app_for_mouse_test();
         app.state.pane_history_persistence = false;
-        open_settings_at(&mut app.state, SettingsSection::System);
+        open_settings_at(&mut app.state, SettingsSection::Advanced);
 
-        let area = app.state.settings_content_rect();
+        let area = app.state.settings_layout().expect("layout").content;
         let action = app.state.handle_settings_mouse(mouse(
             MouseEventKind::Down(crossterm::event::MouseButton::Left),
             area.x + 2,
@@ -1012,133 +664,35 @@ mod tests {
     }
 
     #[test]
-    fn settings_mouse_click_toggles_switch_ascii_input_source_row() {
-        let mut app = app_for_mouse_test();
-        app.state.switch_ascii_input_source_in_prefix = false;
-        open_settings_at(&mut app.state, SettingsSection::System);
-
-        // Navigate down to the second experiment.
-        update_settings_state(
-            &mut app.state,
-            KeyEvent::new(KeyCode::Down, KeyModifiers::empty()),
-        );
-        let action = update_settings_state(
-            &mut app.state,
-            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
-        );
-
-        assert_eq!(
-            action,
-            Some(SettingsAction::SaveSwitchAsciiInputSourceInPrefix(true))
-        );
-    }
-
-    #[test]
-    fn settings_plugins_list_index_at_installed_and_browse_rows() {
-        let mut app = app_for_mouse_test();
-        app.state.installed_plugins.insert(
-            "com.chefgroep.linear-context".into(),
-            installed_plugin("com.chefgroep.linear-context", true),
-        );
-        open_settings_at(&mut app.state, SettingsSection::Plugins);
-        crate::ui::compute_view(&mut app.state, ratatui::layout::Rect::new(0, 0, 106, 30));
-
-        let list_area = crate::ui::settings_list_area(app.state.settings_content_rect());
-        assert_eq!(
-            app.state
-                .settings_list_index_at(list_area.x + 1, list_area.y),
-            Some(0)
-        );
-
-        let browse_y = list_area.y + app.state.installed_plugins.len() as u16 + 1;
-        assert_eq!(
-            app.state.settings_list_index_at(list_area.x + 1, browse_y),
-            Some(app.state.installed_plugins.len())
-        );
-    }
-
-    #[test]
-    fn settings_integrations_click_selects_row() {
-        let mut app = app_for_mouse_test();
-        app.state.integration_recommendations = vec![
-            integration_recommendation(crate::integration::IntegrationStatusKind::Current, true),
-            integration_recommendation(crate::integration::IntegrationStatusKind::Outdated, true),
-        ];
-        open_settings_at(&mut app.state, SettingsSection::Integrations);
-        crate::ui::compute_view(&mut app.state, ratatui::layout::Rect::new(0, 0, 106, 30));
-
-        let list_area = crate::ui::settings_list_area(app.state.settings_content_rect());
-        let action = app.state.handle_settings_mouse(mouse(
-            MouseEventKind::Down(crossterm::event::MouseButton::Left),
-            list_area.x + 1,
-            list_area.y + 1,
-        ));
-
-        assert_eq!(action, None);
-        assert_eq!(app.state.settings.list.selected, 1);
-    }
-
-    #[test]
     fn integration_update_badge_only_tracks_outdated_recommendations() {
         let mut state = state_with_workspaces(&["test"]);
-        state.integration_recommendations = vec![integration_recommendation(
-            crate::integration::IntegrationStatusKind::NotInstalled,
-            true,
-        )];
-        assert!(!state.integration_updates_available());
-
-        state.integration_recommendations = vec![integration_recommendation(
-            crate::integration::IntegrationStatusKind::NotInstalled,
-            false,
-        )];
-        assert!(!state.integration_updates_available());
-
-        state.integration_recommendations = vec![integration_recommendation(
-            crate::integration::IntegrationStatusKind::Current,
-            true,
-        )];
-        assert!(!state.integration_updates_available());
-
         state.integration_recommendations = vec![integration_recommendation(
             crate::integration::IntegrationStatusKind::Outdated,
             true,
         )];
         assert!(state.integration_updates_available());
+        assert!(state.settings_section_has_badge(SettingsSection::Agents));
     }
 
     #[test]
-    fn settings_tab_hit_area_includes_integration_update_badge() {
+    fn settings_nav_hit_area_matches_layout() {
         let mut state = state_with_workspaces(&["test"]);
+        // Settings popup is 96x30; give the synthetic screen enough room.
+        state.view.sidebar_rect = ratatui::layout::Rect::new(0, 0, 26, 40);
+        state.view.terminal_area = ratatui::layout::Rect::new(26, 0, 80, 40);
         state.integration_recommendations = vec![integration_recommendation(
             crate::integration::IntegrationStatusKind::Outdated,
             true,
         )];
         open_settings(&mut state);
 
-        let inner = state.settings_inner_rect();
-        let tab_y = inner.y + 1;
-        let integrations_idx = SettingsSection::ALL
+        let layout = state.settings_layout().expect("layout");
+        let agents_idx = SettingsSection::ALL
             .iter()
-            .position(|section| *section == SettingsSection::Integrations)
-            .expect("integrations section should be present");
-        let integrations_x = inner.x
-            + SettingsSection::ALL[..integrations_idx]
-                .iter()
-                .map(|section| {
-                    let badge_width = if state.settings_section_has_badge(*section) {
-                        2
-                    } else {
-                        0
-                    };
-                    section.label().len() as u16 + 3 + badge_width
-                })
-                .sum::<u16>();
-        let dotted_width = SettingsSection::Integrations.label().len() as u16 + 4;
-
-        assert_eq!(
-            state.settings_tab_at(integrations_x + dotted_width - 1, tab_y),
-            Some(SettingsSection::Integrations)
-        );
+            .position(|section| *section == SettingsSection::Agents)
+            .expect("agents section");
+        let rect = layout.nav_item_rect(agents_idx).expect("nav rect");
+        assert_eq!(layout.nav_index_at(rect.x + 2, rect.y), Some(agents_idx));
     }
 
     fn integration_recommendation(
@@ -1152,28 +706,6 @@ mod tests {
             available,
             path: std::path::PathBuf::from("/tmp/herdr-test-integration"),
             state,
-        }
-    }
-
-    fn installed_plugin(id: &str, enabled: bool) -> crate::api::schema::InstalledPluginInfo {
-        crate::api::schema::InstalledPluginInfo {
-            plugin_id: id.into(),
-            name: "Test Plugin".into(),
-            version: "0.1.0".into(),
-            min_herdr_version: crate::build_info::BASE_VERSION.into(),
-            description: None,
-            manifest_path: format!("/tmp/{id}/herdr-plugin.toml"),
-            plugin_root: format!("/tmp/{id}"),
-            enabled,
-            platforms: None,
-            build: vec![],
-            startup: vec![],
-            actions: vec![],
-            events: vec![],
-            panes: vec![],
-            link_handlers: vec![],
-            source: Default::default(),
-            warnings: vec![],
         }
     }
 }

@@ -4,8 +4,9 @@ use crossterm::terminal;
 
 use super::{
     background_update_check_enabled, repeat_key_identity, App, Mode, ANIMATION_INTERVAL,
-    AUTO_UPDATE_CHECK_INTERVAL, GIT_REMOTE_STATUS_REFRESH_INTERVAL, MIN_RENDER_INTERVAL,
-    RESIZE_POLL_INTERVAL, SELECTION_AUTOSCROLL_INTERVAL,
+    AUTO_UPDATE_CHECK_INTERVAL, FLEET_OPS_CACHE_REFRESH_INTERVAL,
+    GIT_REMOTE_STATUS_REFRESH_INTERVAL, MIN_RENDER_INTERVAL, RESIZE_POLL_INTERVAL,
+    SELECTION_AUTOSCROLL_INTERVAL,
 };
 use crate::events::AppEvent;
 use crate::workspace::{GitStatusCacheEntry, Workspace, WorkspaceGitStatus};
@@ -53,6 +54,18 @@ fn retain_custom_command_after_wait(
 }
 
 impl App {
+    /// Refresh Fleet Ops fragment + git caches off the render path.
+    pub(crate) fn refresh_fleet_ops_cache(&mut self) {
+        let plugin_ids: Vec<String> = self.state.installed_plugins.keys().cloned().collect();
+        let mut cwds = Vec::new();
+        for term in self.state.terminals.values() {
+            if !cwds.iter().any(|cwd| cwd == &term.cwd) {
+                cwds.push(term.cwd.clone());
+            }
+        }
+        crate::fleet::refresh_fleet_ops_cache(&mut self.state.fleet_ops_cache, plugin_ids, cwds);
+    }
+
     pub(crate) fn reap_finished_custom_commands(&mut self) {
         self.detached_custom_command_children
             .retain_mut(|child| retain_custom_command_after_wait(child.id(), child.try_wait()));
@@ -227,6 +240,12 @@ impl App {
 
         self.sync_animation_timer(now);
 
+        if now >= self.next_fleet_ops_cache_refresh {
+            self.refresh_fleet_ops_cache();
+            self.next_fleet_ops_cache_refresh = now + FLEET_OPS_CACHE_REFRESH_INTERVAL;
+            changed = true;
+        }
+
         if now >= self.next_resize_poll {
             resized = self.handle_resize_poll();
             changed |= resized;
@@ -300,9 +319,7 @@ impl App {
             self.state.spinner_tick = self.state.spinner_tick.wrapping_add(1);
             // Animate the spinner preview independently so it stays alive
             // even when no working agent drives spinner_tick.
-            if self.state.mode == crate::app::Mode::Settings
-                && self.state.settings.section == crate::app::state::SettingsSection::Ui
-            {
+            if self.state.mode == crate::app::Mode::Settings {
                 self.state.settings.preview_tick = self.state.settings.preview_tick.wrapping_add(1);
             }
             self.next_animation_tick = Some(now + ANIMATION_INTERVAL);
@@ -417,7 +434,7 @@ impl App {
     }
 
     fn sync_animation_timer_with_interval(&mut self, now: Instant, interval: Duration) {
-        if self.agent_panel_has_animation() {
+        if self.agent_panel_has_animation() || self.state.mode == crate::app::Mode::Settings {
             self.next_animation_tick.get_or_insert(now + interval);
         } else {
             self.next_animation_tick = None;
@@ -1367,8 +1384,12 @@ mod tests {
             dedupe_key: "herdr:codex\0codex\0Id\0codex-session".into(),
         });
         app.pending_agent_resume_deadline = Some(Instant::now() - Duration::from_millis(1));
+        let now = Instant::now();
+        app.next_fleet_ops_cache_refresh = now + Duration::from_secs(3600);
+        app.next_resize_poll = now + Duration::from_secs(3600);
+        app.next_animation_tick = None;
 
-        assert!(!app.handle_scheduled_tasks(Instant::now(), true));
+        assert!(!app.handle_scheduled_tasks(now, true));
         assert!(app.terminal_runtimes.get(&terminal_id).is_none());
         assert!(app
             .state
