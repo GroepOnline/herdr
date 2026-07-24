@@ -199,10 +199,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # Match release.yml: download-artifact v8 nests as ./herdr-linux-x86_64/...
+      # (path: artifacts previously made softprops miss the binary).
       - name: Download all artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          path: artifacts
+
+      - name: Locate build artifacts (debug)
+        run: find . -path ./node_modules -prune -o -name 'herdr-linux*' -type f -print
 
       - name: Record previous dev commit
         id: previous-dev
@@ -232,10 +235,12 @@ jobs:
           python3 - <<'PY'
           import json, pathlib
           result = {}
-          for path in pathlib.Path('artifacts').glob('herdr-*/*.sha256'):
+          for path in pathlib.Path('.').glob('herdr-*/*.sha256'):
               digest, name = path.read_text().split()[:2]
               target = name.removeprefix('herdr-').removesuffix('.exe')
               result[target] = digest
+          if not result:
+              raise SystemExit('error: no herdr-*/.sha256 digests found after artifact download')
           pathlib.Path('dev-sha256.json').write_text(json.dumps(result, indent=2) + '\n')
           PY
 
@@ -249,8 +254,9 @@ jobs:
           make_latest: false
           overwrite_files: true
           target_commitish: ${{ needs.preflight.outputs.commit }}
+          # Permissive glob: exact nested path previously matched nothing on the runner.
           files: |
-            artifacts/herdr-linux-x86_64/herdr-linux-x86_64
+            herdr-linux-x86_64/**
 
       - name: Update dev manifest
         run: |
@@ -270,8 +276,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # checkout uses persist-credentials: false; wire the Actions token for push.
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git add website/dev.json
           git diff --cached --quiet || git commit -m "docs: update dev manifest"
           git push origin HEAD:main
