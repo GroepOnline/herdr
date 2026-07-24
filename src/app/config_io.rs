@@ -565,14 +565,6 @@ impl App {
         }
     }
 
-    pub(super) fn save_fleet_ops_bar(&mut self, enabled: bool) {
-        if self.update_config_file("fleet ops bar", |content| {
-            crate::config::upsert_section_bool(content, "ui", "fleet_ops_bar", enabled)
-        }) {
-            self.apply_config_from_disk(false);
-        }
-    }
-
     /// Apply a pane layout template to the current tab by performing a sequence
     /// of splits. Leaves settings mode first so the user sees the result.
     pub(super) fn apply_pane_template(&mut self, template: crate::pane_template::PaneTemplateId) {

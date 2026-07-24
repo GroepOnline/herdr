@@ -24,6 +24,10 @@ pub fn is_preview() -> bool {
     channel() == "preview"
 }
 
+pub fn is_dev() -> bool {
+    channel() == "dev"
+}
+
 /// Any non-stable build (preview or dev). Used so the stable channel always
 /// reinstalls the stable asset when switching away from a prerelease build.
 pub fn is_prerelease() -> bool {
