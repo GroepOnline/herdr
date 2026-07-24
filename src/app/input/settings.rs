@@ -22,6 +22,7 @@ pub(super) enum SettingsAction {
     SaveHideTabBarWhenSingleTab(bool),
     SavePaneHistory(bool),
     SaveSwitchAsciiInputSourceInPrefix(bool),
+    SaveFleetOpsBar(bool),
     SaveSpinnerStyle(crate::config::SpinnerStyle),
     ApplyPaneTemplate(crate::pane_template::PaneTemplateId),
     InstallRecommendedIntegrations,
@@ -63,6 +64,7 @@ impl App {
                 SettingsAction::SaveSwitchAsciiInputSourceInPrefix(enabled) => {
                     self.save_switch_ascii_input_source_in_prefix(enabled)
                 }
+                SettingsAction::SaveFleetOpsBar(enabled) => self.save_fleet_ops_bar(enabled),
                 SettingsAction::SaveSpinnerStyle(style) => self.save_spinner_style(style),
                 SettingsAction::ApplyPaneTemplate(template) => self.apply_pane_template(template),
                 SettingsAction::InstallRecommendedIntegrations => {
@@ -145,7 +147,14 @@ fn apply_settings(state: &mut AppState) -> Option<SettingsAction> {
             Some(SettingsAction::InstallRecommendedIntegrations)
         }
         SettingsSection::Integrations => None,
-        _ => {
+        SettingsSection::Fleet => Some(SettingsAction::SaveFleetOpsBar(
+            !state.fleet_ops_bar_enabled(),
+        )),
+        SettingsSection::Plugins => None,
+        SettingsSection::Ui
+        | SettingsSection::Sound
+        | SettingsSection::System
+        | SettingsSection::Templates => {
             super::modal::leave_modal(state);
             None
         }
@@ -157,6 +166,46 @@ const SOUND_TOTAL: usize = 5;
 
 fn ui_total_items() -> usize {
     crate::app::state::UI_SPINNER_OFFSET + crate::config::SpinnerStyle::ALL.len()
+}
+
+fn plugins_total_items(state: &AppState) -> usize {
+    state.installed_plugins.len() + crate::fleet::FLEET_OPS_PLUGIN_IDS.len()
+}
+
+fn default_settings_index(state: &AppState, section: SettingsSection) -> usize {
+    match section {
+        SettingsSection::Theme => current_theme_index(&state.theme_name),
+        SettingsSection::Ui => 0,
+        SettingsSection::Sound => usize::from(!state.sound_enabled()),
+        SettingsSection::System => 0,
+        SettingsSection::Fleet => 0,
+        SettingsSection::Plugins => 0,
+        SettingsSection::Templates => 0,
+        SettingsSection::Integrations => 0,
+    }
+}
+
+fn select_settings_section(state: &mut AppState, section: SettingsSection) {
+    state.settings.section = section;
+    state.settings.list.selected = default_settings_index(state, section);
+}
+
+fn adjacent_settings_section(current: SettingsSection, direction: isize) -> SettingsSection {
+    let len = SettingsSection::ALL.len() as isize;
+    let idx = SettingsSection::ALL
+        .iter()
+        .position(|section| *section == current)
+        .unwrap_or(0) as isize;
+    let next = (idx + direction).rem_euclid(len) as usize;
+    SettingsSection::ALL[next]
+}
+
+fn select_next_settings_section(state: &mut AppState) {
+    select_settings_section(state, adjacent_settings_section(state.settings.section, 1));
+}
+
+fn select_previous_settings_section(state: &mut AppState) {
+    select_settings_section(state, adjacent_settings_section(state.settings.section, -1));
 }
 
 pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Option<SettingsAction> {
@@ -178,12 +227,16 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
                 }
             }
             KeyCode::Tab => {
-                state.settings.section = SettingsSection::Ui;
-                state.settings.list.selected = 0;
+                select_next_settings_section(state);
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                select_next_settings_section(state);
             }
             KeyCode::BackTab => {
-                state.settings.section = SettingsSection::Integrations;
-                state.settings.list.selected = 0;
+                select_previous_settings_section(state);
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                select_previous_settings_section(state);
             }
             _ => match super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS) {
                 Some(super::modal::ModalAction::Apply) => return apply_settings(state),
@@ -245,12 +298,10 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
                     .map(SettingsAction::SaveSpinnerStyle);
             }
             KeyCode::Tab => {
-                state.settings.section = SettingsSection::Sound;
-                state.settings.list.selected = usize::from(!state.sound_enabled());
+                select_next_settings_section(state);
             }
             KeyCode::BackTab => {
-                state.settings.section = SettingsSection::Theme;
-                state.settings.list.selected = current_theme_index(&state.theme_name);
+                select_previous_settings_section(state);
             }
             _ => {
                 if let Some(super::modal::ModalAction::Close) =
@@ -278,12 +329,16 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
                 return Some(SettingsAction::SaveToastDelivery(delivery));
             }
             KeyCode::Tab => {
-                state.settings.section = SettingsSection::System;
-                state.settings.list.selected = 0;
+                select_next_settings_section(state);
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                select_next_settings_section(state);
             }
             KeyCode::BackTab => {
-                state.settings.section = SettingsSection::Ui;
-                state.settings.list.selected = 0;
+                select_previous_settings_section(state);
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                select_previous_settings_section(state);
             }
             _ => {
                 if let Some(super::modal::ModalAction::Close) =
@@ -294,7 +349,7 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             }
         },
 
-        // ── System tab: experiments + fleet/plugins info ───────────
+        // ── System tab: experiments ────────────────────────────────
         SettingsSection::System => match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
                 state.settings.list.move_prev();
@@ -306,12 +361,81 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
                 return experiment_toggle_action(state, state.settings.list.selected);
             }
             KeyCode::Tab => {
-                state.settings.section = SettingsSection::Templates;
-                state.settings.list.selected = 0;
+                select_next_settings_section(state);
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                select_next_settings_section(state);
             }
             KeyCode::BackTab => {
-                state.settings.section = SettingsSection::Sound;
-                state.settings.list.selected = usize::from(!state.sound_enabled());
+                select_previous_settings_section(state);
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                select_previous_settings_section(state);
+            }
+            _ => {
+                if let Some(super::modal::ModalAction::Close) =
+                    super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS)
+                {
+                    cancel_settings(state);
+                }
+            }
+        },
+
+        // ── Fleet tab: CHEF personal context ───────────────────────
+        SettingsSection::Fleet => match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                state.settings.list.move_prev();
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                state.settings.list.move_next(1);
+            }
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                return Some(SettingsAction::SaveFleetOpsBar(
+                    !state.fleet_ops_bar_enabled(),
+                ));
+            }
+            KeyCode::Tab => {
+                select_next_settings_section(state);
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                select_next_settings_section(state);
+            }
+            KeyCode::BackTab => {
+                select_previous_settings_section(state);
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                select_previous_settings_section(state);
+            }
+            _ => match super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS) {
+                Some(super::modal::ModalAction::Apply) => {
+                    return Some(SettingsAction::SaveFleetOpsBar(
+                        !state.fleet_ops_bar_enabled(),
+                    ));
+                }
+                Some(super::modal::ModalAction::Close) => cancel_settings(state),
+                _ => {}
+            },
+        },
+
+        // ── Plugins tab: installed + browse catalog ────────────────
+        SettingsSection::Plugins => match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                state.settings.list.move_prev();
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                state.settings.list.move_next(plugins_total_items(state));
+            }
+            KeyCode::Tab => {
+                select_next_settings_section(state);
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                select_next_settings_section(state);
+            }
+            KeyCode::BackTab => {
+                select_previous_settings_section(state);
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                select_previous_settings_section(state);
             }
             _ => {
                 if let Some(super::modal::ModalAction::Close) =
@@ -340,12 +464,16 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
                     .map(SettingsAction::ApplyPaneTemplate);
             }
             KeyCode::Tab => {
-                state.settings.section = SettingsSection::Integrations;
-                state.settings.list.selected = 0;
+                select_next_settings_section(state);
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                select_next_settings_section(state);
             }
             KeyCode::BackTab => {
-                state.settings.section = SettingsSection::System;
-                state.settings.list.selected = 0;
+                select_previous_settings_section(state);
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                select_previous_settings_section(state);
             }
             _ => {
                 if let Some(super::modal::ModalAction::Close) =
@@ -362,12 +490,16 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
                 return Some(SettingsAction::InstallRecommendedIntegrations);
             }
             KeyCode::Tab => {
-                state.settings.section = SettingsSection::Theme;
-                state.settings.list.selected = current_theme_index(&state.theme_name);
+                select_next_settings_section(state);
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                select_next_settings_section(state);
             }
             KeyCode::BackTab => {
-                state.settings.section = SettingsSection::Templates;
-                state.settings.list.selected = 0;
+                select_previous_settings_section(state);
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                select_previous_settings_section(state);
             }
             _ => match super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS) {
                 Some(super::modal::ModalAction::Apply) => return apply_settings(state),
@@ -389,14 +521,7 @@ pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
     state.settings.original_palette = Some(state.palette.clone());
     state.settings.original_theme = Some(state.theme_name.clone());
     state.settings.section = section;
-    state.settings.list.selected = match section {
-        SettingsSection::Theme => current_theme_index(&state.theme_name),
-        SettingsSection::Ui => 0,
-        SettingsSection::Sound => usize::from(!state.sound_enabled()),
-        SettingsSection::System => 0,
-        SettingsSection::Templates => 0,
-        SettingsSection::Integrations => 0,
-    };
+    state.settings.list.selected = default_settings_index(state, section);
     state.mode = Mode::Settings;
 }
 
@@ -478,10 +603,40 @@ impl AppState {
                     None
                 }
             }
+            SettingsSection::Fleet => {
+                if row == list_area.y {
+                    Some(0)
+                } else {
+                    None
+                }
+            }
+            SettingsSection::Plugins => {
+                let installed_count = self.installed_plugins.len();
+                if row >= list_area.y && row < list_area.y + installed_count as u16 {
+                    return Some((row - list_area.y) as usize);
+                }
+                let browse_y = list_area.y + installed_count.max(1) as u16 + 1;
+                if row >= browse_y
+                    && row < browse_y + crate::fleet::FLEET_OPS_PLUGIN_IDS.len() as u16
+                {
+                    Some(installed_count + (row - browse_y) as usize)
+                } else {
+                    None
+                }
+            }
             SettingsSection::Templates => {
                 crate::ui::settings_template_index_at(list_area, col, row)
             }
-            SettingsSection::Integrations => None,
+            SettingsSection::Integrations => {
+                if row >= list_area.y
+                    && !self.integration_recommendations.is_empty()
+                    && row < list_area.y + self.integration_recommendations.len() as u16
+                {
+                    Some((row - list_area.y) as usize)
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -489,15 +644,7 @@ impl AppState {
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) => {
                 if let Some(section) = self.settings_tab_at(mouse.column, mouse.row) {
-                    self.settings.section = section;
-                    self.settings.list.select(match section {
-                        SettingsSection::Theme => current_theme_index(&self.theme_name),
-                        SettingsSection::Ui => 0,
-                        SettingsSection::Sound => usize::from(!self.sound_enabled()),
-                        SettingsSection::System => 0,
-                        SettingsSection::Templates => 0,
-                        SettingsSection::Integrations => 0,
-                    });
+                    select_settings_section(self, section);
                     return None;
                 }
                 if let Some(idx) = self.settings_list_index_at(mouse.column, mouse.row) {
@@ -540,11 +687,24 @@ impl AppState {
                             }
                         }
                         SettingsSection::System => experiment_toggle_action(self, idx),
+                        SettingsSection::Fleet => {
+                            if idx == 0 {
+                                Some(SettingsAction::SaveFleetOpsBar(
+                                    !self.fleet_ops_bar_enabled(),
+                                ))
+                            } else {
+                                None
+                            }
+                        }
+                        SettingsSection::Plugins => None,
                         SettingsSection::Templates => crate::pane_template::PaneTemplateId::ALL
                             .get(idx)
                             .copied()
                             .map(SettingsAction::ApplyPaneTemplate),
-                        SettingsSection::Integrations => None,
+                        SettingsSection::Integrations => {
+                            // Selecting a row highlights it; Install remains the primary action.
+                            None
+                        }
                     };
                 }
 
@@ -678,6 +838,21 @@ mod tests {
     }
 
     #[test]
+    fn settings_fleet_enter_toggles_fleet_ops_bar() {
+        let mut state = state_with_workspaces(&["test"]);
+        state.fleet_ops_bar = false;
+        open_settings_at(&mut state, SettingsSection::Fleet);
+
+        let action = update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
+        );
+
+        assert_eq!(action, Some(SettingsAction::SaveFleetOpsBar(true)));
+        assert_eq!(state.mode, Mode::Settings);
+    }
+
+    #[test]
     fn settings_tab_ui_to_sound() {
         let mut state = state_with_workspaces(&["test"]);
         open_settings_at(&mut state, SettingsSection::Ui);
@@ -700,9 +875,31 @@ mod tests {
     }
 
     #[test]
-    fn settings_tab_system_to_templates() {
+    fn settings_tab_system_to_fleet() {
         let mut state = state_with_workspaces(&["test"]);
         open_settings_at(&mut state, SettingsSection::System);
+        update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
+        );
+        assert_eq!(state.settings.section, SettingsSection::Fleet);
+    }
+
+    #[test]
+    fn settings_tab_fleet_to_plugins() {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::Fleet);
+        update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
+        );
+        assert_eq!(state.settings.section, SettingsSection::Plugins);
+    }
+
+    #[test]
+    fn settings_tab_plugins_to_templates() {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::Plugins);
         update_settings_state(
             &mut state,
             KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
@@ -711,14 +908,14 @@ mod tests {
     }
 
     #[test]
-    fn settings_backtab_templates_to_system() {
+    fn settings_backtab_templates_to_plugins() {
         let mut state = state_with_workspaces(&["test"]);
         open_settings_at(&mut state, SettingsSection::Templates);
         update_settings_state(
             &mut state,
             KeyEvent::new(KeyCode::BackTab, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::System);
+        assert_eq!(state.settings.section, SettingsSection::Plugins);
     }
 
     #[test]
@@ -837,6 +1034,51 @@ mod tests {
     }
 
     #[test]
+    fn settings_plugins_list_index_at_installed_and_browse_rows() {
+        let mut app = app_for_mouse_test();
+        app.state.installed_plugins.insert(
+            "com.chefgroep.linear-context".into(),
+            installed_plugin("com.chefgroep.linear-context", true),
+        );
+        open_settings_at(&mut app.state, SettingsSection::Plugins);
+        crate::ui::compute_view(&mut app.state, ratatui::layout::Rect::new(0, 0, 106, 30));
+
+        let list_area = crate::ui::settings_list_area(app.state.settings_content_rect());
+        assert_eq!(
+            app.state
+                .settings_list_index_at(list_area.x + 1, list_area.y),
+            Some(0)
+        );
+
+        let browse_y = list_area.y + app.state.installed_plugins.len() as u16 + 1;
+        assert_eq!(
+            app.state.settings_list_index_at(list_area.x + 1, browse_y),
+            Some(app.state.installed_plugins.len())
+        );
+    }
+
+    #[test]
+    fn settings_integrations_click_selects_row() {
+        let mut app = app_for_mouse_test();
+        app.state.integration_recommendations = vec![
+            integration_recommendation(crate::integration::IntegrationStatusKind::Current, true),
+            integration_recommendation(crate::integration::IntegrationStatusKind::Outdated, true),
+        ];
+        open_settings_at(&mut app.state, SettingsSection::Integrations);
+        crate::ui::compute_view(&mut app.state, ratatui::layout::Rect::new(0, 0, 106, 30));
+
+        let list_area = crate::ui::settings_list_area(app.state.settings_content_rect());
+        let action = app.state.handle_settings_mouse(mouse(
+            MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            list_area.x + 1,
+            list_area.y + 1,
+        ));
+
+        assert_eq!(action, None);
+        assert_eq!(app.state.settings.list.selected, 1);
+    }
+
+    #[test]
     fn integration_update_badge_only_tracks_outdated_recommendations() {
         let mut state = state_with_workspaces(&["test"]);
         state.integration_recommendations = vec![integration_recommendation(
@@ -910,6 +1152,28 @@ mod tests {
             available,
             path: std::path::PathBuf::from("/tmp/herdr-test-integration"),
             state,
+        }
+    }
+
+    fn installed_plugin(id: &str, enabled: bool) -> crate::api::schema::InstalledPluginInfo {
+        crate::api::schema::InstalledPluginInfo {
+            plugin_id: id.into(),
+            name: "Test Plugin".into(),
+            version: "0.1.0".into(),
+            min_herdr_version: crate::build_info::BASE_VERSION.into(),
+            description: None,
+            manifest_path: format!("/tmp/{id}/herdr-plugin.toml"),
+            plugin_root: format!("/tmp/{id}"),
+            enabled,
+            platforms: None,
+            build: vec![],
+            startup: vec![],
+            actions: vec![],
+            events: vec![],
+            panes: vec![],
+            link_handlers: vec![],
+            source: Default::default(),
+            warnings: vec![],
         }
     }
 }

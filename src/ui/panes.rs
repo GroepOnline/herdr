@@ -616,6 +616,10 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
     use crate::detect::AgentState;
     use crate::fleet::{FleetOpsBarKind, FleetOpsMetadata};
 
+    if !app.fleet_ops_bar_enabled() {
+        return;
+    }
+
     let buf = frame.buffer_mut();
     let area = buf.area;
 

@@ -1,0 +1,31 @@
+id = "com.chefgroep.cloudflare-tunnel"
+name = "Cloudflare Tunnel Status"
+version = "0.1.0"
+min_herdr_version = "0.7.5"
+description = "Cloudflare tunnel + DNS health for Fleet Ops Bar (SSOT: Cloudflare API)"
+platforms = ["linux", "macos", "windows"]
+
+[[actions]]
+id = "check-tunnels"
+title = "Check tunnels"
+description = "Refresh Cloudflare tunnel health into fleet_ops.json"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "check-tunnels"]
+
+[[actions]]
+id = "check-dns"
+title = "Check DNS"
+description = "Refresh Cloudflare DNS health into fleet_ops.json"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "check-dns"]
+
+[[actions]]
+id = "dig-probe"
+title = "DNS dig probe"
+description = "Run a dig probe and refresh fleet_ops.json"
+contexts = ["global"]
+command = ["node", "src/index.js", "dig-probe"]
+
+[[events]]
+on = "workspace.focused"
+command = ["node", "src/index.js", "on-workspace-focused"]

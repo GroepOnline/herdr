@@ -12,13 +12,13 @@ use super::widgets::{
 };
 use crate::{
     app::{
-        state::{ExperimentSetting, UI_SPINNER_OFFSET},
+        state::{ExperimentSetting, SettingsSection, UI_SPINNER_OFFSET},
         AppState,
     },
     config::ToastDelivery,
 };
 
-pub(crate) const SETTINGS_POPUP_WIDTH: u16 = 76;
+pub(crate) const SETTINGS_POPUP_WIDTH: u16 = 84;
 pub(crate) const SETTINGS_POPUP_BASE_HEIGHT: u16 = 22;
 
 pub(crate) const SETTINGS_DESC_ROWS: u16 = 2;
@@ -131,9 +131,9 @@ pub(crate) fn settings_template_index_at(list_area: Rect, col: u16, row: u16) ->
 }
 
 pub(crate) fn settings_popup_height(app: &AppState) -> u16 {
-    use crate::app::state::SettingsSection;
     match app.settings.section {
         SettingsSection::Ui => 30, // taller for toggles + 2-column spinner grid
+        SettingsSection::Plugins => 30,
         SettingsSection::Templates => 28, // taller for template previews
         SettingsSection::Integrations => {
             let list_rows = app.integration_recommendations.len().max(1) as u16;
@@ -142,13 +142,14 @@ pub(crate) fn settings_popup_height(app: &AppState) -> u16 {
             // + section title 1 + description 2 + spacers 2
             (14 + list_rows + footer_rows).max(SETTINGS_POPUP_BASE_HEIGHT)
         }
-        _ => SETTINGS_POPUP_BASE_HEIGHT,
+        SettingsSection::Theme
+        | SettingsSection::Sound
+        | SettingsSection::System
+        | SettingsSection::Fleet => SETTINGS_POPUP_BASE_HEIGHT,
     }
 }
 
 pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: Rect) {
-    use crate::app::state::SettingsSection;
-
     let p = &app.palette;
     let Some(popup) = centered_popup_rect(area, SETTINGS_POPUP_WIDTH, settings_popup_height(app))
     else {
@@ -232,6 +233,12 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
         SettingsSection::System => {
             render_settings_system(app, frame, content_area);
         }
+        SettingsSection::Fleet => {
+            render_settings_fleet(app, frame, content_area);
+        }
+        SettingsSection::Plugins => {
+            render_settings_plugins(app, frame, content_area);
+        }
         SettingsSection::Templates => {
             render_settings_templates(app, frame, content_area);
         }
@@ -282,28 +289,38 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
     }
 }
 
-pub(crate) fn settings_primary_button_label(
-    section: crate::app::state::SettingsSection,
-) -> &'static str {
+pub(crate) fn settings_primary_button_label(section: SettingsSection) -> &'static str {
     match section {
-        crate::app::state::SettingsSection::Integrations => "install",
-        _ => "apply",
+        SettingsSection::Integrations => "install",
+        SettingsSection::Fleet => "toggle",
+        SettingsSection::Theme
+        | SettingsSection::Ui
+        | SettingsSection::Sound
+        | SettingsSection::System
+        | SettingsSection::Plugins
+        | SettingsSection::Templates => "apply",
     }
 }
 
 pub(crate) fn settings_show_primary_action(app: &AppState) -> bool {
     match app.settings.section {
-        crate::app::state::SettingsSection::Integrations => app
+        SettingsSection::Integrations => app
             .integration_recommendations
             .iter()
             .any(crate::integration::IntegrationRecommendation::needs_install),
-        _ => true,
+        SettingsSection::Plugins => false,
+        SettingsSection::Theme
+        | SettingsSection::Ui
+        | SettingsSection::Sound
+        | SettingsSection::System
+        | SettingsSection::Fleet
+        | SettingsSection::Templates => true,
     }
 }
 
 pub(crate) fn settings_button_rects(
     inner: Rect,
-    section: crate::app::state::SettingsSection,
+    section: SettingsSection,
     show_primary: bool,
 ) -> (Option<Rect>, Rect) {
     if !show_primary {
@@ -405,7 +422,8 @@ fn render_settings_integrations(app: &AppState, frame: &mut Frame, area: Rect) {
     );
 
     let mut lines = Vec::new();
-    for item in &app.integration_recommendations {
+    for (idx, item) in app.integration_recommendations.iter().enumerate() {
+        let selected = app.settings.list.selected == idx;
         let marker = match item.state {
             crate::integration::IntegrationStatusKind::Current => "✓",
             crate::integration::IntegrationStatusKind::Outdated => "↻",
@@ -422,13 +440,28 @@ fn render_settings_integrations(app: &AppState, frame: &mut Frame, area: Rect) {
                 Style::default().fg(p.overlay0)
             }
         };
+        let marker_style = if selected {
+            marker_style.bg(p.surface0).add_modifier(Modifier::BOLD)
+        } else {
+            marker_style
+        };
+        let row_style = if selected {
+            Style::default()
+                .bg(p.surface0)
+                .fg(p.text)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(p.subtext0)
+        };
+        let status_style = if selected {
+            row_style
+        } else {
+            Style::default().fg(p.overlay1)
+        };
         lines.push(Line::from(vec![
             Span::styled(format!(" {marker} "), marker_style),
-            Span::styled(
-                format!("{:<9}", item.label),
-                Style::default().fg(p.subtext0),
-            ),
-            Span::styled(item.status_label(), Style::default().fg(p.overlay1)),
+            Span::styled(format!("{:<9}", item.label), row_style),
+            Span::styled(item.status_label(), status_style),
         ]));
     }
 
@@ -472,6 +505,160 @@ fn render_settings_theme(app: &AppState, frame: &mut Frame, area: Rect) {
 
     let mut state = ListState::default().with_selected(Some(app.settings.list.selected));
     frame.render_stateful_widget(list, area, &mut state);
+}
+
+fn render_settings_fleet(app: &AppState, frame: &mut Frame, area: Rect) {
+    let p = &app.palette;
+    let [desc_area, _, _] = Layout::vertical([
+        Constraint::Length(2),
+        Constraint::Length(1),
+        Constraint::Min(1),
+    ])
+    .areas::<3>(area);
+
+    super::widgets::render_modal_description(
+        frame,
+        desc_area,
+        "personal fleet context",
+        Style::default().fg(p.overlay1),
+    );
+
+    let list_area = settings_list_area(area);
+    let enabled = app.fleet_ops_bar_enabled();
+    let selected = app.settings.list.selected == 0;
+    let marker = if enabled { "[✓]" } else { "[ ]" };
+    let row_style = if selected {
+        Style::default()
+            .bg(p.surface0)
+            .fg(p.text)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(p.subtext0)
+    };
+    frame.render_widget(
+        Paragraph::new(format!(" {marker} fleet ops bar")).style(row_style),
+        Rect::new(list_area.x, list_area.y, list_area.width, 1),
+    );
+
+    let default_preview = crate::fleet::FleetOpsMetadata::default().personal_summary_line();
+    let preview = if enabled && default_preview == "fleet ops idle" {
+        "ENG-432 · Sprint · PR #42".to_string()
+    } else {
+        default_preview
+    };
+    let preview_label = if enabled {
+        preview
+    } else {
+        "preview hidden".to_string()
+    };
+    frame.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(" preview ", Style::default().fg(p.overlay1)),
+            Span::styled(preview_label, Style::default().fg(p.subtext0)),
+        ])),
+        Rect::new(list_area.x, list_area.y + 2, list_area.width, 1),
+    );
+    frame.render_widget(
+        Paragraph::new(Span::styled(
+            " reads $HERDR_PLUGIN_STATE_DIR/*/fleet_ops.json",
+            Style::default().fg(p.overlay1),
+        )),
+        Rect::new(list_area.x, list_area.y + 4, list_area.width, 1),
+    );
+}
+
+fn render_settings_plugins(app: &AppState, frame: &mut Frame, area: Rect) {
+    let p = &app.palette;
+    let [desc_area, _, _] = Layout::vertical([
+        Constraint::Length(2),
+        Constraint::Length(1),
+        Constraint::Min(1),
+    ])
+    .areas::<3>(area);
+
+    super::widgets::render_modal_description(
+        frame,
+        desc_area,
+        "installed CHEF/plugins + browse",
+        Style::default().fg(p.overlay1),
+    );
+
+    let list_area = settings_list_area(area);
+    let selected = app.settings.list.selected;
+    let mut installed: Vec<_> = app.installed_plugins.values().collect();
+    installed.sort_by(|a, b| a.plugin_id.cmp(&b.plugin_id));
+
+    if installed.is_empty() {
+        frame.render_widget(
+            Paragraph::new(Span::styled(
+                " no linked plugins",
+                Style::default().fg(p.overlay1),
+            )),
+            Rect::new(list_area.x, list_area.y, list_area.width, 1),
+        );
+    } else {
+        for (idx, plugin) in installed.iter().enumerate() {
+            let is_sel = selected == idx;
+            let marker = if plugin.enabled {
+                "enabled"
+            } else {
+                "disabled"
+            };
+            let row_style = if is_sel {
+                Style::default()
+                    .bg(p.surface0)
+                    .fg(p.text)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(p.subtext0)
+            };
+            frame.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::styled(" ", row_style),
+                    Span::styled(&plugin.plugin_id, row_style),
+                    Span::styled(format!("  {marker}"), Style::default().fg(p.overlay1)),
+                ])),
+                Rect::new(list_area.x, list_area.y + idx as u16, list_area.width, 1),
+            );
+        }
+    }
+
+    let sep_y = list_area.y + installed.len().max(1) as u16;
+    let sep = "─".repeat(list_area.width as usize);
+    frame.render_widget(
+        Paragraph::new(Span::styled(&sep, Style::default().fg(p.surface0))),
+        Rect::new(list_area.x, sep_y, list_area.width, 1),
+    );
+
+    for (catalog_idx, plugin_id) in crate::fleet::FLEET_OPS_PLUGIN_IDS.iter().enumerate() {
+        let idx = installed.len() + catalog_idx;
+        let is_sel = selected == idx;
+        let row_style = if is_sel {
+            Style::default()
+                .bg(p.surface0)
+                .fg(p.text)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(p.subtext0)
+        };
+        let name = plugin_id.rsplit('.').next().unwrap_or(*plugin_id);
+        frame.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled(" ", row_style),
+                Span::styled(*plugin_id, row_style),
+                Span::styled(
+                    format!("  herdr plugin link plugins/{name}"),
+                    Style::default().fg(p.overlay1),
+                ),
+            ])),
+            Rect::new(
+                list_area.x,
+                sep_y + 1 + catalog_idx as u16,
+                list_area.width,
+                1,
+            ),
+        );
+    }
 }
 
 /// Ui tab: toggle rows + spinner grid.
@@ -692,7 +879,7 @@ fn render_settings_sound(app: &AppState, frame: &mut Frame, area: Rect) {
     }
 }
 
-/// System tab: experiments + fleet/plugins info.
+/// System tab: experiments.
 fn render_settings_system(app: &AppState, frame: &mut Frame, area: Rect) {
     let p = &app.palette;
     let [desc_area, _, list_area] = Layout::vertical([
@@ -705,7 +892,7 @@ fn render_settings_system(app: &AppState, frame: &mut Frame, area: Rect) {
     super::widgets::render_modal_description(
         frame,
         desc_area,
-        "experiments and system info",
+        "system experiments",
         Style::default().fg(p.overlay1),
     );
 
@@ -728,49 +915,6 @@ fn render_settings_system(app: &AppState, frame: &mut Frame, area: Rect) {
             row,
         );
     }
-
-    // Separator + info text.
-    let info_y = list_area.y + ExperimentSetting::ALL.len() as u16 + 1;
-    let sep = "─".repeat(list_area.width as usize);
-    frame.render_widget(
-        Paragraph::new(Span::styled(&sep, Style::default().fg(p.surface0))),
-        Rect::new(list_area.x, info_y, list_area.width, 1),
-    );
-
-    let info_lines = vec![
-        Line::from(Span::styled(
-            "CHEF Fleet Operations",
-            Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
-        )),
-        Line::from(Span::styled(
-            "fleet ops bar shows per-pane agent metadata",
-            Style::default().fg(p.subtext0),
-        )),
-        Line::from(Span::styled(
-            "plugins: linear, github, fleet-health, cloudflare",
-            Style::default().fg(p.subtext0),
-        )),
-        Line::from(""),
-        Line::from(Span::styled(
-            "Plugin Marketplace",
-            Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
-        )),
-        Line::from(Span::styled(
-            "install: herdr plugin install <id>",
-            Style::default().fg(p.subtext0),
-        )),
-    ];
-    frame.render_widget(
-        Paragraph::new(info_lines),
-        Rect::new(
-            list_area.x,
-            info_y + 1,
-            list_area.width,
-            list_area
-                .height
-                .saturating_sub(ExperimentSetting::ALL.len() as u16 + 2),
-        ),
-    );
 }
 
 /// Templates tab: pane layout templates.
