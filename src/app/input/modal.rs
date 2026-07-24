@@ -383,6 +383,10 @@ pub(super) fn open_new_tab_dialog(state: &mut AppState) {
 }
 
 pub(super) fn leave_modal(state: &mut AppState) {
+    // Drop in-progress overlay gestures so Esc/close cannot leave a stale drag
+    // (e.g. keybind-help scrollbar) active after the mode flips.
+    state.drag = None;
+    state.context_menu = None;
     if state.active.is_some() {
         state.mode = Mode::Terminal;
     } else {
@@ -1398,6 +1402,27 @@ mod tests {
         );
 
         assert_eq!(state.mode, Mode::Terminal);
+    }
+
+    #[test]
+    fn leave_modal_clears_stale_overlay_drag() {
+        let mut state = state_with_workspaces(&["test"]);
+        state.mode = Mode::KeybindHelp;
+        state.drag = Some(crate::app::state::DragState {
+            target: crate::app::state::DragTarget::KeybindHelpScrollbar { grab_row_offset: 1 },
+        });
+        state.context_menu = Some(crate::app::state::ContextMenuState {
+            kind: crate::app::state::ContextMenuKind::Workspace { ws_idx: 0 },
+            x: 1,
+            y: 1,
+            list: crate::app::state::MenuListState::new(0),
+        });
+
+        leave_modal(&mut state);
+
+        assert_eq!(state.mode, Mode::Terminal);
+        assert!(state.drag.is_none());
+        assert!(state.context_menu.is_none());
     }
 
     #[test]

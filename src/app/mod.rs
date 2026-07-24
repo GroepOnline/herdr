@@ -1204,6 +1204,7 @@ impl App {
             .is_some_and(|notes| notes.preview);
 
         self.state.release_notes = None;
+        self.state.drag = None;
         if !preview {
             if let Err(err) = crate::release_notes::mark_current_version_seen() {
                 self.state.config_diagnostic =
@@ -1236,6 +1237,7 @@ impl App {
             }
         }
 
+        self.state.drag = None;
         self.state.mode = if self.state.active.is_some() {
             Mode::Terminal
         } else {

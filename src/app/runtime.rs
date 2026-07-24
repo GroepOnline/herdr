@@ -242,7 +242,13 @@ impl App {
             changed = true;
         }
 
-        if self.toast_deadline.is_some_and(|deadline| now >= deadline) {
+        if self.state.toast.is_none() {
+            // Presentation scrub (pane close) may clear toast without going through
+            // sync_toast_deadline; drop a stale deadline so it cannot expire a later toast.
+            if self.toast_deadline.take().is_some() {
+                changed = true;
+            }
+        } else if self.toast_deadline.is_some_and(|deadline| now >= deadline) {
             self.toast_deadline = None;
             self.state.toast = None;
             changed = true;

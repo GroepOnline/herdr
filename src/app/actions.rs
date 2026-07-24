@@ -17,9 +17,9 @@ use crate::workspace::WorkspaceGitStatus;
 use super::api_helpers::pane_agent_status;
 use super::state::{
     navigator_display_index_of_row, navigator_display_lines, navigator_first_row_at_or_after,
-    text_matches_query, AgentNotificationDelivery, AppState, Mode, NavigatorRow,
-    NavigatorStateFilter, NavigatorTarget, PaneFocusTarget, PendingAgentNotification, ToastKind,
-    ToastNotification, ToastTarget, ViewLayout,
+    text_matches_query, AgentNotificationDelivery, AppState, ContextMenuKind, DragTarget, Mode,
+    NavigatorRow, NavigatorStateFilter, NavigatorTarget, PaneFocusTarget, PendingAgentNotification,
+    ToastKind, ToastNotification, ToastTarget, ViewLayout,
 };
 
 fn is_background_completion_transition(prev_state: AgentState, new_state: AgentState) -> bool {
@@ -1581,6 +1581,7 @@ impl AppState {
     ) {
         let pane_ids = pane_ids.into_iter().collect::<Vec<_>>();
         self.clear_copy_mode_for_removed_panes(pane_ids.iter().copied());
+        self.scrub_removed_pane_presentation(&pane_ids);
         if self
             .previous_pane_focus
             .as_ref()
@@ -1593,6 +1594,79 @@ impl AppState {
             self.pane_graphics_layers.remove(&pane_id);
             self.pane_graphics_streams.remove(&pane_id);
         }
+    }
+
+    /// Drop client presentation state that still points at removed panes.
+    /// Shared by API close paths and `PaneDied` so invariants stay intact.
+    fn scrub_removed_pane_presentation(&mut self, pane_ids: &[PaneId]) {
+        if pane_ids.is_empty() {
+            return;
+        }
+
+        for pane_id in pane_ids {
+            self.pending_agent_notifications.remove(pane_id);
+        }
+
+        if self
+            .selection
+            .as_ref()
+            .is_some_and(|selection| pane_ids.contains(&selection.pane_id))
+        {
+            self.selection = None;
+            self.selection_autoscroll = None;
+        }
+
+        if self.toast.as_ref().is_some_and(|toast| {
+            toast
+                .target
+                .as_ref()
+                .is_some_and(|target| pane_ids.contains(&target.pane_id))
+        }) {
+            self.toast = None;
+        }
+
+        if self
+            .right_click_passthrough
+            .as_ref()
+            .is_some_and(|gesture| pane_ids.contains(&gesture.pane_info.id))
+        {
+            self.right_click_passthrough = None;
+        }
+
+        if self
+            .rename_pane_target
+            .is_some_and(|pane_id| pane_ids.contains(&pane_id))
+        {
+            self.rename_pane_target = None;
+        }
+
+        if self.drag.as_ref().is_some_and(|drag| {
+            matches!(
+                &drag.target,
+                DragTarget::PaneScrollbar { pane_id, .. } if pane_ids.contains(pane_id)
+            )
+        }) {
+            self.drag = None;
+        }
+
+        if self.context_menu.as_ref().is_some_and(|menu| {
+            matches!(
+                &menu.kind,
+                ContextMenuKind::Pane {
+                    pane_id,
+                    source_pane_id,
+                    ..
+                } if pane_ids.contains(pane_id)
+                    || source_pane_id.is_some_and(|source| pane_ids.contains(&source))
+            )
+        }) {
+            self.context_menu = None;
+        }
+
+        self.pane_id_aliases
+            .retain(|_, alias| !pane_ids.contains(alias));
+        self.public_pane_id_aliases
+            .retain(|_, alias| !pane_ids.contains(alias));
     }
 
     pub fn close_selected_workspace(&mut self) {
@@ -3225,7 +3299,6 @@ impl AppState {
     }
 
     fn handle_pane_died(&mut self, pane_id: PaneId) {
-        self.pending_agent_notifications.remove(&pane_id);
         self.remove_plugin_pane_records([pane_id]);
         let ws_idx = self
             .workspaces
@@ -3237,20 +3310,8 @@ impl AppState {
             return;
         };
 
-        if self
-            .selection
-            .as_ref()
-            .is_some_and(|s| s.pane_id == pane_id)
-        {
-            self.selection = None;
-            self.selection_autoscroll = None;
-        }
-
         let pane_terminal_id = self.terminal_id_for_pane(ws_idx, pane_id);
         let workspace_terminal_ids = self.terminal_ids_for_workspace(ws_idx);
-        self.pane_id_aliases.retain(|_, alias| *alias != pane_id);
-        self.public_pane_id_aliases
-            .retain(|_, alias| *alias != pane_id);
         let should_close_workspace = {
             let ws = &mut self.workspaces[ws_idx];
             ws.remove_pane(pane_id)
@@ -4565,6 +4626,71 @@ mod tests {
         assert!(state.selection_autoscroll.is_none());
         assert_eq!(state.workspaces[0].panes.len(), 1);
         assert_eq!(state.workspaces[0].panes.keys().next().unwrap(), &first_id);
+        state.assert_invariants_for_test();
+    }
+
+    #[test]
+    fn api_style_pane_close_scrubs_presentation_state() {
+        let mut state = app_with_workspaces(&["test"]);
+        let second_id = state.workspaces[0].test_split(Direction::Horizontal);
+        state.ensure_test_terminals();
+        let workspace_id = state.workspaces[0].id.clone();
+
+        state.toast = Some(ToastNotification {
+            kind: ToastKind::NeedsAttention,
+            title: "pi needs attention".into(),
+            context: "test".into(),
+            position: None,
+            target: Some(ToastTarget {
+                workspace_id: workspace_id.clone(),
+                pane_id: second_id,
+            }),
+        });
+        state.pending_agent_notifications.insert(
+            second_id,
+            PendingAgentNotification {
+                pane_id: second_id,
+                workspace_id: workspace_id.clone(),
+                agent_label: "pi".into(),
+                known_agent: Some(Agent::Pi),
+                kind: ToastKind::NeedsAttention,
+                state: AgentState::Blocked,
+                deadline: Instant::now(),
+            },
+        );
+        state.selection = Some(crate::selection::Selection::anchor(second_id, 0, 0, None));
+        state.selection_autoscroll = Some(crate::app::state::SelectionAutoscroll {
+            direction: crate::app::state::SelectionAutoscrollDirection::Down,
+            last_mouse_screen_col: 0,
+            last_mouse_screen_row: 23,
+            inner_rect: ratatui::layout::Rect::new(0, 0, 80, 24),
+        });
+        state.drag = Some(crate::app::state::DragState {
+            target: DragTarget::PaneScrollbar {
+                pane_id: second_id,
+                grab_row_offset: 0,
+            },
+        });
+        state.rename_pane_target = Some(second_id);
+        state.pane_id_aliases.insert(42, second_id);
+        state
+            .public_pane_id_aliases
+            .insert("gone-pane".into(), second_id);
+
+        let _ = state.workspaces[0].close_pane(second_id);
+        state.remove_plugin_pane_records([second_id]);
+
+        assert!(state.toast.is_none());
+        assert!(state.pending_agent_notifications.is_empty());
+        assert!(state.selection.is_none());
+        assert!(state.selection_autoscroll.is_none());
+        assert!(state.drag.is_none());
+        assert!(state.rename_pane_target.is_none());
+        assert!(!state.pane_id_aliases.values().any(|id| *id == second_id));
+        assert!(!state
+            .public_pane_id_aliases
+            .values()
+            .any(|id| *id == second_id));
         state.assert_invariants_for_test();
     }
 

@@ -805,6 +805,15 @@ impl App {
         }
     }
 
+    pub(crate) fn remove_plugin_pane_records(
+        &mut self,
+        pane_ids: impl IntoIterator<Item = crate::layout::PaneId>,
+    ) {
+        let previous_toast = self.state.toast.clone();
+        self.state.remove_plugin_pane_records(pane_ids);
+        self.sync_toast_deadline(previous_toast);
+    }
+
     pub(crate) fn emit_delayed_client_local_agent_notifications(
         &self,
         deliveries: &[crate::app::state::AgentNotificationDelivery],

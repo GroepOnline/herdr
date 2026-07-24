@@ -253,8 +253,10 @@ impl App {
             })
             .unwrap_or_default();
         self.state.selected = index;
+        let previous_toast = self.state.toast.clone();
         self.state.close_selected_workspace();
-        self.state.remove_plugin_pane_records(pane_ids);
+        self.remove_plugin_pane_records(pane_ids);
+        self.sync_toast_deadline(previous_toast);
         self.shutdown_detached_terminal_runtimes();
         self.emit_event(EventEnvelope {
             event: EventKind::WorkspaceClosed,

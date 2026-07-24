@@ -164,7 +164,7 @@ impl App {
                 return encode_error(id, "tab_not_found", "tab not found");
             };
             if ws.close_tab(target_tab_idx) {
-                self.state.remove_plugin_pane_records(plugin_pane_ids);
+                self.remove_plugin_pane_records(plugin_pane_ids);
                 self.state.remove_unattached_terminal_ids(terminal_ids);
                 self.shutdown_detached_terminal_runtimes();
                 self.emit_event(EventEnvelope {
@@ -497,7 +497,7 @@ impl App {
             .get_mut(ws_idx)
             .is_some_and(|ws| ws.close_tab(tab_idx))
         {
-            self.state.remove_plugin_pane_records(plugin_pane_ids);
+            self.remove_plugin_pane_records(plugin_pane_ids);
             self.state.remove_unattached_terminal_ids(terminal_ids);
             self.shutdown_detached_terminal_runtimes();
         }
