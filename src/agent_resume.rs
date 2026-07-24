@@ -149,7 +149,7 @@ pub fn plan(source: &str, agent: &str, session_ref: &AgentSessionRef) -> Option<
             ]
         }
         ("herdr:pi", "pi", AgentSessionRefKind::Path | AgentSessionRefKind::Id) => {
-            vec!["pi".into(), "--session".into(), session_ref.value.clone()]
+            pi_resume_argv(session_ref)
         }
         ("herdr:omp", "omp", AgentSessionRefKind::Path | AgentSessionRefKind::Id) => {
             // omp resume is `-r, --resume=<value>` (ID prefix or path); it has no
@@ -195,6 +195,54 @@ pub fn plan(source: &str, agent: &str, session_ref: &AgentSessionRef) -> Option<
         argv,
         dedupe_key: dedupe_key(source, agent, session_ref),
     })
+}
+
+fn pi_resume_argv(session_ref: &AgentSessionRef) -> Vec<String> {
+    // Unix resume populates Pi-Memory context via a shell prelude. Windows keeps
+    // the direct argv form because `sh -lc` is not a reliable host shell there.
+    #[cfg(unix)]
+    {
+        vec![
+            "sh".into(),
+            "-lc".into(),
+            pi_resume_script(&session_ref.value),
+        ]
+    }
+    #[cfg(windows)]
+    {
+        vec!["pi".into(), "--session".into(), session_ref.value.clone()]
+    }
+}
+
+#[cfg(unix)]
+fn pi_resume_script(session_value: &str) -> String {
+    format!(
+        r#"set +e
+project=${{PWD##*/}}
+[ -n "$project" ] || project=workspace
+if [ -n "${{PI_MEMORY_BIN:-}}" ]; then
+  pi_memory=$PI_MEMORY_BIN
+elif [ -x "$HOME/.pi/memory/pi-memory" ]; then
+  pi_memory="$HOME/.pi/memory/pi-memory"
+else
+  pi_memory=pi-memory
+fi
+"$pi_memory" sync MEMORY.md --limit 15 >/dev/null 2>&1
+"$pi_memory" state "$project" >/dev/null 2>&1
+"$pi_memory" query --limit 10 >/dev/null 2>&1
+exec pi --session {}
+"#,
+        shell_quote(session_value)
+    )
+}
+
+#[cfg(unix)]
+fn shell_quote(value: &str) -> String {
+    if value.is_empty() {
+        return "''".to_string();
+    }
+
+    format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
 
 pub fn dedupe_key(source: &str, agent: &str, session_ref: &AgentSessionRef) -> String {
@@ -333,16 +381,19 @@ mod tests {
             .argv,
             vec!["mastracode", "--thread", "mastracode-session"]
         );
-        assert_eq!(
-            plan(
-                "herdr:pi",
-                "pi",
-                &AgentSessionRef::path(&pi_session).unwrap()
-            )
-            .unwrap()
-            .argv,
-            vec!["pi", "--session", pi_session.as_str()]
-        );
+        let pi_argv = plan(
+            "herdr:pi",
+            "pi",
+            &AgentSessionRef::path(&pi_session).unwrap(),
+        )
+        .unwrap()
+        .argv;
+        assert_eq!(pi_argv.len(), 3);
+        assert_eq!(pi_argv[0], "sh");
+        assert_eq!(pi_argv[1], "-lc");
+        assert!(pi_argv[2].contains("pi --session"));
+        assert!(pi_argv[2].contains("PI_MEMORY_BIN") || pi_argv[2].contains("pi-memory"));
+        assert!(pi_argv[2].contains(&pi_session));
         assert_eq!(
             plan(
                 "herdr:omp",
@@ -581,6 +632,16 @@ mod tests {
 
         let devin_plan = plan("herdr:devin", "devin", &AgentSessionRef::id(id).unwrap()).unwrap();
         assert_eq!(devin_plan.argv, vec!["devin", "--resume", id]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn pi_resume_script_shell_quotes_session_ref() {
+        assert_eq!(shell_quote("plain"), "'plain'");
+        assert_eq!(shell_quote("with ' quote"), "'with '\"'\"' quote'");
+
+        let script = pi_resume_script("abc'; rm -rf /");
+        assert!(script.contains("exec pi --session 'abc'\"'\"'; rm -rf /'"));
     }
 
     #[test]
