@@ -12,7 +12,7 @@ use crate::terminal::state::TerminalState;
 /// Core merges fragments from *installed* plugin ids only (no hardcoded vendor
 /// allowlist). Personalized issue keys (e.g. `ENG-432`) belong in the fragment
 /// `issue.id` field — see [`format_issue_label`].
-#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq)]
 pub struct PluginFleetFragment {
     pub source: Option<String>,
     pub updated_at: Option<String>,
@@ -52,10 +52,27 @@ pub struct PluginCloudflareSummary {
     pub summary: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq)]
 pub struct PluginParkedSummary {
     pub count: Option<u32>,
-    pub oldest_hours: Option<u32>,
+    #[serde(default, deserialize_with = "deserialize_non_negative_hours")]
+    pub oldest_hours: Option<f64>,
+}
+
+/// Accept fractional parked ages (session-park writes `Math.round(hours*10)/10`
+/// floats) while preserving the non-negative invariant a duration must hold.
+///
+/// A negative or non-finite value is coerced to `None` instead of erroring:
+/// fleet-ops fragments are parsed with `serde_json::from_slice(..).ok()`, so a
+/// hard deserialize error would drop the *entire* fragment, reintroducing the
+/// exact failure this field's `u32 -> f64` change fixed. Dropping just the bad
+/// sub-field keeps `count`/`source`/etc. intact.
+fn deserialize_non_negative_hours<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<f64>::deserialize(deserializer)?;
+    Ok(value.filter(|hours| hours.is_finite() && *hours >= 0.0))
 }
 
 /// Cached fleet-ops inputs refreshed off the render path.
@@ -624,5 +641,39 @@ mod tests {
         });
         let meta = FleetOpsMetadata::from_terminal(&term, "local", &cache);
         assert_eq!(meta.linear_issue.as_deref(), Some("ENG-7"));
+    }
+
+    #[test]
+    fn parked_oldest_hours_accepts_fractional_json() {
+        // session-park writes Math.round(hours * 10) / 10 floats; u32 reject
+        // used to drop the entire fleet_ops fragment via .ok().
+        let raw = r#"{
+            "source": "session-park",
+            "ttl_seconds": 60,
+            "parked": { "count": 2, "oldest_hours": 1.5 }
+        }"#;
+        let fragment: PluginFleetFragment =
+            serde_json::from_str(raw).expect("fractional oldest_hours must deserialize");
+        assert_eq!(fragment.parked.as_ref().and_then(|p| p.count), Some(2));
+        assert_eq!(
+            fragment.parked.as_ref().and_then(|p| p.oldest_hours),
+            Some(1.5)
+        );
+    }
+
+    #[test]
+    fn parked_oldest_hours_drops_negative_but_keeps_fragment() {
+        // A parked age can never be negative. Rather than error (which would
+        // drop the whole fragment via `.ok()`), an invalid oldest_hours is
+        // coerced to None while the rest of the fragment survives.
+        let raw = r#"{
+            "source": "session-park",
+            "ttl_seconds": 60,
+            "parked": { "count": 3, "oldest_hours": -1.5 }
+        }"#;
+        let fragment: PluginFleetFragment =
+            serde_json::from_str(raw).expect("negative oldest_hours must not drop the fragment");
+        assert_eq!(fragment.parked.as_ref().and_then(|p| p.count), Some(3));
+        assert_eq!(fragment.parked.as_ref().and_then(|p| p.oldest_hours), None);
     }
 }

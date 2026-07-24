@@ -377,7 +377,7 @@ CHEF fleet plugins under `com.chefgroep.*` contribute optional personal context
 to the Fleet Ops Bar by writing `fleet_ops.json` into
 `$HERDR_PLUGIN_STATE_DIR`. Link a local scaffold with
 `herdr plugin link <path>`, then invoke actions through
-`herdr plugin action invoke <plugin-id> <action-id>`.
+`herdr plugin action invoke <action-id> --plugin <plugin-id>`.
 
 Linear remains the source of truth for work items; GitHub for PR/CI; host and
 Cloudflare APIs for runtime health. Do not store secrets in `fleet_ops.json`.

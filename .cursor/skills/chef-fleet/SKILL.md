@@ -66,6 +66,17 @@ Pi integration calls `pi-memory` on lifecycle (`src/integration/assets/pi/herdr-
 
 GPU/Sixel, new plugin framework, screenshots-as-core, Combined stale SSOT — see ADR.
 
+## Plugin actions
+
+Invoke with action id first:
+
+```bash
+herdr plugin action invoke <action-id> --plugin <plugin-id>
+```
+
+Secrets belong in `$HERDR_PLUGIN_CONFIG_DIR/.env` (mode `0600`), never in
+`fleet_ops.json`, stdout, or logs.
+
 ## Validation
 
 Prefer `just check`. Cursor Cloud: GitHub Actions on the PR.
