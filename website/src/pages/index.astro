@@ -1,7 +1,293 @@
 ---
-import { readFile } from 'node:fs/promises';
-
-const homepage = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
+import MarketingLayout from '../components/MarketingLayout.astro';
 ---
 
-<Fragment set:html={homepage} />
+<MarketingLayout
+  title="Herdr — Enterprise Agent Multiplexer"
+  description="Herdr is the industry-leading agent multiplexer. Scale your coding agents with enterprise-grade reliability, real-time panes, and infinite session persistence."
+  canonicalPath="/"
+>
+  <main class="enterprise-main">
+    <section class="hero-section glass-panel">
+      <div class="hero-content">
+        <h1 class="hero-title">
+          <span class="gradient-text">Herdr</span> Enterprise
+        </h1>
+        <p class="hero-subtitle">
+          The industry standard agent multiplexer. Infinite session persistence, secure SSH access, and real-time state visualization for mission-critical AI workflows.
+        </p>
+        <div class="cta-group">
+          <a href="/docs/quick-start/" class="btn-primary">Get Started</a>
+          <a href="/compare/" class="btn-secondary">Compare Editions</a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="terminal-mockup glassmorphism">
+          <div class="terminal-header">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+          </div>
+          <div class="terminal-body">
+            <pre><code>$ herdr connect --enterprise
+[INFO] Establishing secure agent session...
+[SUCCESS] Connected to Herdr Enterprise Cluster.
+[INFO] 4 agents running. 2 tasks queued.
+</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features-section">
+      <h2 class="section-title">Built for Scale. Engineered for Reliability.</h2>
+      <div class="features-grid">
+        <div class="feature-card glassmorphism">
+          <h3>Infinite Persistence</h3>
+          <p>Agents continue running even when you disconnect. Reattach from any device, anywhere, with zero state loss.</p>
+        </div>
+        <div class="feature-card glassmorphism">
+          <h3>Real-time Visualization</h3>
+          <p>Monitor agent health, logs, and state through a unified, high-performance terminal pane multiplexer.</p>
+        </div>
+        <div class="feature-card glassmorphism">
+          <h3>Enterprise Security</h3>
+          <p>End-to-end encrypted SSH tunneling, role-based access control, and comprehensive audit logs.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</MarketingLayout>
+
+<style>
+  :global(:root) {
+    --primary-color: #0070f3;
+    --primary-gradient: linear-gradient(135deg, #0070f3, #00c6ff);
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --text-primary: #ffffff;
+    --text-secondary: #a0aec0;
+    --bg-color: #0a0a0c;
+  }
+
+  /* Reset global for enterprise look */
+  :global(body) {
+    background: var(--bg-color);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+  }
+
+  .enterprise-main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 4rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 6rem;
+  }
+
+  .hero-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4rem;
+    padding: 4rem;
+    border-radius: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-content {
+    flex: 1;
+    z-index: 2;
+  }
+
+  .hero-title {
+    font-size: 4rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+    letter-spacing: -0.02em;
+  }
+
+  .gradient-text {
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero-subtitle {
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+    margin-bottom: 2.5rem;
+    max-width: 500px;
+  }
+
+  .cta-group {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .btn-primary, .btn-secondary {
+    padding: 0.875rem 2rem;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: 0 4px 14px 0 rgba(0, 112, 243, 0.39);
+  }
+
+  .btn-primary:hover {
+    background: rgba(0, 112, 243, 0.9);
+    transform: translateY(-2px);
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--glass-border);
+  }
+
+  .btn-secondary:hover {
+    background: var(--glass-bg);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .hero-visual {
+    flex: 1;
+    z-index: 2;
+  }
+
+  /* Glassmorphism utility */
+  .glassmorphism {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+
+  .terminal-mockup {
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .terminal-header {
+    background: rgba(0, 0, 0, 0.5);
+    padding: 0.75rem 1rem;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  .dot.red { background: #ff5f56; }
+  .dot.yellow { background: #ffbd2e; }
+  .dot.green { background: #27c93f; }
+
+  .terminal-body {
+    padding: 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    color: #e2e8f0;
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .terminal-body pre {
+    margin: 0;
+  }
+
+  .features-section {
+    text-align: center;
+  }
+
+  .section-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 3rem;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+  }
+
+  .feature-card {
+    padding: 2.5rem;
+    border-radius: 16px;
+    text-align: left;
+    transition: transform 0.3s ease;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .feature-card h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+  }
+
+  .feature-card p {
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* Decorative background blobs */
+  .hero-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -10%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(0,112,243,0.15) 0%, rgba(0,0,0,0) 70%);
+    border-radius: 50%;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .hero-section::after {
+    content: '';
+    position: absolute;
+    bottom: -50%;
+    right: -10%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(0,198,255,0.1) 0%, rgba(0,0,0,0) 70%);
+    border-radius: 50%;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  @media (max-width: 900px) {
+    .hero-section {
+      flex-direction: column;
+      text-align: center;
+      padding: 2rem;
+    }
+    
+    .hero-title {
+      font-size: 2.5rem;
+    }
+    
+    .cta-group {
+      justify-content: center;
+    }
+  }
+</style>
