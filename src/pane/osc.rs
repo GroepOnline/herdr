@@ -30,6 +30,8 @@ pub(super) enum DefaultColorEvent {
     Set(DefaultColorQuery),
     Reset(DefaultColorQuery),
     PaletteQuery(u8),
+    PaletteSet(u8),
+    PaletteReset(Option<u8>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -263,26 +265,92 @@ fn parse_default_color_events(body: &[u8]) -> Vec<DefaultColorEvent> {
         b"12;?" => Some(DefaultColorEvent::Query(DefaultColorQuery::Cursor)),
         b"110" | b"110;" => Some(DefaultColorEvent::Reset(DefaultColorQuery::Foreground)),
         b"111" | b"111;" => Some(DefaultColorEvent::Reset(DefaultColorQuery::Background)),
-        _ => parse_palette_color_query(body),
+        b"104" | b"104;" => Some(DefaultColorEvent::PaletteReset(None)),
+        _ => None,
     };
     if let Some(event) = single {
         return vec![event];
     }
+    if body.starts_with(b"4;") {
+        return parse_palette_color_events(body);
+    }
+    if body.starts_with(b"104;") {
+        return parse_palette_color_reset_events(body);
+    }
     parse_default_color_set_events(body)
 }
 
-fn parse_palette_color_query(body: &[u8]) -> Option<DefaultColorEvent> {
-    let index = body.strip_prefix(b"4;")?.strip_suffix(b";?")?;
-    if index.is_empty() || index.len() > 3 || !index.iter().all(|byte| byte.is_ascii_digit()) {
+fn parse_palette_target(index: &[u8]) -> Option<u16> {
+    if index.is_empty() || !index.iter().all(|byte| byte.is_ascii_digit()) {
         return None;
     }
     let mut value: u16 = 0;
     for &digit in index {
-        value = value * 10 + u16::from(digit - b'0');
+        value = value
+            .checked_mul(10)?
+            .checked_add(u16::from(digit - b'0'))?;
     }
-    u8::try_from(value)
-        .ok()
-        .map(DefaultColorEvent::PaletteQuery)
+    (value <= 259).then_some(value)
+}
+
+fn parse_palette_color_events(body: &[u8]) -> Vec<DefaultColorEvent> {
+    let Some(values) = body.strip_prefix(b"4;") else {
+        return Vec::new();
+    };
+    // libghostty uses tokenizeScalar here, so repeated separators do not
+    // create empty fields. Keep our ownership tracking aligned with the
+    // parser that produces the terminal response bytes.
+    let values = values
+        .split(|byte| *byte == b';')
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>();
+    let mut events = Vec::new();
+    for pair in values.chunks(2) {
+        let [index, color] = pair else {
+            break;
+        };
+        let Some(target) = parse_palette_target(index) else {
+            break;
+        };
+        let is_query = *color == b"?";
+        if !is_query && (color.is_empty() || crate::ghostty::parse_color(color).is_none()) {
+            break;
+        }
+        let Ok(index) = u8::try_from(target) else {
+            continue;
+        };
+        events.push(if is_query {
+            DefaultColorEvent::PaletteQuery(index)
+        } else {
+            DefaultColorEvent::PaletteSet(index)
+        });
+    }
+    events
+}
+
+fn parse_palette_color_reset_events(body: &[u8]) -> Vec<DefaultColorEvent> {
+    let Some(values) = body.strip_prefix(b"104;") else {
+        return Vec::new();
+    };
+    if values.is_empty() {
+        return vec![DefaultColorEvent::PaletteReset(None)];
+    }
+    let mut events = Vec::new();
+    let mut valid_targets = 0;
+    for value in values.split(|byte| *byte == b';') {
+        let Some(target) = parse_palette_target(value) else {
+            continue;
+        };
+        valid_targets += 1;
+        if let Ok(index) = u8::try_from(target) {
+            events.push(DefaultColorEvent::PaletteReset(Some(index)));
+        }
+    }
+    if valid_targets == 0 {
+        vec![DefaultColorEvent::PaletteReset(None)]
+    } else {
+        events
+    }
 }
 
 fn parse_default_color_set_events(body: &[u8]) -> Vec<DefaultColorEvent> {
@@ -1354,7 +1422,7 @@ mod tests {
     }
 
     #[test]
-    fn default_color_event_tracker_rejects_malformed_palette_color_queries() {
+    fn default_color_event_tracker_itemizes_valid_palette_queries_sets_and_resets() {
         let mut tracker = DefaultColorEventTracker::default();
 
         tracker.observe(b"\x1b]4;;?\x07");
@@ -1362,11 +1430,47 @@ mod tests {
         tracker.observe(b"\x1b]4;256;?\x07");
         tracker.observe(b"\x1b]4;0;?;1;?\x07");
         tracker.observe(b"\x1b]4;0;rgb:1111/2222/3333\x07");
+        tracker.observe(b"\x1b]4;2;red\x07");
+        tracker.observe(b"\x1b]4;1;not-a-color\x07");
+        tracker.observe(b"\x1b]104;0;255\x07");
+        tracker.observe(b"\x1b]104\x07");
         tracker.observe(b"\x1b]4;0;?\x07");
 
         assert_eq!(
             tracked_default_color_events(tracker.drain_pending()),
-            vec![DefaultColorEvent::PaletteQuery(0)]
+            vec![
+                DefaultColorEvent::PaletteQuery(0),
+                DefaultColorEvent::PaletteQuery(1),
+                DefaultColorEvent::PaletteSet(0),
+                DefaultColorEvent::PaletteSet(2),
+                DefaultColorEvent::PaletteReset(Some(0)),
+                DefaultColorEvent::PaletteReset(Some(255)),
+                DefaultColorEvent::PaletteReset(None),
+                DefaultColorEvent::PaletteQuery(0),
+            ]
+        );
+    }
+
+    #[test]
+    fn palette_event_tracking_stops_where_libghostty_stops_and_skips_special_targets() {
+        let mut tracker = DefaultColorEventTracker::default();
+
+        tracker.observe(b"\x1b]4;0;?;1;not-a-color;2;?\x07");
+        tracker.observe(b"\x1b]4;256;?;2;?\x07");
+        tracker.observe(b"\x1b]4;3;;?;;0004;?\x07");
+        tracker.observe(b"\x1b]104;bogus;;256;2\x07");
+        tracker.observe(b"\x1b]104;bogus;;\x07");
+
+        assert_eq!(
+            tracked_default_color_events(tracker.drain_pending()),
+            vec![
+                DefaultColorEvent::PaletteQuery(0),
+                DefaultColorEvent::PaletteQuery(2),
+                DefaultColorEvent::PaletteQuery(3),
+                DefaultColorEvent::PaletteQuery(4),
+                DefaultColorEvent::PaletteReset(Some(2)),
+                DefaultColorEvent::PaletteReset(None),
+            ]
         );
     }
 

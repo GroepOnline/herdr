@@ -96,7 +96,8 @@ use tokio::sync::mpsc;
 
 use crate::input::{parse_terminal_key_sequence, TerminalKey};
 use crate::terminal_theme::{
-    parse_default_color_response, DefaultColorKind, HostAppearance, RgbColor,
+    parse_default_color_response, parse_palette_color_response, DefaultColorKind, HostAppearance,
+    RgbColor,
 };
 
 const ESC: u8 = 0x1b;
@@ -131,6 +132,10 @@ pub enum RawInputEvent {
     OuterFocusLost,
     HostDefaultColor {
         kind: DefaultColorKind,
+        color: RgbColor,
+    },
+    HostPaletteColor {
+        index: u8,
         color: RgbColor,
     },
     HostColorSchemeChanged(HostAppearance),
@@ -203,13 +208,14 @@ pub(crate) struct RawInputByteFramer {
     discard_until: Option<ControlStringFamily>,
     discarded_tail_bytes: usize,
     lone_escape_recently_flushed: bool,
-    host_color_replies_awaited: u8,
+    host_color_replies_awaited: u16,
+    host_palette_replies_awaited: u16,
     held_pending_color_esc: bool,
     host_color_scheme_change_tracking: bool,
     split_coalesced_escape: bool,
 }
 
-const HOST_COLOR_QUERY_REPLIES: u8 = 2;
+const HOST_COLOR_QUERY_REPLIES: u16 = 2;
 const MAX_ORPHANED_SGR_MOUSE_TAIL_BYTES: usize = 32;
 
 impl RawInputByteFramer {
@@ -236,6 +242,28 @@ impl RawInputByteFramer {
     pub(crate) fn host_color_query_sent(&mut self) {
         self.host_color_replies_awaited = HOST_COLOR_QUERY_REPLIES;
         self.held_pending_color_esc = false;
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn host_palette_queries_sent(&mut self, count: usize) {
+        self.host_palette_replies_awaited = self
+            .host_palette_replies_awaited
+            .saturating_add(u16::try_from(count).unwrap_or(u16::MAX));
+        self.held_pending_color_esc = false;
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn host_palette_queries_cancelled(&mut self, count: usize) {
+        self.host_palette_replies_awaited = self
+            .host_palette_replies_awaited
+            .saturating_sub(u16::try_from(count).unwrap_or(u16::MAX));
+        if self.host_palette_replies_awaited == 0
+            && starts_with_incomplete_palette_color_response(&self.buffer)
+        {
+            self.discard_until = Some(ControlStringFamily::Osc);
+            self.discarded_tail_bytes = self.buffer.len();
+            self.buffer.clear();
+        }
     }
 
     pub(crate) fn enable_host_color_scheme_change_tracking(&mut self) {
@@ -327,7 +355,10 @@ impl RawInputByteFramer {
             return chunks;
         }
 
-        if starts_with_incomplete_default_color_response(&self.buffer) {
+        if starts_with_incomplete_default_color_response(&self.buffer)
+            || (self.host_palette_replies_awaited > 0
+                && starts_with_incomplete_palette_color_response(&self.buffer))
+        {
             tracing::trace!(
                 len = self.buffer.len(),
                 "waiting for host color response terminator"
@@ -360,13 +391,16 @@ impl RawInputByteFramer {
         }
 
         if self.buffer.as_slice() == [ESC] {
-            if self.host_color_replies_awaited > 0 && !self.held_pending_color_esc {
+            if (self.host_color_replies_awaited > 0 || self.host_palette_replies_awaited > 0)
+                && !self.held_pending_color_esc
+            {
                 self.held_pending_color_esc = true;
                 tracing::trace!("holding lone escape one flush while awaiting host color reply");
                 return chunks;
             }
             // No continuation arrived; give up the window so Escape is not delayed again.
             self.host_color_replies_awaited = 0;
+            self.host_palette_replies_awaited = 0;
             self.held_pending_color_esc = false;
             tracing::warn!(
                 bytes = ?self.buffer,
@@ -416,6 +450,35 @@ impl RawInputByteFramer {
                 self.lone_escape_recently_flushed = false;
             }
 
+            // A host may omit one palette report but continue answering later
+            // queries. If a fresh OSC starts before the buffered palette OSC
+            // terminates, abandon only the incomplete prefix and parse the
+            // newer response. Terminal input is an ordered byte stream, so a
+            // nested OSC introducer cannot belong to the earlier color value.
+            if self.host_palette_replies_awaited > 0 && self.buffer.starts_with(b"\x1b]4;") {
+                let nested_osc =
+                    find_subsequence(&self.buffer[2..], b"\x1b]").map(|offset| offset + 2);
+                let bel = self.buffer.iter().position(|byte| *byte == 0x07);
+                let st = find_subsequence(&self.buffer, b"\x1b\\");
+                let first_terminator = match (bel, st) {
+                    (Some(bel), Some(st)) => Some(bel.min(st)),
+                    (Some(bel), None) => Some(bel),
+                    (None, Some(st)) => Some(st),
+                    (None, None) => None,
+                };
+                if let Some(nested_osc) = nested_osc {
+                    let nested_before_terminator = match first_terminator {
+                        Some(terminator) => nested_osc < terminator,
+                        None => true,
+                    };
+                    if nested_before_terminator {
+                        self.buffer.drain(..nested_osc);
+                        self.held_pending_color_esc = false;
+                        continue;
+                    }
+                }
+            }
+
             if let Some(family) = self.discard_until {
                 if family == ControlStringFamily::OrphanedSgrMouseTail {
                     if discard_orphaned_sgr_mouse_tail(
@@ -427,6 +490,18 @@ impl RawInputByteFramer {
                         continue;
                     }
                     break;
+                }
+
+                // A cancelled, unterminated OSC response may be followed by a
+                // fresh response for a newer query. Resynchronize at the new
+                // OSC introducer instead of discarding through its terminator.
+                if family == ControlStringFamily::Osc {
+                    if let Some(start) = find_subsequence(&self.buffer, b"\x1b]") {
+                        self.buffer.drain(..start);
+                        self.discard_until = None;
+                        self.discarded_tail_bytes = 0;
+                        continue;
+                    }
                 }
 
                 let Some(terminator_len) =
@@ -451,6 +526,9 @@ impl RawInputByteFramer {
             };
             if matches!(event, RawInputEvent::HostDefaultColor { .. }) {
                 self.host_color_replies_awaited = self.host_color_replies_awaited.saturating_sub(1);
+            } else if matches!(event, RawInputEvent::HostPaletteColor { .. }) {
+                self.host_palette_replies_awaited =
+                    self.host_palette_replies_awaited.saturating_sub(1);
             } else if self.host_color_scheme_change_tracking
                 && matches!(event, RawInputEvent::HostColorSchemeChanged(_))
             {
@@ -685,6 +763,9 @@ fn extract_one_event(buffer: &[u8]) -> Option<(RawInputEvent, usize)> {
         if let Some((kind, color)) = parse_default_color_response(seq) {
             return Some((RawInputEvent::HostDefaultColor { kind, color }, seq_len));
         }
+        if let Some((index, color)) = parse_palette_color_response(seq) {
+            return Some((RawInputEvent::HostPaletteColor { index, color }, seq_len));
+        }
 
         match seq {
             "\x1b[I" => return Some((RawInputEvent::OuterFocusGained, seq_len)),
@@ -748,6 +829,15 @@ fn starts_with_incomplete_default_color_response(buffer: &[u8]) -> bool {
             family: ControlStringFamily::Osc
         })
     ) && matches!(buffer.get(..5), Some(b"\x1b]10;" | b"\x1b]11;"))
+}
+
+fn starts_with_incomplete_palette_color_response(buffer: &[u8]) -> bool {
+    matches!(
+        control_string(buffer),
+        Some(ControlString::Incomplete {
+            family: ControlStringFamily::Osc
+        })
+    ) && (b"\x1b]4;".starts_with(buffer) || buffer.starts_with(b"\x1b]4;"))
 }
 
 fn starts_with_incomplete_host_color_scheme_report(buffer: &[u8]) -> bool {
@@ -2391,6 +2481,63 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn dynamic_palette_query_stitches_split_reply_and_preserves_adjacent_input() {
+        let mut framer = RawInputByteFramer::default();
+        framer.host_palette_queries_sent(1);
+
+        assert!(framer.push(b"\x1b").is_empty());
+        assert!(framer.flush_timeout().is_empty());
+        let chunks = framer.push(b"]4;7;rgb:1111/2222/3333\x1b\\x");
+
+        assert_eq!(chunks.len(), 2);
+        let (event, _) = extract_one_event(&chunks[0]).unwrap();
+        assert!(matches!(
+            event,
+            RawInputEvent::HostPaletteColor {
+                index: 7,
+                color: RgbColor {
+                    r: 0x11,
+                    g: 0x22,
+                    b: 0x33,
+                },
+            }
+        ));
+        assert_eq!(chunks[1], b"x");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn dynamic_palette_query_holds_partial_payload_across_timeout() {
+        let mut framer = RawInputByteFramer::default();
+        framer.host_palette_queries_sent(1);
+
+        assert!(framer.push(b"\x1b]4;7;rgb:11").is_empty());
+        assert!(framer.flush_timeout().is_empty());
+        let chunks = framer.push(b"11/2222/3333\x07x");
+
+        assert_eq!(chunks.len(), 2);
+        assert!(matches!(
+            extract_one_event(&chunks[0]),
+            Some((RawInputEvent::HostPaletteColor { index: 7, .. }, _))
+        ));
+        assert_eq!(chunks[1], b"x");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cancelled_palette_query_bounds_truncated_report_discard() {
+        let mut framer = RawInputByteFramer::default();
+        framer.host_palette_queries_sent(1);
+        assert!(framer.push(b"\x1b]4;7;rgb:11").is_empty());
+
+        framer.host_palette_queries_cancelled(1);
+        assert!(framer.push(b"trailing-host-bytes").is_empty());
+        assert!(framer.flush_timeout().is_empty());
+        assert_eq!(framer.push(b"x"), vec![b"x".to_vec()]);
     }
 
     #[test]

@@ -337,6 +337,14 @@ impl From<ffi::GhosttyColorRgb> for RgbColor {
     }
 }
 
+pub fn parse_color(value: &[u8]) -> Option<RgbColor> {
+    let mut color = ffi::GhosttyColorRgb::default();
+    unsafe { ffi::ghostty_color_parse(value.as_ptr().cast::<c_char>(), value.len(), &mut color) }
+        .into_result()
+        .ok()?;
+    Some(color.into())
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CellColor {
     Palette(u8),

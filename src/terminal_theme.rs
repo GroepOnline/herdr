@@ -66,6 +66,27 @@ pub fn parse_default_color_response(sequence: &str) -> Option<(DefaultColorKind,
     Some((kind, parse_rgb_color(value)?))
 }
 
+pub fn parse_palette_color_response(sequence: &str) -> Option<(u8, RgbColor)> {
+    let body = sequence.strip_prefix("\x1b]4;")?;
+    let body = body
+        .strip_suffix("\x1b\\")
+        .or_else(|| body.strip_suffix('\u{7}'))?;
+    let (index, value) = body.split_once(';')?;
+    Some((index.parse().ok()?, parse_rgb_color(value)?))
+}
+
+#[cfg(unix)]
+pub fn osc_palette_query_sequence(index: u8) -> String {
+    format!("\x1b]4;{index};?\x1b\\")
+}
+
+pub fn osc_palette_color_response(index: u8, color: RgbColor) -> String {
+    format!(
+        "\x1b]4;{index};rgb:{:02x}/{:02x}/{:02x}\x1b\\",
+        color.r, color.g, color.b
+    )
+}
+
 pub fn osc_set_default_color_sequence(kind: DefaultColorKind, color: RgbColor) -> String {
     let command = match kind {
         DefaultColorKind::Foreground => 10,
@@ -155,6 +176,34 @@ mod tests {
                     b: 0x56,
                 },
             ))
+        );
+    }
+
+    #[test]
+    fn parses_and_writes_palette_sequences() {
+        assert_eq!(
+            parse_palette_color_response("\x1b]4;255;rgb:1111/2222/3333\x1b\\"),
+            Some((
+                255,
+                RgbColor {
+                    r: 0x11,
+                    g: 0x22,
+                    b: 0x33,
+                }
+            ))
+        );
+        #[cfg(unix)]
+        assert_eq!(osc_palette_query_sequence(7), "\x1b]4;7;?\x1b\\");
+        assert_eq!(
+            osc_palette_color_response(
+                7,
+                RgbColor {
+                    r: 0x11,
+                    g: 0x22,
+                    b: 0x33,
+                }
+            ),
+            "\x1b]4;7;rgb:11/22/33\x1b\\"
         );
     }
 

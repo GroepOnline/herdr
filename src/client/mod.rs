@@ -14,13 +14,11 @@
 
 mod input;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::{self, BufRead, Write as _};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
-#[cfg(unix)]
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use base64::Engine;
 use crossterm::event::{
@@ -92,6 +90,78 @@ struct ClientState {
     redraw_on_focus_gained: bool,
     /// Whether this client draws the cursor into frame cells instead of using the host cursor.
     draw_host_cursor: bool,
+    /// Server palette requests awaiting a matching physical-host report, grouped by index.
+    host_palette_queries: HostPaletteQueryTracker,
+}
+
+#[derive(Default)]
+struct HostPaletteQueryTracker {
+    pending: HashMap<u8, PendingHostPaletteQuery>,
+}
+
+struct PendingHostPaletteQuery {
+    #[cfg(unix)]
+    request_id: u64,
+    expires_at: Instant,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+// Windows clients do not send raw OSC palette queries, but the shared stdin
+// loop signature keeps the update queue platform-neutral.
+#[cfg_attr(windows, allow(dead_code))]
+pub(super) enum HostPaletteFramingUpdate {
+    Arm(usize),
+    Cancel(usize),
+}
+
+fn queue_host_palette_framing_update(
+    updates: &Mutex<VecDeque<HostPaletteFramingUpdate>>,
+    update: HostPaletteFramingUpdate,
+) {
+    let mut updates = match updates.lock() {
+        Ok(updates) => updates,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    updates.push_back(update);
+}
+
+impl HostPaletteQueryTracker {
+    #[cfg(unix)]
+    const TIMEOUT: Duration = Duration::from_secs(2);
+
+    #[cfg(unix)]
+    fn register(&mut self, request_id: u64, index: u8) -> bool {
+        self.register_at(request_id, index, Instant::now())
+    }
+
+    #[cfg(unix)]
+    fn register_at(&mut self, request_id: u64, index: u8, now: Instant) -> bool {
+        if self.pending.contains_key(&index) {
+            return false;
+        }
+        self.pending.insert(
+            index,
+            PendingHostPaletteQuery {
+                #[cfg(unix)]
+                request_id,
+                expires_at: now + Self::TIMEOUT,
+            },
+        );
+        true
+    }
+
+    #[cfg(unix)]
+    fn take(&mut self, index: u8) -> Option<u64> {
+        self.pending
+            .remove(&index)
+            .map(|request| request.request_id)
+    }
+
+    fn expire(&mut self, now: Instant) -> usize {
+        let before = self.pending.len();
+        self.pending.retain(|_, request| request.expires_at > now);
+        before - self.pending.len()
+    }
 }
 
 #[derive(Debug, Default)]
@@ -336,6 +406,28 @@ impl ClientState {
     fn request_full_redraw(&mut self) {
         self.blit_encoder = render_ansi::BlitEncoder::new();
     }
+
+    #[cfg(unix)]
+    fn take_host_palette_query(&mut self, index: u8) -> Option<u64> {
+        self.host_palette_queries.take(index)
+    }
+}
+
+#[cfg(unix)]
+fn prepare_host_palette_query(
+    tracker: &mut HostPaletteQueryTracker,
+    host_palette_framing_updates: &Mutex<VecDeque<HostPaletteFramingUpdate>>,
+    request_id: u64,
+    index: u8,
+) -> Option<String> {
+    if !tracker.register(request_id, index) {
+        return None;
+    }
+    queue_host_palette_framing_update(
+        host_palette_framing_updates,
+        HostPaletteFramingUpdate::Arm(1),
+    );
+    Some(crate::terminal_theme::osc_palette_query_sequence(index))
 }
 
 // ---------------------------------------------------------------------------
@@ -874,6 +966,7 @@ fn do_handshake(
         } else {
             ClientLaunchMode::App
         },
+        host_palette_queries: should_query_host_terminal_theme(),
     };
     protocol::write_message(stream, &hello)
         .map_err(|e| ClientError::ConnectionFailed(io::Error::other(e.to_string())))?;
@@ -1418,9 +1511,11 @@ async fn run_client_loop(
         remote_image_paste_key: config.remote_image_paste_key,
         redraw_on_focus_gained: config.redraw_on_focus_gained,
         draw_host_cursor,
+        host_palette_queries: HostPaletteQueryTracker::default(),
     };
     debug!(?negotiated_encoding, "client render encoding active");
     let host_mouse_capture_active = Arc::new(AtomicBool::new(state.mouse_capture_active));
+    let host_palette_framing_updates = Arc::new(Mutex::new(VecDeque::new()));
 
     // Channel for events from the stdin, resize, and server reader threads.
     let (event_tx, mut event_rx) = tokio::sync::mpsc::channel::<ClientLoopEvent>(256);
@@ -1431,12 +1526,14 @@ async fn run_client_loop(
     let stdin_quit = should_quit.clone();
     let stdin_tx = event_tx.clone();
     let stdin_mouse_capture_active = host_mouse_capture_active.clone();
+    let stdin_palette_framing_updates = host_palette_framing_updates.clone();
     std::thread::spawn(move || {
         input::stdin_reader_loop(
             stdin_tx,
             &stdin_quit,
             will_query_host_terminal_theme,
             stdin_mouse_capture_active,
+            stdin_palette_framing_updates,
         );
     });
 
@@ -1489,9 +1586,36 @@ async fn run_client_loop(
             _ = tokio::time::sleep(Duration::from_millis(100)) => ClientLoopEvent::Timer,
         };
 
+        let expired_palette_queries = state.host_palette_queries.expire(Instant::now());
+        if expired_palette_queries > 0 {
+            queue_host_palette_framing_update(
+                &host_palette_framing_updates,
+                HostPaletteFramingUpdate::Cancel(expired_palette_queries),
+            );
+        }
+
         match event {
             #[cfg(unix)]
             ClientLoopEvent::StdinInput(data) => {
+                if let Ok(sequence) = std::str::from_utf8(&data) {
+                    if let Some((index, color)) =
+                        crate::terminal_theme::parse_palette_color_response(sequence)
+                    {
+                        if let Some(request_id) = state.take_host_palette_query(index) {
+                            let msg = ClientMessage::HostPaletteResponse {
+                                request_id,
+                                index,
+                                r: color.r,
+                                g: color.g,
+                                b: color.b,
+                            };
+                            if let Err(e) = write_to_server(&mut write_stream, &msg) {
+                                return Err(ClientError::ConnectionLost(e));
+                            }
+                        }
+                        continue;
+                    }
+                }
                 let data = if let Some(attach_escape) = &mut state.attach_escape {
                     match attach_escape.filter_input(
                         data,
@@ -1709,6 +1833,21 @@ async fn run_client_loop(
                     } else {
                         prefix_input_source.restore();
                     }
+                }
+                ServerMessage::HostPaletteQuery { request_id, index } => {
+                    #[cfg(unix)]
+                    if let Some(query) = prepare_host_palette_query(
+                        &mut state.host_palette_queries,
+                        &host_palette_framing_updates,
+                        request_id,
+                        index,
+                    ) {
+                        let mut stdout = io::stdout();
+                        let _ = stdout.write_all(query.as_bytes());
+                        let _ = stdout.flush();
+                    }
+                    #[cfg(windows)]
+                    let _ = (request_id, index);
                 }
                 ServerMessage::Welcome { .. } => {
                     debug!("received unexpected Welcome in main loop");
@@ -2325,6 +2464,52 @@ mod tests {
         } else {
             std::env::remove_var(key);
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn host_palette_query_tracker_rejects_duplicate_indices_until_resolved() {
+        let mut tracker = HostPaletteQueryTracker::default();
+        assert!(tracker.register(10, 7));
+        assert!(!tracker.register(11, 7));
+        assert!(tracker.register(12, 8));
+
+        assert_eq!(tracker.take(7), Some(10));
+        assert_eq!(tracker.take(8), Some(12));
+        assert_eq!(tracker.take(7), None);
+        assert!(tracker.register(11, 7));
+        assert_eq!(tracker.take(7), Some(11));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn host_palette_query_tracker_expires_unanswered_requests() {
+        let now = Instant::now();
+        let mut tracker = HostPaletteQueryTracker::default();
+        assert!(tracker.register_at(10, 7, now));
+        assert!(tracker.register_at(11, 8, now + Duration::from_millis(1)));
+
+        tracker.expire(now + HostPaletteQueryTracker::TIMEOUT);
+
+        assert_eq!(tracker.take(7), None);
+        assert_eq!(tracker.take(8), Some(11));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn host_palette_query_is_registered_and_armed_before_output_is_returned() {
+        let mut tracker = HostPaletteQueryTracker::default();
+        let updates = Mutex::new(VecDeque::new());
+
+        let output = prepare_host_palette_query(&mut tracker, &updates, 42, 7)
+            .expect("query capacity is available");
+
+        assert_eq!(tracker.take(7), Some(42));
+        assert_eq!(
+            updates.lock().unwrap().pop_front(),
+            Some(HostPaletteFramingUpdate::Arm(1))
+        );
+        assert_eq!(output, "\x1b]4;7;?\x1b\\");
     }
 
     struct EnvVarGuard {

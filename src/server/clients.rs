@@ -42,6 +42,8 @@ pub(crate) struct ClientConnection {
     pub(crate) cell_size: crate::kitty_graphics::HostCellSize,
     /// Last known host terminal default colors for this client.
     pub(crate) host_terminal_theme: crate::terminal_theme::TerminalTheme,
+    /// Whether the client can query its physical host terminal palette.
+    pub(crate) host_palette_queries: bool,
     /// Last known host terminal appearance for this client.
     pub(crate) host_terminal_appearance: Option<crate::terminal_theme::HostAppearance>,
     /// True when appearance came from an explicit host color-scheme report.
@@ -91,6 +93,7 @@ impl ClientConnection {
             last_activity,
             render_encoding,
             false,
+            true,
             writer,
         )
     }
@@ -105,6 +108,7 @@ impl ClientConnection {
         last_activity: u64,
         render_encoding: RenderEncoding,
         pending_terminal_attach: bool,
+        host_palette_queries: bool,
         writer: Option<ClientWriter>,
     ) -> Self {
         Self {
@@ -118,6 +122,7 @@ impl ClientConnection {
                 .map(crate::terminal_theme::RgbColor::inferred_appearance),
             host_terminal_appearance_explicit: false,
             host_terminal_theme,
+            host_palette_queries,
             outer_terminal_focus,
             raw_input: crate::raw_input::RawInputFramer::default(),
             last_activity,

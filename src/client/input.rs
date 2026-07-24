@@ -10,8 +10,9 @@
 //! - We avoid duplicating parsing logic in the client
 //! - Host terminal control replies can be buffered or discarded before they leak
 
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 #[cfg(unix)]
 use std::io::{self, Read};
@@ -40,10 +41,15 @@ pub fn stdin_reader_loop(
     should_quit: &Arc<AtomicBool>,
     host_color_query_sent: bool,
     host_mouse_capture_active: Arc<AtomicBool>,
+    host_palette_framing_updates: Arc<Mutex<VecDeque<super::HostPaletteFramingUpdate>>>,
 ) {
     #[cfg(windows)]
     {
-        let _ = (host_color_query_sent, host_mouse_capture_active);
+        let _ = (
+            host_color_query_sent,
+            host_mouse_capture_active,
+            host_palette_framing_updates,
+        );
         windows_stdin_reader_loop(event_tx, should_quit);
     }
 
@@ -53,6 +59,7 @@ pub fn stdin_reader_loop(
         should_quit,
         host_color_query_sent,
         host_mouse_capture_active,
+        host_palette_framing_updates,
     );
 }
 
@@ -62,6 +69,7 @@ fn unix_stdin_reader_loop(
     should_quit: &Arc<AtomicBool>,
     host_color_query_sent: bool,
     host_mouse_capture_active: Arc<AtomicBool>,
+    host_palette_framing_updates: Arc<Mutex<VecDeque<super::HostPaletteFramingUpdate>>>,
 ) {
     let stdin = io::stdin();
     let mut reader = stdin.lock();
@@ -76,6 +84,7 @@ fn unix_stdin_reader_loop(
         match reader.read(&mut scratch) {
             Ok(0) => break,
             Ok(n) => {
+                apply_host_palette_framing_updates(&mut framer, &host_palette_framing_updates);
                 for data in framer.push(&scratch[..n]) {
                     if event_tx
                         .blocking_send(ClientLoopEvent::StdinInput(data))
@@ -123,6 +132,30 @@ fn unix_stdin_reader_loop(
                     continue;
                 }
                 break;
+            }
+        }
+    }
+}
+
+#[cfg(unix)]
+fn apply_host_palette_framing_updates(
+    framer: &mut crate::raw_input::RawInputByteFramer,
+    updates: &Mutex<VecDeque<super::HostPaletteFramingUpdate>>,
+) {
+    let updates = {
+        let mut updates = match updates.lock() {
+            Ok(updates) => updates,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        updates.drain(..).collect::<Vec<_>>()
+    };
+    for update in updates {
+        match update {
+            super::HostPaletteFramingUpdate::Arm(count) => {
+                framer.host_palette_queries_sent(count);
+            }
+            super::HostPaletteFramingUpdate::Cancel(count) => {
+                framer.host_palette_queries_cancelled(count);
             }
         }
     }
@@ -331,6 +364,7 @@ fn windows_client_input_event_from_raw(
             Some(crate::protocol::ClientInputEvent::FocusLost)
         }
         crate::raw_input::RawInputEvent::HostDefaultColor { .. }
+        | crate::raw_input::RawInputEvent::HostPaletteColor { .. }
         | crate::raw_input::RawInputEvent::HostColorSchemeChanged(_)
         | crate::raw_input::RawInputEvent::Unsupported => None,
     }
@@ -391,6 +425,50 @@ mod tests {
             ClientLoopEvent::StdinInput(d) => assert_eq!(d, data),
             _ => panic!("expected StdinInput event"),
         }
+    }
+
+    #[test]
+    fn palette_framing_updates_preserve_cancel_then_arm_order() {
+        let updates = Mutex::new(VecDeque::from([
+            super::super::HostPaletteFramingUpdate::Arm(1),
+        ]));
+        let mut framer = crate::raw_input::RawInputByteFramer::for_host_input();
+        apply_host_palette_framing_updates(&mut framer, &updates);
+        assert!(framer.push(b"\x1b]4;7;rgb:11").is_empty());
+
+        {
+            let mut updates = updates.lock().unwrap();
+            updates.push_back(super::super::HostPaletteFramingUpdate::Cancel(1));
+            updates.push_back(super::super::HostPaletteFramingUpdate::Arm(1));
+        }
+        apply_host_palette_framing_updates(&mut framer, &updates);
+
+        assert_eq!(
+            framer.push(b"\x1b]4;8;rgb:1111/2222/3333\x07x"),
+            vec![b"\x1b]4;8;rgb:1111/2222/3333\x07".to_vec(), b"x".to_vec(),]
+        );
+    }
+
+    #[test]
+    fn palette_framing_resynchronizes_when_arm_precedes_cancel() {
+        let updates = Mutex::new(VecDeque::from([
+            super::super::HostPaletteFramingUpdate::Arm(1),
+        ]));
+        let mut framer = crate::raw_input::RawInputByteFramer::for_host_input();
+        apply_host_palette_framing_updates(&mut framer, &updates);
+        assert!(framer.push(b"\x1b]4;7;rgb:11").is_empty());
+
+        {
+            let mut updates = updates.lock().unwrap();
+            updates.push_back(super::super::HostPaletteFramingUpdate::Arm(1));
+            updates.push_back(super::super::HostPaletteFramingUpdate::Cancel(1));
+        }
+        apply_host_palette_framing_updates(&mut framer, &updates);
+
+        assert_eq!(
+            framer.push(b"\x1b]4;8;rgb:1111/2222/3333\x07x"),
+            vec![b"\x1b]4;8;rgb:1111/2222/3333\x07".to_vec(), b"x".to_vec(),]
+        );
     }
 
     #[test]

@@ -1092,6 +1092,29 @@ impl PaneRuntimeIo {
             PaneRuntimeIo::TestChannel { sender, .. } => sender.try_send(bytes),
         }
     }
+
+    fn try_send_palette_response(
+        &self,
+        terminal: Arc<PaneTerminal>,
+        index: u8,
+        revision: u64,
+        bytes: Bytes,
+    ) -> Result<(), mpsc::error::TrySendError<Bytes>> {
+        match self {
+            PaneRuntimeIo::Actor(actor) => actor.try_write_palette_response(
+                bytes,
+                Box::new(move || terminal.palette_revision_matches(index, revision)),
+            ),
+            #[cfg(test)]
+            PaneRuntimeIo::TestChannel { sender, .. } => {
+                if terminal.palette_revision_matches(index, revision) {
+                    sender.try_send(bytes)
+                } else {
+                    Ok(())
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1455,6 +1478,35 @@ fn publish_reported_cwd(
     }
 }
 
+fn publish_host_palette_queries(
+    pane_id: PaneId,
+    result: &mut crate::pane::terminal::ProcessBytesResult,
+    events: &mpsc::Sender<AppEvent>,
+    revision_matches: impl Fn(u8, u64) -> bool,
+) {
+    if result.host_palette_queries.is_empty() {
+        return;
+    }
+    let queries = std::mem::take(&mut result.host_palette_queries);
+    let event = AppEvent::HostPaletteQueries { pane_id, queries };
+    if let Err(err) = events.try_send(event) {
+        let event = err.into_inner();
+        let AppEvent::HostPaletteQueries { queries, .. } = event else {
+            return;
+        };
+        warn!(
+            pane = pane_id.raw(),
+            count = queries.len(),
+            "host palette query event unavailable; using embedded fallback"
+        );
+        result
+            .terminal_responses
+            .extend(queries.into_iter().filter_map(|query| {
+                revision_matches(query.index, query.revision).then(|| Bytes::from(query.fallback))
+            }));
+    }
+}
+
 impl PaneRuntime {
     pub fn shutdown(mut self) {
         if let Some(handle) = self.detect_handle.take() {
@@ -1533,6 +1585,7 @@ impl PaneRuntime {
             input_state: self.input_state(),
             terminal_title: self.terminal_title(),
             initial_history_ansi: None,
+            palette_overrides: self.terminal.palette_overrides(),
         }
     }
 
@@ -1728,6 +1781,7 @@ impl PaneRuntime {
             input_state,
             terminal_title,
             initial_history_ansi,
+            palette_overrides,
         } = state;
         let pane_id = PaneId::from_raw(pane_id);
         use std::os::fd::FromRawFd;
@@ -1745,6 +1799,7 @@ impl PaneRuntime {
         let pane_terminal = GhosttyPaneTerminal::new(terminal, response_tx.clone())?;
         pane_terminal.apply_host_terminal_theme(host_terminal_theme);
         pane_terminal.seed_terminal_title(terminal_title);
+        pane_terminal.seed_palette_overrides(&palette_overrides);
         if let Some(input_state) = input_state {
             pane_terminal.seed_handoff_input_state(input_state);
         }
@@ -1775,7 +1830,7 @@ impl PaneRuntime {
             let delay_rt = rt.clone();
             let on_read = Box::new(move |bytes: &[u8]| {
                 let shell_pid = child_pid.load(Ordering::Acquire);
-                let result =
+                let mut result =
                     terminal.process_pty_bytes(pane_id, shell_pid, bytes, &response_writer);
                 observe_detection_content_change(bytes, &detection_content_seq);
                 if result.request_render && !render_dirty.swap(true, Ordering::AcqRel) {
@@ -1794,7 +1849,7 @@ impl PaneRuntime {
                 if let Some(cwd) = result.reported_cwd.clone() {
                     publish_reported_cwd(pane_id, cwd, &reported_cwd, &read_events);
                 }
-                for content in result.clipboard_writes {
+                for content in std::mem::take(&mut result.clipboard_writes) {
                     if let Err(err) = read_events.try_send(AppEvent::ClipboardWrite { content }) {
                         warn!(
                             pane = pane_id.raw(),
@@ -1803,6 +1858,12 @@ impl PaneRuntime {
                         );
                     }
                 }
+                publish_host_palette_queries(
+                    pane_id,
+                    &mut result,
+                    &read_events,
+                    |index, revision| terminal.palette_revision_matches(index, revision),
+                );
                 PtyReadResult {
                     terminal_responses: result.terminal_responses,
                 }
@@ -1933,7 +1994,7 @@ impl PaneRuntime {
             let rt = tokio::runtime::Handle::current();
             let on_read = Box::new(move |bytes: &[u8]| {
                 let shell_pid = child_pid.load(Ordering::Acquire);
-                let result =
+                let mut result =
                     terminal.process_pty_bytes(pane_id, shell_pid, bytes, &response_writer);
                 if agent_detection == AgentDetection::Enabled {
                     observe_detection_content_change(bytes, &detection_content_seq);
@@ -1954,7 +2015,7 @@ impl PaneRuntime {
                 if let Some(cwd) = result.reported_cwd.clone() {
                     publish_reported_cwd(pane_id, cwd, &reported_cwd, &events);
                 }
-                for content in result.clipboard_writes {
+                for content in std::mem::take(&mut result.clipboard_writes) {
                     if let Err(err) = events.try_send(AppEvent::ClipboardWrite { content }) {
                         warn!(
                             pane = pane_id.raw(),
@@ -1963,6 +2024,9 @@ impl PaneRuntime {
                         );
                     }
                 }
+                publish_host_palette_queries(pane_id, &mut result, &events, |index, revision| {
+                    terminal.palette_revision_matches(index, revision)
+                });
                 PtyReadResult {
                     terminal_responses: result.terminal_responses,
                 }
@@ -2611,6 +2675,16 @@ impl PaneRuntime {
         self.io.try_send_bytes(bytes)
     }
 
+    pub fn try_send_palette_response(
+        &self,
+        index: u8,
+        revision: u64,
+        bytes: Bytes,
+    ) -> Result<(), mpsc::error::TrySendError<Bytes>> {
+        self.io
+            .try_send_palette_response(Arc::clone(&self.terminal), index, revision, bytes)
+    }
+
     pub async fn send_paste(&self, text: String) -> Result<(), mpsc::error::SendError<Bytes>> {
         self.send_bytes(self.paste_payload(text)).await
     }
@@ -2850,6 +2924,75 @@ impl PaneRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn host_palette_query_result() -> crate::pane::terminal::ProcessBytesResult {
+        crate::pane::terminal::ProcessBytesResult {
+            request_render: false,
+            render_delay: None,
+            clipboard_writes: Vec::new(),
+            reported_cwd: None,
+            terminal_responses: Vec::new(),
+            host_palette_queries: vec![crate::events::HostPaletteQuery {
+                index: 7,
+                revision: 3,
+                fallback: b"fallback".to_vec(),
+            }],
+        }
+    }
+
+    #[test]
+    fn host_palette_query_reaches_app_event_path() {
+        let pane_id = PaneId::from_raw(42);
+        let (events, mut event_rx) = mpsc::channel(1);
+        let mut result = host_palette_query_result();
+
+        publish_host_palette_queries(pane_id, &mut result, &events, |_, _| true);
+
+        assert!(result.host_palette_queries.is_empty());
+        assert!(result.terminal_responses.is_empty());
+        let AppEvent::HostPaletteQueries {
+            pane_id: actual_pane,
+            queries,
+        } = event_rx.try_recv().unwrap()
+        else {
+            panic!("expected host palette query event");
+        };
+        assert_eq!(actual_pane, pane_id);
+        assert_eq!(queries, host_palette_query_result().host_palette_queries);
+    }
+
+    #[test]
+    fn host_palette_query_uses_fallback_when_app_event_channel_is_full() {
+        let pane_id = PaneId::from_raw(42);
+        let (events, _event_rx) = mpsc::channel(1);
+        events
+            .try_send(AppEvent::PaneDied { pane_id })
+            .expect("fill event channel");
+        let mut result = host_palette_query_result();
+
+        publish_host_palette_queries(pane_id, &mut result, &events, |_, _| true);
+
+        assert!(result.host_palette_queries.is_empty());
+        assert_eq!(
+            result.terminal_responses,
+            vec![Bytes::from_static(b"fallback")]
+        );
+    }
+
+    #[test]
+    fn full_app_event_channel_drops_revision_stale_palette_fallback() {
+        let pane_id = PaneId::from_raw(42);
+        let (events, _event_rx) = mpsc::channel(1);
+        events
+            .try_send(AppEvent::PaneDied { pane_id })
+            .expect("fill event channel");
+        let mut result = host_palette_query_result();
+
+        publish_host_palette_queries(pane_id, &mut result, &events, |_, _| false);
+
+        assert!(result.host_palette_queries.is_empty());
+        assert!(result.terminal_responses.is_empty());
+    }
 
     #[tokio::test]
     async fn cwd_returns_accepted_report_without_rechecking_filesystem() {
