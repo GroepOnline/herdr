@@ -769,8 +769,11 @@ pub(super) fn render_sidebar_collapsed(app: &AppState, frame: &mut Frame, area: 
         return;
     }
 
-    for (visible_idx, ws) in app.workspaces.iter().enumerate() {
-        let y = ws_area.y + visible_idx as u16;
+    let scroll = app
+        .workspace_scroll
+        .min(app.workspaces.len().saturating_sub(1));
+    for (visible_idx, ws) in app.workspaces.iter().enumerate().skip(scroll) {
+        let y = ws_area.y + (visible_idx - scroll) as u16;
         if y >= ws_area.y + ws_area.height {
             break;
         }
@@ -2179,6 +2182,7 @@ rows = [[{ token = "git_status", fg = "#123456" }]]
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
 
+        app.workspaces[0].cached_auto_name = "herdr".to_string();
         let mut runtime_registry = TerminalRuntimeRegistry::new();
         runtime_registry.insert(terminal_id, runtime);
         let entries = agent_panel_entries_from(&app, &runtime_registry);

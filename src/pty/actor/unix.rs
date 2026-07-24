@@ -79,6 +79,10 @@ enum PtyIoControlCommand {
     BeginHandoff(std_mpsc::Sender<std::io::Result<()>>),
     DuplicateForHandoff(std_mpsc::Sender<std::io::Result<RawFd>>),
     ForegroundProcessGroup(std_mpsc::Sender<Option<u32>>),
+    WritePaletteResponse {
+        bytes: Bytes,
+        validate: Box<dyn FnOnce() -> bool + Send>,
+    },
     RollbackHandoff(std_mpsc::Sender<std::io::Result<()>>),
     ReleaseAfterCommit(std_mpsc::Sender<std::io::Result<()>>),
     Shutdown,
@@ -264,6 +268,31 @@ impl PtyIoActorHandle {
             .ok()?;
         self.wake_actor();
         reply_rx.recv_timeout(Duration::from_secs(1)).ok()?
+    }
+
+    pub(crate) fn try_write_palette_response(
+        &self,
+        bytes: Bytes,
+        validate: Box<dyn FnOnce() -> bool + Send>,
+    ) -> Result<(), mpsc::error::TrySendError<Bytes>> {
+        match self
+            .control_tx
+            .send(PtyIoControlCommand::WritePaletteResponse { bytes, validate })
+        {
+            Ok(()) => {
+                self.wake_actor();
+                Ok(())
+            }
+            Err(std_mpsc::SendError(PtyIoControlCommand::WritePaletteResponse {
+                bytes, ..
+            })) => Err(mpsc::error::TrySendError::Closed(bytes)),
+            Err(std_mpsc::SendError(_)) => {
+                // SendError always carries the value that failed to send; a non-matching
+                // variant here means the channel is closed with an unexpected shape.
+                warn!("palette response send returned unexpected command on closed channel");
+                Err(mpsc::error::TrySendError::Closed(Bytes::new()))
+            }
+        }
     }
 
     pub(crate) fn rollback_handoff(&self) -> std::io::Result<()> {
@@ -537,7 +566,8 @@ impl PtyIoActorRunner {
             }
             PtyIoControlCommand::DuplicateForHandoff(reply) => {
                 let result = if self.state == ActorState::Quiesced {
-                    fd::duplicate_cloexec_fd(self.file.as_raw_fd())
+                    self.flush_quiesced_writes()
+                        .and_then(|()| fd::duplicate_cloexec_fd(self.file.as_raw_fd()))
                 } else {
                     Err(std::io::Error::other(
                         "PTY actor must be quiesced before handoff duplication",
@@ -549,6 +579,11 @@ impl PtyIoActorRunner {
                 let result =
                     crate::platform::foreground_process_group_id_for_tty_fd(self.file.as_raw_fd());
                 let _ = reply.send(result);
+            }
+            PtyIoControlCommand::WritePaletteResponse { bytes, validate } => {
+                if self.state != ActorState::Released && validate() {
+                    self.enqueue_write(bytes);
+                }
             }
             PtyIoControlCommand::RollbackHandoff(reply) => {
                 let result = if self.state == ActorState::Released {
@@ -593,6 +628,34 @@ impl PtyIoActorRunner {
             self.flush_pending_writes_once();
         }
         self.state = ActorState::Quiesced;
+        Ok(())
+    }
+
+    fn flush_quiesced_writes(&mut self) -> std::io::Result<()> {
+        let deadline = Instant::now() + HANDOFF_DRAIN_TIMEOUT;
+        self.flush_pending_writes_once();
+        while !self.pending_writes.is_empty() {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "timed out draining terminal responses before handoff",
+                ));
+            }
+            let readiness = fd::poll_pty_and_wake(
+                self.file.as_raw_fd(),
+                self.wake_read_fd.as_raw_fd(),
+                false,
+                true,
+                remaining.as_millis().min(i32::MAX as u128) as i32,
+            )?;
+            if readiness.wake_ready {
+                fd::drain_wake_fd(self.wake_read_fd.as_raw_fd())?;
+            }
+            if readiness.pty_write_ready {
+                self.flush_pending_writes_once();
+            }
+        }
         Ok(())
     }
 
@@ -1050,6 +1113,55 @@ mod tests {
         peer.read_exact(&mut buf)
             .expect("peer receives resize response");
         assert_eq!(Bytes::from(buf), response);
+        handle.shutdown();
+    }
+
+    #[test]
+    fn palette_response_is_validated_and_flushed_after_handoff_quiescence() {
+        let (handle, mut peer, _read_rx) = actor_with_socket_pair(false);
+        handle
+            .begin_handoff(Duration::from_secs(1))
+            .expect("actor quiesces");
+        let response = Bytes::from_static(b"palette-response");
+        handle
+            .try_write_palette_response(response.clone(), Box::new(|| true))
+            .expect("palette response control is accepted while quiesced");
+
+        let duplicate = handle
+            .duplicate_for_handoff()
+            .expect("handoff duplicate flushes responses first");
+        unsafe {
+            libc::close(duplicate);
+        }
+        let mut received = vec![0; response.len()];
+        peer.read_exact(&mut received)
+            .expect("peer receives palette response before duplication");
+        assert_eq!(Bytes::from(received), response);
+        handle.shutdown();
+    }
+
+    #[test]
+    fn stale_palette_response_is_rejected_by_actor_validator() {
+        let (handle, mut peer, _read_rx) = actor_with_socket_pair(false);
+        handle
+            .begin_handoff(Duration::from_secs(1))
+            .expect("actor quiesces");
+        handle
+            .try_write_palette_response(Bytes::from_static(b"stale"), Box::new(|| false))
+            .expect("palette response control is accepted");
+        let duplicate = handle
+            .duplicate_for_handoff()
+            .expect("handoff duplicate processes validator first");
+        unsafe {
+            libc::close(duplicate);
+        }
+
+        peer.set_nonblocking(true).expect("peer nonblocking");
+        let mut received = [0; 5];
+        assert_eq!(
+            peer.read(&mut received).unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
         handle.shutdown();
     }
 

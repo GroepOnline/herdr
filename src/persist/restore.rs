@@ -403,11 +403,13 @@ fn restore_workspace(
     }
 
     let worktree_space = restored_worktree_space_membership(snap.worktree_space.clone());
+    let auto_name = crate::workspace::derive_label_from_cwd(&snap.identity_cwd);
 
     (
         Some(Workspace {
             id: workspace_id,
             custom_name: snap.custom_name.clone(),
+            cached_auto_name: auto_name,
             identity_cwd: snap.identity_cwd.clone(),
             cached_git_branch: crate::workspace::git_branch(&snap.identity_cwd),
             cached_git_ahead_behind: None,

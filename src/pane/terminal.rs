@@ -12,6 +12,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, error};
 use unicode_width::UnicodeWidthStr;
 
+use crate::events::HostPaletteQuery;
 use crate::layout::PaneId;
 use crate::protocol::CellData;
 
@@ -139,6 +140,7 @@ pub(crate) struct ProcessBytesResult {
     pub clipboard_writes: Vec<Vec<u8>>,
     pub reported_cwd: Option<std::path::PathBuf>,
     pub terminal_responses: Vec<Bytes>,
+    pub host_palette_queries: Vec<HostPaletteQuery>,
 }
 
 pub(crate) struct GhosttyPaneTerminal {
@@ -161,6 +163,8 @@ pub(crate) struct GhosttyPaneCore {
     pub default_color_event_tracker: DefaultColorEventTracker,
     pub child_default_foreground_changed: bool,
     pub child_default_background_changed: bool,
+    pub child_palette_changed: [bool; 256],
+    pub child_palette_revisions: [u64; 256],
     pub osc52_forwarder: Osc52Forwarder,
     pub osc_debug_tracker: OscDebugTracker,
     pub agent_osc_state: AgentOscStateTracker,
@@ -433,6 +437,15 @@ impl PaneTerminal {
 
     pub fn apply_host_terminal_theme(&self, theme: crate::terminal_theme::TerminalTheme) {
         self.ghostty.apply_host_terminal_theme(theme);
+    }
+
+    pub fn palette_revision_matches(&self, index: u8, revision: u64) -> bool {
+        self.ghostty.palette_revision_matches(index, revision)
+    }
+
+    #[cfg(unix)]
+    pub fn palette_overrides(&self) -> Vec<crate::handoff_runtime::HandoffPaletteOverride> {
+        self.ghostty.palette_overrides()
     }
 
     pub fn has_transient_default_color_override(&self) -> bool {
@@ -915,6 +928,8 @@ impl GhosttyPaneTerminal {
                 default_color_event_tracker: DefaultColorEventTracker::default(),
                 child_default_foreground_changed: false,
                 child_default_background_changed: false,
+                child_palette_changed: [false; 256],
+                child_palette_revisions: [0; 256],
                 osc52_forwarder: Osc52Forwarder::default(),
                 osc_debug_tracker: OscDebugTracker::default(),
                 agent_osc_state: AgentOscStateTracker::default(),
@@ -949,6 +964,65 @@ impl GhosttyPaneTerminal {
                 background_unowned,
             );
         }
+    }
+
+    pub fn palette_revision_matches(&self, index: u8, revision: u64) -> bool {
+        self.core
+            .lock()
+            .map(|core| core.child_palette_revisions[usize::from(index)] == revision)
+            .unwrap_or(false)
+    }
+
+    #[cfg(unix)]
+    pub fn palette_overrides(&self) -> Vec<crate::handoff_runtime::HandoffPaletteOverride> {
+        let Ok(mut core) = self.core.lock() else {
+            return Vec::new();
+        };
+        let changed = core.child_palette_changed;
+        let GhosttyPaneCore {
+            terminal,
+            render_state,
+            ..
+        } = &mut *core;
+        if render_state.update(terminal).is_err() {
+            return Vec::new();
+        }
+        let Ok(colors) = render_state.colors() else {
+            return Vec::new();
+        };
+        changed
+            .iter()
+            .enumerate()
+            .filter(|(_, changed)| **changed)
+            .map(|(index, _)| {
+                let color = colors.palette[index];
+                crate::handoff_runtime::HandoffPaletteOverride {
+                    index: index as u8,
+                    r: color.r,
+                    g: color.g,
+                    b: color.b,
+                }
+            })
+            .collect()
+    }
+
+    #[cfg(unix)]
+    pub fn seed_palette_overrides(
+        &self,
+        overrides: &[crate::handoff_runtime::HandoffPaletteOverride],
+    ) {
+        let Ok(mut core) = self.core.lock() else {
+            return;
+        };
+        for palette_override in overrides {
+            let sequence = format!(
+                "\x1b]4;{};rgb:{:02x}/{:02x}/{:02x}\x1b\\",
+                palette_override.index, palette_override.r, palette_override.g, palette_override.b
+            );
+            core.terminal.write(sequence.as_bytes());
+            update_child_palette_ownership(&mut core, Some(palette_override.index), true);
+        }
+        let _ = self.drain_pending_pty_responses();
     }
 
     pub fn has_transient_default_color_override(&self) -> bool {
@@ -1045,6 +1119,7 @@ impl GhosttyPaneTerminal {
                 clipboard_writes: Vec::new(),
                 reported_cwd: None,
                 terminal_responses: Vec::new(),
+                host_palette_queries: Vec::new(),
             };
         };
 
@@ -1099,6 +1174,7 @@ impl GhosttyPaneTerminal {
 
         core.kitty_keyboard.observe(filtered_bytes.as_ref());
         let mut terminal_responses = Vec::new();
+        let mut host_palette_queries = Vec::new();
         core.default_color_event_tracker
             .observe(filtered_bytes.as_ref());
         core.xtgettcap_query_tracker
@@ -1115,6 +1191,7 @@ impl GhosttyPaneTerminal {
             in_progress_default_color_event,
             xtgettcap_responses,
             &mut terminal_responses,
+            &mut host_palette_queries,
         );
         let reported_cwd = core
             .terminal
@@ -1174,6 +1251,7 @@ impl GhosttyPaneTerminal {
             clipboard_writes,
             reported_cwd,
             terminal_responses,
+            host_palette_queries,
         }
     }
 
@@ -1185,6 +1263,7 @@ impl GhosttyPaneTerminal {
         in_progress_default_color_event: Option<DefaultColorEvent>,
         xtgettcap_responses: Vec<XtgettcapResponse>,
         terminal_responses: &mut Vec<Bytes>,
+        host_palette_queries: &mut Vec<HostPaletteQuery>,
     ) {
         let mut events = Vec::with_capacity(default_color_events.len() + xtgettcap_responses.len());
         events.extend(
@@ -1200,38 +1279,75 @@ impl GhosttyPaneTerminal {
         events.sort_by_key(OrderedPtyResponseEvent::end_offset);
 
         let mut written = 0;
-        for event in events {
-            let end_offset = event.end_offset().min(bytes.len());
+        let mut event_index = 0;
+        while event_index < events.len() {
+            let end_offset = events[event_index].end_offset().min(bytes.len());
+            let mut group_end = event_index + 1;
+            while group_end < events.len() && events[group_end].end_offset() == end_offset {
+                group_end += 1;
+            }
             let mut libghostty_responses = Vec::new();
             if end_offset > written {
                 core.terminal.write(&bytes[written..end_offset]);
                 libghostty_responses = self.drain_pending_pty_responses();
                 written = end_offset;
             }
-            match event {
-                OrderedPtyResponseEvent::DefaultColor(event) => {
-                    let replacement = respond_to_default_color_event(core, event.event);
-                    if replacement.is_some() {
-                        remove_last_matching_libghostty_color_reply(
-                            &mut libghostty_responses,
-                            event.event,
-                        );
+            let mut deferred_host_queries = Vec::new();
+            for event in &events[event_index..group_end] {
+                match event {
+                    OrderedPtyResponseEvent::DefaultColor(event) => {
+                        let palette_fallback =
+                            matches!(event.event, DefaultColorEvent::PaletteQuery(_))
+                                .then(|| {
+                                    remove_first_matching_libghostty_color_reply(
+                                        &mut libghostty_responses,
+                                        event.event,
+                                    )
+                                })
+                                .flatten();
+                        let response =
+                            respond_to_default_color_event(core, event.event, palette_fallback);
+                        if !matches!(response, DefaultColorResponse::None)
+                            && !matches!(event.event, DefaultColorEvent::PaletteQuery(_))
+                        {
+                            remove_last_matching_libghostty_color_reply(
+                                &mut libghostty_responses,
+                                event.event,
+                            );
+                        }
+                        if group_end == event_index + 1 {
+                            terminal_responses.extend(std::mem::take(&mut libghostty_responses));
+                        }
+                        match response {
+                            DefaultColorResponse::None => {}
+                            DefaultColorResponse::Local(bytes) => terminal_responses.push(bytes),
+                            DefaultColorResponse::Host { index, fallback } => {
+                                deferred_host_queries.push((index, fallback));
+                            }
+                        }
                     }
-                    terminal_responses.extend(libghostty_responses);
-                    terminal_responses.extend(replacement);
-                }
-                OrderedPtyResponseEvent::Xtgettcap(response) => {
-                    terminal_responses.extend(libghostty_responses);
-                    terminal_responses.push(response.bytes);
+                    OrderedPtyResponseEvent::Xtgettcap(response) => {
+                        terminal_responses.extend(std::mem::take(&mut libghostty_responses));
+                        terminal_responses.push(response.bytes.clone());
+                    }
                 }
             }
+            terminal_responses.extend(libghostty_responses);
+            host_palette_queries.extend(deferred_host_queries.into_iter().map(
+                |(index, fallback)| HostPaletteQuery {
+                    index,
+                    revision: core.child_palette_revisions[usize::from(index)],
+                    fallback: fallback.to_vec(),
+                },
+            ));
+            event_index = group_end;
         }
 
         if written < bytes.len() {
             core.terminal.write(&bytes[written..]);
             let mut libghostty_responses = self.drain_pending_pty_responses();
             if let Some(event) = in_progress_default_color_event {
-                if default_color_event_response(core, event).is_some() {
+                if should_replace_libghostty_color_response(core, event) {
                     remove_last_matching_libghostty_color_reply(&mut libghostty_responses, event);
                 }
             }
@@ -1764,6 +1880,7 @@ impl GhosttyPaneTerminal {
         let host_theme = core.host_terminal_theme;
         let initial_default_foreground = core.initial_default_foreground;
         let initial_default_background = core.initial_default_background;
+        let child_palette_changed = core.child_palette_changed;
         let GhosttyPaneCore {
             terminal,
             render_state,
@@ -1814,6 +1931,8 @@ impl GhosttyPaneTerminal {
                         default_bg,
                         resolved_fg,
                         resolved_bg,
+                        colors.as_ref(),
+                        &child_palette_changed,
                     );
                     let symbol = match ghostty_buffer_symbol_into(
                         &cells,
@@ -2017,6 +2136,7 @@ fn ghostty_collect_dirty_patch(
     let host_theme = core.host_terminal_theme;
     let initial_default_foreground = core.initial_default_foreground;
     let initial_default_background = core.initial_default_background;
+    let child_palette_changed = core.child_palette_changed;
     let GhosttyPaneCore {
         terminal,
         render_state,
@@ -2083,6 +2203,8 @@ fn ghostty_collect_dirty_patch(
                     default_bg,
                     resolved_fg,
                     resolved_bg,
+                    colors.as_ref(),
+                    &child_palette_changed,
                 );
                 let symbol = match ghostty_buffer_symbol_into(
                     &cells,
@@ -2583,11 +2705,13 @@ fn ghostty_cell_style(
     default_bg: Option<Color>,
     resolved_fg: Option<Color>,
     resolved_bg: Option<Color>,
+    colors: Option<&crate::ghostty::RenderColors>,
+    child_palette_changed: &[bool; 256],
 ) -> Style {
     let mut fg = basic
         .style
         .fg_color
-        .map(ghostty_cell_color)
+        .map(|color| ghostty_cell_color(color, colors, child_palette_changed))
         .or_else(|| cells.fg_color().ok().flatten().map(ghostty_color))
         .or(default_fg);
     let mut bg = cells
@@ -2595,7 +2719,7 @@ fn ghostty_cell_style(
         .ok()
         .flatten()
         .or(basic.style.bg_color)
-        .map(ghostty_cell_color)
+        .map(|color| ghostty_cell_color(color, colors, child_palette_changed))
         .or_else(|| cells.bg_color().ok().flatten().map(ghostty_color))
         .or(default_bg);
     if basic.style.invisible {
@@ -2617,7 +2741,11 @@ fn ghostty_cell_style(
     }
 
     let mut style = ghostty_default_style(fg, bg);
-    if let Some(underline_color) = basic.style.underline_color.map(ghostty_cell_color) {
+    if let Some(underline_color) = basic
+        .style
+        .underline_color
+        .map(|color| ghostty_cell_color(color, colors, child_palette_changed))
+    {
         style = style.underline_color(underline_color);
     }
     let mut modifiers = Modifier::empty();
@@ -2662,52 +2790,159 @@ fn remove_last_matching_libghostty_color_reply(
     responses: &mut Vec<Bytes>,
     event: DefaultColorEvent,
 ) {
-    if let Some(index) = responses
-        .iter()
-        .rposition(|response| is_matching_libghostty_color_reply(response, event))
-    {
-        responses.remove(index);
-    }
+    let _ = extract_matching_libghostty_color_reply(responses, event, true);
 }
 
-fn is_matching_libghostty_color_reply(response: &Bytes, event: DefaultColorEvent) -> bool {
+fn remove_first_matching_libghostty_color_reply(
+    responses: &mut Vec<Bytes>,
+    event: DefaultColorEvent,
+) -> Option<Bytes> {
+    extract_matching_libghostty_color_reply(responses, event, false)
+}
+
+fn extract_matching_libghostty_color_reply(
+    responses: &mut Vec<Bytes>,
+    event: DefaultColorEvent,
+    from_end: bool,
+) -> Option<Bytes> {
     let prefix = match event {
         DefaultColorEvent::Query(query) => format!("\x1b]{};rgb:", query.osc_number()),
         DefaultColorEvent::PaletteQuery(index) => format!("\x1b]4;{index};rgb:"),
-        DefaultColorEvent::Set(_) | DefaultColorEvent::Reset(_) => return false,
+        DefaultColorEvent::Set(_)
+        | DefaultColorEvent::Reset(_)
+        | DefaultColorEvent::PaletteSet(_)
+        | DefaultColorEvent::PaletteReset(_) => return None,
     };
-    response.starts_with(prefix.as_bytes())
-        && (response.ends_with(b"\x07") || response.ends_with(b"\x1b\\"))
+    let mut response_indices = (0..responses.len()).collect::<Vec<_>>();
+    if from_end {
+        response_indices.reverse();
+    }
+    for response_index in response_indices {
+        let matching_range = {
+            let response = &responses[response_index];
+            let mut starts = response
+                .windows(prefix.len())
+                .enumerate()
+                .filter_map(|(index, bytes)| (bytes == prefix.as_bytes()).then_some(index))
+                .collect::<Vec<_>>();
+            if from_end {
+                starts.reverse();
+            }
+            starts.into_iter().find_map(|start| {
+                let tail = &response[start + prefix.len()..];
+                let bel_end = tail
+                    .iter()
+                    .position(|byte| *byte == 0x07)
+                    .map(|end| end + 1);
+                let st_end = tail
+                    .windows(2)
+                    .position(|bytes| bytes == b"\x1b\\")
+                    .map(|end| end + 2);
+                let relative_end = match (bel_end, st_end) {
+                    (Some(bel), Some(st)) => Some(bel.min(st)),
+                    (Some(bel), None) => Some(bel),
+                    (None, Some(st)) => Some(st),
+                    (None, None) => None,
+                }?;
+                Some((start, start + prefix.len() + relative_end))
+            })
+        };
+        let Some((start, end)) = matching_range else {
+            continue;
+        };
+        let response = responses[response_index].clone();
+        let extracted = response.slice(start..end);
+        if start == 0 && end == response.len() {
+            responses.remove(response_index);
+        } else {
+            let mut remainder = Vec::with_capacity(response.len() - extracted.len());
+            remainder.extend_from_slice(&response[..start]);
+            remainder.extend_from_slice(&response[end..]);
+            responses[response_index] = Bytes::from(remainder);
+        }
+        return Some(extracted);
+    }
+    None
+}
+
+enum DefaultColorResponse {
+    None,
+    Local(Bytes),
+    Host { index: u8, fallback: Bytes },
 }
 
 fn respond_to_default_color_event(
     core: &mut GhosttyPaneCore,
     event: DefaultColorEvent,
-) -> Option<Bytes> {
+    palette_fallback: Option<Bytes>,
+) -> DefaultColorResponse {
     match event {
-        DefaultColorEvent::Query(_) | DefaultColorEvent::PaletteQuery(_) => {
-            default_color_event_response(core, event)
+        DefaultColorEvent::Query(query) => default_color_query_response(query, core)
+            .map(DefaultColorResponse::Local)
+            .unwrap_or(DefaultColorResponse::None),
+        DefaultColorEvent::PaletteQuery(index) => {
+            let Some(mut fallback) =
+                palette_fallback.or_else(|| palette_color_query_response(index, core))
+            else {
+                return DefaultColorResponse::None;
+            };
+            if let Ok(sequence) = std::str::from_utf8(&fallback) {
+                if let Some((reply_index, color)) =
+                    crate::terminal_theme::parse_palette_color_response(sequence)
+                {
+                    if reply_index == index {
+                        fallback =
+                            osc_rgb_response(&format!("4;{index}"), color.r, color.g, color.b);
+                    }
+                }
+            }
+            if core.child_palette_changed[usize::from(index)] {
+                DefaultColorResponse::Local(fallback)
+            } else {
+                DefaultColorResponse::Host { index, fallback }
+            }
         }
         DefaultColorEvent::Set(query) => {
             mark_child_default_color_changed(core, query, true);
-            None
+            DefaultColorResponse::None
         }
         DefaultColorEvent::Reset(query) => {
             mark_child_default_color_changed(core, query, false);
             apply_cached_host_default_color(core, query);
-            None
+            DefaultColorResponse::None
+        }
+        DefaultColorEvent::PaletteSet(index) => {
+            update_child_palette_ownership(core, Some(index), true);
+            DefaultColorResponse::None
+        }
+        DefaultColorEvent::PaletteReset(index) => {
+            update_child_palette_ownership(core, index, false);
+            DefaultColorResponse::None
         }
     }
 }
 
-fn default_color_event_response(
+fn should_replace_libghostty_color_response(
     core: &mut GhosttyPaneCore,
     event: DefaultColorEvent,
-) -> Option<Bytes> {
+) -> bool {
     match event {
-        DefaultColorEvent::Query(query) => default_color_query_response(query, core),
-        DefaultColorEvent::PaletteQuery(index) => palette_color_query_response(index, core),
-        DefaultColorEvent::Set(_) | DefaultColorEvent::Reset(_) => None,
+        DefaultColorEvent::Query(query) => default_color_query_response(query, core).is_some(),
+        DefaultColorEvent::PaletteQuery(_) => true,
+        DefaultColorEvent::Set(_)
+        | DefaultColorEvent::Reset(_)
+        | DefaultColorEvent::PaletteSet(_)
+        | DefaultColorEvent::PaletteReset(_) => false,
+    }
+}
+
+fn update_child_palette_ownership(core: &mut GhosttyPaneCore, index: Option<u8>, changed: bool) {
+    let range = index
+        .map(|index| usize::from(index)..=usize::from(index))
+        .unwrap_or(0..=255);
+    for index in range {
+        core.child_palette_changed[index] = changed;
+        core.child_palette_revisions[index] = core.child_palette_revisions[index].wrapping_add(1);
     }
 }
 
@@ -2850,8 +3085,17 @@ fn terminal_theme_color(color: crate::ghostty::RgbColor) -> crate::terminal_them
     }
 }
 
-fn ghostty_cell_color(color: crate::ghostty::CellColor) -> Color {
+fn ghostty_cell_color(
+    color: crate::ghostty::CellColor,
+    colors: Option<&crate::ghostty::RenderColors>,
+    child_palette_changed: &[bool; 256],
+) -> Color {
     match color {
+        crate::ghostty::CellColor::Palette(index) if child_palette_changed[usize::from(index)] => {
+            colors
+                .map(|colors| ghostty_color(colors.palette[usize::from(index)]))
+                .unwrap_or(Color::Indexed(index))
+        }
         crate::ghostty::CellColor::Palette(index) => Color::Indexed(index),
         crate::ghostty::CellColor::Rgb(color) => ghostty_color(color),
     }
@@ -5031,20 +5275,155 @@ mod tests {
     }
 
     #[test]
-    fn process_pty_bytes_returns_palette_color_query_response_without_queuing_input() {
-        let (tx, mut rx) = mpsc::channel(4);
+    fn process_pty_bytes_does_not_answer_unset_palette_query_from_embedded_palette() {
+        let (tx, _rx) = mpsc::channel(4);
         let terminal = crate::ghostty::Terminal::new(20, 5, 0).unwrap();
         let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
         let pane_id = PaneId::from_raw(1);
-        let color = current_palette_color(&pane, 0);
 
         let result = pane.process_pty_bytes(pane_id, 0, b"\x1b]4;0;?\x07", &tx);
 
+        assert!(result.terminal_responses.is_empty());
+        assert_eq!(result.host_palette_queries.len(), 1);
+        assert_eq!(result.host_palette_queries[0].index, 0);
+    }
+
+    #[test]
+    fn process_pty_bytes_answers_only_child_overridden_palette_indices_locally() {
+        let (tx, _rx) = mpsc::channel(4);
+        let terminal = crate::ghostty::Terminal::new(20, 5, 0).unwrap();
+        let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
+        let pane_id = PaneId::from_raw(1);
+
+        let set = pane.process_pty_bytes(pane_id, 0, b"\x1b]4;0;rgb:11/22/33\x07", &tx);
+        assert!(set.terminal_responses.is_empty());
+        assert!(set.host_palette_queries.is_empty());
+        let overridden = current_palette_color(&pane, 0);
+
+        let query = pane.process_pty_bytes(pane_id, 0, b"\x1b]4;0;?\x07\x1b]4;1;?\x07", &tx);
+        assert_eq!(
+            query.terminal_responses,
+            vec![expected_osc_rgb_response("4;0", overridden)]
+        );
+        assert_eq!(
+            query
+                .host_palette_queries
+                .iter()
+                .map(|query| query.index)
+                .collect::<Vec<_>>(),
+            vec![1]
+        );
+
+        let reset = pane.process_pty_bytes(pane_id, 0, b"\x1b]104;0\x07\x1b]4;0;?\x07", &tx);
+        assert!(reset.terminal_responses.is_empty());
+        assert_eq!(reset.host_palette_queries.len(), 1);
+        assert_eq!(reset.host_palette_queries[0].index, 0);
+    }
+
+    #[test]
+    fn invalid_palette_set_does_not_acquire_child_ownership() {
+        let (tx, _rx) = mpsc::channel(4);
+        let pane =
+            GhosttyPaneTerminal::new(crate::ghostty::Terminal::new(20, 5, 0).unwrap(), tx.clone())
+                .unwrap();
+        let pane_id = PaneId::from_raw(1);
+
+        pane.process_pty_bytes(pane_id, 0, b"\x1b]4;0;not-a-color\x07", &tx);
+        let query = pane.process_pty_bytes(pane_id, 0, b"\x1b]4;0;?\x07", &tx);
+
+        assert!(query.terminal_responses.is_empty());
+        assert_eq!(query.host_palette_queries.len(), 1);
+        assert_eq!(query.host_palette_queries[0].index, 0);
+    }
+
+    #[test]
+    fn mixed_palette_aggregate_uses_item_authority_without_embedded_reply_leakage() {
+        let (tx, _rx) = mpsc::channel(4);
+        let pane =
+            GhosttyPaneTerminal::new(crate::ghostty::Terminal::new(20, 5, 0).unwrap(), tx.clone())
+                .unwrap();
+        let pane_id = PaneId::from_raw(1);
+
+        let set_then_query =
+            pane.process_pty_bytes(pane_id, 0, b"\x1b]4;0;rgb:11/22/33;0;?;1;?\x07", &tx);
+        assert_eq!(set_then_query.terminal_responses.len(), 1);
+        assert!(set_then_query.terminal_responses[0].starts_with(b"\x1b]4;0;rgb:"));
+        assert!(!set_then_query.terminal_responses[0]
+            .windows(b"\x1b]4;1;rgb:".len())
+            .any(|bytes| bytes == b"\x1b]4;1;rgb:"));
+        assert_eq!(
+            set_then_query
+                .host_palette_queries
+                .iter()
+                .map(|query| query.index)
+                .collect::<Vec<_>>(),
+            vec![1]
+        );
+        assert_eq!(
+            set_then_query.host_palette_queries[0]
+                .fallback
+                .windows(4)
+                .filter(|bytes| *bytes == b"rgb:")
+                .count(),
+            1
+        );
+
+        let query_then_set =
+            pane.process_pty_bytes(pane_id, 0, b"\x1b]4;2;?;2;rgb:44/55/66\x07", &tx);
+        assert!(query_then_set.terminal_responses.is_empty());
+        assert_eq!(query_then_set.host_palette_queries.len(), 1);
+        assert_eq!(query_then_set.host_palette_queries[0].index, 2);
+        assert!(pane.palette_revision_matches(2, query_then_set.host_palette_queries[0].revision));
+    }
+
+    #[test]
+    fn render_resolves_child_overridden_palette_cells_to_rgb() {
+        let (tx, _rx) = mpsc::channel(4);
+        let terminal = crate::ghostty::Terminal::new(20, 5, 0).unwrap();
+        let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
+        let pane_id = PaneId::from_raw(1);
+        pane.process_pty_bytes(pane_id, 0, b"\x1b]4;1;rgb:11/22/33\x07\x1b[31mR", &tx);
+
+        let backend = ratatui::backend::TestBackend::new(20, 5);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| pane.render(frame, Rect::new(0, 0, 20, 5), false))
+            .unwrap();
+
+        assert_eq!(
+            terminal.backend().buffer()[(0, 0)].style().fg,
+            Some(Color::Rgb(0x11, 0x22, 0x33))
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn palette_override_handoff_snapshot_restores_local_authority_and_color() {
+        let (tx, _rx) = mpsc::channel(4);
+        let source =
+            GhosttyPaneTerminal::new(crate::ghostty::Terminal::new(20, 5, 0).unwrap(), tx.clone())
+                .unwrap();
+        source.process_pty_bytes(PaneId::from_raw(1), 0, b"\x1b]4;9;rgb:44/55/66\x07", &tx);
+        let overrides = source.palette_overrides();
+
+        let restored =
+            GhosttyPaneTerminal::new(crate::ghostty::Terminal::new(20, 5, 0).unwrap(), tx.clone())
+                .unwrap();
+        restored.seed_palette_overrides(&overrides);
+        let result = restored.process_pty_bytes(PaneId::from_raw(2), 0, b"\x1b]4;9;?\x07", &tx);
+
+        assert!(result.host_palette_queries.is_empty());
         assert_eq!(
             result.terminal_responses,
-            vec![expected_osc_rgb_response("4;0", color)]
+            vec![expected_osc_rgb_response(
+                "4;9",
+                crate::ghostty::RgbColor {
+                    r: 0x44,
+                    g: 0x55,
+                    b: 0x66,
+                }
+            )]
         );
-        assert!(rx.try_recv().is_err());
     }
 
     #[test]
@@ -5063,9 +5442,12 @@ mod tests {
         assert!(rx.try_recv().is_err());
         let result = pane.process_pty_bytes(pane_id, 0, b"\\", &tx);
 
+        assert!(result.terminal_responses.is_empty());
+        assert_eq!(result.host_palette_queries.len(), 1);
+        assert_eq!(result.host_palette_queries[0].index, 255);
         assert_eq!(
-            result.terminal_responses,
-            vec![expected_osc_rgb_response("4;255", color)]
+            result.host_palette_queries[0].fallback,
+            expected_osc_rgb_response("4;255", color).to_vec()
         );
         assert!(rx.try_recv().is_err());
     }
@@ -5084,14 +5466,14 @@ mod tests {
             &tx,
         );
 
-        assert_eq!(result.terminal_responses.len(), 1);
-        assert!(result.terminal_responses[0].starts_with(b"\x1b]4;0;rgb:"));
+        assert!(result.terminal_responses.is_empty());
         assert_eq!(
-            result.terminal_responses[0]
-                .windows(4)
-                .filter(|window| *window == b"rgb:")
-                .count(),
-            2
+            result
+                .host_palette_queries
+                .iter()
+                .map(|query| query.index)
+                .collect::<Vec<_>>(),
+            vec![0, 1]
         );
         assert!(rx.try_recv().is_err());
     }
@@ -5114,16 +5496,18 @@ mod tests {
 
         let result = pane.process_pty_bytes(pane_id, 0, b"\x1b]4;0;?\x07\x1b]11;?\x07\x1b[c", &tx);
 
-        assert_eq!(result.terminal_responses.len(), 3);
+        assert_eq!(result.host_palette_queries.len(), 1);
+        assert_eq!(result.host_palette_queries[0].index, 0);
+        assert_eq!(
+            result.host_palette_queries[0].fallback,
+            expected_osc_rgb_response("4;0", color).to_vec()
+        );
+        assert_eq!(result.terminal_responses.len(), 2);
         assert_eq!(
             result.terminal_responses[0],
-            expected_osc_rgb_response("4;0", color)
-        );
-        assert_eq!(
-            result.terminal_responses[1],
             Bytes::from_static(b"\x1b]11;rgb:0000/2b2b/3636\x1b\\")
         );
-        assert!(String::from_utf8_lossy(&result.terminal_responses[2]).contains('c'));
+        assert!(String::from_utf8_lossy(&result.terminal_responses[1]).contains('c'));
         assert!(rx.try_recv().is_err());
     }
 
@@ -5152,7 +5536,7 @@ mod tests {
     }
 
     #[test]
-    fn process_pty_bytes_preserves_untracked_multi_color_query_responses() {
+    fn process_pty_bytes_forwards_multi_palette_but_preserves_multi_default_queries() {
         let (tx, mut rx) = mpsc::channel(4);
         let terminal = crate::ghostty::Terminal::new(20, 5, 0).unwrap();
         let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
@@ -5171,14 +5555,13 @@ mod tests {
         });
 
         let palette = pane.process_pty_bytes(pane_id, 0, b"\x1b]4;0;?;1;?\x1b\\", &tx);
-        let palette_response = palette.terminal_responses.concat();
-        assert!(palette_response.starts_with(b"\x1b]4;0;rgb:"));
         assert_eq!(
-            palette_response
-                .windows(4)
-                .filter(|window| *window == b"rgb:")
-                .count(),
-            2
+            palette
+                .host_palette_queries
+                .iter()
+                .map(|query| query.index)
+                .collect::<Vec<_>>(),
+            vec![0, 1]
         );
 
         let defaults = pane.process_pty_bytes(pane_id, 0, b"\x1b]10;?;?;?\x1b\\", &tx);
@@ -5203,7 +5586,7 @@ mod tests {
     }
 
     #[test]
-    fn process_pty_bytes_preserves_earlier_aggregate_palette_reply() {
+    fn process_pty_bytes_forwards_each_aggregate_palette_query() {
         let (tx, mut rx) = mpsc::channel(4);
         let terminal = crate::ghostty::Terminal::new(20, 5, 0).unwrap();
         let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
@@ -5212,16 +5595,44 @@ mod tests {
         let result =
             pane.process_pty_bytes(pane_id, 0, b"\x1b]4;0;?;1;?\x1b\\\x1b]4;0;?\x1b\\", &tx);
 
-        assert_eq!(result.terminal_responses.len(), 2);
+        assert!(result.terminal_responses.is_empty());
         assert_eq!(
-            result.terminal_responses[0]
-                .windows(4)
-                .filter(|window| *window == b"rgb:")
-                .count(),
-            2
+            result
+                .host_palette_queries
+                .iter()
+                .map(|query| query.index)
+                .collect::<Vec<_>>(),
+            vec![0, 1, 0]
         );
-        assert!(result.terminal_responses[1].starts_with(b"\x1b]4;0;rgb:"));
+        assert!(result.host_palette_queries.iter().all(|query| {
+            query
+                .fallback
+                .windows(4)
+                .filter(|bytes| *bytes == b"rgb:")
+                .count()
+                == 1
+        }));
         assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn process_pty_bytes_forwards_opentui_256_query_burst_without_local_replies() {
+        let (tx, _rx) = mpsc::channel(4);
+        let pane =
+            GhosttyPaneTerminal::new(crate::ghostty::Terminal::new(20, 5, 0).unwrap(), tx.clone())
+                .unwrap();
+        let pane_id = PaneId::from_raw(1);
+        let mut queries = Vec::new();
+        for index in 0..=u8::MAX {
+            queries.extend_from_slice(format!("\x1b]4;{index};?\x1b\\").as_bytes());
+        }
+
+        let result = pane.process_pty_bytes(pane_id, 0, &queries, &tx);
+
+        assert!(result.terminal_responses.is_empty());
+        assert_eq!(result.host_palette_queries.len(), 256);
+        assert_eq!(result.host_palette_queries[0].index, 0);
+        assert_eq!(result.host_palette_queries[255].index, 255);
     }
 
     #[test]

@@ -574,6 +574,7 @@ impl App {
                 layout: state::ViewLayout::Desktop,
                 sidebar_rect: Rect::default(),
                 workspace_card_areas: Vec::new(),
+                navigator_rows: Vec::new(),
                 tab_bar_rect: Rect::default(),
                 tab_hit_areas: Vec::new(),
                 tab_scroll_left_hit_area: Rect::default(),
@@ -1215,6 +1216,7 @@ impl App {
             .is_some_and(|notes| notes.preview);
 
         self.state.release_notes = None;
+        self.state.drag = None;
         if !preview {
             if let Err(err) = crate::release_notes::mark_current_version_seen() {
                 self.state.config_diagnostic =
@@ -1247,6 +1249,7 @@ impl App {
             }
         }
 
+        self.state.drag = None;
         self.state.mode = if self.state.active.is_some() {
             Mode::Terminal
         } else {
@@ -1664,6 +1667,9 @@ impl App {
                     if apply_host_terminal_theme {
                         self.update_host_terminal_theme(kind, color);
                     }
+                }
+                crate::raw_input::RawInputEvent::HostPaletteColor { index, color } => {
+                    let _ = (index, color);
                 }
                 crate::raw_input::RawInputEvent::HostColorSchemeChanged(appearance) => {
                     if apply_host_terminal_theme {
@@ -2170,7 +2176,7 @@ mod tests {
         app.state.workspaces.push(Workspace::test_new("one"));
         app.render_dirty.store(false, Ordering::Release);
         let workspace_id = app.state.workspaces[0].id.clone();
-        let resolved_identity_cwd = app.state.workspaces[0].resolved_identity_cwd().unwrap();
+        let resolved_identity_cwd = app.state.workspaces[0].identity_cwd.clone();
 
         app.handle_internal_event(AppEvent::GitStatusRefreshed {
             results: vec![crate::workspace::WorkspaceGitStatus {
@@ -2179,6 +2185,7 @@ mod tests {
                 branch: Some("render-dirty-test".into()),
                 ahead_behind: Some((1, 0)),
                 space: None,
+                auto_name: "one".to_string(),
             }],
             cache_updates: Vec::new(),
         });
@@ -5143,6 +5150,49 @@ last_pane = "prefix+tab"
 
         assert_eq!(app.state.name_input, "feature/logs");
         assert!(!app.state.name_input_replace_on_type);
+    }
+
+    #[tokio::test]
+    async fn route_client_input_strips_host_paste_markers_when_pane_bracketed_paste_unset() {
+        let mut app = test_app();
+        let mut workspace = Workspace::test_new("test");
+        let focused = workspace.focused_pane_id().unwrap();
+        let (runtime, mut rx) = TerminalRuntime::test_with_channel(80, 24);
+        workspace.tabs[0].runtimes.insert(focused, runtime);
+        app.state.workspaces = vec![workspace];
+        app.state.active = Some(0);
+        app.state.selected = 0;
+        app.state.mode = Mode::Terminal;
+
+        app.route_client_input(b"\x1b[200~npm run lint:check\x1b[201~".to_vec());
+
+        assert_eq!(
+            rx.recv().await.unwrap(),
+            bytes::Bytes::from_static(b"npm run lint:check")
+        );
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn route_client_input_keeps_paste_markers_when_pane_bracketed_paste_enabled() {
+        let mut app = test_app();
+        let mut workspace = Workspace::test_new("test");
+        let focused = workspace.focused_pane_id().unwrap();
+        let (runtime, mut rx) = TerminalRuntime::test_with_channel(80, 24);
+        runtime.test_process_pty_bytes(b"\x1b[?2004h");
+        workspace.tabs[0].runtimes.insert(focused, runtime);
+        app.state.workspaces = vec![workspace];
+        app.state.active = Some(0);
+        app.state.selected = 0;
+        app.state.mode = Mode::Terminal;
+
+        app.route_client_input(b"\x1b[200~hello\x1b[201~".to_vec());
+
+        assert_eq!(
+            rx.recv().await.unwrap(),
+            bytes::Bytes::from_static(b"\x1b[200~hello\x1b[201~")
+        );
+        assert!(rx.try_recv().is_err());
     }
 
     #[test]

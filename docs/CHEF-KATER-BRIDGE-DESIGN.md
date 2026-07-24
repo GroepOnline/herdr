@@ -101,3 +101,33 @@ Single endpoint: `GET /v1/fleet/health` on Herdr Gateway
 
 Bridge checks: CF tunnel down → SSH target node → root cause → alert in Fleet Ops Bar.
 
+## Implementation status
+
+| Version | PR | Status | Scope |
+|---------|-----|--------|-------|
+| v0.1.0 | [herdr-plugins#2](https://github.com/OnlineChefGroep/herdr-plugins/pull/2) | **Merge-ready** (CI green, operator-gated) | REST: `/health`, `/api/status`, `/api/doctor`, `/api/pr/*` |
+| v0.2.0 | [herdr-plugins#3](https://github.com/OnlineChefGroep/herdr-plugins/pull/3) @ [`5cc5dee`](https://github.com/OnlineChefGroep/herdr-plugins/commit/5cc5dee) | **Code-complete** (operator-gated merge after #2) | MCP SSE client for `utrecht_fleet_inventory`, `utrecht_pipeline_status`, `utrecht_status`, `utrecht_ask`; includes `chef-pane-reaper` hook |
+| v0.1 pane-reaper | bundled in #3 | Shipped with v0.2 | `pane.exited` → `ghost-reaper.sh` (dry-run default) |
+
+> Cursor MCP wiring lives in local config (`~/.cursor/KATER-MCP.md`, `~/.cursor/mcp.json`); not tracked in herdr.
+
+### v0.2 MCP client (herdr-plugins)
+
+Kater exposes Utrecht tools on MCP SSE (`:9090/sse`), not REST. The v0.2 plugin uses `@modelcontextprotocol/sdk` SSE transport:
+
+```
+Herdr action/event
+  → kater-bridge (Node)
+  → MCP SSE :9090/sse
+  → Kater proxy
+  → utrecht_* tool handlers
+```
+
+Env: `KATER_MCP_URL` (optional, default derived from `KATER_API_URL`).
+
+### Not yet implemented
+
+- `POST /api/tools/call` on Kater REST (would remove SSE dependency; track in kater-dev-tools)
+- Unified health aggregator (CF + Tailscale + Grafana)
+- `herdr-fleet run --exec` worker-spawner wiring
+

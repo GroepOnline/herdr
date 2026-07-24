@@ -131,6 +131,7 @@ mod tests {
         while runtime.cwd() != Some(live_cwd.clone()) && std::time::Instant::now() < deadline {
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
+        state.workspaces[0].cached_auto_name = "__herdr_projects__".to_string();
         let mut terminal_runtimes = TerminalRuntimeRegistry::new();
         terminal_runtimes.insert(terminal_id, runtime);
 

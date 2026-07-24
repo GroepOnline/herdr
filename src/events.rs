@@ -10,6 +10,13 @@ use crate::github::WorkspaceGithubStatus;
 use crate::layout::PaneId;
 use crate::workspace::{GitStatusCacheEntry, WorkspaceGitStatus};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HostPaletteQuery {
+    pub index: u8,
+    pub revision: u64,
+    pub fallback: Vec<u8>,
+}
+
 #[derive(Debug)]
 pub struct ApiWorktreeAddRequest {
     pub id: String,
@@ -129,6 +136,12 @@ pub enum AppEvent {
     /// A pane child emitted a valid OSC 52 clipboard write. The main loop
     /// re-emits it through herdr's own clipboard writer.
     ClipboardWrite { content: Vec<u8> },
+    /// A pane child queried inherited palette slots. The runtime/server resolves these
+    /// against the authoritative host client, or writes the captured fallback.
+    HostPaletteQueries {
+        pane_id: PaneId,
+        queries: Vec<HostPaletteQuery>,
+    },
     /// Prefix-mode ASCII input-source request, emitted on entering/leaving the ASCII input
     /// realm. The foreground process applies the host-local TIS switch (`active = true`) /
     /// restore (`active = false`): the client in server mode (via server forwarding), the
@@ -144,6 +157,13 @@ pub enum AppEvent {
     GitStatusRefreshed {
         results: Vec<WorkspaceGitStatus>,
         cache_updates: Vec<(std::path::PathBuf, GitStatusCacheEntry)>,
+    },
+    /// Workspace auto-name was resolved in the background.
+    #[allow(dead_code)] // Only constructed in non-test builds
+    WorkspaceAutoNameResolved {
+        workspace_id: String,
+        resolved_identity_cwd: std::path::PathBuf,
+        name: String,
     },
     /// Background GitHub status refresh completed for workspaces.
     GithubStatusRefreshed { results: Vec<WorkspaceGithubStatus> },

@@ -37,15 +37,17 @@ async function preparePublicAssets() {
     'agent-guide.md',
     'latest.json',
     'preview.json',
+    'dev.json',
     'robots.txt',
     '_headers',
     '_redirects',
   ]) {
     const source = resolve(repoRoot, 'website', file);
+    const optional = file === 'preview.json' || file === 'dev.json';
     try {
       await cp(source, resolve(publicDir, file));
     } catch (error) {
-      if (file !== 'preview.json' || error.code !== 'ENOENT') throw error;
+      if (!optional || error.code !== 'ENOENT') throw error;
     }
   }
 

@@ -969,7 +969,9 @@ fn row_cell_glyphs(text: Option<&str>) -> Vec<(u16, u16)> {
     let mut glyphs = Vec::new();
     let mut col = 0u16;
     for ch in text.into_iter().flat_map(str::chars) {
-        let width = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(1) as u16;
+        // Match `last_character_col` / `char_cell_width`: ghostty width, not the
+        // separate `unicode_width` crate, so CJK and combining marks agree.
+        let width = u16::from(crate::ghostty::unicode_codepoint_width(ch as u32));
 
         if width == 0 {
             continue;
@@ -981,14 +983,18 @@ fn row_cell_glyphs(text: Option<&str>) -> Vec<(u16, u16)> {
 }
 
 fn next_cell_col(glyphs: &[(u16, u16)], cursor_col: u16, max_col: u16) -> u16 {
-    let step = glyphs
+    // Cursor on any cell of a glyph (leading or trailing) advances to the column
+    // after that glyph. Blank columns still step by one.
+    let target = glyphs
         .iter()
-        .find(|(start, _)| *start == cursor_col)
-        .map_or(1, |(_, width)| *width);
+        .find(|(start, width)| cursor_col >= *start && cursor_col < start.saturating_add(*width))
+        .map_or_else(
+            || cursor_col.saturating_add(1),
+            |(start, width)| start.saturating_add(*width),
+        );
     // Advancing overshoots the last column only when the current glyph ends at
     // the right margin (e.g. a full-width glyph in the final two columns); stay
-    // on the leading cell instead of landing on its trailing spacer.
-    let target = cursor_col.saturating_add(step);
+    // put instead of landing past the pane edge.
     if target > max_col {
         cursor_col
     } else {
@@ -997,6 +1003,14 @@ fn next_cell_col(glyphs: &[(u16, u16)], cursor_col: u16, max_col: u16) -> u16 {
 }
 
 fn prev_cell_col(glyphs: &[(u16, u16)], cursor_col: u16) -> u16 {
+    // Trailing cell of a wide glyph: snap back to its leading cell.
+    if let Some(&(start, _)) = glyphs
+        .iter()
+        .find(|(start, width)| cursor_col > *start && cursor_col < start.saturating_add(*width))
+    {
+        return start;
+    }
+    // On a leading cell or blank: previous glyph start, else single-cell step.
     glyphs
         .iter()
         .find(|(start, width)| start.saturating_add(*width) == cursor_col)
@@ -1479,6 +1493,10 @@ mod tests {
         assert_eq!(next_cell_col(&glyphs, 2, 19), 4);
         assert_eq!(next_cell_col(&glyphs, 5, 19), 6);
         assert_eq!(next_cell_col(&glyphs, 8, 19), 9);
+        // Trailing-cell start: cursor on あ's spacer (col 3) still advances to Y,
+        // and leftward snaps to the leading cell rather than stepping by one.
+        assert_eq!(next_cell_col(&glyphs, 3, 19), 4);
+        assert_eq!(prev_cell_col(&glyphs, 3), 2);
         // Leftward mirrors it; blanks step by one, not jumping to the last glyph.
         assert_eq!(prev_cell_col(&glyphs, 4), 2);
         assert_eq!(prev_cell_col(&glyphs, 2), 1);
@@ -1490,6 +1508,10 @@ mod tests {
         // Right-margin edge: a full-width glyph in the final two columns stays on
         // its leading cell instead of clamping onto the trailing spacer (#1000).
         assert_eq!(next_cell_col(&[(18, 2)], 18, 19), 18);
+        // Flush-right trailing cell: `l` has nowhere to go past the pane edge,
+        // `h` snaps to the leading cell so motion cannot stick on the spacer.
+        assert_eq!(next_cell_col(&[(18, 2)], 19, 19), 19);
+        assert_eq!(prev_cell_col(&[(18, 2)], 19), 18);
         // A half-width cell at the last column simply stays put.
         assert_eq!(next_cell_col(&[(19, 1)], 19, 19), 19);
         // Zero-width combining marks fold into the preceding glyph, keeping the
@@ -1498,6 +1520,9 @@ mod tests {
         assert_eq!(combined, vec![(0, 1), (1, 2), (3, 1)]);
         // Moving right from the leading cell of あ crosses the whole glyph.
         assert_eq!(next_cell_col(&combined, 1, 19), 3);
+        // Trailing cell of the combined wide glyph behaves the same.
+        assert_eq!(next_cell_col(&combined, 2, 19), 3);
+        assert_eq!(prev_cell_col(&combined, 2), 1);
     }
 
     #[tokio::test]

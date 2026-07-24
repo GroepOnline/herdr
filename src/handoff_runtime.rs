@@ -1,6 +1,15 @@
 #[cfg(unix)]
 use serde::{Deserialize, Serialize};
 
+#[cfg(unix)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) struct HandoffPaletteOverride {
+    pub index: u8,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
 /// Long-lived pane runtime transferred during server replacement.
 ///
 /// Handoff preserves server-owned session state such as PTYs, processes, agent
@@ -27,6 +36,8 @@ pub(crate) struct HandoffRuntimeState {
     pub terminal_title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial_history_ansi: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub palette_overrides: Vec<HandoffPaletteOverride>,
 }
 
 #[cfg(unix)]

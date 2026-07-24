@@ -234,6 +234,30 @@ const SHUTDOWN_API_TIMEOUT: Duration = Duration::from_secs(5);
 /// otherwise idle. Keep this much slower than the old resize-poll cadence to
 /// avoid reintroducing the idle CPU spin.
 const CLIENT_ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(250);
+const HOST_PALETTE_QUERY_TIMEOUT: Duration = Duration::from_millis(500);
+const MAX_PENDING_HOST_PALETTE_QUERIES: usize = 1024;
+const MAX_PENDING_HOST_PALETTE_DELIVERIES: usize = 2048;
+
+struct PendingHostPaletteQuery {
+    client_id: u64,
+    index: u8,
+    deadline: Instant,
+    deliveries: Vec<PendingHostPaletteDelivery>,
+}
+
+struct PendingHostPaletteDelivery {
+    terminal_id: crate::terminal::TerminalId,
+    pane_id: crate::layout::PaneId,
+    revision: u64,
+    fallback: Vec<u8>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum HostPaletteQueryState {
+    InFlight(u64),
+    Resolved(crate::terminal_theme::RgbColor),
+    Unavailable,
+}
 
 // ---------------------------------------------------------------------------
 // Headless server
@@ -267,6 +291,13 @@ pub struct HeadlessServer {
     server_config_diagnostic_without_keybindings: Option<String>,
     /// Writable direct attach owner per terminal id string.
     terminal_attach_owners: HashMap<String, u64>,
+    pending_host_palette_queries: HashMap<u64, PendingHostPaletteQuery>,
+    /// One physical OSC 4 query per client/index. OSC 4 responses have no
+    /// request identifier, so re-querying an index could let a delayed reply
+    /// satisfy the wrong request. Cache success and fall back after failure
+    /// until that client reconnects.
+    host_palette_query_states: HashMap<(u64, u8), HostPaletteQueryState>,
+    next_host_palette_query_id: u64,
     /// Monotonic activity counter used to pick the most recently active client.
     next_activity_stamp: u64,
     /// Shared pane runtime size derived from the foreground client,
@@ -355,9 +386,23 @@ fn apply_terminal_attach_input(
     data: Vec<u8>,
 ) -> Result<(), String> {
     runtime.scroll_reset();
+    let bytes = match crate::server::terminal_attach::rewrite_attach_input_bytes(runtime, &data) {
+        std::borrow::Cow::Borrowed(_) => Bytes::from(data),
+        std::borrow::Cow::Owned(owned) => Bytes::from(owned),
+    };
     runtime
-        .try_send_bytes(Bytes::from(data))
+        .try_send_bytes(bytes)
         .map_err(|err| format!("terminal attach input failed: {err}"))
+}
+
+fn apply_terminal_attach_paste(
+    runtime: &crate::terminal::TerminalRuntime,
+    text: String,
+) -> Result<(), String> {
+    runtime.scroll_reset();
+    runtime
+        .try_send_paste(text)
+        .map_err(|err| format!("terminal attach paste failed: {err}"))
 }
 
 #[cfg(windows)]
@@ -460,6 +505,9 @@ impl HeadlessServer {
             server_config_diagnostic,
             server_config_diagnostic_without_keybindings,
             terminal_attach_owners: HashMap::new(),
+            pending_host_palette_queries: HashMap::new(),
+            host_palette_query_states: HashMap::new(),
+            next_host_palette_query_id: 1,
             next_activity_stamp: 1,
             effective_size: (MIN_COLS, MIN_ROWS),
             shutting_down: false,
@@ -1092,6 +1140,7 @@ impl HeadlessServer {
         }
 
         self.handoff_in_progress = true;
+        self.fallback_all_host_palette_queries();
         self.disconnect_all_clients_for_handoff();
         let _ = reject_pending_client_connections(&self.client_listener);
 
@@ -1105,6 +1154,8 @@ impl HeadlessServer {
                 paused_terminal_ids.push(terminal_id.clone());
             }
         }
+        self.drain_all_internal_events_with_forwarding();
+        self.fallback_all_host_palette_queries();
 
         let snapshot = crate::persist::capture(
             &self.app.state.workspaces,
@@ -1403,6 +1454,9 @@ impl HeadlessServer {
 
     fn remove_client(&mut self, client_id: u64) -> bool {
         let was_foreground = self.foreground_client_id == Some(client_id);
+        self.fallback_palette_queries_for_client(client_id);
+        self.host_palette_query_states
+            .retain(|(pending_client_id, _), _| *pending_client_id != client_id);
         self.send_client_graphics_cleanup(client_id);
         let removed = self.clients.remove(&client_id);
         if let Some(removed) = removed {
@@ -2009,6 +2063,10 @@ impl HeadlessServer {
     /// Returns true if the event changed visual state (requiring a re-render).
     fn handle_internal_event_with_forwarding(&mut self, ev: AppEvent) -> bool {
         match &ev {
+            AppEvent::HostPaletteQueries { pane_id, queries } => {
+                self.start_host_palette_queries(*pane_id, queries);
+                false
+            }
             AppEvent::ClipboardWrite { content } => {
                 // Clipboard writes are client-local side effects. Forward them only to
                 // the foreground client instead of broadcasting to every attached client.
@@ -2247,6 +2305,7 @@ impl HeadlessServer {
                 true
             }
             AppEvent::PaneDied { pane_id } => {
+                self.discard_palette_queries_for_pane(*pane_id);
                 let pane_id_val = *pane_id;
                 let terminal_id = self.app.state.workspaces.iter().find_map(|ws| {
                     ws.tabs.iter().find_map(|tab| {
@@ -2407,20 +2466,381 @@ impl HeadlessServer {
             }
         };
 
-        if let Some(client) = self.clients.get(&client_id) {
-            if let Some(writer) = &client.writer {
-                if writer.control.send(serialized).is_err() {
-                    debug!(
-                        client_id,
-                        "client writer channel closed during targeted send"
-                    );
-                    self.remove_client_and_resize_if_needed(client_id);
-                    return false;
+        let Some(client) = self.clients.get(&client_id) else {
+            return false;
+        };
+        let Some(writer) = &client.writer else {
+            return false;
+        };
+        if writer.control.send(serialized).is_err() {
+            debug!(
+                client_id,
+                "client writer channel closed during targeted send"
+            );
+            self.remove_client_and_resize_if_needed(client_id);
+            return false;
+        }
+        true
+    }
+
+    fn terminal_id_for_pane(
+        &self,
+        pane_id: crate::layout::PaneId,
+    ) -> Option<crate::terminal::TerminalId> {
+        self.app.state.workspaces.iter().find_map(|workspace| {
+            workspace
+                .pane_state(pane_id)
+                .map(|pane| pane.attached_terminal_id.clone())
+        })
+    }
+
+    fn authoritative_palette_client(
+        &self,
+        terminal_id: &crate::terminal::TerminalId,
+    ) -> Option<u64> {
+        let capable =
+            |client: &ClientConnection| client.host_palette_queries && client.writer.is_some();
+        if let Some(client_id) = self.terminal_attach_owners.get(&terminal_id.to_string()) {
+            if self.clients.get(client_id).is_some_and(capable) {
+                return Some(*client_id);
+            }
+        }
+        let client_id = self.foreground_client_id?;
+        self.clients
+            .get(&client_id)
+            .is_some_and(|client| client.is_full_app_client() && capable(client))
+            .then_some(client_id)
+    }
+
+    fn deliver_palette_bytes(
+        &self,
+        terminal_id: &crate::terminal::TerminalId,
+        pane_id: crate::layout::PaneId,
+        index: u8,
+        revision: u64,
+        bytes: Vec<u8>,
+    ) {
+        let pane_still_attached = self.app.state.workspaces.iter().any(|workspace| {
+            workspace
+                .pane_state(pane_id)
+                .is_some_and(|pane| pane.attached_terminal_id == *terminal_id)
+        });
+        if !pane_still_attached {
+            return;
+        }
+        #[cfg(test)]
+        let runtime = self
+            .app
+            .state
+            .runtime_for_pane(&self.app.terminal_runtimes, pane_id);
+        #[cfg(not(test))]
+        let runtime = self.app.terminal_runtimes.get(terminal_id);
+        let Some(runtime) = runtime else {
+            return;
+        };
+        if let Err(err) = runtime.try_send_palette_response(index, revision, Bytes::from(bytes)) {
+            debug!(
+                pane = pane_id.raw(),
+                index,
+                err = %err,
+                "failed to deliver host palette response"
+            );
+        }
+    }
+
+    fn deliver_pending_palette_query(
+        &self,
+        pending: PendingHostPaletteQuery,
+        color: Option<crate::terminal_theme::RgbColor>,
+    ) {
+        for delivery in pending.deliveries {
+            let bytes = color.map_or(delivery.fallback, |color| {
+                crate::terminal_theme::osc_palette_color_response(pending.index, color).into_bytes()
+            });
+            self.deliver_palette_bytes(
+                &delivery.terminal_id,
+                delivery.pane_id,
+                pending.index,
+                delivery.revision,
+                bytes,
+            );
+        }
+    }
+
+    fn start_host_palette_queries(
+        &mut self,
+        pane_id: crate::layout::PaneId,
+        queries: &[crate::events::HostPaletteQuery],
+    ) {
+        let Some(terminal_id) = self.terminal_id_for_pane(pane_id) else {
+            return;
+        };
+        for query in queries {
+            let Some(client_id) = self.authoritative_palette_client(&terminal_id) else {
+                self.deliver_palette_bytes(
+                    &terminal_id,
+                    pane_id,
+                    query.index,
+                    query.revision,
+                    query.fallback.clone(),
+                );
+                continue;
+            };
+            if let Some(state) = self
+                .host_palette_query_states
+                .get(&(client_id, query.index))
+                .copied()
+            {
+                match state {
+                    HostPaletteQueryState::Resolved(color) => {
+                        let response =
+                            crate::terminal_theme::osc_palette_color_response(query.index, color)
+                                .into_bytes();
+                        self.deliver_palette_bytes(
+                            &terminal_id,
+                            pane_id,
+                            query.index,
+                            query.revision,
+                            response,
+                        );
+                    }
+                    HostPaletteQueryState::InFlight(request_id) => {
+                        let delivery_capacity_available = self
+                            .pending_host_palette_queries
+                            .values()
+                            .map(|pending| pending.deliveries.len())
+                            .sum::<usize>()
+                            < MAX_PENDING_HOST_PALETTE_DELIVERIES;
+                        let appended = if delivery_capacity_available {
+                            match self.pending_host_palette_queries.get_mut(&request_id) {
+                                Some(pending)
+                                    if pending.client_id == client_id
+                                        && pending.index == query.index =>
+                                {
+                                    pending.deliveries.push(PendingHostPaletteDelivery {
+                                        terminal_id: terminal_id.clone(),
+                                        pane_id,
+                                        revision: query.revision,
+                                        fallback: query.fallback.clone(),
+                                    });
+                                    true
+                                }
+                                _ => false,
+                            }
+                        } else {
+                            false
+                        };
+                        if !appended {
+                            self.deliver_palette_bytes(
+                                &terminal_id,
+                                pane_id,
+                                query.index,
+                                query.revision,
+                                query.fallback.clone(),
+                            );
+                        }
+                    }
+                    HostPaletteQueryState::Unavailable => self.deliver_palette_bytes(
+                        &terminal_id,
+                        pane_id,
+                        query.index,
+                        query.revision,
+                        query.fallback.clone(),
+                    ),
+                }
+                continue;
+            }
+            if self.pending_host_palette_queries.len() >= MAX_PENDING_HOST_PALETTE_QUERIES {
+                self.deliver_palette_bytes(
+                    &terminal_id,
+                    pane_id,
+                    query.index,
+                    query.revision,
+                    query.fallback.clone(),
+                );
+                continue;
+            }
+            let Some(request_id) = self.allocate_host_palette_query_id() else {
+                self.deliver_palette_bytes(
+                    &terminal_id,
+                    pane_id,
+                    query.index,
+                    query.revision,
+                    query.fallback.clone(),
+                );
+                continue;
+            };
+            let message = ServerMessage::HostPaletteQuery {
+                request_id,
+                index: query.index,
+            };
+            if !self.send_to_client(client_id, message) {
+                self.deliver_palette_bytes(
+                    &terminal_id,
+                    pane_id,
+                    query.index,
+                    query.revision,
+                    query.fallback.clone(),
+                );
+                continue;
+            }
+            self.host_palette_query_states.insert(
+                (client_id, query.index),
+                HostPaletteQueryState::InFlight(request_id),
+            );
+            self.pending_host_palette_queries.insert(
+                request_id,
+                PendingHostPaletteQuery {
+                    client_id,
+                    index: query.index,
+                    deadline: Instant::now() + HOST_PALETTE_QUERY_TIMEOUT,
+                    deliveries: vec![PendingHostPaletteDelivery {
+                        terminal_id: terminal_id.clone(),
+                        pane_id,
+                        revision: query.revision,
+                        fallback: query.fallback.clone(),
+                    }],
+                },
+            );
+        }
+    }
+
+    fn allocate_host_palette_query_id(&mut self) -> Option<u64> {
+        for _ in 0..=MAX_PENDING_HOST_PALETTE_QUERIES {
+            let request_id = self.next_host_palette_query_id;
+            self.next_host_palette_query_id =
+                self.next_host_palette_query_id.wrapping_add(1).max(1);
+            if !self.pending_host_palette_queries.contains_key(&request_id) {
+                return Some(request_id);
+            }
+        }
+        None
+    }
+
+    fn resolve_host_palette_response(
+        &mut self,
+        client_id: u64,
+        request_id: u64,
+        index: u8,
+        color: crate::terminal_theme::RgbColor,
+    ) {
+        let Some(pending) = self.pending_host_palette_queries.get(&request_id) else {
+            return;
+        };
+        if pending.client_id != client_id || pending.index != index {
+            return;
+        }
+        if pending.deadline <= Instant::now() {
+            let Some(pending) = self.pending_host_palette_queries.remove(&request_id) else {
+                tracing::warn!(
+                    request_id,
+                    client_id,
+                    index,
+                    "pending host palette query disappeared during expiry path"
+                );
+                return;
+            };
+            self.host_palette_query_states.insert(
+                (pending.client_id, pending.index),
+                HostPaletteQueryState::Unavailable,
+            );
+            self.deliver_pending_palette_query(pending, None);
+            return;
+        }
+        let Some(pending) = self.pending_host_palette_queries.remove(&request_id) else {
+            return;
+        };
+        self.host_palette_query_states
+            .insert((client_id, index), HostPaletteQueryState::Resolved(color));
+        self.deliver_pending_palette_query(pending, Some(color));
+    }
+
+    fn fallback_palette_queries_for_client(&mut self, client_id: u64) {
+        let request_ids = self
+            .pending_host_palette_queries
+            .iter()
+            .filter_map(|(request_id, pending)| {
+                (pending.client_id == client_id).then_some(*request_id)
+            })
+            .collect::<Vec<_>>();
+        for request_id in request_ids {
+            if let Some(pending) = self.pending_host_palette_queries.remove(&request_id) {
+                self.host_palette_query_states.insert(
+                    (pending.client_id, pending.index),
+                    HostPaletteQueryState::Unavailable,
+                );
+                self.deliver_pending_palette_query(pending, None);
+            }
+        }
+    }
+
+    fn expire_host_palette_queries(&mut self, now: Instant) {
+        let request_ids = self
+            .pending_host_palette_queries
+            .iter()
+            .filter_map(|(request_id, pending)| (pending.deadline <= now).then_some(*request_id))
+            .collect::<Vec<_>>();
+        for request_id in request_ids {
+            if let Some(pending) = self.pending_host_palette_queries.remove(&request_id) {
+                self.host_palette_query_states.insert(
+                    (pending.client_id, pending.index),
+                    HostPaletteQueryState::Unavailable,
+                );
+                self.deliver_pending_palette_query(pending, None);
+            }
+        }
+    }
+
+    fn discard_palette_queries_for_pane(&mut self, pane_id: crate::layout::PaneId) {
+        let request_ids = self
+            .pending_host_palette_queries
+            .iter()
+            .filter_map(|(request_id, pending)| {
+                pending
+                    .deliveries
+                    .iter()
+                    .any(|delivery| delivery.pane_id == pane_id)
+                    .then_some(*request_id)
+            })
+            .collect::<Vec<_>>();
+        for request_id in request_ids {
+            let remove_request =
+                if let Some(pending) = self.pending_host_palette_queries.get_mut(&request_id) {
+                    pending
+                        .deliveries
+                        .retain(|delivery| delivery.pane_id != pane_id);
+                    pending.deliveries.is_empty()
+                } else {
+                    false
+                };
+            if remove_request {
+                let Some(pending) = self.pending_host_palette_queries.remove(&request_id) else {
+                    continue;
+                };
+                // Pane death must not sticky-mark Unavailable: that would fail closed forever
+                // for this (client, index) even though OSC correlation for this request_id is
+                // already gone. Drop only the matching InFlight entry so a later query can
+                // start a fresh host round-trip. Late replies for this request_id are ignored
+                // because pending was removed above.
+                let key = (pending.client_id, pending.index);
+                if matches!(
+                    self.host_palette_query_states.get(&key),
+                    Some(HostPaletteQueryState::InFlight(id)) if *id == request_id
+                ) {
+                    self.host_palette_query_states.remove(&key);
                 }
             }
-            true
-        } else {
-            false
+        }
+    }
+
+    fn fallback_all_host_palette_queries(&mut self) {
+        let pending = std::mem::take(&mut self.pending_host_palette_queries);
+        for (_, pending) in pending {
+            self.host_palette_query_states.insert(
+                (pending.client_id, pending.index),
+                HostPaletteQueryState::Unavailable,
+            );
+            self.deliver_pending_palette_query(pending, None);
         }
     }
 
@@ -2660,6 +3080,7 @@ impl HeadlessServer {
                 writer,
                 render_encoding,
                 direct_attach_requested,
+                host_palette_queries,
             } => {
                 if self.handoff_in_progress {
                     if let Ok(message) =
@@ -2700,6 +3121,7 @@ impl HeadlessServer {
                         last_activity,
                         render_encoding,
                         direct_attach_requested,
+                        host_palette_queries,
                         Some(writer),
                     ),
                 );
@@ -2738,6 +3160,22 @@ impl HeadlessServer {
             } => self.handle_terminal_attach_scroll(
                 client_id, source, direction, lines, column, row, modifiers,
             ),
+            ServerEvent::ClientHostPaletteResponse {
+                client_id,
+                request_id,
+                index,
+                r,
+                g,
+                b,
+            } => {
+                self.resolve_host_palette_response(
+                    client_id,
+                    request_id,
+                    index,
+                    crate::terminal_theme::RgbColor { r, g, b },
+                );
+                false
+            }
             ServerEvent::ClientInput { client_id, data } => {
                 if self.handoff_in_progress {
                     debug!(
@@ -2748,12 +3186,47 @@ impl HeadlessServer {
                     return false;
                 }
                 debug!(client_id, len = data.len(), "client input received");
-                if let Some(ClientConnection {
-                    mode: ClientConnectionMode::TerminalAttach { terminal_id },
-                    ..
-                }) = self.clients.get(&client_id)
-                {
-                    if let Some(runtime) = self.runtime_for_terminal_id_string(terminal_id) {
+                let attach_terminal_id =
+                    self.clients
+                        .get(&client_id)
+                        .and_then(|client| match &client.mode {
+                            ClientConnectionMode::TerminalAttach { terminal_id } => {
+                                Some(terminal_id.clone())
+                            }
+                            _ => None,
+                        });
+                if let Some(terminal_id) = attach_terminal_id {
+                    let pending_paste = self
+                        .clients
+                        .get(&client_id)
+                        .is_some_and(|client| client.raw_input.has_pending_bracketed_paste());
+                    let looks_like_host_paste = pending_paste || data.starts_with(b"\x1b[200~");
+                    if looks_like_host_paste {
+                        let events = if let Some(client) = self.clients.get_mut(&client_id) {
+                            let mut events = client.raw_input.push(&data);
+                            if data.as_slice() == b"\x1b" {
+                                events.extend(client.raw_input.flush_timeout());
+                            }
+                            events
+                        } else {
+                            Vec::new()
+                        };
+                        if let Some(runtime) = self.runtime_for_terminal_id_string(&terminal_id) {
+                            for event in events {
+                                if let crate::raw_input::RawInputEvent::Paste(text) = event {
+                                    if let Err(err) = apply_terminal_attach_paste(runtime, text) {
+                                        warn!(
+                                            client_id,
+                                            terminal_id = %terminal_id,
+                                            err = %err
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        return true;
+                    }
+                    if let Some(runtime) = self.runtime_for_terminal_id_string(&terminal_id) {
                         if let Err(err) = apply_terminal_attach_input(runtime, data) {
                             warn!(client_id, terminal_id = %terminal_id, err = %err);
                         }
@@ -3858,6 +4331,8 @@ impl HeadlessServer {
     fn handle_scheduled_tasks_headless(&mut self, now: Instant, geometry_dirty: bool) -> bool {
         let mut changed = false;
 
+        self.expire_host_palette_queries(now);
+
         // Pi session-end watcher: emit `pi.session.ended` for any session JSONL
         // that stopped growing. Cheap (directory scan is rate-limited inside
         // the watcher). Surfaced as plugin hooks via emit_event.
@@ -4003,6 +4478,7 @@ impl HeadlessServer {
         }
         info!("server shutdown initiated");
         self.shutting_down = true;
+        self.fallback_all_host_palette_queries();
 
         // Clear client-local host graphics, then send ServerShutdown to all connected clients.
         self.send_all_clients_graphics_cleanup();
@@ -4505,6 +4981,9 @@ mod tests {
             server_config_diagnostic: None,
             server_config_diagnostic_without_keybindings: None,
             terminal_attach_owners: HashMap::new(),
+            pending_host_palette_queries: HashMap::new(),
+            host_palette_query_states: HashMap::new(),
+            next_host_palette_query_id: 1,
             next_activity_stamp: 1,
             effective_size: (MIN_COLS, MIN_ROWS),
             shutting_down: false,
@@ -4850,6 +5329,7 @@ new_tab = "prefix+t"
             render_encoding: RenderEncoding::SemanticFrame,
             keybindings: Some(Box::new(local_keybindings)),
             direct_attach_requested: false,
+            host_palette_queries: true,
             writer: writer_a,
         }));
         assert_eq!(
@@ -4874,6 +5354,7 @@ new_tab = "prefix+t"
             render_encoding: RenderEncoding::SemanticFrame,
             keybindings: None,
             direct_attach_requested: false,
+            host_palette_queries: true,
             writer: writer_b,
         }));
         assert_eq!(
@@ -4914,6 +5395,7 @@ new_tab = "prefix+t"
             render_encoding: RenderEncoding::SemanticFrame,
             keybindings: Some(Box::new(local_keybindings)),
             direct_attach_requested: false,
+            host_palette_queries: true,
             writer: writer_a,
         }));
         assert_eq!(server.app.state.config_diagnostic, without_keybindings);
@@ -4927,6 +5409,7 @@ new_tab = "prefix+t"
             render_encoding: RenderEncoding::SemanticFrame,
             keybindings: None,
             direct_attach_requested: false,
+            host_palette_queries: true,
             writer: writer_b,
         }));
         assert_eq!(
@@ -4970,6 +5453,7 @@ next_tab = ""
             render_encoding: RenderEncoding::SemanticFrame,
             keybindings: Some(Box::new(local_keybindings)),
             direct_attach_requested: false,
+            host_palette_queries: true,
             writer,
         }));
         server.app.state.mode = crate::app::Mode::Settings;
@@ -5045,6 +5529,7 @@ next_tab = ""
             render_encoding: RenderEncoding::SemanticFrame,
             keybindings: Some(Box::new(local_config.live_keybinds().unwrap())),
             direct_attach_requested: false,
+            host_palette_queries: true,
             writer: writer_a,
         }));
         server.app.state.mode = crate::app::Mode::Settings;
@@ -5065,6 +5550,7 @@ next_tab = ""
             render_encoding: RenderEncoding::SemanticFrame,
             keybindings: None,
             direct_attach_requested: false,
+            host_palette_queries: true,
             writer: writer_b,
         }));
         assert_eq!(
@@ -5099,6 +5585,7 @@ next_tab = ""
             render_encoding: RenderEncoding::TerminalAnsi,
             keybindings: None,
             direct_attach_requested: true,
+            host_palette_queries: true,
             writer,
         }));
         assert!(server.clients.contains_key(&7));
@@ -5164,6 +5651,7 @@ next_tab = ""
             render_encoding: RenderEncoding::TerminalAnsi,
             keybindings: None,
             direct_attach_requested: true,
+            host_palette_queries: true,
             writer,
         }));
         control_rx
@@ -5466,6 +5954,7 @@ next_tab = ""
             render_encoding,
             keybindings: None,
             direct_attach_requested: false,
+            host_palette_queries: true,
             writer,
         }));
 
@@ -5500,6 +5989,7 @@ next_tab = ""
             render_encoding: RenderEncoding::TerminalAnsi,
             keybindings: None,
             direct_attach_requested: true,
+            host_palette_queries: true,
             writer,
         }));
 
@@ -5533,6 +6023,7 @@ next_tab = ""
             render_encoding: RenderEncoding::SemanticFrame,
             keybindings: None,
             direct_attach_requested: false,
+            host_palette_queries: true,
             writer,
         }));
         assert!(server.has_app_client());
@@ -5578,6 +6069,7 @@ next_tab = ""
             render_encoding: RenderEncoding::TerminalAnsi,
             keybindings: None,
             direct_attach_requested: true,
+            host_palette_queries: true,
             writer,
         }));
         assert!(
@@ -5679,6 +6171,49 @@ next_tab = ""
             Bytes::from("x")
         );
 
+        drop(runtime);
+        drop(_runtime_guard);
+        rt.shutdown_timeout(Duration::from_millis(100));
+    }
+
+    #[test]
+    fn terminal_attach_input_strips_host_paste_markers_when_pane_unset() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("test runtime");
+        let _runtime_guard = rt.enter();
+        let (runtime, mut input_rx) = crate::terminal::TerminalRuntime::test_with_channel(80, 24);
+
+        apply_terminal_attach_input(&runtime, b"\x1b[200~npm run lint:check\x1b[201~".to_vec())
+            .expect("attach paste");
+
+        assert_eq!(
+            input_rx.try_recv().unwrap(),
+            Bytes::from_static(b"npm run lint:check")
+        );
+        drop(runtime);
+        drop(_runtime_guard);
+        rt.shutdown_timeout(Duration::from_millis(100));
+    }
+
+    #[test]
+    fn terminal_attach_input_keeps_host_paste_markers_when_pane_enabled() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("test runtime");
+        let _runtime_guard = rt.enter();
+        let (runtime, mut input_rx) = crate::terminal::TerminalRuntime::test_with_channel(80, 24);
+        runtime.test_process_pty_bytes(b"\x1b[?2004h");
+
+        apply_terminal_attach_input(&runtime, b"\x1b[200~hello\x1b[201~".to_vec())
+            .expect("attach paste");
+
+        assert_eq!(
+            input_rx.try_recv().unwrap(),
+            Bytes::from_static(b"\x1b[200~hello\x1b[201~")
+        );
         drop(runtime);
         drop(_runtime_guard);
         rt.shutdown_timeout(Duration::from_millis(100));
@@ -7391,6 +7926,7 @@ next_tab = ""
             render_encoding: RenderEncoding::TerminalAnsi,
             keybindings: None,
             direct_attach_requested: true,
+            host_palette_queries: true,
             writer,
         }));
         assert!(
@@ -8450,6 +8986,449 @@ next_tab = ""
             other => panic!("expected ReloadSoundConfig, got {other:?}"),
         }
         assert!(!server.app.state.request_client_config_reload);
+    }
+
+    fn install_palette_test_pane(
+        server: &mut HeadlessServer,
+    ) -> (crate::layout::PaneId, mpsc::Receiver<Bytes>) {
+        let mut workspace = crate::workspace::Workspace::test_new("palette");
+        let pane_id = workspace.focused_pane_id().unwrap();
+        let (runtime, rx) = crate::terminal::TerminalRuntime::test_with_channel_capacity(80, 24, 8);
+        workspace.tabs[0].runtimes.insert(pane_id, runtime);
+        server.app.state.workspaces = vec![workspace];
+        server.app.state.active = Some(0);
+        server.app.state.selected = 0;
+        (pane_id, rx)
+    }
+
+    fn palette_query_event(pane_id: crate::layout::PaneId) -> AppEvent {
+        AppEvent::HostPaletteQueries {
+            pane_id,
+            queries: vec![crate::events::HostPaletteQuery {
+                index: 7,
+                revision: 0,
+                fallback: b"fallback".to_vec(),
+            }],
+        }
+    }
+
+    #[tokio::test]
+    async fn host_palette_query_targets_foreground_client_and_returns_to_origin_runtime() {
+        let mut server = test_headless_server();
+        let (pane_id, mut pane_rx) = install_palette_test_pane(&mut server);
+        let (background, background_rx, _background_render_rx) = test_client_writer();
+        let (foreground, foreground_rx, _foreground_render_rx) = test_client_writer();
+        server.clients.insert(
+            1,
+            ClientConnection::new(
+                (80, 24),
+                crate::kitty_graphics::HostCellSize::default(),
+                crate::terminal_theme::TerminalTheme::default(),
+                None,
+                1,
+                RenderEncoding::SemanticFrame,
+                Some(background),
+            ),
+        );
+        server.clients.insert(
+            2,
+            ClientConnection::new(
+                (80, 24),
+                crate::kitty_graphics::HostCellSize::default(),
+                crate::terminal_theme::TerminalTheme::default(),
+                None,
+                2,
+                RenderEncoding::SemanticFrame,
+                Some(foreground),
+            ),
+        );
+        server.foreground_client_id = Some(2);
+
+        assert!(!server.handle_internal_event_with_forwarding(palette_query_event(pane_id)));
+        assert!(background_rx.try_recv().is_err());
+        let (request_id, index) = match read_server_message(
+            foreground_rx
+                .recv_timeout(Duration::from_millis(100))
+                .expect("foreground palette query"),
+        ) {
+            ServerMessage::HostPaletteQuery { request_id, index } => (request_id, index),
+            other => panic!("expected host palette query, got {other:?}"),
+        };
+        assert_eq!(index, 7);
+        assert!(pane_rx.try_recv().is_err());
+
+        assert!(!server.handle_internal_event_with_forwarding(palette_query_event(pane_id)));
+        assert!(foreground_rx.try_recv().is_err());
+
+        assert!(
+            !server.handle_server_event(ServerEvent::ClientHostPaletteResponse {
+                client_id: 1,
+                request_id,
+                index,
+                r: 0x11,
+                g: 0x22,
+                b: 0x33,
+            })
+        );
+        assert_eq!(server.pending_host_palette_queries.len(), 1);
+        assert!(pane_rx.try_recv().is_err());
+
+        server.foreground_client_id = Some(1);
+
+        assert!(
+            !server.handle_server_event(ServerEvent::ClientHostPaletteResponse {
+                client_id: 2,
+                request_id,
+                index: index + 1,
+                r: 0x11,
+                g: 0x22,
+                b: 0x33,
+            })
+        );
+        assert_eq!(server.pending_host_palette_queries.len(), 1);
+        assert!(pane_rx.try_recv().is_err());
+
+        assert!(
+            !server.handle_server_event(ServerEvent::ClientHostPaletteResponse {
+                client_id: 2,
+                request_id,
+                index,
+                r: 0x11,
+                g: 0x22,
+                b: 0x33,
+            })
+        );
+        assert_eq!(
+            pane_rx.try_recv().unwrap(),
+            Bytes::from_static(b"\x1b]4;7;rgb:11/22/33\x1b\\")
+        );
+        assert_eq!(
+            pane_rx.try_recv().unwrap(),
+            Bytes::from_static(b"\x1b]4;7;rgb:11/22/33\x1b\\")
+        );
+        assert!(server.pending_host_palette_queries.is_empty());
+        assert_eq!(server.foreground_client_id, Some(1));
+
+        server.foreground_client_id = Some(2);
+        assert!(!server.handle_internal_event_with_forwarding(palette_query_event(pane_id)));
+        assert_eq!(
+            pane_rx.try_recv().unwrap(),
+            Bytes::from_static(b"\x1b]4;7;rgb:11/22/33\x1b\\")
+        );
+        assert!(foreground_rx.try_recv().is_err());
+
+        assert!(
+            !server.handle_server_event(ServerEvent::ClientHostPaletteResponse {
+                client_id: 2,
+                request_id,
+                index,
+                r: 1,
+                g: 2,
+                b: 3,
+            })
+        );
+        assert!(pane_rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn host_palette_query_falls_back_without_capable_client_and_on_timeout() {
+        let mut server = test_headless_server();
+        let (pane_id, mut pane_rx) = install_palette_test_pane(&mut server);
+
+        assert!(!server.handle_internal_event_with_forwarding(palette_query_event(pane_id)));
+        assert_eq!(pane_rx.try_recv().unwrap(), Bytes::from_static(b"fallback"));
+
+        let (writer, control_rx, _render_rx) = test_client_writer();
+        server.clients.insert(
+            1,
+            ClientConnection::new(
+                (80, 24),
+                crate::kitty_graphics::HostCellSize::default(),
+                crate::terminal_theme::TerminalTheme::default(),
+                None,
+                1,
+                RenderEncoding::SemanticFrame,
+                Some(writer),
+            ),
+        );
+        server.foreground_client_id = Some(1);
+        assert!(!server.handle_internal_event_with_forwarding(palette_query_event(pane_id)));
+        let _ = control_rx
+            .recv_timeout(Duration::from_millis(100))
+            .expect("palette query before timeout");
+        server.expire_host_palette_queries(Instant::now() + HOST_PALETTE_QUERY_TIMEOUT);
+
+        assert_eq!(pane_rx.try_recv().unwrap(), Bytes::from_static(b"fallback"));
+        assert!(server.pending_host_palette_queries.is_empty());
+    }
+
+    #[tokio::test]
+    async fn expired_palette_response_falls_back_and_same_index_does_not_requery() {
+        let mut server = test_headless_server();
+        let (pane_id, mut pane_rx) = install_palette_test_pane(&mut server);
+        let (writer, control_rx, _render_rx) = test_client_writer();
+        server.clients.insert(
+            1,
+            ClientConnection::new(
+                (80, 24),
+                crate::kitty_graphics::HostCellSize::default(),
+                crate::terminal_theme::TerminalTheme::default(),
+                None,
+                1,
+                RenderEncoding::SemanticFrame,
+                Some(writer),
+            ),
+        );
+        server.foreground_client_id = Some(1);
+
+        assert!(!server.handle_internal_event_with_forwarding(palette_query_event(pane_id)));
+        let (request_id, index) = match read_server_message(
+            control_rx
+                .recv_timeout(Duration::from_millis(100))
+                .expect("palette query"),
+        ) {
+            ServerMessage::HostPaletteQuery { request_id, index } => (request_id, index),
+            other => panic!("expected host palette query, got {other:?}"),
+        };
+        server
+            .pending_host_palette_queries
+            .get_mut(&request_id)
+            .unwrap()
+            .deadline = Instant::now() - Duration::from_millis(1);
+
+        assert!(
+            !server.handle_server_event(ServerEvent::ClientHostPaletteResponse {
+                client_id: 1,
+                request_id,
+                index,
+                r: 1,
+                g: 2,
+                b: 3,
+            })
+        );
+        assert_eq!(pane_rx.try_recv().unwrap(), Bytes::from_static(b"fallback"));
+        assert!(server.pending_host_palette_queries.is_empty());
+
+        assert!(!server.handle_internal_event_with_forwarding(palette_query_event(pane_id)));
+        assert_eq!(pane_rx.try_recv().unwrap(), Bytes::from_static(b"fallback"));
+        assert!(control_rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn palette_cache_bypasses_physical_cap_and_waiter_overflow_falls_back() {
+        let mut server = test_headless_server();
+        let (pane_id, mut pane_rx) = install_palette_test_pane(&mut server);
+        let terminal_id = server.terminal_id_for_pane(pane_id).unwrap();
+        let (writer, control_rx, _render_rx) = test_client_writer();
+        server.clients.insert(
+            1,
+            ClientConnection::new(
+                (80, 24),
+                crate::kitty_graphics::HostCellSize::default(),
+                crate::terminal_theme::TerminalTheme::default(),
+                None,
+                1,
+                RenderEncoding::SemanticFrame,
+                Some(writer),
+            ),
+        );
+        server.foreground_client_id = Some(1);
+
+        for request_id in 1..=MAX_PENDING_HOST_PALETTE_QUERIES as u64 {
+            server.pending_host_palette_queries.insert(
+                request_id,
+                PendingHostPaletteQuery {
+                    client_id: request_id + 100,
+                    index: 0,
+                    deadline: Instant::now() + HOST_PALETTE_QUERY_TIMEOUT,
+                    deliveries: vec![PendingHostPaletteDelivery {
+                        terminal_id: terminal_id.clone(),
+                        pane_id,
+                        revision: 0,
+                        fallback: Vec::new(),
+                    }],
+                },
+            );
+        }
+        server.host_palette_query_states.insert(
+            (1, 7),
+            HostPaletteQueryState::Resolved(crate::terminal_theme::RgbColor {
+                r: 0x11,
+                g: 0x22,
+                b: 0x33,
+            }),
+        );
+
+        assert!(!server.handle_internal_event_with_forwarding(palette_query_event(pane_id)));
+        assert_eq!(
+            pane_rx.try_recv().unwrap(),
+            Bytes::from_static(b"\x1b]4;7;rgb:11/22/33\x1b\\")
+        );
+        assert!(control_rx.try_recv().is_err());
+
+        server.pending_host_palette_queries.clear();
+        server.host_palette_query_states.clear();
+        let request_id = 42;
+        server.pending_host_palette_queries.insert(
+            request_id,
+            PendingHostPaletteQuery {
+                client_id: 1,
+                index: 7,
+                deadline: Instant::now() + HOST_PALETTE_QUERY_TIMEOUT,
+                deliveries: (0..MAX_PENDING_HOST_PALETTE_DELIVERIES)
+                    .map(|_| PendingHostPaletteDelivery {
+                        terminal_id: terminal_id.clone(),
+                        pane_id,
+                        revision: 0,
+                        fallback: Vec::new(),
+                    })
+                    .collect(),
+            },
+        );
+        server
+            .host_palette_query_states
+            .insert((1, 7), HostPaletteQueryState::InFlight(request_id));
+
+        assert!(!server.handle_internal_event_with_forwarding(palette_query_event(pane_id)));
+        assert_eq!(pane_rx.try_recv().unwrap(), Bytes::from_static(b"fallback"));
+        assert!(control_rx.try_recv().is_err());
+        assert_eq!(
+            server.pending_host_palette_queries[&request_id]
+                .deliveries
+                .len(),
+            MAX_PENDING_HOST_PALETTE_DELIVERIES
+        );
+    }
+
+    #[tokio::test]
+    async fn palette_query_falls_back_for_writerless_and_disconnected_authority() {
+        let mut server = test_headless_server();
+        let (pane_id, mut pane_rx) = install_palette_test_pane(&mut server);
+        server.clients.insert(
+            1,
+            ClientConnection::new(
+                (80, 24),
+                crate::kitty_graphics::HostCellSize::default(),
+                crate::terminal_theme::TerminalTheme::default(),
+                None,
+                1,
+                RenderEncoding::SemanticFrame,
+                None,
+            ),
+        );
+        server.foreground_client_id = Some(1);
+
+        assert!(!server.handle_internal_event_with_forwarding(palette_query_event(pane_id)));
+        assert_eq!(pane_rx.try_recv().unwrap(), Bytes::from_static(b"fallback"));
+
+        let (writer, control_rx, _render_rx) = test_client_writer();
+        server.clients.get_mut(&1).unwrap().writer = Some(writer);
+        assert!(!server.handle_internal_event_with_forwarding(palette_query_event(pane_id)));
+        let _ = control_rx
+            .recv_timeout(Duration::from_millis(100))
+            .expect("palette query before disconnect");
+        assert!(server.remove_client(1));
+
+        assert_eq!(pane_rx.try_recv().unwrap(), Bytes::from_static(b"fallback"));
+        assert!(server.pending_host_palette_queries.is_empty());
+    }
+
+    #[tokio::test]
+    async fn direct_controller_precedes_foreground_app_for_palette_queries() {
+        let mut server = test_headless_server();
+        let (pane_id, _pane_rx) = install_palette_test_pane(&mut server);
+        let terminal_id = server.terminal_id_for_pane(pane_id).unwrap();
+        let (foreground, foreground_rx, _foreground_render_rx) = test_client_writer();
+        let (direct, direct_rx, _direct_render_rx) = test_client_writer();
+        server.clients.insert(
+            1,
+            ClientConnection::new(
+                (80, 24),
+                crate::kitty_graphics::HostCellSize::default(),
+                crate::terminal_theme::TerminalTheme::default(),
+                None,
+                1,
+                RenderEncoding::SemanticFrame,
+                Some(foreground),
+            ),
+        );
+        server.clients.insert(
+            2,
+            ClientConnection::new_with_mode(
+                crate::server::clients::ClientConnectionMode::TerminalAttach {
+                    terminal_id: terminal_id.to_string(),
+                },
+                None,
+                (80, 24),
+                crate::kitty_graphics::HostCellSize::default(),
+                crate::terminal_theme::TerminalTheme::default(),
+                None,
+                2,
+                RenderEncoding::SemanticFrame,
+                false,
+                true,
+                Some(direct),
+            ),
+        );
+        server.foreground_client_id = Some(1);
+        server
+            .terminal_attach_owners
+            .insert(terminal_id.to_string(), 2);
+
+        assert!(!server.handle_internal_event_with_forwarding(palette_query_event(pane_id)));
+        assert!(foreground_rx.try_recv().is_err());
+        assert!(matches!(
+            read_server_message(
+                direct_rx
+                    .recv_timeout(Duration::from_millis(100))
+                    .expect("direct controller palette query")
+            ),
+            ServerMessage::HostPaletteQuery { index: 7, .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn pane_death_discards_pending_palette_query_and_late_response() {
+        let mut server = test_headless_server();
+        let (pane_id, mut pane_rx) = install_palette_test_pane(&mut server);
+        let (writer, control_rx, _render_rx) = test_client_writer();
+        server.clients.insert(
+            1,
+            ClientConnection::new(
+                (80, 24),
+                crate::kitty_graphics::HostCellSize::default(),
+                crate::terminal_theme::TerminalTheme::default(),
+                None,
+                1,
+                RenderEncoding::SemanticFrame,
+                Some(writer),
+            ),
+        );
+        server.foreground_client_id = Some(1);
+        assert!(!server.handle_internal_event_with_forwarding(palette_query_event(pane_id)));
+        let (request_id, index) = match read_server_message(
+            control_rx
+                .recv_timeout(Duration::from_millis(100))
+                .expect("palette query"),
+        ) {
+            ServerMessage::HostPaletteQuery { request_id, index } => (request_id, index),
+            other => panic!("expected host palette query, got {other:?}"),
+        };
+
+        server.discard_palette_queries_for_pane(pane_id);
+        assert!(server.pending_host_palette_queries.is_empty());
+        assert!(!server.host_palette_query_states.contains_key(&(1, index)));
+        assert!(
+            !server.handle_server_event(ServerEvent::ClientHostPaletteResponse {
+                client_id: 1,
+                request_id,
+                index,
+                r: 1,
+                g: 2,
+                b: 3,
+            })
+        );
+        assert!(pane_rx.try_recv().is_err());
     }
 
     #[test]

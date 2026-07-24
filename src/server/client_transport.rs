@@ -291,10 +291,20 @@ pub(crate) enum ServerEvent {
         render_encoding: RenderEncoding,
         keybindings: Option<Box<crate::config::LiveKeybindConfig>>,
         direct_attach_requested: bool,
+        host_palette_queries: bool,
         writer: ClientWriter,
     },
     /// A client sent an input message.
     ClientInput { client_id: u64, data: Vec<u8> },
+    /// A client returned a correlated physical-host palette color.
+    ClientHostPaletteResponse {
+        client_id: u64,
+        request_id: u64,
+        index: u8,
+        r: u8,
+        g: u8,
+        b: u8,
+    },
     /// A client sent structured input events.
     ClientInputEvents {
         client_id: u64,
@@ -477,6 +487,7 @@ pub(crate) fn handle_client_handshake(
         render_encoding,
         keybindings,
         direct_attach_requested,
+        host_palette_queries,
     ) = match hello {
         ClientMessage::Hello {
             version,
@@ -487,6 +498,7 @@ pub(crate) fn handle_client_handshake(
             requested_encoding,
             keybindings,
             launch_mode,
+            host_palette_queries,
         } => {
             // Version check.
             match protocol::check_client_version(version) {
@@ -526,6 +538,7 @@ pub(crate) fn handle_client_handshake(
                 requested_encoding,
                 keybindings,
                 launch_mode == ClientLaunchMode::TerminalAttach,
+                host_palette_queries,
             )
         }
         _ => {
@@ -580,6 +593,7 @@ pub(crate) fn handle_client_handshake(
         render_encoding,
         keybindings,
         direct_attach_requested,
+        host_palette_queries,
         writer,
     });
 
@@ -785,6 +799,20 @@ fn client_read_loop(
                 column,
                 row,
                 modifiers,
+            },
+            ClientMessage::HostPaletteResponse {
+                request_id,
+                index,
+                r,
+                g,
+                b,
+            } => ServerEvent::ClientHostPaletteResponse {
+                client_id,
+                request_id,
+                index,
+                r,
+                g,
+                b,
             },
             ClientMessage::Hello { .. } => {
                 // Duplicate Hello — ignore.
@@ -1122,6 +1150,7 @@ new_tab = "ctrl+notakey"
                 requested_encoding: RenderEncoding::TerminalAnsi,
                 keybindings: ClientKeybindings::Server,
                 launch_mode: ClientLaunchMode::App,
+                host_palette_queries: true,
             },
         )
         .expect("write hello");
@@ -1155,6 +1184,7 @@ new_tab = "ctrl+notakey"
                 keybindings,
                 direct_attach_requested,
                 writer,
+                ..
             } => {
                 assert_eq!(client_id, 42);
                 assert_eq!((cols, rows), (100, 30));
@@ -1197,6 +1227,7 @@ new_tab = "ctrl+notakey"
                 requested_encoding: RenderEncoding::TerminalAnsi,
                 keybindings: ClientKeybindings::Server,
                 launch_mode: ClientLaunchMode::TerminalAttach,
+                host_palette_queries: true,
             },
         )
         .expect("write hello");
@@ -1311,6 +1342,45 @@ new_tab = "ctrl+notakey"
             .join()
             .expect("read thread join")
             .expect("read thread result");
+    }
+
+    #[test]
+    fn client_read_loop_forwards_host_palette_response_as_dedicated_event() {
+        let (mut client_stream, server_stream, _path) = local_stream_pair("host-palette-response");
+        let (server_event_tx, mut server_event_rx) = mpsc::channel(4);
+        let should_quit = Arc::new(AtomicBool::new(false));
+        let read_quit = should_quit.clone();
+        let handle = std::thread::spawn(move || {
+            client_read_loop(server_stream, 7, &server_event_tx, &read_quit)
+        });
+
+        protocol::write_message(
+            &mut client_stream,
+            &ClientMessage::HostPaletteResponse {
+                request_id: 9,
+                index: 42,
+                r: 1,
+                g: 2,
+                b: 3,
+            },
+        )
+        .expect("write host palette response");
+
+        assert!(matches!(
+            recv_server_event(&mut server_event_rx, "host palette response event"),
+            ServerEvent::ClientHostPaletteResponse {
+                client_id: 7,
+                request_id: 9,
+                index: 42,
+                r: 1,
+                g: 2,
+                b: 3,
+            }
+        ));
+
+        drop(client_stream);
+        should_quit.store(true, Ordering::Release);
+        handle.join().unwrap().unwrap();
     }
 
     #[test]

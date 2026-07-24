@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 /// Current protocol version. Bumped when wire format changes incompatibly.
-pub const PROTOCOL_VERSION: u32 = 17;
+pub const PROTOCOL_VERSION: u32 = 18;
 
 /// Maximum allowed frame payload size (2 MB). Frames larger than this are
 /// rejected to prevent denial-of-service via oversized length prefixes.
@@ -324,6 +324,8 @@ pub enum ClientMessage {
         keybindings: ClientKeybindings,
         /// Whether this connection will render the full app or attach directly to a pane terminal.
         launch_mode: ClientLaunchMode,
+        /// Whether this client can query and parse palette reports from its physical host terminal.
+        host_palette_queries: bool,
     },
 
     /// Raw input bytes read from the client's stdin.
@@ -394,6 +396,15 @@ pub enum ClientMessage {
         target: String,
         /// Replace an existing writable controller for this terminal.
         takeover: bool,
+    },
+
+    /// Correlated response to a host palette query issued by the server.
+    HostPaletteResponse {
+        request_id: u64,
+        index: u8,
+        r: u8,
+        g: u8,
+        b: u8,
     },
 }
 
@@ -664,6 +675,9 @@ pub enum ServerMessage {
         /// Whether the ASCII input source should be active.
         active: bool,
     },
+
+    /// Ask this client to query one palette slot from its physical host terminal.
+    HostPaletteQuery { request_id: u64, index: u8 },
 }
 
 // ---------------------------------------------------------------------------
@@ -953,6 +967,7 @@ mod tests {
             requested_encoding: RenderEncoding::SemanticFrame,
             keybindings: ClientKeybindings::Server,
             launch_mode: ClientLaunchMode::App,
+            host_palette_queries: true,
         };
         let encoded = bincode::serde::encode_to_vec(&msg, bincode::config::standard()).unwrap();
         let (decoded, _): (ClientMessage, _) =
@@ -990,6 +1005,7 @@ mod tests {
                 requested_encoding: RenderEncoding::SemanticFrame,
                 keybindings: ClientKeybindings::Server,
                 launch_mode: ClientLaunchMode::App,
+                host_palette_queries: true,
             }),
             0
         );
@@ -1043,6 +1059,41 @@ mod tests {
             }),
             9
         );
+        assert_eq!(
+            tag(&ClientMessage::HostPaletteResponse {
+                request_id: 7,
+                index: 42,
+                r: 1,
+                g: 2,
+                b: 3,
+            }),
+            10
+        );
+    }
+
+    #[test]
+    fn host_palette_messages_roundtrip() {
+        let response = ClientMessage::HostPaletteResponse {
+            request_id: 17,
+            index: 255,
+            r: 0x11,
+            g: 0x22,
+            b: 0x33,
+        };
+        let encoded =
+            bincode::serde::encode_to_vec(&response, bincode::config::standard()).unwrap();
+        let (decoded, _): (ClientMessage, _) =
+            bincode::serde::decode_from_slice(&encoded, bincode::config::standard()).unwrap();
+        assert_eq!(response, decoded);
+
+        let query = ServerMessage::HostPaletteQuery {
+            request_id: 17,
+            index: 255,
+        };
+        let encoded = bincode::serde::encode_to_vec(&query, bincode::config::standard()).unwrap();
+        let (decoded, _): (ServerMessage, _) =
+            bincode::serde::decode_from_slice(&encoded, bincode::config::standard()).unwrap();
+        assert_eq!(query, decoded);
     }
 
     #[test]
@@ -1436,6 +1487,7 @@ mod tests {
             requested_encoding: RenderEncoding::SemanticFrame,
             keybindings: ClientKeybindings::Server,
             launch_mode: ClientLaunchMode::App,
+            host_palette_queries: true,
         };
         let mut buf = Vec::new();
         write_message(&mut buf, &msg).unwrap();
@@ -1510,6 +1562,7 @@ mod tests {
                     requested_encoding: RenderEncoding::SemanticFrame,
                     keybindings: ClientKeybindings::Server,
                     launch_mode: ClientLaunchMode::App,
+                    host_palette_queries: true,
                 },
                 1 => ClientMessage::Input {
                     data: vec![(i % 256) as u8; (i as usize % 50) + 1],
@@ -1946,6 +1999,7 @@ mod tests {
             requested_encoding: RenderEncoding::SemanticFrame,
             keybindings: ClientKeybindings::Server,
             launch_mode: ClientLaunchMode::App,
+            host_palette_queries: true,
         };
         let mut buf = Vec::new();
         write_message(&mut buf, &msg).unwrap();
@@ -1982,6 +2036,7 @@ mod tests {
                 requested_encoding: RenderEncoding::SemanticFrame,
                 keybindings: ClientKeybindings::Server,
                 launch_mode: ClientLaunchMode::App,
+                host_palette_queries: true,
             },
             ClientMessage::Input {
                 data: b"hello world".to_vec(),

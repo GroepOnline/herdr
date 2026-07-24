@@ -761,11 +761,14 @@ impl TerminalState {
         if authority.source != source || authority.agent_label != agent_label {
             return false;
         }
-        authority
-            .session_ref
-            .as_ref()
-            .zip(session_ref.as_ref())
-            .is_some_and(|(current, incoming)| current != incoming)
+        match (authority.session_ref.as_ref(), session_ref.as_ref()) {
+            // Same-source reports must not clear or replace a bound owner session.
+            // Omitting session identity used to clear the binding via zip-only conflict
+            // checks, after which an unscoped release could wipe the root.
+            (Some(_), None) => true,
+            (Some(current), Some(incoming)) => current != incoming,
+            (None, _) => false,
+        }
     }
 
     fn same_owner_full_lifecycle_hook_authority_session_ref(
@@ -985,7 +988,10 @@ impl TerminalState {
             ) | (
                 "herdr:codex",
                 "codex",
-                Some("startup" | "clear" | "resume" | "compact")
+                // Nested `codex exec` (including --ephemeral) inherits Herdr env and
+                // emits SessionStart with source "startup" and a different session id.
+                // Only intentional lifecycle replacements may overwrite a bound root.
+                Some("clear" | "resume" | "compact")
             ) | ("herdr:opencode", "opencode", Some("new"))
                 | ("herdr:pi", "pi", Some("new" | "resume" | "fork"))
                 | ("herdr:omp", "omp", Some("new" | "resume" | "fork"))
@@ -3994,7 +4000,7 @@ mod tests {
     }
 
     #[test]
-    fn accepted_hook_report_without_session_ref_clears_previous_ref() {
+    fn hook_report_without_session_ref_does_not_clear_bound_full_lifecycle_session() {
         let mut terminal = test_terminal();
         let session_path = test_session_path("pi.jsonl");
         terminal.set_hook_authority_with_session_ref(
@@ -4002,29 +4008,71 @@ mod tests {
             "pi".into(),
             AgentState::Working,
             None,
-            crate::agent_resume::AgentSessionRef::path(session_path),
+            crate::agent_resume::AgentSessionRef::path(session_path.clone()),
             Some(20),
         );
 
-        let mutation = terminal
-            .set_hook_authority_with_session_ref(
-                "herdr:pi".into(),
-                "pi".into(),
-                AgentState::Working,
-                None,
-                None,
-                Some(21),
-            )
-            .expect("accepted report");
+        let mutation = terminal.set_hook_authority_with_session_ref(
+            "herdr:pi".into(),
+            "pi".into(),
+            AgentState::Working,
+            None,
+            None,
+            Some(21),
+        );
 
-        assert!(mutation.session_ref_changed);
-        assert!(mutation.effective_state_change.is_none());
-        assert!(terminal
-            .hook_authority
-            .as_ref()
-            .unwrap()
-            .session_ref
-            .is_none());
+        assert!(mutation.is_none());
+        assert_eq!(
+            terminal
+                .hook_authority
+                .as_ref()
+                .and_then(|authority| authority.session_ref.as_ref())
+                .map(|session_ref| session_ref.value.as_str()),
+            Some(session_path.as_str())
+        );
+        assert_eq!(terminal.hook_report_sequences.get("herdr:pi"), Some(&20));
+    }
+
+    #[test]
+    fn none_report_plus_unscoped_release_cannot_clear_session_bound_root() {
+        let mut terminal = test_terminal();
+        let root_session = crate::agent_resume::AgentSessionRef::path(test_session_path(
+            "session-bound-root.jsonl",
+        ))
+        .expect("root session path");
+        terminal.set_detected_state(Some(Agent::Pi), AgentState::Working);
+        terminal.set_hook_authority_with_session_ref(
+            "herdr:pi".into(),
+            "pi".into(),
+            AgentState::Working,
+            None,
+            Some(root_session.clone()),
+            Some(20),
+        );
+
+        let clear_report = terminal.set_hook_authority_with_session_ref(
+            "herdr:pi".into(),
+            "pi".into(),
+            AgentState::Idle,
+            None,
+            None,
+            Some(1000),
+        );
+        let unscoped_release =
+            terminal.release_agent_with_mutation("herdr:pi", "pi", None, Some(1001));
+
+        assert!(clear_report.is_none());
+        assert!(unscoped_release.is_none());
+        assert!(terminal.hook_authority.is_some());
+        assert_eq!(
+            terminal
+                .hook_authority
+                .as_ref()
+                .and_then(|authority| authority.session_ref.as_ref()),
+            Some(&root_session)
+        );
+        assert_eq!(terminal.state, AgentState::Working);
+        assert_eq!(terminal.hook_report_sequences.get("herdr:pi"), Some(&20));
     }
 
     #[test]
@@ -4161,8 +4209,107 @@ mod tests {
     }
 
     #[test]
+    fn codex_startup_session_ref_does_not_replace_existing_session_ref() {
+        let mut terminal = test_terminal();
+        terminal
+            .set_agent_session_ref(
+                "herdr:codex".into(),
+                "codex".into(),
+                crate::agent_resume::AgentSessionRef::id("codex-root-session"),
+                Some(20),
+            )
+            .expect("initial session should be accepted");
+
+        let nested_start = terminal.set_agent_session_ref_for_session_start(
+            "herdr:codex".into(),
+            "codex".into(),
+            crate::agent_resume::AgentSessionRef::id("codex-nested-session"),
+            Some(1000),
+            Some("startup".into()),
+        );
+        let same_session_startup = terminal.set_agent_session_ref_for_session_start(
+            "herdr:codex".into(),
+            "codex".into(),
+            crate::agent_resume::AgentSessionRef::id("codex-root-session"),
+            Some(21),
+            Some("startup".into()),
+        );
+
+        assert!(nested_start.is_none());
+        assert!(same_session_startup.is_some());
+        assert!(
+            !same_session_startup
+                .expect("same-id startup should be accepted")
+                .session_ref_changed
+        );
+        assert_eq!(terminal.hook_report_sequences.get("herdr:codex"), Some(&21));
+        assert_eq!(
+            terminal
+                .persisted_agent_session
+                .as_ref()
+                .map(|session| session.session_ref.value.as_str()),
+            Some("codex-root-session")
+        );
+    }
+
+    #[test]
+    fn nested_codex_session_start_does_not_replace_root_resume_id() {
+        let mut terminal = test_terminal();
+        let root_session =
+            crate::agent_resume::AgentSessionRef::id("codex-session-a").expect("root session");
+        let nested_session =
+            crate::agent_resume::AgentSessionRef::id("codex-session-b").expect("nested session");
+        terminal
+            .set_agent_session_ref(
+                "herdr:codex".into(),
+                "codex".into(),
+                Some(root_session.clone()),
+                Some(20),
+            )
+            .expect("root Codex session should be accepted");
+
+        // Nested `codex exec` (even --ephemeral) inherits Herdr env and reports a
+        // different SessionStart id; keep the bound root resume id.
+        let nested_start = terminal.set_agent_session_ref_for_session_start(
+            "herdr:codex".into(),
+            "codex".into(),
+            Some(nested_session),
+            Some(1000),
+            Some("startup".into()),
+        );
+        let root_update = terminal.set_agent_session_ref(
+            "herdr:codex".into(),
+            "codex".into(),
+            Some(root_session.clone()),
+            Some(21),
+        );
+
+        assert!(nested_start.is_none());
+        assert!(root_update.is_some());
+        assert!(
+            !root_update
+                .expect("same root session should be accepted")
+                .session_ref_changed
+        );
+        assert_eq!(terminal.hook_report_sequences.get("herdr:codex"), Some(&21));
+        assert_eq!(
+            terminal
+                .persisted_agent_session
+                .as_ref()
+                .map(|session| &session.session_ref),
+            Some(&root_session)
+        );
+        assert_eq!(
+            terminal
+                .current_session_identity_for_persistence()
+                .map(|(_, _, _, value)| value),
+            Some("codex-session-a".into())
+        );
+    }
+
+    #[test]
     fn codex_lifecycle_session_ref_replaces_existing_session_ref() {
-        for session_start_source in ["startup", "clear", "resume", "compact"] {
+        for session_start_source in ["clear", "resume", "compact"] {
             let mut terminal = test_terminal();
             terminal
                 .set_agent_session_ref(

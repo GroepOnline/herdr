@@ -1570,7 +1570,7 @@ impl App {
             };
             ws.close_pane(pane_id)
         };
-        self.state.remove_plugin_pane_records([pane_id]);
+        self.remove_plugin_pane_records([pane_id]);
         if should_close_workspace {
             self.state.selected = ws_idx;
             self.state.close_selected_workspace();
