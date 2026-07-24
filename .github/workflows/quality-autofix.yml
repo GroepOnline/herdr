@@ -1,0 +1,282 @@
+name: Quality autofix
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to autofix
+        required: true
+        type: number
+
+permissions: {}
+
+concurrency:
+  group: quality-autofix-${{ github.event.inputs.pr_number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RUST_TOOLCHAIN_VERSION: 1.96.1
+
+jobs:
+  autofix:
+    name: Apply mechanical quality fixes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: read
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Resolve pull request
+        id: pr
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          event_name = os.environ["EVENT_NAME"]
+          repository = os.environ["REPOSITORY"]
+          token = os.environ["GITHUB_TOKEN"]
+
+          def output(name, value):
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+                  handle.write(f"{name}={value}\n")
+
+          def github_api(path):
+              request = urllib.request.Request(
+                  f"https://api.github.com{path}",
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {token}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              with urllib.request.urlopen(request) as response:
+                  return json.loads(response.read().decode("utf-8"))
+
+          if event_name == "pull_request":
+              with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as handle:
+                  event = json.load(handle)
+              pr = event["pull_request"]
+              pr_number = str(pr["number"])
+          else:
+              pr_number = os.environ["PR_NUMBER"]
+              pr = github_api(f"/repos/{repository}/pulls/{pr_number}")
+
+          head = pr["head"]
+          head_repo = (head.get("repo") or {}).get("full_name")
+          if head_repo != repository:
+              output("skip", "true")
+              output("skip_reason", f"fork pull request: {head_repo}")
+              output("number", pr_number)
+              output("head_branch", "")
+              output("head_sha", head["sha"])
+              output("head_repo", head_repo or "")
+              raise SystemExit(0)
+
+          labels = {label.get("name") for label in pr.get("labels") or []}
+          if "ci-autofix-disabled" in labels:
+              output("skip", "true")
+              output("skip_reason", "ci-autofix-disabled label present")
+              output("number", pr_number)
+              output("head_branch", head["ref"])
+              output("head_sha", head["sha"])
+              output("head_repo", head_repo)
+              raise SystemExit(0)
+
+          output("skip", "false")
+          output("skip_reason", "")
+          output("number", pr_number)
+          output("head_branch", head["ref"])
+          output("head_sha", head["sha"])
+          output("head_repo", head_repo)
+          PY
+
+      - name: Report skipped pull request
+        if: steps.pr.outputs.skip == 'true'
+        env:
+          SKIP_REASON: ${{ steps.pr.outputs.skip_reason }}
+        run: echo "Skipping autofix - $SKIP_REASON"
+
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        if: steps.pr.outputs.skip != 'true'
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ steps.pr.outputs.head_branch }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+          persist-credentials: false
+
+      - name: Confirm branch still matches detected source
+        id: current
+        if: steps.pr.outputs.skip != 'true'
+        env:
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          current_sha="$(git rev-parse HEAD)"
+          if [ "$current_sha" != "$HEAD_SHA" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Branch moved from $HEAD_SHA to $current_sha; skipping autofix."
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect autofix guard and metadata drift
+        id: inspect
+        if: steps.pr.outputs.skip != 'true' && steps.current.outputs.skip != 'true'
+        env:
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          import tomllib
+          from pathlib import Path
+
+          INSTALLER_VERSION_RE = re.compile(r'(?m)^const VERSION = "(?P<version>[^"]+)";$')
+
+          def output(name, value):
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+                  handle.write(f"{name}={value}\n")
+
+          def git(*args):
+              return subprocess.check_output(("git", *args), text=True)
+
+          head_sha = os.environ["HEAD_SHA"]
+          latest_subject = git("log", "-1", "--pretty=%s").strip()
+          if latest_subject.startswith("ci: autofix"):
+              output("skip", "true")
+              output("skip_reason", "latest commit is already an autofix")
+              raise SystemExit(0)
+
+          commit_messages = git("log", "--format=%B")
+          if f"Autofix-Source-SHA: {head_sha}" in commit_messages:
+              output("skip", "true")
+              output("skip_reason", f"already autofixed {head_sha}")
+              raise SystemExit(0)
+
+          cargo = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))
+          cargo_version = cargo["package"]["version"]
+
+          package = json.loads(Path("npm/package.json").read_text(encoding="utf-8"))
+          package_version = package["version"]
+
+          installer = Path("npm/install.js").read_text(encoding="utf-8")
+          match = INSTALLER_VERSION_RE.search(installer)
+          if match is None:
+              raise SystemExit("npm/install.js is missing const VERSION")
+          installer_version = match.group("version")
+
+          needs_sync = package_version != cargo_version or installer_version != cargo_version
+          output("skip", "false")
+          output("skip_reason", "")
+          output("needs_sync", str(needs_sync).lower())
+          output("cargo_version", cargo_version)
+          output("package_version", package_version)
+          output("installer_version", installer_version)
+          PY
+
+      - name: Report skipped autofix
+        if: steps.pr.outputs.skip != 'true' && steps.current.outputs.skip != 'true' && steps.inspect.outputs.skip == 'true'
+        env:
+          SKIP_REASON: ${{ steps.inspect.outputs.skip_reason }}
+        run: echo "Skipping autofix - $SKIP_REASON"
+
+      - name: Report metadata drift
+        if: steps.pr.outputs.skip != 'true' && steps.current.outputs.skip != 'true' && steps.inspect.outputs.skip != 'true'
+        env:
+          CARGO_VERSION: ${{ steps.inspect.outputs.cargo_version }}
+          PACKAGE_VERSION: ${{ steps.inspect.outputs.package_version }}
+          INSTALLER_VERSION: ${{ steps.inspect.outputs.installer_version }}
+          NEEDS_SYNC: ${{ steps.inspect.outputs.needs_sync }}
+        run: |
+          echo "Cargo.toml version: $CARGO_VERSION"
+          echo "npm/package.json version: $PACKAGE_VERSION"
+          echo "npm/install.js VERSION: $INSTALLER_VERSION"
+          echo "Needs release metadata sync: $NEEDS_SYNC"
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        if: steps.pr.outputs.skip != 'true' && steps.current.outputs.skip != 'true' && steps.inspect.outputs.skip != 'true'
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
+          components: rustfmt
+
+      - name: Sync npm release metadata
+        if: steps.pr.outputs.skip != 'true' && steps.current.outputs.skip != 'true' && steps.inspect.outputs.skip != 'true'
+        run: |
+          python3 <<'PY'
+          import json
+          import re
+          import tomllib
+          from pathlib import Path
+
+          INSTALLER_VERSION_RE = re.compile(r'(?m)^const VERSION = "(?P<version>[^"]+)";$')
+
+          cargo = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))
+          version = cargo["package"]["version"]
+          changed = False
+
+          package_path = Path("npm/package.json")
+          package = json.loads(package_path.read_text(encoding="utf-8"))
+          if package.get("version") != version:
+              package["version"] = version
+              package_path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
+              changed = True
+
+          installer_path = Path("npm/install.js")
+          installer = installer_path.read_text(encoding="utf-8")
+          updated_installer, count = INSTALLER_VERSION_RE.subn(
+              f'const VERSION = "{version}";',
+              installer,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("npm/install.js is missing const VERSION")
+          if updated_installer != installer:
+              installer_path.write_text(updated_installer, encoding="utf-8")
+              changed = True
+
+          if changed:
+              print(f"Synced npm release metadata to {version}.")
+          else:
+              print(f"npm release metadata already matches {version}.")
+          PY
+
+      - name: Format Rust sources
+        if: steps.pr.outputs.skip != 'true' && steps.current.outputs.skip != 'true' && steps.inspect.outputs.skip != 'true'
+        run: |
+          cargo fmt --all
+
+      - name: Commit and push changes
+        if: steps.pr.outputs.skip != 'true' && steps.current.outputs.skip != 'true' && steps.inspect.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ steps.pr.outputs.head_branch }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if git diff --quiet; then
+            echo "No mechanical quality changes."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit \
+            -m "ci: autofix mechanical quality" \
+            -m "Autofix-Source-SHA: $HEAD_SHA"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPOSITORY}.git" "HEAD:$HEAD_BRANCH"

@@ -3,16 +3,8 @@ name: CI
 on:
   push:
     branches: [master, main]
-    paths-ignore:
-      - '**.md'
-      - 'website/**'
-      - 'docs/**'
   pull_request:
     branches: [master, main]
-    paths-ignore:
-      - '**.md'
-      - 'website/**'
-      - 'docs/**'
 
 permissions:
   contents: read
@@ -22,14 +14,16 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   RUSTFLAGS: "-D warnings"
   RUST_TOOLCHAIN_VERSION: 1.96.1
+  ZIG_VERSION: 0.15.2
+  BUN_VERSION: 1.3.14
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  check:
-    name: Check & Test
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -44,15 +38,10 @@ jobs:
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
 
-      - name: Install Rust tools
-        uses: taiki-e/install-action@fd2f5e3d644b484055ebf4268f474c565f148f25 # v2.81.9
-        with:
-          tool: cargo-nextest
-
       - name: Install Zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
-          version: 0.15.2
+          version: ${{ env.ZIG_VERSION }}
 
       - name: Install dependencies
         run: |
@@ -62,61 +51,119 @@ jobs:
       - name: Formatting
         run: cargo fmt --all -- --check
 
+      - name: Cargo clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+
+      - name: Install Rust tools
+        uses: taiki-e/install-action@fd2f5e3d644b484055ebf4268f474c565f148f25 # v2.81.9
+        with:
+          tool: cargo-nextest
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Cargo nextest
+        run: cargo nextest run --locked --status-level fail --final-status-level fail --failure-output final --success-output never
+
+  maintenance:
+    name: Maintenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Python maintenance unittests
+        run: python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_ci_quality scripts.test_config_reference_check scripts.test_docs_translation_parity scripts.test_preview scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
+
+      - name: Integration asset tests
+        run: |
+          bun test src/integration/assets/herdr-agent-state.test.ts
+          bun test src/integration/assets/opencode/herdr-agent-state.test.ts
+
+      - name: Plugin marketplace tests
+        run: cd workers/plugin-marketplace && bun test
+
+  windows-lint:
+    name: Windows lint
+    # Native Windows runner: cross-clippy via cargo-xwin on Linux was too fragile
+    # (llvm-lib/clang-cl/lld-link tooling). Local `just windows-lint` stays as
+    # a Linux cross check for developer machines that have the toolchain.
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      LIBGHOSTTY_VT_SIMD: "false"
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
+          components: clippy
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          key: ci-windows-lint-native
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Cargo clippy on Windows
+        shell: bash
+        run: cargo clippy --bin herdr --locked -- -D warnings
+
+  release-metadata:
+    name: Release metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
       - name: Release metadata consistency
         run: |
           python3 scripts/changelog.py validate-product-announcement
           node --check npm/install.js
           node --check npm/bin/herdr.js
           (cd npm && npm pack --dry-run --ignore-scripts)
-          python3 - <<'PY'
-          import json
-          import tomllib
-          from pathlib import Path
+          python3 scripts/ci_quality.py check-release-metadata
 
-          cargo = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))
-          version = cargo["package"]["version"]
-          package = json.loads(Path("npm/package.json").read_text(encoding="utf-8"))
-          installer = Path("npm/install.js").read_text(encoding="utf-8")
-          changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
-          gateway = Path("src/bin/herdr-gateway.rs").read_text(encoding="utf-8")
-          release_tools = Path("scripts/changelog.py").read_text(encoding="utf-8")
-          npm_readme = Path("npm/README.md").read_text(encoding="utf-8")
-
-          assert package["version"] == version
-          assert package["os"] == ["linux"]
-          assert f'const VERSION = "{version}";' in installer
-          assert f"## [{version}]" in changelog
-          assert 'env!("CARGO_PKG_VERSION")' in gateway
-          assert 'DEFAULT_RELEASE_REPO = "OnlineChefGroep/herdr"' in release_tools
-          assert "RMEOF" not in npm_readme
-          for heading in ("### Added", "### Fixed", "### Changed"):
-              assert f"{heading}\n\n-" in changelog
-          PY
-
-      - name: Cargo check
-        run: cargo check --all-targets --locked
-
-      - name: Cargo nextest
-        run: |
-          cargo nextest run --workspace --locked -- \
-            --skip graphics_bytes_are_written_after_blit_with_saved_cursor \
-            --skip foreground_client_applies_client_keybindings \
-            --skip invalid_server_keybindings_apply_valid_subset_after_settings_save_without_caching_local_keybindings \
-            --skip local_keybinding_client_keeps_local_keybindings_after_settings_save \
-            --skip pane_border_renderer_places_adjacent_cjk_by_display_width
-
-      # nextest does not run doctests; herdr is binary-only so cargo test --doc
-      # has no library target and is N/A until a lib crate exists in the workspace.
-      - name: Cargo doctests
-        run: |
-          echo "Skipping cargo doctests: no lib target in herdr workspace packages that need --doc."
-
-      - name: Cargo clippy
-        run: cargo clippy --all-targets --locked -- -D warnings
-
-  release-build:
+  release-smoke:
     name: Release smoke build (${{ matrix.target }})
-    needs: check
+    needs: [lint, test]
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -145,7 +192,7 @@ jobs:
       - name: Install Zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
-          version: 0.15.2
+          version: ${{ env.ZIG_VERSION }}
 
       - name: Prefer official Ubuntu mirrors over Azure
         if: runner.os == 'Linux'
@@ -181,3 +228,34 @@ jobs:
           name: ci-smoke-${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
           retention-days: 7
+
+  quality-gate:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - test
+      - maintenance
+      - windows-lint
+      - release-metadata
+      - release-smoke
+    if: always()
+    steps:
+      - name: Require all quality jobs
+        run: |
+          set -euo pipefail
+          results=(
+            "${{ needs.lint.result }}"
+            "${{ needs.test.result }}"
+            "${{ needs.maintenance.result }}"
+            "${{ needs.windows-lint.result }}"
+            "${{ needs.release-metadata.result }}"
+            "${{ needs.release-smoke.result }}"
+          )
+          for result in "${results[@]}"; do
+            if [ "$result" != "success" ]; then
+              echo "Quality gate failed; job result was: $result"
+              exit 1
+            fi
+          done
+          echo "Quality gate passed."

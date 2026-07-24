@@ -129,6 +129,14 @@ impl App {
         }
     }
 
+    pub(super) fn save_fleet_ops_bar(&mut self, enabled: bool) {
+        if self.update_config_file("fleet ops bar", |content| {
+            crate::config::upsert_section_bool(content, "ui", "fleet_ops_bar", enabled)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
     pub(super) fn save_switch_ascii_input_source_in_prefix(&mut self, enabled: bool) {
         if self.update_config_file("prefix ascii input source", |content| {
             crate::config::upsert_section_bool(

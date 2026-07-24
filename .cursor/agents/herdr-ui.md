@@ -36,6 +36,19 @@ Checklist before shipping UI:
 - **No god objects.** Split large UI modules rather than dumping more into `ui.rs`.
 - **No `unwrap()` in production paths.** Prefer graceful fallbacks for missing layout/state.
 
+## Overlay dismiss contract
+
+Apply consistently to Settings, ConfirmClose, Rename, ReleaseNotes, ProductAnnouncement (and match Navigator/KeybindHelp):
+
+- Inside chrome without a control → no-op
+- Outside popup → cancel / `leave_modal`
+- Close + Esc → always dismiss
+- Body chrome is never an implicit Cancel
+
+## Fleet Ops Bar
+
+CHEF personal context strip is TUI-only (`src/ui/panes.rs` + Settings **fleet**/**plugins**). Merge plugin `fleet_ops.json` fragments in `src/fleet/ops.rs`; do not invent wire fields named after sidebar widgets. Defer SSOT/plugin policy to the **chef-fleet** agent/skill.
+
 ## Leak & error hunt (required for UI work)
 
 When fixing polish, leaks, or “UI feels wrong,” systematically check:

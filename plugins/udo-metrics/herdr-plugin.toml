@@ -1,0 +1,24 @@
+id = "com.chefgroep.udo-metrics"
+name = "UDO Metrics"
+version = "0.1.0"
+min_herdr_version = "0.7.5"
+description = "Pull metrics from Utrecht Data OS Grafana/Netdata into Fleet Ops Bar"
+platforms = ["linux"]
+
+[[actions]]
+id = "refresh-metrics"
+title = "Refresh UDO metrics"
+description = "Refresh host metrics summary into fleet_ops.json"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "refresh-metrics"]
+
+[[actions]]
+id = "fetch-node"
+title = "Fetch node metrics"
+description = "Refresh one node metrics summary into fleet_ops.json"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "fetch-node"]
+
+[[events]]
+on = "workspace.focused"
+command = ["node", "src/index.js", "on-workspace-focused"]

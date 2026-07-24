@@ -191,3 +191,17 @@ Full-screen agents may use the terminal alternate screen. Rows that disappear fr
 - Never run `herdr server stop` from an active session unless the user explicitly intends to stop the server and its pane processes.
 - Never kill the main Herdr process. Use named test sessions for experiments that need an isolated server.
 - CLI server errors are JSON on stderr with exit status 1. CLI syntax errors exit with status 2.
+
+## CHEF fleet plugins (optional)
+
+When CHEF fleet plugins are linked, drive them through the plugin action surface — not by inventing a parallel CLI:
+
+```bash
+herdr plugin list
+herdr plugin action list
+herdr plugin action invoke <plugin-id> <action-id>
+```
+
+Typical CHEF plugin ids: `com.chefgroep.linear-context`, `com.chefgroep.github-status`, `com.chefgroep.kater-bridge`, `com.chefgroep.fleet-health`, `com.chefgroep.cloudflare-tunnel`, `com.chefgroep.session-park`, `com.chefgroep.issue-provision`.
+
+Link a local checkout with `herdr plugin link <path>`. Plugins write `fleet_ops.json` under `$HERDR_PLUGIN_STATE_DIR` for the Fleet Ops Bar; keep secrets in the plugin config `.env` only.

@@ -42,6 +42,29 @@ UI Progress:
 3. **Client-only presentation** — colors, tokens, selection, mouse, viewport scroll for UI chrome.
 4. **No production `unwrap()`** on UI paths.
 
+## Overlay dismiss contract
+
+One rule for Settings, ConfirmClose, Rename, ReleaseNotes, ProductAnnouncement, Navigator, KeybindHelp:
+
+| Click / key | Behavior |
+|-------------|----------|
+| Inside chrome, not on a control | **no-op** |
+| Outside popup | **cancel** / `leave_modal` |
+| Close button / Esc | always dismiss |
+| Primary control (Save/Install/…) | existing action |
+
+Do not treat body chrome as Cancel. Confirm-close Cancel must `leave_modal` (Terminal when an active workspace exists), not force Navigate.
+
+## Fleet Ops Bar (CHEF personal context)
+
+- Client-only strip in `src/ui/panes.rs`; gated by `AppState::fleet_ops_bar_enabled()` / `ui.fleet_ops_bar`
+- Settings tabs: **fleet** (toggle + preview) and **plugins** (installed + catalog browse)
+- Data: merge `$HERDR_PLUGIN_STATE_DIR/*/fleet_ops.json` in `src/fleet/ops.rs` — no new SSOT, no secrets
+- Pattern example: `ENG-432 · joep · Sprint · PR #42 ✓`
+- Hot-path caches stay in `ViewState` (navigator rows, sidebar card areas); keep `render()` pure
+
+For SSOT / plugin ownership see `.cursor/skills/chef-fleet/SKILL.md`.
+
 ## Leak & error pass
 
 Always scan touched paths for:

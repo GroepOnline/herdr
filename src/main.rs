@@ -591,7 +591,7 @@ fn main() -> io::Result<()> {
             ),
             (
                 "herdr channel <subcommand>",
-                "Manage the stable or preview update channel",
+                "Manage the stable, preview, or dev update channel",
             ),
             (
                 "herdr api <subcommand>",

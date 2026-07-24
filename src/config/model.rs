@@ -1469,6 +1469,8 @@ pub struct UiConfig {
     pub pane_gaps: bool,
     /// Show agent labels in split pane borders when no manual pane label is set. Default: false.
     pub show_agent_labels_on_pane_borders: bool,
+    /// Show the CHEF Fleet Ops Bar on pane bottoms (Linear/PR/host context). Default: true.
+    pub fleet_ops_bar: bool,
     /// Hide the tab row when the workspace has one tab. Default: false.
     pub hide_tab_bar_when_single_tab: bool,
     /// Show the Fleet Ops Bar under pane borders. Default: true.
@@ -1672,6 +1674,7 @@ impl Default for UiConfig {
             pane_borders: true,
             pane_gaps: true,
             show_agent_labels_on_pane_borders: false,
+            fleet_ops_bar: true,
             hide_tab_bar_when_single_tab: false,
             fleet_ops_bar: true,
             agent_panel_sort: AgentPanelSortConfig::Spaces,
@@ -1791,6 +1794,14 @@ manifest_check = false
         assert_eq!(config.update.channel.as_str(), "preview");
         assert!(!config.update.version_check);
         assert!(!config.update.manifest_check);
+
+        let toml = r#"
+[update]
+channel = "dev"
+"#;
+        let config: Config = toml::from_str(toml).unwrap();
+        assert_eq!(config.update.channel, UpdateChannelConfig::Dev);
+        assert_eq!(config.update.channel.as_str(), "dev");
     }
 
     #[cfg(windows)]

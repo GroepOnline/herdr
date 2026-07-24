@@ -1,0 +1,29 @@
+language: en-US
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: false
+  poem: false
+  review_status: false
+  collapse_walkthrough: true
+  path_filters:
+    - "!vendor/**"
+    - "!website/dist/**"
+    - "!website/.astro/**"
+    - "!website/.vercel/**"
+    - "!website/node_modules/**"
+    - "!docs/next/website/dist/**"
+    - "!docs/next/website/.astro/**"
+    - "!target/**"
+    - "!npm/*.tgz"
+  auto_review:
+    enabled: true
+    drafts: false
+  instructions: |
+    Focus on correctness, regressions, security, data loss, and missing tests.
+    Do not block on naming, formatting, summaries, praise, or minor style nits.
+    Keep comments concise and only leave a comment when the fix is actionable.
+
+chat:
+  auto_reply: false

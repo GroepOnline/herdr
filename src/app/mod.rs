@@ -631,6 +631,7 @@ impl App {
             pane_borders: config.ui.pane_borders,
             pane_gaps: config.ui.pane_gaps,
             show_agent_labels_on_pane_borders: config.ui.show_agent_labels_on_pane_borders,
+            fleet_ops_bar: config.ui.fleet_ops_bar,
             hide_tab_bar_when_single_tab: config.ui.hide_tab_bar_when_single_tab,
             fleet_ops_bar: config.ui.fleet_ops_bar,
             fleet_ops_cache: crate::fleet::FleetOpsCache::default(),
@@ -1443,6 +1444,7 @@ impl App {
                 self.state.pane_gaps = config.ui.pane_gaps;
                 self.state.show_agent_labels_on_pane_borders =
                     config.ui.show_agent_labels_on_pane_borders;
+                self.state.fleet_ops_bar = config.ui.fleet_ops_bar;
                 self.state.hide_tab_bar_when_single_tab = config.ui.hide_tab_bar_when_single_tab;
                 self.state.fleet_ops_bar = config.ui.fleet_ops_bar;
                 self.state.agent_panel_sort =

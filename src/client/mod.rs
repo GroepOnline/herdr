@@ -2716,8 +2716,16 @@ mod tests {
 
         assert_eq!(
             output,
-            b"\x1b[?2026htext\x1b[?2026lcursor\x1b7graphics\x1b8"
+            b"\x1b[?2026htext\x1b7graphics\x1b8\x1b[?2026lcursor"
         );
+    }
+
+    #[test]
+    fn graphics_bytes_follow_encoded_frame_when_sync_end_missing() {
+        let mut output = Vec::new();
+        write_encoded_frame_with_graphics(&mut output, b"plain-text-frame", b"graphics").unwrap();
+
+        assert_eq!(output, b"plain-text-frame\x1b7graphics\x1b8");
     }
 
     #[test]
