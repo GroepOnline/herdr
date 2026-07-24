@@ -780,6 +780,7 @@ mod tests {
         let mut workspace = Workspace::test_new("initial");
         workspace.custom_name = None;
         workspace.identity_cwd = "/projects/original".into();
+        workspace.cached_auto_name = "current".to_string();
         let root_pane = workspace.tabs[0].root_pane;
         let terminal_id = workspace.tabs[0].panes[&root_pane]
             .attached_terminal_id
@@ -811,6 +812,7 @@ mod tests {
         let mut workspace = Workspace::test_new("initial");
         workspace.custom_name = None;
         workspace.identity_cwd = stale_cwd.clone();
+        workspace.cached_auto_name = "current".to_string();
         let root_pane = workspace.tabs[0].root_pane;
         let terminal_id = workspace.tabs[0].panes[&root_pane]
             .attached_terminal_id

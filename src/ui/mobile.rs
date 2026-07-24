@@ -1499,6 +1499,7 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
 
+        app.workspaces[0].cached_auto_name = "herdr".to_string();
         let mut runtime_registry = TerminalRuntimeRegistry::new();
         runtime_registry.insert(terminal_id, runtime);
         let backend = ratatui::backend::TestBackend::new(40, 2);

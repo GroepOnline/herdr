@@ -45,6 +45,7 @@ pub struct WorkspaceGitStatus {
     pub branch: Option<String>,
     pub ahead_behind: Option<(usize, usize)>,
     pub space: Option<GitSpaceMetadata>,
+    pub auto_name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,6 +53,7 @@ pub struct WorkspaceGitStatusSnapshot {
     pub branch: Option<String>,
     pub ahead_behind: Option<(usize, usize)>,
     pub space: Option<GitSpaceMetadata>,
+    pub auto_name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -72,6 +74,7 @@ impl WorkspaceGitStatusSnapshot {
             branch: self.branch,
             ahead_behind: self.ahead_behind,
             space: self.space,
+            auto_name: self.auto_name,
         }
     }
 }
@@ -153,6 +156,8 @@ pub struct Workspace {
     pub id: String,
     /// User-provided override. If set, auto-derived identity stops updating.
     pub custom_name: Option<String>,
+    /// Cached auto-detected name, derived from the CWD.
+    pub(crate) cached_auto_name: String,
     /// Fallback workspace identity source for tests, old snapshots, or missing runtimes.
     pub identity_cwd: PathBuf,
     /// Cached current git branch for the workspace repo.
@@ -218,9 +223,11 @@ impl Workspace {
         let tab = Tab::from_existing_pane(1, tab_label, moved, events, render_notify, render_dirty);
         let mut public_pane_numbers = HashMap::new();
         public_pane_numbers.insert(root_pane, 1);
+        let auto_name = derive_label_from_cwd(&identity_cwd);
         Self {
             id,
             custom_name: label,
+            cached_auto_name: auto_name,
             identity_cwd: identity_cwd.clone(),
             cached_git_branch: git_branch(&identity_cwd),
             cached_git_ahead_behind: None,
@@ -401,10 +408,12 @@ impl Workspace {
         };
         let mut public_pane_numbers = HashMap::new();
         public_pane_numbers.insert(tab.root_pane, 1);
+        let auto_name = derive_label_from_cwd(&initial_cwd);
         Ok((
             Self {
                 id,
                 custom_name: None,
+                cached_auto_name: auto_name,
                 identity_cwd: initial_cwd.clone(),
                 cached_git_branch: git_branch(&initial_cwd),
                 cached_git_ahead_behind: None,
@@ -1046,10 +1055,6 @@ impl Workspace {
         self.custom_name = Some(name);
     }
 
-    pub fn resolved_identity_cwd(&self) -> Option<PathBuf> {
-        Some(self.identity_cwd.clone())
-    }
-
     pub fn resolved_identity_cwd_from(
         &self,
         terminals: &HashMap<TerminalId, TerminalState>,
@@ -1065,24 +1070,15 @@ impl Workspace {
         if let Some(name) = &self.custom_name {
             return name.clone();
         }
-
-        self.resolved_identity_cwd()
-            .map(|cwd| derive_label_from_cwd(&cwd))
-            .unwrap_or_else(|| "workspace".into())
+        self.cached_auto_name.clone()
     }
 
     pub fn display_name_from(
         &self,
-        terminals: &HashMap<TerminalId, TerminalState>,
-        terminal_runtimes: &TerminalRuntimeRegistry,
+        _terminals: &HashMap<TerminalId, TerminalState>,
+        _terminal_runtimes: &TerminalRuntimeRegistry,
     ) -> String {
-        if let Some(name) = &self.custom_name {
-            return name.clone();
-        }
-
-        self.resolved_identity_cwd_from(terminals, terminal_runtimes)
-            .map(|cwd| derive_label_from_cwd(&cwd))
-            .unwrap_or_else(|| "workspace".into())
+        self.display_name()
     }
 
     pub fn branch(&self) -> Option<String> {
@@ -1103,10 +1099,10 @@ impl Workspace {
 
     #[cfg(test)]
     pub fn refresh_git_ahead_behind(&mut self) {
-        let cwd = self.resolved_identity_cwd();
-        self.cached_git_branch = cwd.as_deref().and_then(git_branch);
-        self.cached_git_ahead_behind = cwd.as_deref().and_then(git_ahead_behind);
-        self.cached_git_space = cwd.as_deref().and_then(git_space_metadata);
+        let cwd = &self.identity_cwd;
+        self.cached_git_branch = git_branch(cwd);
+        self.cached_git_ahead_behind = git_ahead_behind(cwd);
+        self.cached_git_space = git_space_metadata(cwd);
     }
 
     pub fn git_status_snapshot_for_cwd_with_cache(
@@ -1216,9 +1212,11 @@ impl Workspace {
         };
         let mut public_pane_numbers = HashMap::new();
         public_pane_numbers.insert(tab.root_pane, 1);
+        let auto_name = derive_label_from_cwd(&identity_cwd);
         Self {
             id: generate_workspace_id(),
             custom_name: Some(name.to_string()),
+            cached_auto_name: auto_name,
             identity_cwd: identity_cwd.clone(),
             cached_git_branch: git_branch(&identity_cwd),
             cached_git_ahead_behind: None,
@@ -1580,26 +1578,6 @@ mod tests {
 
         assert_eq!(recovered.pane_id, source_pane);
         assert!(!target.tabs[0].panes.contains_key(&source_pane));
-    }
-
-    #[test]
-    fn workspace_identity_follows_first_tab_root_pane_cwd() {
-        let mut ws = Workspace::test_new("ignored");
-        ws.custom_name = None;
-        let root_pane = ws.tabs[0].root_pane;
-        let terminal_id = ws.tabs[0].terminal_id(root_pane).unwrap().clone();
-        let mut terminals = HashMap::new();
-        terminals.insert(
-            terminal_id.clone(),
-            TerminalState::new(terminal_id, PathBuf::from("/herdr-test/pion")),
-        );
-        let terminal_runtimes = TerminalRuntimeRegistry::new();
-
-        assert_eq!(ws.display_name_from(&terminals, &terminal_runtimes), "pion");
-        assert_eq!(
-            ws.resolved_identity_cwd_from(&terminals, &terminal_runtimes),
-            Some(PathBuf::from("/herdr-test/pion"))
-        );
     }
 
     #[test]

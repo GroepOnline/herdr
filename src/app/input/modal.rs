@@ -305,8 +305,12 @@ pub(super) fn open_rename_workspace(
     state.pending_workspace_create_cwd = None;
     state.selected = ws_idx;
     state.rename_pane_target = None;
-    state.name_input =
-        state.workspaces[ws_idx].display_name_from(&state.terminals, terminal_runtimes);
+    let ws = &state.workspaces[ws_idx];
+    state.name_input = ws.custom_name.clone().unwrap_or_else(|| {
+        ws.resolved_identity_cwd_from(&state.terminals, terminal_runtimes)
+            .map(|cwd| crate::workspace::derive_label_from_cwd(&cwd))
+            .unwrap_or_else(|| "workspace".into())
+    });
     state.name_input_replace_on_type = false;
     state.mode = Mode::RenameWorkspace;
 }

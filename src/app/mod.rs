@@ -2161,7 +2161,7 @@ mod tests {
         app.state.workspaces.push(Workspace::test_new("one"));
         app.render_dirty.store(false, Ordering::Release);
         let workspace_id = app.state.workspaces[0].id.clone();
-        let resolved_identity_cwd = app.state.workspaces[0].resolved_identity_cwd().unwrap();
+        let resolved_identity_cwd = app.state.workspaces[0].identity_cwd.clone();
 
         app.handle_internal_event(AppEvent::GitStatusRefreshed {
             results: vec![crate::workspace::WorkspaceGitStatus {
@@ -2170,6 +2170,7 @@ mod tests {
                 branch: Some("render-dirty-test".into()),
                 ahead_behind: Some((1, 0)),
                 space: None,
+                auto_name: "one".to_string(),
             }],
             cache_updates: Vec::new(),
         });

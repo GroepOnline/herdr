@@ -2612,8 +2612,38 @@ impl AppState {
                 ws.cached_git_space = result.space;
                 changed = true;
             }
+            if ws.cached_auto_name != result.auto_name {
+                ws.cached_auto_name = result.auto_name;
+                changed = true;
+            }
         }
         changed
+    }
+
+    pub(crate) fn update_workspace_auto_name(
+        &mut self,
+        terminal_runtimes: &crate::terminal::TerminalRuntimeRegistry,
+        workspace_id: &str,
+        resolved_identity_cwd: &std::path::Path,
+        name: String,
+    ) -> bool {
+        let Some(ws_idx) = self.workspaces.iter().position(|ws| ws.id == workspace_id) else {
+            return false;
+        };
+        if self.workspaces[ws_idx]
+            .resolved_identity_cwd_from(&self.terminals, terminal_runtimes)
+            .as_deref()
+            != Some(resolved_identity_cwd)
+        {
+            return false;
+        }
+
+        let ws = &mut self.workspaces[ws_idx];
+        if ws.cached_auto_name == name {
+            return false;
+        }
+        ws.cached_auto_name = name;
+        true
     }
 
     pub fn handle_app_event(&mut self, event: AppEvent) -> Vec<PaneStateUpdate> {
@@ -2842,6 +2872,7 @@ impl AppState {
                 let _ = cache_updates;
                 Vec::new()
             }
+            AppEvent::WorkspaceAutoNameResolved { .. } => Vec::new(),
             AppEvent::WorktreeAddFinished(_) => Vec::new(),
             AppEvent::WorktreeRemoveFinished(_) => Vec::new(),
             AppEvent::PluginCommandFinished { .. } => Vec::new(),
@@ -3598,6 +3629,7 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
 
+        state.workspaces[0].cached_auto_name = "herdr".to_string();
         let mut runtime_registry = crate::terminal::TerminalRuntimeRegistry::new();
         runtime_registry.insert(terminal_id, runtime);
         state.open_navigator_from(&runtime_registry);
@@ -3885,7 +3917,7 @@ mod tests {
     fn apply_workspace_git_statuses_updates_matching_workspace() {
         let mut state = app_with_workspaces(&["one", "two"]);
         let first_id = state.workspaces[0].id.clone();
-        let first_cwd = state.workspaces[0].resolved_identity_cwd().unwrap();
+        let first_cwd = state.workspaces[0].identity_cwd.clone();
         let second_id = state.workspaces[1].id.clone();
 
         let terminal_runtimes = crate::terminal::TerminalRuntimeRegistry::new();
@@ -3897,6 +3929,7 @@ mod tests {
                 branch: Some("main".into()),
                 ahead_behind: Some((2, 1)),
                 space: None,
+                auto_name: "one".to_string(),
             }],
         );
 
@@ -3923,6 +3956,7 @@ mod tests {
                 branch: Some("main".into()),
                 ahead_behind: Some((0, 1)),
                 space: None,
+                auto_name: "one".to_string(),
             }],
         );
 
@@ -3935,7 +3969,7 @@ mod tests {
     fn apply_workspace_git_statuses_clears_missing_git_status() {
         let mut state = app_with_workspaces(&["one"]);
         let workspace_id = state.workspaces[0].id.clone();
-        let cwd = state.workspaces[0].resolved_identity_cwd().unwrap();
+        let cwd = state.workspaces[0].identity_cwd.clone();
         state.workspaces[0].cached_git_branch = Some("main".into());
         state.workspaces[0].cached_git_ahead_behind = Some((1, 2));
 
@@ -3948,6 +3982,7 @@ mod tests {
                 branch: None,
                 ahead_behind: None,
                 space: None,
+                auto_name: "one".to_string(),
             }],
         );
 
@@ -3961,7 +3996,7 @@ mod tests {
         let mut state = app_with_workspaces(&["one"]);
         mark_linked_worktree(&mut state, 0);
         let workspace_id = state.workspaces[0].id.clone();
-        let cwd = state.workspaces[0].resolved_identity_cwd().unwrap();
+        let cwd = state.workspaces[0].identity_cwd.clone();
         let membership = state.workspaces[0].worktree_space().cloned();
 
         let terminal_runtimes = crate::terminal::TerminalRuntimeRegistry::new();
@@ -3979,6 +4014,7 @@ mod tests {
                     repo_root: "/other/repo".into(),
                     is_linked_worktree: false,
                 }),
+                auto_name: "one".to_string(),
             }],
         );
 

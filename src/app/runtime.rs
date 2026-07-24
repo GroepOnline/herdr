@@ -15,7 +15,6 @@ use std::collections::HashMap;
 pub(crate) struct WorkspaceGitRefreshItem {
     pub(crate) workspace_id: String,
     pub(crate) resolved_identity_cwd: std::path::PathBuf,
-    pub(crate) cache_key: std::path::PathBuf,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -736,12 +735,9 @@ impl App {
             .filter_map(|ws| {
                 let cwd =
                     ws.resolved_identity_cwd_from(&self.state.terminals, &self.terminal_runtimes)?;
-                let git_key = crate::workspace::git_status_cache_key(&cwd);
-                let cache_key = git_key.unwrap_or_else(|| cwd.clone());
                 Some(WorkspaceGitRefreshItem {
                     workspace_id: ws.id.clone(),
                     resolved_identity_cwd: cwd,
-                    cache_key,
                 })
             })
             .collect()
@@ -780,20 +776,23 @@ pub(crate) fn deduplicate_git_refresh_items(
     let mut jobs = Vec::<WorkspaceGitRefreshJob>::new();
 
     for item in items {
+        let cache_key = crate::workspace::git_status_cache_key(&item.resolved_identity_cwd)
+            .unwrap_or_else(|| item.resolved_identity_cwd.clone());
+
         let target = WorkspaceGitRefreshTarget {
             workspace_id: item.workspace_id,
             resolved_identity_cwd: item.resolved_identity_cwd.clone(),
         };
-        if let Some(&index) = indexes.get(&item.cache_key) {
+        if let Some(&index) = indexes.get(&cache_key) {
             jobs[index].targets.push(target);
             continue;
         }
 
-        let status_cwd = item.cache_key.clone();
-        let cached = cache.get(&item.cache_key).cloned();
-        indexes.insert(item.cache_key, jobs.len());
+        let status_cwd = cache_key.clone();
+        let cached = cache.get(&cache_key).cloned();
+        indexes.insert(cache_key.clone(), jobs.len());
         jobs.push(WorkspaceGitRefreshJob {
-            cache_key: status_cwd.clone(),
+            cache_key: cache_key.clone(),
             status_cwd,
             cached,
             targets: vec![target],
@@ -978,19 +977,23 @@ mod tests {
                 WorkspaceGitRefreshItem {
                     workspace_id: "one".into(),
                     resolved_identity_cwd: nested.clone(),
-                    cache_key: repo.clone(),
                 },
                 WorkspaceGitRefreshItem {
                     workspace_id: "two".into(),
                     resolved_identity_cwd: other.clone(),
-                    cache_key: repo.clone(),
                 },
             ],
             &HashMap::new(),
         );
 
         assert_eq!(output.cache_updates.len(), 1);
-        assert_eq!(output.cache_updates[0].0, repo);
+        assert_eq!(
+            output.cache_updates[0]
+                .0
+                .canonicalize()
+                .expect("canonicalize cache key"),
+            repo.canonicalize().expect("canonicalize repo path")
+        );
         assert_eq!(output.results.len(), 2);
         assert_eq!(output.results[0].workspace_id, "one");
         assert_eq!(
@@ -1025,7 +1028,9 @@ mod tests {
         let items = app.workspace_git_refresh_items();
 
         assert_eq!(items.len(), 1);
-        assert_eq!(items[0].cache_key, cwd);
+        let jobs = deduplicate_git_refresh_items(items, &HashMap::new());
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].cache_key, cwd);
         let _ = std::fs::remove_dir_all(&cwd);
     }
 

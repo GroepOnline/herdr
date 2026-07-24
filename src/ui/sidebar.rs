@@ -2179,6 +2179,7 @@ rows = [[{ token = "git_status", fg = "#123456" }]]
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
 
+        app.workspaces[0].cached_auto_name = "herdr".to_string();
         let mut runtime_registry = TerminalRuntimeRegistry::new();
         runtime_registry.insert(terminal_id, runtime);
         let entries = agent_panel_entries_from(&app, &runtime_registry);

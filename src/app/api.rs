@@ -165,6 +165,24 @@ impl App {
             return;
         }
 
+        if let AppEvent::WorkspaceAutoNameResolved {
+            workspace_id,
+            resolved_identity_cwd,
+            name,
+        } = ev
+        {
+            if self.state.update_workspace_auto_name(
+                &self.terminal_runtimes,
+                &workspace_id,
+                &resolved_identity_cwd,
+                name,
+            ) {
+                self.render_dirty.store(true, Ordering::Release);
+                self.render_notify.notify_one();
+            }
+            return;
+        }
+
         if let AppEvent::PluginCommandFinished {
             log_id,
             finished_unix_ms,
@@ -304,6 +322,28 @@ impl App {
             } else {
                 None
             };
+
+        let mut cwd_to_resolve = None;
+        if let AppEvent::TerminalCwdReported { pane_id, cwd } = &ev {
+            let terminal_id = self.state.workspaces.iter().find_map(|ws| {
+                ws.pane_state(*pane_id)
+                    .map(|pane| pane.attached_terminal_id.clone())
+            });
+            if let Some(terminal_id) = terminal_id {
+                if let Some(terminal) = self.state.terminals.get(&terminal_id) {
+                    if terminal.cwd != *cwd {
+                        if let Some(ws) =
+                            self.state.workspaces.iter().find(|ws| {
+                                ws.tabs.first().is_some_and(|tab| tab.root_pane == *pane_id)
+                            })
+                        {
+                            cwd_to_resolve = Some((ws.id.clone(), cwd.clone()));
+                        }
+                    }
+                }
+            }
+        }
+
         let terminal_cwd_reported = matches!(ev, AppEvent::TerminalCwdReported { .. });
         let previous_toast = self.state.toast.clone();
         let pane_updates = self.state.handle_app_event(ev);
@@ -328,6 +368,26 @@ impl App {
             self.mark_git_status_refresh_due(Instant::now());
             self.render_dirty.store(true, Ordering::Release);
             self.render_notify.notify_one();
+        }
+        if let Some((ws_id, cwd)) = cwd_to_resolve {
+            #[cfg(not(test))]
+            {
+                let event_tx = self.event_tx.clone();
+                std::thread::spawn(move || {
+                    let name = crate::workspace::derive_label_from_cwd(&cwd);
+                    let _ = event_tx.blocking_send(AppEvent::WorkspaceAutoNameResolved {
+                        workspace_id: ws_id,
+                        resolved_identity_cwd: cwd.clone(),
+                        name,
+                    });
+                });
+            }
+            #[cfg(test)]
+            {
+                let name = crate::workspace::derive_label_from_cwd(&cwd);
+                self.state
+                    .update_workspace_auto_name(&self.terminal_runtimes, &ws_id, &cwd, name);
+            }
         }
         for update in &pane_updates {
             self.refresh_new_herdr_toast_context_for_update(update, &previous_toast);
@@ -1426,6 +1486,45 @@ mod tests {
         app
     }
 
+    #[test]
+    fn workspace_auto_name_resolution_ignores_stale_cwd_completion() {
+        let (_api_tx, api_rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut app = App::new(
+            &crate::config::Config::default(),
+            true,
+            None,
+            api_rx,
+            crate::api::EventHub::default(),
+        );
+        app.state.workspaces = vec![crate::workspace::Workspace::test_new("initial")];
+        app.state.ensure_test_terminals();
+        let workspace_id = app.state.workspaces[0].id.clone();
+        let root_pane = app.state.workspaces[0].tabs[0].root_pane;
+        let terminal_id = app.state.workspaces[0]
+            .terminal_id(root_pane)
+            .cloned()
+            .unwrap();
+        let older_cwd = std::path::PathBuf::from("/workspace/older");
+        let newer_cwd = std::path::PathBuf::from("/workspace/newer");
+        app.state.terminals.get_mut(&terminal_id).unwrap().cwd = older_cwd.clone();
+
+        // The newer report changes the workspace identity before either background
+        // resolution is delivered. Complete the newer resolution first, then the old one.
+        app.state.terminals.get_mut(&terminal_id).unwrap().cwd = newer_cwd.clone();
+        app.handle_internal_event(AppEvent::WorkspaceAutoNameResolved {
+            workspace_id: workspace_id.clone(),
+            resolved_identity_cwd: newer_cwd,
+            name: "newer".into(),
+        });
+        app.handle_internal_event(AppEvent::WorkspaceAutoNameResolved {
+            workspace_id,
+            resolved_identity_cwd: older_cwd,
+            name: "older".into(),
+        });
+
+        assert_eq!(app.state.workspaces[0].cached_auto_name, "newer");
+    }
+
     #[tokio::test]
     async fn manifest_update_event_resets_matching_agent_detection_runtime() {
         let (_api_tx, api_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -1774,10 +1873,12 @@ mod tests {
             std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         )
         .unwrap();
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
-        while runtime.cwd() != Some(live_cwd.clone()) && std::time::Instant::now() < deadline {
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        }
+        // Apply the shell's CWD report before registering a runtime whose process-CWD
+        // observation is independent from (and may lag) that report.
+        app.handle_internal_event(AppEvent::TerminalCwdReported {
+            pane_id: root,
+            cwd: live_cwd.clone(),
+        });
         app.terminal_runtimes.insert(terminal_id, runtime);
 
         app.handle_internal_event(AppEvent::StateChanged {
@@ -1866,10 +1967,12 @@ mod tests {
             std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         )
         .unwrap();
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
-        while runtime.cwd() != Some(live_cwd.clone()) && std::time::Instant::now() < deadline {
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        }
+        // Apply the shell's CWD report before registering a runtime whose process-CWD
+        // observation is independent from (and may lag) that report.
+        app.handle_internal_event(AppEvent::TerminalCwdReported {
+            pane_id: root,
+            cwd: live_cwd.clone(),
+        });
         app.terminal_runtimes.insert(terminal_id, runtime);
 
         app.handle_internal_event(AppEvent::StateChanged {

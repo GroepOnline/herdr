@@ -158,6 +158,13 @@ pub enum AppEvent {
         results: Vec<WorkspaceGitStatus>,
         cache_updates: Vec<(std::path::PathBuf, GitStatusCacheEntry)>,
     },
+    /// Workspace auto-name was resolved in the background.
+    #[allow(dead_code)] // Only constructed in non-test builds
+    WorkspaceAutoNameResolved {
+        workspace_id: String,
+        resolved_identity_cwd: std::path::PathBuf,
+        name: String,
+    },
     /// Background GitHub status refresh completed for workspaces.
     GithubStatusRefreshed { results: Vec<WorkspaceGithubStatus> },
     /// A plugin action or event command finished.

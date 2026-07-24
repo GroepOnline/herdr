@@ -5,9 +5,9 @@ use crate::workspace::WorkspaceGitStatusSnapshot;
 use super::{
     config::{read_branch_config, upstream_full_ref},
     discovery::{
-        canonicalize_best_effort_path, git_branch, git_ref_storage_is_reftable,
-        git_rev_parse_verify, git_space_metadata, git_symbolic_head_full, git_worktree_info,
-        read_ref_oid, GitWorktreeInfo,
+        canonicalize_best_effort_path, derive_label_from_cwd, git_branch,
+        git_ref_storage_is_reftable, git_rev_parse_verify, git_space_metadata,
+        git_symbolic_head_full, git_worktree_info, read_ref_oid, GitWorktreeInfo,
     },
 };
 
@@ -54,12 +54,14 @@ pub fn git_status_snapshot_for_cwd(
     cached: Option<&GitStatusCacheEntry>,
 ) -> (WorkspaceGitStatusSnapshot, Option<GitStatusCacheEntry>) {
     let space = git_space_metadata(cwd);
+    let auto_name = derive_label_from_cwd(cwd);
     let Some(fingerprint) = git_status_fingerprint(cwd) else {
         return (
             WorkspaceGitStatusSnapshot {
                 branch: git_branch(cwd),
                 ahead_behind: None,
                 space,
+                auto_name,
             },
             None,
         );
@@ -71,6 +73,7 @@ pub fn git_status_snapshot_for_cwd(
             branch,
             ahead_behind: cached.snapshot.ahead_behind,
             space,
+            auto_name: auto_name.clone(),
         };
         return (
             snapshot.clone(),
@@ -89,6 +92,7 @@ pub fn git_status_snapshot_for_cwd(
         branch,
         ahead_behind,
         space,
+        auto_name,
     };
     (
         snapshot.clone(),
@@ -268,6 +272,7 @@ mod tests {
                 branch: Some("main".into()),
                 ahead_behind: Some((2, 1)),
                 space: git_space_metadata(&root),
+                auto_name: derive_label_from_cwd(&root),
             },
         };
 
@@ -291,6 +296,7 @@ mod tests {
                 branch: Some("main".into()),
                 ahead_behind: Some((4, 0)),
                 space: git_space_metadata(&root),
+                auto_name: derive_label_from_cwd(&root),
             },
         };
         std::fs::write(root.join(".git/HEAD"), "ref: refs/heads/feature\n").unwrap();
@@ -324,6 +330,7 @@ mod tests {
                 branch: Some("main".into()),
                 ahead_behind: Some((0, 3)),
                 space: git_space_metadata(&root),
+                auto_name: derive_label_from_cwd(&root),
             },
         };
         std::fs::write(root.join(".git/config"), "").unwrap();

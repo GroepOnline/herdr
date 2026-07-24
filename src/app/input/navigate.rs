@@ -1945,6 +1945,7 @@ mod tests {
             .clone();
         state.workspaces[0].custom_name = None;
         state.workspaces[0].identity_cwd = "/__herdr_original__".into();
+        state.workspaces[0].cached_auto_name = "__herdr_original__".to_string();
         state.terminals.insert(
             terminal_id.clone(),
             TerminalState::new(terminal_id, "/__herdr_projects__".into()),
