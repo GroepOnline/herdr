@@ -85,15 +85,15 @@ just install-hooks
 
 The pre-commit hook runs `cargo fmt --check` before every commit.
 
-Run the PR checks and make sure they pass.
+Run the PR checks and make sure they pass. On a local machine that can build Herdr, use the full local check.
 
 ```bash
-just ci
+just check
 ```
 
-`just ci` runs `cargo fmt --check` and `cargo nextest run`.
+`just check` runs formatting, Rust tests, release metadata, maintenance checks, and the Windows lint target. Cloud agents and restricted CI-remediation machines may not be allowed to run local Cargo commands; in that case, use GitHub Actions as the source of truth and validate with `gh pr checks`.
 
-Do not open a PR that bypasses failing tests, formatting, or build errors.
+The required PR check is `CI / Quality gate`. Do not open a PR that bypasses failing tests, formatting, or build errors.
 
 ## Issue references in commits
 

@@ -1794,6 +1794,14 @@ manifest_check = false
         assert_eq!(config.update.channel.as_str(), "preview");
         assert!(!config.update.version_check);
         assert!(!config.update.manifest_check);
+
+        let toml = r#"
+[update]
+channel = "dev"
+"#;
+        let config: Config = toml::from_str(toml).unwrap();
+        assert_eq!(config.update.channel, UpdateChannelConfig::Dev);
+        assert_eq!(config.update.channel.as_str(), "dev");
     }
 
     #[cfg(windows)]
