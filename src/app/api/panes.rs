@@ -1179,7 +1179,7 @@ impl App {
         else {
             return pane_not_found(id, &params.pane_id);
         };
-        let text = crate::app::api_helpers::read_terminal_snapshot(
+        let snapshot = crate::app::api_helpers::read_terminal_snapshot(
             pane,
             params.source,
             params.format,
@@ -1195,9 +1195,9 @@ impl App {
                     tab_id: self.public_tab_id(ws_idx, tab_idx).unwrap(),
                     source: params.source,
                     format: params.format,
-                    text,
+                    text: snapshot.text,
                     revision: 0,
-                    truncated: false,
+                    truncated: snapshot.truncated,
                 },
             },
         )
@@ -1999,6 +1999,28 @@ mod tests {
         assert_eq!(scroll.offset_from_bottom, 3);
         assert!(scroll.max_offset_from_bottom >= scroll.offset_from_bottom);
         assert_eq!(scroll.viewport_rows, 5);
+    }
+
+    #[tokio::test]
+    async fn api_pane_read_reports_when_older_rows_are_omitted() {
+        let (mut app, public_pane_id, _pane_id) = app_with_scrollback_runtime();
+
+        let response = app.handle_pane_read(
+            "req".into(),
+            PaneReadParams {
+                pane_id: public_pane_id,
+                source: crate::api::schema::ReadSource::Recent,
+                lines: Some(2),
+                format: crate::api::schema::ReadFormat::Text,
+                strip_ansi: true,
+            },
+        );
+        let success: SuccessResponse = serde_json::from_str(&response).unwrap();
+        let ResponseResult::PaneRead { read } = success.result else {
+            panic!("expected pane read response");
+        };
+        assert!(read.text.contains("line 19"));
+        assert!(read.truncated);
     }
 
     #[tokio::test]
