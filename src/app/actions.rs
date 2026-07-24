@@ -2063,7 +2063,7 @@ impl AppState {
         self.selection_autoscroll = None;
     }
 
-    pub(crate) fn copy_word_at_pane_cell(
+    pub(crate) fn select_word_at_pane_cell(
         &mut self,
         terminal_runtimes: &crate::terminal::TerminalRuntimeRegistry,
         pane_id: crate::layout::PaneId,
@@ -2113,23 +2113,30 @@ impl AppState {
             return false;
         };
 
-        // Copy the token and keep its selection visible as short-lived feedback.
         let mut selection = Selection::range(pane_id, viewport_row, start_col, end_col, metrics);
         if !selection.finish() {
             return false;
         }
 
-        let Some(text) = rt
-            .extract_selection(&selection)
-            .filter(|text| !text.is_empty())
-        else {
-            self.clear_selection();
-            return false;
+        let text = if self.copy_on_select {
+            let Some(text) = rt
+                .extract_selection(&selection)
+                .filter(|text| !text.is_empty())
+            else {
+                self.clear_selection();
+                return false;
+            };
+            Some(text)
+        } else {
+            None
         };
-        self.request_clipboard_write = Some(text.into_bytes());
+
         self.selection = Some(selection);
         self.selection_autoscroll = None;
-        info!("copied double-clicked token to clipboard");
+        if let Some(text) = text {
+            self.request_clipboard_write = Some(text.into_bytes());
+            info!("copied double-clicked token to clipboard");
+        }
         true
     }
 
@@ -2184,7 +2191,7 @@ impl AppState {
             Some(sel) => sel,
             None => return,
         };
-        if !sel.finish() {
+        if !sel.is_finalized() && !sel.finish() {
             return;
         }
 

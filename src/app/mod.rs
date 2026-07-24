@@ -1621,7 +1621,9 @@ impl App {
                             if self.state.popup_pane.is_some() || self.state.mode == Mode::Terminal
                             {
                                 self.suppressed_repeat_keys.remove(&pressed_key_id);
-                                if let Some(target) = self.handle_terminal_key_headless(key) {
+                                if let Some(target) =
+                                    self.handle_terminal_key_headless_from(source_id, key)
+                                {
                                     if !key.is_text_commit {
                                         self.pressed_terminal_keys.insert(
                                             pressed_key_id,
@@ -1650,7 +1652,7 @@ impl App {
                                 || self.state.mode == Mode::Terminal)
                                 && !self.suppressed_repeat_keys.contains(&pressed_key_id)
                             {
-                                let _ = self.handle_terminal_key_headless(key);
+                                let _ = self.handle_terminal_key_headless_from(source_id, key);
                             }
                         }
                         crossterm::event::KeyEventKind::Release => {
