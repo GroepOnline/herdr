@@ -18,6 +18,7 @@ EXPECTED_ASSET_NAMES = {target: f"herdr-{target}" for target in ASSET_TARGETS}
 HIDDEN_SUBJECTS = (
     "docs: update website manifest",
     "docs: update preview manifest",
+    "docs: update dev manifest",
     "chore: approve contributor",
     "chore: approve merged contributor",
 )
@@ -127,13 +128,21 @@ def humanize_subject(subject: str) -> tuple[str, str]:
     return heading, body
 
 
-def build_notes(previous: str, commit: str, build_id: str, base_version: str, repo: str) -> str:
+def build_notes(
+    previous: str,
+    commit: str,
+    build_id: str,
+    base_version: str,
+    repo: str,
+    channel_label: str = "Preview",
+    branch: str = "master",
+) -> str:
     short = commit[:12]
     compare = f"https://github.com/{repo}/compare/{previous}...{commit}"
     lines = [
-        f"Preview build {build_id}",
+        f"{channel_label} build {build_id}",
         "",
-        f"Built from `{short}` on `master`.",
+        f"Built from `{short}` on `{branch}`.",
         f"Base stable: v{normalize_version(base_version)}",
         f"Compare: {compare}",
         "",
@@ -155,7 +164,13 @@ def build_notes(previous: str, commit: str, build_id: str, base_version: str, re
         lines.append("")
 
     if not wrote:
-        lines.extend(["### Changed", "- Rebuilt preview from the current master branch.", ""])
+        lines.extend(
+            [
+                "### Changed",
+                f"- Rebuilt {channel_label.lower()} from the current {branch} branch.",
+                "",
+            ]
+        )
 
     return "\n".join(lines).rstrip() + "\n"
 
@@ -200,6 +215,7 @@ def build_manifest(
     notes: str,
     shas: dict[str, str],
     retain: int,
+    channel: str = "preview",
 ) -> str:
     urls = default_asset_urls(repo, tag)
     assets = asset_objects(urls, shas)
@@ -224,7 +240,7 @@ def build_manifest(
     }
     manifest = {
         "schema_version": 1,
-        "channel": "preview",
+        "channel": channel,
         "base_version": normalize_version(base_version),
         "build_id": build_id,
         "commit": commit,

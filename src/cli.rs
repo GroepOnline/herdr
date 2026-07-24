@@ -135,7 +135,7 @@ fn run_channel_command(args: &[String]) -> std::io::Result<i32> {
 
 fn channel_set(args: &[String]) -> std::io::Result<i32> {
     let Some(channel) = parse_channel_set_arg(args) else {
-        eprintln!("usage: herdr channel set <stable|preview>");
+        eprintln!("usage: herdr channel set <stable|preview|dev>");
         return Ok(2);
     };
 
@@ -204,7 +204,7 @@ fn channel_set(args: &[String]) -> std::io::Result<i32> {
 
 fn parse_channel_set_arg(args: &[String]) -> Option<&str> {
     let channel = args.first().map(|arg| arg.as_str())?;
-    if args.len() == 1 && matches!(channel, "stable" | "preview") {
+    if args.len() == 1 && matches!(channel, "stable" | "preview" | "dev") {
         Some(channel)
     } else {
         None
@@ -221,7 +221,7 @@ fn channel_set_rejection(
         );
     }
 
-    if channel == "preview" {
+    if channel == "preview" || channel == "dev" {
         return install_rejection;
     }
 
@@ -245,8 +245,8 @@ fn channel_set_install_action(
 
 fn print_channel_help() {
     eprintln!("herdr channel commands:");
-    eprintln!("  herdr channel show                  print the configured update channel");
-    eprintln!("  herdr channel set <stable|preview>  choose the update channel");
+    eprintln!("  herdr channel show                      print the configured update channel");
+    eprintln!("  herdr channel set <stable|preview|dev>  choose the update channel");
 }
 
 fn run_config_command(args: &[String]) -> std::io::Result<i32> {

@@ -190,9 +190,9 @@ This section is maintainer-only for release actions. If the acting GitHub
 account is not `OnlineChefGroep`, do not run release commands, push release assets,
 or modify release channel files; follow the external contributor guardrail.
 
-Herdr has one main branch and two update channels. Stable and preview both build from `main`; there is no long-lived preview branch.
+Herdr has one main branch and three update channels: stable, preview, and dev. All three build from `main`; there is no long-lived preview or dev branch.
 
-Normal users default to stable. Stable docs are `/docs/`, stable updates use `website/latest.json`, and Homebrew/Nix stay stable-only.
+Normal users default to stable. Stable docs are `/docs/`, stable updates use `website/latest.json`, and Homebrew/Nix stay stable-only. Preview and dev are direct-install only (rejected for Homebrew/mise/Nix installs).
 
 Preview is opt-in for direct Herdr installs:
 
@@ -209,6 +209,19 @@ herdr update
 ```
 
 Preview releases are GitHub prereleases produced by `.github/workflows/preview.yml` on manual dispatch and the Wednesday/Friday schedule. The workflow updates `website/preview.json`, which the website build publishes as `/preview.json`. Do not hand-edit `website/preview.json`; fix the workflow or `scripts/preview.py` and rerun Preview.
+
+Dev is the bleeding-edge channel for maintainers to dogfood every merge. Install it directly on a fresh machine, or switch an existing install:
+
+```bash
+curl -fsSL https://herdr.chefgroep.nl/install.sh | sh -s -- --channel dev
+# or, on an existing install:
+herdr channel set dev
+herdr update
+```
+
+`website/install.sh` is channel-aware (`--channel <stable|preview|dev>` or `HERDR_CHANNEL`); it reads the matching manifest and, for non-stable channels, runs `herdr channel set` so later updates track that channel.
+
+Dev releases are GitHub prereleases (`dev-<build_id>`) produced by `.github/workflows/dev.yml` automatically on every push to `main` (and manual dispatch). It builds with `HERDR_BUILD_CHANNEL=dev`, publishes the binary, and updates `website/dev.json`, which the website build publishes as `/dev.json`. It reuses the preview manifest/notes machinery via `scripts/dev.py` (a thin wrapper over `scripts/preview.py`). Dev skips the full `just check` (main is already CI-gated at merge) to stay fast. Do not hand-edit `website/dev.json`; fix `.github/workflows/dev.yml` or `scripts/dev.py`. The GitHub-token manifest commit does not retrigger the workflow, and the preflight skips when `dev.json` already points at the selected commit, so there is no publish loop.
 
 Stable releases use:
 

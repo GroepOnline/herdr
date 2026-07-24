@@ -24,6 +24,12 @@ pub fn is_preview() -> bool {
     channel() == "preview"
 }
 
+/// Any non-stable build (preview or dev). Used so the stable channel always
+/// reinstalls the stable asset when switching away from a prerelease build.
+pub fn is_prerelease() -> bool {
+    channel() != "stable"
+}
+
 fn non_empty(value: Option<&'static str>) -> Option<&'static str> {
     value.and_then(|value| {
         let trimmed = value.trim();

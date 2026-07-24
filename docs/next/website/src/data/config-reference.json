@@ -181,10 +181,11 @@
           "key": "update.channel",
           "type": "enum",
           "default": "\"stable\" (\"preview\" on Windows)",
-          "description": "Update channel used by background version checks and herdr update. Homebrew, mise, and Nix installs ignore the preview channel.",
+          "description": "Update channel used by background version checks and herdr update. Homebrew, mise, and Nix installs ignore the preview and dev channels, which are direct-install only. The dev channel publishes a fresh build for every push to main.",
           "values": [
             "stable",
-            "preview"
+            "preview",
+            "dev"
           ]
         },
         {

@@ -25,6 +25,7 @@ use serde::{Deserialize, Deserializer};
 
 const STABLE_UPDATE_MANIFEST_URL: &str = "https://herdr.chefgroep.nl/latest.json";
 const PREVIEW_UPDATE_MANIFEST_URL: &str = "https://herdr.chefgroep.nl/preview.json";
+const DEV_UPDATE_MANIFEST_URL: &str = "https://herdr.chefgroep.nl/dev.json";
 
 fn stable_update_url() -> String {
     std::env::var("HERDR_UPDATE_BASE_URL")
@@ -36,6 +37,12 @@ fn preview_update_url() -> String {
     std::env::var("HERDR_UPDATE_BASE_URL")
         .map(|b| format!("{}/preview.json", b.trim_end_matches('/')))
         .unwrap_or_else(|_| PREVIEW_UPDATE_MANIFEST_URL.to_string())
+}
+
+fn dev_update_url() -> String {
+    std::env::var("HERDR_UPDATE_BASE_URL")
+        .map(|b| format!("{}/dev.json", b.trim_end_matches('/')))
+        .unwrap_or_else(|_| DEV_UPDATE_MANIFEST_URL.to_string())
 }
 const HOMEBREW_FORMULA_API_URL: &str = "https://formulae.brew.sh/api/formula/herdr.json";
 const HERDR_UPDATE_COMMAND: &str = "herdr update";
@@ -115,6 +122,7 @@ impl std::fmt::Display for Version {
 enum UpdateChannel {
     Stable,
     Preview,
+    Dev,
 }
 
 impl UpdateChannel {
@@ -122,6 +130,7 @@ impl UpdateChannel {
         match crate::config::Config::load().config.update.channel {
             crate::config::UpdateChannelConfig::Stable => Self::Stable,
             crate::config::UpdateChannelConfig::Preview => Self::Preview,
+            crate::config::UpdateChannelConfig::Dev => Self::Dev,
         }
     }
 
@@ -129,7 +138,14 @@ impl UpdateChannel {
         match self {
             Self::Stable => "stable",
             Self::Preview => "preview",
+            Self::Dev => "dev",
         }
+    }
+
+    /// A prerelease channel is any non-stable channel (preview or dev). These
+    /// share the same manifest shape and are only available to direct installs.
+    fn is_prerelease(self) -> bool {
+        !matches!(self, Self::Stable)
     }
 }
 
@@ -302,6 +318,10 @@ fn fetch_preview_manifest() -> Result<PreviewManifest, String> {
     fetch_json_manifest(&preview_update_url())
 }
 
+fn fetch_dev_manifest() -> Result<PreviewManifest, String> {
+    fetch_json_manifest(&dev_update_url())
+}
+
 fn fetch_json_manifest<T>(url: &str) -> Result<T, String>
 where
     T: serde::de::DeserializeOwned,
@@ -355,7 +375,7 @@ fn release_info_from_manifest(manifest: &UpdateManifest) -> Result<Option<Releas
     let latest = Version::parse(&manifest.version)
         .ok_or_else(|| format!("invalid version in update manifest: {}", manifest.version))?;
 
-    if !stable_channel_should_install(&latest, &current, crate::build_info::is_preview()) {
+    if !stable_channel_should_install(&latest, &current, crate::build_info::is_prerelease()) {
         return Ok(None); // up to date
     }
 
@@ -397,28 +417,34 @@ fn stable_channel_should_install(
     installed_is_preview || latest > current
 }
 
-fn preview_display_version(base_version: &str, build_id: &str) -> String {
+fn prerelease_display_version(base_version: &str, channel: &str, build_id: &str) -> String {
     format!(
-        "{}-preview.{}",
+        "{}-{}.{}",
         base_version.trim_start_matches('v'),
+        channel,
         build_id
     )
 }
 
-fn release_info_from_preview_manifest(
+/// Shared parsing for prerelease manifests (preview and dev). Both use the
+/// same JSON shape; `channel` selects which stream this manifest must belong to
+/// and how the resulting build identity is labelled.
+fn release_info_from_prerelease_manifest(
     manifest: &PreviewManifest,
+    channel: UpdateChannel,
 ) -> Result<Option<ReleaseInfo>, String> {
-    if manifest.channel != "preview" {
+    let channel_name = channel.as_str();
+    if manifest.channel != channel_name {
         return Err(format!(
-            "invalid preview manifest channel: {}",
+            "invalid {channel_name} manifest channel: {}",
             manifest.channel
         ));
     }
     let build_id = manifest.build_id.trim();
     if build_id.is_empty() {
-        return Err("preview manifest build_id is empty".into());
+        return Err(format!("{channel_name} manifest build_id is empty"));
     }
-    if crate::build_info::is_preview()
+    if crate::build_info::channel() == channel_name
         && crate::build_info::build_id().is_some_and(|current| current == build_id)
     {
         return Ok(None);
@@ -426,13 +452,13 @@ fn release_info_from_preview_manifest(
 
     let version = Version::parse(&manifest.base_version).ok_or_else(|| {
         format!(
-            "invalid base_version in preview manifest: {}",
+            "invalid base_version in {channel_name} manifest: {}",
             manifest.base_version
         )
     })?;
     let notes_body = manifest.notes.trim().to_string();
     if notes_body.is_empty() {
-        return Err("preview manifest notes are empty".into());
+        return Err(format!("{channel_name} manifest notes are empty"));
     }
     let (os, arch) = platform_target();
     let asset_key = format!("{os}-{arch}");
@@ -444,7 +470,8 @@ fn release_info_from_preview_manifest(
         {
             tracing::warn!(
                 build_id,
-                "preview manifest archived build metadata differs from top-level metadata"
+                "{} manifest archived build metadata differs from top-level metadata",
+                channel_name
             );
         }
     }
@@ -457,13 +484,13 @@ fn release_info_from_preview_manifest(
                 .get(build_id)
                 .and_then(|build| build.assets.get(&asset_key))
         })
-        .ok_or_else(|| format!("no binary for {asset_key} in preview manifest"))?;
+        .ok_or_else(|| format!("no binary for {asset_key} in {channel_name} manifest"))?;
     let download_url = asset.url.clone();
 
     Ok(Some(ReleaseInfo {
-        identity: preview_display_version(&manifest.base_version, build_id),
+        identity: prerelease_display_version(&manifest.base_version, channel_name, build_id),
         version,
-        channel: UpdateChannel::Preview,
+        channel,
         build_id: Some(build_id.to_string()),
         commit: Some(manifest.commit.clone()),
         #[cfg(not(windows))]
@@ -478,7 +505,13 @@ fn release_info_from_preview_manifest(
 fn check_latest() -> Result<Option<ReleaseInfo>, String> {
     let channel = UpdateChannel::configured();
     if channel == UpdateChannel::Preview {
-        return release_info_from_preview_manifest(&fetch_preview_manifest()?);
+        return release_info_from_prerelease_manifest(
+            &fetch_preview_manifest()?,
+            UpdateChannel::Preview,
+        );
+    }
+    if channel == UpdateChannel::Dev {
+        return release_info_from_prerelease_manifest(&fetch_dev_manifest()?, UpdateChannel::Dev);
     }
 
     let manifest = fetch_update_manifest()?;
@@ -1814,14 +1847,14 @@ pub(crate) fn package_manager_channel_update_guidance_for_current_install() -> O
 fn preview_channel_rejection_for_exe_path(path: &Path) -> Option<&'static str> {
     if is_homebrew_managed_exe_path_following_links(path) {
         Some(
-            "preview channel is only available for direct Herdr installs; Homebrew installs update through `brew update && brew upgrade herdr`",
+            "preview and dev channels are only available for direct Herdr installs; Homebrew installs update through `brew update && brew upgrade herdr`",
         )
     } else if is_mise_managed_exe_path_following_links(path) {
         Some(
-            "preview channel is only available for direct Herdr installs; mise installs update through `mise upgrade herdr`",
+            "preview and dev channels are only available for direct Herdr installs; mise installs update through `mise upgrade herdr`",
         )
     } else if is_nix_store_exe_path_following_links(path) {
-        Some("preview channel is only available for direct Herdr installs; Nix installs update through Nix")
+        Some("preview and dev channels are only available for direct Herdr installs; Nix installs update through Nix")
     } else {
         None
     }
@@ -1965,10 +1998,11 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
     }
 
     if is_homebrew_managed_install() {
-        if channel == UpdateChannel::Preview {
-            return Err(
-                "self-update is disabled for Homebrew installs; preview is only available for direct Herdr installs".into(),
-            );
+        if channel.is_prerelease() {
+            return Err(format!(
+                "self-update is disabled for Homebrew installs; the {} channel is only available for direct Herdr installs",
+                channel.as_str()
+            ));
         }
         return Err(format!(
             "self-update is disabled for Homebrew installs; run `{HOMEBREW_UPDATE_COMMAND}`"
@@ -1976,10 +2010,11 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
     }
 
     if is_mise_managed_install() {
-        if channel == UpdateChannel::Preview {
-            return Err(
-                "self-update is disabled for mise installs; preview is only available for direct Herdr installs".into(),
-            );
+        if channel.is_prerelease() {
+            return Err(format!(
+                "self-update is disabled for mise installs; the {} channel is only available for direct Herdr installs",
+                channel.as_str()
+            ));
         }
         return Err(format!(
             "self-update is disabled for mise installs; run `{MISE_UPDATE_COMMAND}`"
@@ -1987,10 +2022,11 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
     }
 
     if is_nix_managed_install() {
-        if channel == UpdateChannel::Preview {
-            return Err(
-                "self-update is disabled for Nix installs; preview is only available for direct Herdr installs".into(),
-            );
+        if channel.is_prerelease() {
+            return Err(format!(
+                "self-update is disabled for Nix installs; the {} channel is only available for direct Herdr installs",
+                channel.as_str()
+            ));
         }
         return Err(
             "self-update is disabled for Nix installs; update with `nix profile upgrade` or update the flake input that provides Herdr".into(),
@@ -2115,24 +2151,31 @@ pub fn auto_update(events: tokio::sync::mpsc::Sender<crate::events::AppEvent>) {
 
     let configured_channel = UpdateChannel::configured();
     if is_homebrew_managed_install() {
-        if configured_channel == UpdateChannel::Preview {
-            crate::logging::update_check_failed(
-                "preview channel is not available for Homebrew installs",
-            );
+        if configured_channel.is_prerelease() {
+            crate::logging::update_check_failed(&format!(
+                "{} channel is not available for Homebrew installs",
+                configured_channel.as_str()
+            ));
             return;
         }
         auto_update_homebrew(events);
         return;
     }
 
-    if is_mise_managed_install() && configured_channel == UpdateChannel::Preview {
-        crate::logging::update_check_failed("preview channel is not available for mise installs");
+    if is_mise_managed_install() && configured_channel.is_prerelease() {
+        crate::logging::update_check_failed(&format!(
+            "{} channel is not available for mise installs",
+            configured_channel.as_str()
+        ));
         return;
     }
 
     let nix_managed_install = is_nix_managed_install();
-    if nix_managed_install && configured_channel == UpdateChannel::Preview {
-        crate::logging::update_check_failed("preview channel is not available for Nix installs");
+    if nix_managed_install && configured_channel.is_prerelease() {
+        crate::logging::update_check_failed(&format!(
+            "{} channel is not available for Nix installs",
+            configured_channel.as_str()
+        ));
         return;
     }
 
@@ -3415,7 +3458,7 @@ mod tests {
         );
         let manifest: PreviewManifest = serde_json::from_str(&json).unwrap();
 
-        let release = release_info_from_preview_manifest(&manifest)
+        let release = release_info_from_prerelease_manifest(&manifest, UpdateChannel::Preview)
             .unwrap()
             .expect("preview update");
 
@@ -3423,6 +3466,39 @@ mod tests {
         assert_eq!(release.identity, "9.9.9-preview.2026-06-02-abcdef123456");
         assert_eq!(release.target_protocol, Some(77));
         assert_eq!(release.sha256.as_deref(), Some("deadbeef"));
+    }
+
+    #[test]
+    fn dev_manifest_reports_update_and_rejects_wrong_channel() {
+        let (os, arch) = platform_target();
+        let asset_key = format!("{os}-{arch}");
+        let json = format!(
+            r####"{{
+                "channel": "dev",
+                "base_version": "9.9.9",
+                "build_id": "2026-06-02-abcdef123456",
+                "commit": "abcdef1234567890",
+                "built_at": "2026-06-02T03:00:00Z",
+                "protocol": 77,
+                "notes": "### Fixed\n- One",
+                "assets": {{
+                    "{asset_key}": {{
+                        "url": "https://example.com/herdr-linux-x86_64",
+                        "sha256": "deadbeef"
+                    }}
+                }}
+            }}"####
+        );
+        let manifest: PreviewManifest = serde_json::from_str(&json).unwrap();
+
+        let release = release_info_from_prerelease_manifest(&manifest, UpdateChannel::Dev)
+            .unwrap()
+            .expect("dev update");
+        assert_eq!(release.channel, UpdateChannel::Dev);
+        assert_eq!(release.identity, "9.9.9-dev.2026-06-02-abcdef123456");
+
+        // A dev manifest must not be accepted on the preview channel.
+        assert!(release_info_from_prerelease_manifest(&manifest, UpdateChannel::Preview).is_err());
     }
 
     #[test]

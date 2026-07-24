@@ -17,6 +17,7 @@ pub enum UpdateChannelConfig {
     #[default]
     Stable,
     Preview,
+    Dev,
 }
 
 impl UpdateChannelConfig {
@@ -24,6 +25,7 @@ impl UpdateChannelConfig {
         match self {
             Self::Stable => "stable",
             Self::Preview => "preview",
+            Self::Dev => "dev",
         }
     }
 }
