@@ -5140,6 +5140,49 @@ last_pane = "prefix+tab"
         assert!(!app.state.name_input_replace_on_type);
     }
 
+    #[tokio::test]
+    async fn route_client_input_strips_host_paste_markers_when_pane_bracketed_paste_unset() {
+        let mut app = test_app();
+        let mut workspace = Workspace::test_new("test");
+        let focused = workspace.focused_pane_id().unwrap();
+        let (runtime, mut rx) = TerminalRuntime::test_with_channel(80, 24);
+        workspace.tabs[0].runtimes.insert(focused, runtime);
+        app.state.workspaces = vec![workspace];
+        app.state.active = Some(0);
+        app.state.selected = 0;
+        app.state.mode = Mode::Terminal;
+
+        app.route_client_input(b"\x1b[200~npm run lint:check\x1b[201~".to_vec());
+
+        assert_eq!(
+            rx.recv().await.unwrap(),
+            bytes::Bytes::from_static(b"npm run lint:check")
+        );
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn route_client_input_keeps_paste_markers_when_pane_bracketed_paste_enabled() {
+        let mut app = test_app();
+        let mut workspace = Workspace::test_new("test");
+        let focused = workspace.focused_pane_id().unwrap();
+        let (runtime, mut rx) = TerminalRuntime::test_with_channel(80, 24);
+        runtime.test_process_pty_bytes(b"\x1b[?2004h");
+        workspace.tabs[0].runtimes.insert(focused, runtime);
+        app.state.workspaces = vec![workspace];
+        app.state.active = Some(0);
+        app.state.selected = 0;
+        app.state.mode = Mode::Terminal;
+
+        app.route_client_input(b"\x1b[200~hello\x1b[201~".to_vec());
+
+        assert_eq!(
+            rx.recv().await.unwrap(),
+            bytes::Bytes::from_static(b"\x1b[200~hello\x1b[201~")
+        );
+        assert!(rx.try_recv().is_err());
+    }
+
     #[test]
     fn route_client_input_rename_enter_submits_through_api_path() {
         let mut app = test_app();

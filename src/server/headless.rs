@@ -386,9 +386,23 @@ fn apply_terminal_attach_input(
     data: Vec<u8>,
 ) -> Result<(), String> {
     runtime.scroll_reset();
+    let bytes = match crate::server::terminal_attach::rewrite_attach_input_bytes(runtime, &data) {
+        std::borrow::Cow::Borrowed(_) => Bytes::from(data),
+        std::borrow::Cow::Owned(owned) => Bytes::from(owned),
+    };
     runtime
-        .try_send_bytes(Bytes::from(data))
+        .try_send_bytes(bytes)
         .map_err(|err| format!("terminal attach input failed: {err}"))
+}
+
+fn apply_terminal_attach_paste(
+    runtime: &crate::terminal::TerminalRuntime,
+    text: String,
+) -> Result<(), String> {
+    runtime.scroll_reset();
+    runtime
+        .try_send_paste(text)
+        .map_err(|err| format!("terminal attach paste failed: {err}"))
 }
 
 #[cfg(windows)]
@@ -3172,12 +3186,47 @@ impl HeadlessServer {
                     return false;
                 }
                 debug!(client_id, len = data.len(), "client input received");
-                if let Some(ClientConnection {
-                    mode: ClientConnectionMode::TerminalAttach { terminal_id },
-                    ..
-                }) = self.clients.get(&client_id)
-                {
-                    if let Some(runtime) = self.runtime_for_terminal_id_string(terminal_id) {
+                let attach_terminal_id =
+                    self.clients
+                        .get(&client_id)
+                        .and_then(|client| match &client.mode {
+                            ClientConnectionMode::TerminalAttach { terminal_id } => {
+                                Some(terminal_id.clone())
+                            }
+                            _ => None,
+                        });
+                if let Some(terminal_id) = attach_terminal_id {
+                    let pending_paste = self
+                        .clients
+                        .get(&client_id)
+                        .is_some_and(|client| client.raw_input.has_pending_bracketed_paste());
+                    let looks_like_host_paste = pending_paste || data.starts_with(b"\x1b[200~");
+                    if looks_like_host_paste {
+                        let events = if let Some(client) = self.clients.get_mut(&client_id) {
+                            let mut events = client.raw_input.push(&data);
+                            if data.as_slice() == b"\x1b" {
+                                events.extend(client.raw_input.flush_timeout());
+                            }
+                            events
+                        } else {
+                            Vec::new()
+                        };
+                        if let Some(runtime) = self.runtime_for_terminal_id_string(&terminal_id) {
+                            for event in events {
+                                if let crate::raw_input::RawInputEvent::Paste(text) = event {
+                                    if let Err(err) = apply_terminal_attach_paste(runtime, text) {
+                                        warn!(
+                                            client_id,
+                                            terminal_id = %terminal_id,
+                                            err = %err
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        return true;
+                    }
+                    if let Some(runtime) = self.runtime_for_terminal_id_string(&terminal_id) {
                         if let Err(err) = apply_terminal_attach_input(runtime, data) {
                             warn!(client_id, terminal_id = %terminal_id, err = %err);
                         }
@@ -6122,6 +6171,49 @@ next_tab = ""
             Bytes::from("x")
         );
 
+        drop(runtime);
+        drop(_runtime_guard);
+        rt.shutdown_timeout(Duration::from_millis(100));
+    }
+
+    #[test]
+    fn terminal_attach_input_strips_host_paste_markers_when_pane_unset() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("test runtime");
+        let _runtime_guard = rt.enter();
+        let (runtime, mut input_rx) = crate::terminal::TerminalRuntime::test_with_channel(80, 24);
+
+        apply_terminal_attach_input(&runtime, b"\x1b[200~npm run lint:check\x1b[201~".to_vec())
+            .expect("attach paste");
+
+        assert_eq!(
+            input_rx.try_recv().unwrap(),
+            Bytes::from_static(b"npm run lint:check")
+        );
+        drop(runtime);
+        drop(_runtime_guard);
+        rt.shutdown_timeout(Duration::from_millis(100));
+    }
+
+    #[test]
+    fn terminal_attach_input_keeps_host_paste_markers_when_pane_enabled() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("test runtime");
+        let _runtime_guard = rt.enter();
+        let (runtime, mut input_rx) = crate::terminal::TerminalRuntime::test_with_channel(80, 24);
+        runtime.test_process_pty_bytes(b"\x1b[?2004h");
+
+        apply_terminal_attach_input(&runtime, b"\x1b[200~hello\x1b[201~".to_vec())
+            .expect("attach paste");
+
+        assert_eq!(
+            input_rx.try_recv().unwrap(),
+            Bytes::from_static(b"\x1b[200~hello\x1b[201~")
+        );
         drop(runtime);
         drop(_runtime_guard);
         rt.shutdown_timeout(Duration::from_millis(100));

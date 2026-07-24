@@ -27,11 +27,7 @@ pub(super) fn encode_api_text(runtime: &crate::terminal::TerminalRuntime, text: 
         .input_state()
         .map(|state| state.bracketed_paste)
         .unwrap_or(false);
-    if bracketed {
-        format!("\x1b[200~{text}\x1b[201~").into_bytes()
-    } else {
-        text.as_bytes().to_vec()
-    }
+    crate::raw_input::encode_paste_for_mode(text, bracketed).into_bytes()
 }
 
 pub(super) fn encode_api_keys(

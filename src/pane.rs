@@ -2698,12 +2698,7 @@ impl PaneRuntime {
             .input_state()
             .map(|state| state.bracketed_paste)
             .unwrap_or(false);
-        let payload = if bracketed {
-            format!("\x1b[200~{text}\x1b[201~")
-        } else {
-            text
-        };
-        Bytes::from(payload)
+        Bytes::from(crate::raw_input::encode_paste_for_mode(&text, bracketed))
     }
 
     pub fn try_send_focus_event(&self, event: crate::ghostty::FocusEvent) -> bool {
@@ -3486,6 +3481,48 @@ mod tests {
 
         assert!(runtime.try_send_focus_event(crate::ghostty::FocusEvent::Gained));
         assert_eq!(rx.recv().await.unwrap(), Bytes::from_static(b"\x1b[I"));
+    }
+
+    #[tokio::test]
+    async fn send_paste_strips_host_markers_when_bracketed_paste_unset() {
+        let (runtime, mut rx) = PaneRuntime::test_with_channel(80, 24);
+
+        runtime
+            .try_send_paste("\x1b[200~npm run lint:check\x1b[201~".to_owned())
+            .unwrap();
+
+        assert_eq!(
+            rx.recv().await.unwrap(),
+            Bytes::from_static(b"npm run lint:check")
+        );
+    }
+
+    #[tokio::test]
+    async fn send_paste_wraps_when_bracketed_paste_enabled() {
+        let (runtime, mut rx) = PaneRuntime::test_with_channel(80, 24);
+        runtime.test_process_pty_bytes(b"\x1b[?2004h");
+
+        runtime.try_send_paste("hello".to_owned()).unwrap();
+
+        assert_eq!(
+            rx.recv().await.unwrap(),
+            Bytes::from_static(b"\x1b[200~hello\x1b[201~")
+        );
+    }
+
+    #[tokio::test]
+    async fn send_paste_does_not_double_wrap_host_markers_when_enabled() {
+        let (runtime, mut rx) = PaneRuntime::test_with_channel(80, 24);
+        runtime.test_process_pty_bytes(b"\x1b[?2004h");
+
+        runtime
+            .try_send_paste("\x1b[200~hello\x1b[201~".to_owned())
+            .unwrap();
+
+        assert_eq!(
+            rx.recv().await.unwrap(),
+            Bytes::from_static(b"\x1b[200~hello\x1b[201~")
+        );
     }
 
     #[tokio::test]

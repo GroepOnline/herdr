@@ -107,6 +107,8 @@ pub(crate) const GHOSTTY_COLOR_SCHEME_DARK_REPORT: &[u8] = b"\x1b[?997;1n";
 pub(crate) const GHOSTTY_COLOR_SCHEME_LIGHT_REPORT: &[u8] = b"\x1b[?997;2n";
 const BRACKETED_PASTE_START: &[u8] = b"\x1b[200~";
 const BRACKETED_PASTE_END: &[u8] = b"\x1b[201~";
+const BRACKETED_PASTE_START_STR: &str = "\u{1b}[200~";
+const BRACKETED_PASTE_END_STR: &str = "\u{1b}[201~";
 
 /// Returns whether `data` is exactly one complete bracketed-paste sequence.
 ///
@@ -121,6 +123,48 @@ pub(crate) fn is_complete_text_bracketed_paste(data: &[u8]) -> bool {
     };
     end + BRACKETED_PASTE_END.len() == data.len()
         && std::str::from_utf8(&data[BRACKETED_PASTE_START.len()..end]).is_ok()
+}
+
+/// Strip a single surrounding host bracketed-paste wrapper, if present.
+///
+/// Outer terminals wrap paste in `ESC[200~` / `ESC[201~` because the Herdr
+/// client enables bracketed paste. Pane apps that have not requested DECSET
+/// 2004 must receive only the payload (tmux-style).
+pub(crate) fn strip_bracketed_paste_wrappers(text: &str) -> &str {
+    text.strip_prefix(BRACKETED_PASTE_START_STR)
+        .and_then(|rest| rest.strip_suffix(BRACKETED_PASTE_END_STR))
+        .unwrap_or(text)
+}
+
+/// Encode paste text for a pane based on whether that pane enabled DECSET 2004.
+///
+/// Always strips a surrounding host wrapper first, then re-wraps only when the
+/// pane has bracketed paste enabled.
+pub(crate) fn encode_paste_for_mode(text: &str, bracketed_paste: bool) -> String {
+    let payload = strip_bracketed_paste_wrappers(text);
+    if bracketed_paste {
+        format!("{BRACKETED_PASTE_START_STR}{payload}{BRACKETED_PASTE_END_STR}")
+    } else {
+        payload.to_owned()
+    }
+}
+
+/// Rewrite a complete host bracketed-paste byte sequence for the pane mode.
+///
+/// Non-paste input is returned unchanged. Complete pastes are stripped and
+/// optionally re-wrapped via [`encode_paste_for_mode`].
+pub(crate) fn rewrite_host_paste_bytes(
+    data: &[u8],
+    bracketed_paste: bool,
+) -> std::borrow::Cow<'_, [u8]> {
+    if !is_complete_text_bracketed_paste(data) {
+        return std::borrow::Cow::Borrowed(data);
+    }
+    let payload = &data[BRACKETED_PASTE_START.len()..data.len() - BRACKETED_PASTE_END.len()];
+    let Ok(text) = std::str::from_utf8(payload) else {
+        return std::borrow::Cow::Borrowed(data);
+    };
+    std::borrow::Cow::Owned(encode_paste_for_mode(text, bracketed_paste).into_bytes())
 }
 
 #[derive(Debug)]
@@ -174,7 +218,6 @@ impl RawInputFramer {
         self.byte_framer.has_pending_incomplete_sgr_mouse_sequence()
     }
 
-    #[cfg(any(windows, test))]
     pub(crate) fn has_pending_bracketed_paste(&self) -> bool {
         self.byte_framer.has_pending_bracketed_paste()
     }
@@ -283,7 +326,6 @@ impl RawInputByteFramer {
         starts_with_incomplete_sgr_mouse_sequence(&self.buffer)
     }
 
-    #[cfg(any(windows, test))]
     pub(crate) fn has_pending_bracketed_paste(&self) -> bool {
         self.buffer.starts_with(BRACKETED_PASTE_START)
             && find_subsequence(&self.buffer, BRACKETED_PASTE_END).is_none()
@@ -1237,6 +1279,49 @@ mod tests {
         };
         assert_eq!(text, "hello");
         assert_eq!(consumed, 17);
+    }
+
+    #[test]
+    fn encode_paste_for_mode_strips_host_markers_when_pane_unset() {
+        assert_eq!(
+            encode_paste_for_mode("\x1b[200~npm run lint:check\x1b[201~", false),
+            "npm run lint:check"
+        );
+        assert_eq!(
+            encode_paste_for_mode("npm run lint:check", false),
+            "npm run lint:check"
+        );
+    }
+
+    #[test]
+    fn encode_paste_for_mode_keeps_or_adds_markers_when_pane_enabled() {
+        assert_eq!(
+            encode_paste_for_mode("\x1b[200~hello\x1b[201~", true),
+            "\x1b[200~hello\x1b[201~"
+        );
+        assert_eq!(
+            encode_paste_for_mode("hello", true),
+            "\x1b[200~hello\x1b[201~"
+        );
+    }
+
+    #[test]
+    fn rewrite_host_paste_bytes_strips_when_pane_unset() {
+        let host = b"\x1b[200~npm run lint:check\x1b[201~".as_slice();
+        assert_eq!(
+            rewrite_host_paste_bytes(host, false).as_ref(),
+            b"npm run lint:check"
+        );
+        assert_eq!(
+            rewrite_host_paste_bytes(b"plain keys", false).as_ref(),
+            b"plain keys"
+        );
+    }
+
+    #[test]
+    fn rewrite_host_paste_bytes_preserves_markers_when_pane_enabled() {
+        let host = b"\x1b[200~hello\x1b[201~".as_slice();
+        assert_eq!(rewrite_host_paste_bytes(host, true).as_ref(), host);
     }
 
     #[test]
