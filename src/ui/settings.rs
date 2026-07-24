@@ -2,7 +2,7 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{List, ListItem, ListState, Paragraph, Tabs},
+    widgets::Paragraph,
     Frame,
 };
 
@@ -71,36 +71,39 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
         header_rows[0],
     );
 
-    let tab_labels = SettingsSection::ALL.iter().map(|section| {
-        if app.settings_section_has_badge(*section) {
-            Line::from(vec![
-                Span::styled(
-                    "● ",
-                    Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
-                ),
-                Span::raw(section.label()),
-            ])
-        } else {
-            Line::from(section.label())
-        }
-    });
-    let tabs = Tabs::new(tab_labels)
-        .select(
-            SettingsSection::ALL
-                .iter()
-                .position(|section| *section == app.settings.section)
-                .unwrap_or(0),
-        )
-        .style(Style::default().fg(p.overlay1))
-        .highlight_style(
+    let mut tab_x = header_rows[1].x;
+    for section in SettingsSection::ALL.iter() {
+        let is_selected = *section == app.settings.section;
+        let style = if is_selected {
             Style::default()
                 .fg(panel_contrast_fg(p))
                 .bg(p.accent)
-                .add_modifier(Modifier::BOLD),
-        )
-        .divider(" ")
-        .padding(" ", " ");
-    frame.render_widget(tabs, header_rows[1]);
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(p.overlay1)
+        };
+        let badge = if app.settings_section_has_badge(*section) {
+            "● "
+        } else {
+            ""
+        };
+        let label = format!(" {badge}{} ", section.label());
+        let width = label.chars().count() as u16;
+        if tab_x + width > header_rows[1].x + header_rows[1].width {
+            break;
+        }
+        let rect = Rect::new(tab_x, header_rows[1].y, width, 1);
+        let mut spans = vec![];
+        if !badge.is_empty() {
+            spans.push(Span::styled(" ", style));
+            spans.push(Span::styled("● ", Style::default().fg(p.accent).bg(if is_selected { p.accent } else { p.panel_bg })));
+            spans.push(Span::styled(format!("{} ", section.label()), style));
+        } else {
+            spans.push(Span::styled(label, style));
+        }
+        frame.render_widget(Paragraph::new(Line::from(spans)).style(style), rect);
+        tab_x += width + 1; // space divider
+    }
 
     let sep = "─".repeat(inner.width as usize);
     frame.render_widget(
@@ -338,31 +341,42 @@ fn render_settings_theme(app: &AppState, frame: &mut Frame, area: Rect) {
     use crate::app::state::THEME_NAMES;
 
     let p = &app.palette;
-    let items: Vec<ListItem> = THEME_NAMES
-        .iter()
-        .map(|name| {
-            let is_current = name.to_lowercase().replace([' ', '_'], "-")
-                == app.theme_name.to_lowercase().replace([' ', '_'], "-");
-            let marker = if is_current { " ✓" } else { "" };
-            ListItem::new(Line::from(vec![
-                Span::styled(*name, Style::default().fg(p.subtext0)),
-                Span::styled(marker, Style::default().fg(p.green)),
-            ]))
-        })
-        .collect();
+    let selected = app.settings.list.selected;
+    let visible_rows = area.height as usize;
+    let scroll = if selected >= visible_rows {
+        selected - visible_rows + 1
+    } else {
+        0
+    };
 
-    let list = List::new(items)
-        .highlight_style(
+    for (idx, name) in THEME_NAMES.iter().enumerate() {
+        if idx < scroll || idx >= scroll + visible_rows {
+            continue;
+        }
+        let y = area.y + (idx - scroll) as u16;
+        let is_selected = idx == selected;
+        let is_current = name.to_lowercase().replace([' ', '_'], "-")
+            == app.theme_name.to_lowercase().replace([' ', '_'], "-");
+
+        let marker = if is_current { " ✓" } else { "" };
+        let prefix = if is_selected { " ▸ " } else { "   " };
+        let style = if is_selected {
             Style::default()
                 .bg(p.surface0)
                 .fg(p.text)
-                .add_modifier(Modifier::BOLD),
-        )
-        .highlight_symbol(" ▸ ")
-        .style(Style::default().fg(p.subtext0));
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(p.subtext0)
+        };
 
-    let mut state = ListState::default().with_selected(Some(app.settings.list.selected));
-    frame.render_stateful_widget(list, area, &mut state);
+        let line = Line::from(vec![
+            Span::styled(prefix, style),
+            Span::styled(*name, style),
+            Span::styled(marker, Style::default().fg(if is_selected { p.text } else { p.green })),
+        ]);
+        
+        frame.render_widget(Paragraph::new(line), Rect::new(area.x, y, area.width, 1));
+    }
 }
 
 /// Ui tab: toggle rows + spinner grid.

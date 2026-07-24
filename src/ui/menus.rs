@@ -2,7 +2,7 @@ use ratatui::{
     layout::{Alignment, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Clear, List, ListItem, ListState, Paragraph},
+    widgets::{Clear, Paragraph},
     Frame,
 };
 
@@ -265,20 +265,20 @@ pub(super) fn render_context_menu(app: &AppState, frame: &mut Frame) {
         return;
     };
 
-    let items: Vec<ListItem> = menu
-        .items()
-        .iter()
-        .map(|item| ListItem::new(Line::from(*item)))
-        .collect();
-    let list = List::new(items)
-        .style(Style::default().fg(p.text))
-        .highlight_style(
-            Style::default()
-                .bg(p.accent)
-                .fg(panel_contrast_fg(p))
-                .add_modifier(Modifier::BOLD),
-        )
-        .highlight_symbol(" ");
-    let mut state = ListState::default().with_selected(Some(menu.list.highlighted));
-    frame.render_stateful_widget(list, inner, &mut state);
+    let items = menu.items();
+    for (idx, item) in items.iter().enumerate() {
+        let y = inner.y + idx as u16;
+        if y >= inner.y + inner.height {
+            break;
+        }
+        let selected = idx == menu.list.highlighted;
+        let rect = Rect::new(inner.x, y, inner.width, 1);
+        let style = if selected {
+            Style::default().bg(p.accent).fg(panel_contrast_fg(p)).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(p.text)
+        };
+        let prefix = if selected { " " } else { " " };
+        frame.render_widget(Paragraph::new(format!("{prefix}{item}")).style(style), rect);
+    }
 }
