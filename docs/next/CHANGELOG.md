@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- Preview docs cover CHEF fleet plugins that feed the Fleet Ops Bar through `fleet_ops.json`, including Settings → fleet (`ui.fleet_ops_bar`) and `herdr plugin action invoke` usage.
+
 ### Fixed
 - Linux clipboard copy/paste now prefers Wayland clipboard tools and skips xclip/xsel entirely on Wayland sessions by default, and every clipboard helper process is now bounded by a timeout instead of blocking indefinitely, preventing paste/copy from hanging when Xwayland's X11 connection is unreachable.
 - Pane applications that query OSC 4 palette colors now inherit the controlling host terminal's palette while preserving child-defined palette overrides.
