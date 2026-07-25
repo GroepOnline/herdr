@@ -42,17 +42,19 @@ main() {
     echo "      II  II"
     echo ""
 
-    # detect platform (OnlineChefGroep fork: linux x86_64 only)
+    # Detect the release asset key used by stable, preview, and dev manifests.
     OS="$(uname -s)"
     case "$OS" in
         Linux)  os="linux" ;;
-        *)      err "unsupported OS: $OS (linux x86_64 only)" ;;
+        Darwin) os="macos" ;;
+        *)      err "unsupported OS: $OS (supported: Linux and macOS)" ;;
     esac
 
     ARCH="$(uname -m)"
     case "$ARCH" in
-        x86_64|amd64)   arch="x86_64" ;;
-        *)              err "unsupported architecture: $ARCH (linux x86_64 only)" ;;
+        x86_64|amd64) arch="x86_64" ;;
+        aarch64|arm64) arch="aarch64" ;;
+        *) err "unsupported architecture: $ARCH (supported: x86_64 and aarch64/arm64)" ;;
     esac
 
     log "detected ${os}/${arch}"
