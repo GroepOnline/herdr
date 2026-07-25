@@ -167,13 +167,15 @@ impl App {
                 true
             }
             crate::raw_input::RawInputEvent::Mouse(mouse) => {
+                let changes_view = !matches!(mouse.kind, crossterm::event::MouseEventKind::Moved)
+                    || self.state.mode.mouse_motion_changes_view();
                 if self.state.popup_pane.is_some() || self.state.mouse_capture {
                     self.handle_mouse(mouse);
                 } else {
                     self.state
                         .handle_pane_mouse_only(&self.terminal_runtimes, mouse);
                 }
-                true
+                changes_view
             }
             crate::raw_input::RawInputEvent::OuterFocusGained => {
                 self.send_outer_focus_event(crate::ghostty::FocusEvent::Gained);
@@ -806,6 +808,24 @@ mod tests {
         // At scrollback bottom, can't scroll further down — should stop
         assert!(app.state.selection_autoscroll.is_none());
         assert!(app.selection_autoscroll_deadline.is_none());
+    }
+
+    #[tokio::test]
+    async fn passive_mouse_motion_does_not_request_monolithic_render() {
+        let (mut app, _) = test_app_with_pane();
+        app.state.mode = crate::app::Mode::Terminal;
+        let motion = || {
+            crate::raw_input::RawInputEvent::Mouse(crossterm::event::MouseEvent {
+                kind: crossterm::event::MouseEventKind::Moved,
+                column: 10,
+                row: 5,
+                modifiers: crossterm::event::KeyModifiers::empty(),
+            })
+        };
+
+        assert!(!app.handle_raw_input_event(motion()).await);
+        app.state.mode = crate::app::Mode::GlobalMenu;
+        assert!(app.handle_raw_input_event(motion()).await);
     }
 
     #[tokio::test]

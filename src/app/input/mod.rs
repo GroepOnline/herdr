@@ -464,7 +464,9 @@ impl App {
         let Some(bytes) = bytes else {
             return;
         };
-        rt.scroll_reset();
+        if !matches!(mouse.kind, MouseEventKind::Moved) {
+            rt.scroll_reset();
+        }
         if let Err(err) = rt.try_send_bytes(Bytes::from(bytes)) {
             warn!(err = %err, kind = ?mouse.kind, "failed to forward popup mouse event");
         }
