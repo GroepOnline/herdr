@@ -1169,7 +1169,7 @@ impl ExperimentSetting {
         match self {
             Self::PaneHistory => "pane screen history",
             Self::SwitchAsciiInputSourceInPrefix => {
-                "switch to ascii input source in prefix (macOS)"
+                "switch to ascii input source in prefix (macOS/Windows)"
             }
             Self::KittyGraphics => "kitty graphics protocol",
             Self::AllowNested => "allow nested herdr sessions",
