@@ -94,6 +94,26 @@ For local builds or custom binaries, set `HERDR_REMOTE_BINARY` to a local file p
 HERDR_REMOTE_BINARY=target/release/herdr herdr --remote workbox
 ```
 
+## Mobile access (Moshi)
+
+On iPhone, use a mobile terminal such as [Moshi](https://getmoshi.app/) against
+the same SSH (or mosh) host where Herdr already runs your agents. Herdr stays
+the server-side multiplexer; Moshi is the phone UI.
+
+Typical flow:
+
+1. Run agents under Herdr on the host (`herdr` or `herdr session attach`).
+2. Reach the host over SSH or mosh (Tailscale works well for fleet hosts).
+3. Attach from Moshi to the shell or session you need.
+
+Load passphrase-protected keys into `ssh-agent` before connecting from Moshi if
+the phone cannot show an interactive passphrase prompt.
+
+When many hosts are online, set unique `HERDR_HOST_NAME` values and use the
+[Fleet ops and gateway](/docs/fleet-ops/) docs (`/v1/ops/context` or the Fleet
+Ops Bar) to see what runs where before attaching from a phone. Full Moshi setup
+notes live in [Moshi (iPhone) with Herdr](/docs/moshi/).
+
 ## Remote named sessions
 
 Use `--session` with `--remote` to attach to a named session on the remote host:

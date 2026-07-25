@@ -181,6 +181,20 @@ file: ../../../public/assets/logo.svg
         self.assertIn("file: ../../../../public/assets/logo.svg", output)
         self.assertIn("Preview docs describe unreleased preview builds", output)
 
+    def test_preview_docs_rewrite_localized_hero_paths(self):
+        source = """---
+title: Herdr docs
+---
+
+file: ../../../../public/assets/logo.svg
+"""
+        output = subprocess.check_output(
+            ["node", "website/scripts/prepare-docs.mjs", "--rewrite-preview-doc-fixture"],
+            input=source,
+            text=True,
+        )
+        self.assertIn("file: ../../../../../public/assets/logo.svg", output)
+
 
 class ConventionalCommitTests(unittest.TestCase):
     def test_valid_subjects_allow_scopes_and_bang(self):

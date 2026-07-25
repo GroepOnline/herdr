@@ -85,6 +85,25 @@ herdr --remote workbox --handoff
 HERDR_REMOTE_BINARY=target/release/herdr herdr --remote workbox
 ```
 
+## モバイルアクセス（Moshi）
+
+iPhone では、Herdr がエージェントを動かしているのと同じ SSH（または mosh）ホストに
+[Moshi](https://getmoshi.app/) などのモバイル端末を接続します。Herdr がサーバー側
+マルチプレクサ、Moshi がスマホ UI です。
+
+典型的な流れ:
+
+1. ホストで Herdr の下でエージェントを実行（`herdr` または `herdr session attach`）。
+2. SSH または mosh でホストへ到達（fleet ホストでは Tailscale が便利）。
+3. Moshi から必要なシェルまたはセッションにアタッチ。
+
+スマホで対話型パスフレーズ入力ができない場合は、接続前に `ssh-agent` へ鍵を読み込んでください。
+
+多数のホストがオンラインのときは、一意の `HERDR_HOST_NAME` と
+[Fleet ops と gateway](/ja/docs/fleet-ops/)（`/v1/ops/context` または Fleet Ops Bar）
+で、スマホからアタッチする前に**何がどこで動いているか**を確認してください。
+Moshi の詳細は [Moshi（iPhone）と Herdr](/ja/docs/moshi/) を参照してください。
+
 ## リモートの名前付きセッション
 
 リモートホスト上の名前付きセッションにアタッチするには、`--remote` と一緒に `--session` を使います:

@@ -22,8 +22,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      maintenance: ${{ steps.filter.outputs.maintenance }}
+      release_meta: ${{ steps.filter.outputs.release_meta }}
+      platform_heavy: ${{ steps.filter.outputs.platform_heavy }}
+      docs_only: ${{ steps.filter.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: filter
+        name: Classify changed paths
+        run: python3 scripts/ci_changed_paths.py
+
   lint:
     name: Lint
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -56,6 +78,8 @@ jobs:
 
   test:
     name: Test
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -89,6 +113,8 @@ jobs:
 
   maintenance:
     name: Maintenance
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.maintenance == 'true' || needs.changes.outputs.docs_only == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -102,7 +128,7 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
 
       - name: Python maintenance unittests
-        run: python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_ci_quality scripts.test_config_reference_check scripts.test_docs_translation_parity scripts.test_preview scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
+        run: python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_ci_changed_paths scripts.test_ci_quality scripts.test_config_reference_check scripts.test_dev scripts.test_docs_translation_parity scripts.test_preview scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
 
       - name: Integration asset tests
         run: |
@@ -114,9 +140,12 @@ jobs:
 
   windows-lint:
     name: Windows lint
-    # Native Windows runner: cross-clippy via cargo-xwin on Linux was too fragile
-    # (llvm-lib/clang-cl/lld-link tooling). Local `just windows-lint` stays as
-    # a Linux cross check for developer machines that have the toolchain.
+    needs: changes
+    # Heavy: native windows clippy. PR docs-only skips; force with label ci-heavy.
+    if: >
+      github.event_name == 'push' ||
+      needs.changes.outputs.platform_heavy == 'true' ||
+      contains(github.event.pull_request.labels.*.name, 'ci-heavy')
     runs-on: windows-latest
     timeout-minutes: 45
     env:
@@ -146,6 +175,8 @@ jobs:
 
   release-metadata:
     name: Release metadata
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.release_meta == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -163,7 +194,16 @@ jobs:
 
   release-smoke:
     name: Release smoke build (${{ matrix.target }})
-    needs: [lint, test]
+    needs: [changes, lint, test]
+    if: >
+      always() &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (
+        github.event_name == 'push' ||
+        needs.changes.outputs.platform_heavy == 'true' ||
+        contains(github.event.pull_request.labels.*.name, 'ci-heavy')
+      )
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -233,6 +273,7 @@ jobs:
     name: Quality gate
     runs-on: ubuntu-latest
     needs:
+      - changes
       - lint
       - test
       - maintenance
@@ -241,21 +282,25 @@ jobs:
       - release-smoke
     if: always()
     steps:
-      - name: Require all quality jobs
+      - name: Require quality jobs (skipped heavy lanes OK)
         run: |
           set -euo pipefail
-          results=(
-            "${{ needs.lint.result }}"
-            "${{ needs.test.result }}"
-            "${{ needs.maintenance.result }}"
-            "${{ needs.windows-lint.result }}"
-            "${{ needs.release-metadata.result }}"
-            "${{ needs.release-smoke.result }}"
-          )
-          for result in "${results[@]}"; do
-            if [ "$result" != "success" ]; then
-              echo "Quality gate failed; job result was: $result"
-              exit 1
-            fi
-          done
+          require_ok() {
+            local name="$1"
+            local result="$2"
+            case "$result" in
+              success|skipped) echo "$name: $result" ;;
+              *)
+                echo "Quality gate failed; $name result was: $result"
+                exit 1
+                ;;
+            esac
+          }
+          require_ok changes "${{ needs.changes.result }}"
+          require_ok lint "${{ needs.lint.result }}"
+          require_ok test "${{ needs.test.result }}"
+          require_ok maintenance "${{ needs.maintenance.result }}"
+          require_ok windows-lint "${{ needs.windows-lint.result }}"
+          require_ok release-metadata "${{ needs.release-metadata.result }}"
+          require_ok release-smoke "${{ needs.release-smoke.result }}"
           echo "Quality gate passed."

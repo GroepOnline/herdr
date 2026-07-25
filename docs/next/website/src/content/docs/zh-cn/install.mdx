@@ -23,10 +23,22 @@ powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps
 
 ## 用 Homebrew 安装
 
+OnlineChefGroep 通过专用 Homebrew tap 发布 Herdr。上游的
+`brew install herdr` 公式 formula 可能落后于
+[herdr.chefgroep.nl/latest.json](https://herdr.chefgroep.nl/latest.json)
+上的稳定版。
+
 如果你已经在用 Homebrew:
 
 ```bash
-brew install herdr
+brew tap OnlineChefGroep/tap
+brew install OnlineChefGroep/tap/onlinechefgroep-herdr
+```
+
+后续更新:
+
+```bash
+brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr
 ```
 
 ## 用 mise 安装
@@ -49,7 +61,7 @@ nix build github:OnlineChefGroep/herdr/v0.x.y
 nix profile install github:OnlineChefGroep/herdr/v0.x.y
 ```
 
-把 `v0.x.y` 替换为最新的发布标签。省略标签可以跟踪 `master`,但常规安装建议使用发布标签。
+把 `v0.x.y` 替换为最新的发布标签。省略标签可以跟踪 `main`,但常规安装建议使用发布标签。
 
 flake 还提供一个开发 shell:
 
@@ -108,6 +120,27 @@ herdr
 
 如果 shell 找不到 `herdr`,重启终端,或检查安装目录是否在 PATH 上。
 
+## 发布清单
+
+直接安装和远程引导会读取
+`https://herdr.chefgroep.nl/latest.json` 上的稳定版清单。它必须与当前
+GitHub 发布标签和已发布资产一致。如果新的 `curl | sh` 安装的版本比另一台机器上的
+`herdr --version` 更旧,可能是发布后的站点部署尚未更新 live 清单。
+
+在本地检查对齐情况(维护者与打包者):
+
+```bash
+just release-status
+```
+
+该 recipe 会比较 `Cargo.toml`、git 标签、GitHub 发布资产、本地
+`website/latest.json` 和 live 站点清单。打标签后,用
+`python3 scripts/homebrew_formula.py --version X.Y.Z` 重新生成 Homebrew formula,
+并向 [OnlineChefGroep/homebrew-tap](https://github.com/OnlineChefGroep/homebrew-tap)
+提交 PR。
+
+预览和 dev 直接安装在 `/preview.json` 与 `/dev.json` 上使用相同 schema。
+
 ## 更新
 
 Herdr 会检查新版本并在应用内通知你。也可以手动更新:
@@ -118,7 +151,7 @@ herdr update
 
 `herdr update` 适用于由 Herdr 自带安装器管理的安装。Homebrew、mise 和 Nix 安装请改用那些包管理器更新。
 
-在 Linux 和 macOS 上,Herdr 默认使用稳定更新通道。要启用来自 `master` 的预览构建,设置通道:
+在 Linux 和 macOS 上,Herdr 默认使用稳定更新通道。要启用来自 `main` 的预览构建,设置通道:
 
 ```bash
 herdr channel set preview

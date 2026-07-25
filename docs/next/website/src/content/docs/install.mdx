@@ -23,10 +23,21 @@ The installer downloads the right release binary for your platform and places it
 
 ## Install with Homebrew
 
+OnlineChefGroep publishes Herdr through its own Homebrew tap. The upstream
+`brew install herdr` formula can lag behind stable releases on
+[herdr.chefgroep.nl](https://herdr.chefgroep.nl/latest.json).
+
 If you already use Homebrew:
 
 ```bash
-brew install herdr
+brew tap OnlineChefGroep/tap
+brew install OnlineChefGroep/tap/onlinechefgroep-herdr
+```
+
+Update later with:
+
+```bash
+brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr
 ```
 
 ## Install with mise
@@ -49,7 +60,7 @@ nix build github:OnlineChefGroep/herdr/v0.x.y
 nix profile install github:OnlineChefGroep/herdr/v0.x.y
 ```
 
-Replace `v0.x.y` with the latest release tag. You can omit the tag to track `master`, but release tags are recommended for normal installs.
+Replace `v0.x.y` with the latest release tag. You can omit the tag to track `main`, but release tags are recommended for normal installs.
 
 The flake also exposes a development shell:
 
@@ -107,6 +118,28 @@ herdr
 ```
 
 If your shell cannot find `herdr`, restart the terminal or check that the install directory is on your PATH.
+
+## Release manifest
+
+Direct installs and remote bootstrap read the stable manifest at
+`https://herdr.chefgroep.nl/latest.json`. It must match the current GitHub
+release tag and published assets. If `curl | sh` installs an older build than
+`herdr --version` on another machine, the live manifest may be stale until the
+site deploy catches up after a release.
+
+Check alignment locally (maintainers and packagers):
+
+```bash
+just release-status
+```
+
+That recipe compares `Cargo.toml`, git tags, GitHub release assets, local
+`website/latest.json`, and the live site manifest. After tagging, regenerate the
+Homebrew formula with `python3 scripts/homebrew_formula.py --version X.Y.Z` and
+open a PR to [OnlineChefGroep/homebrew-tap](https://github.com/OnlineChefGroep/homebrew-tap).
+
+Channel manifests use the same schema at `/preview.json` and `/dev.json` for
+preview and dev direct installs.
 
 ## Update
 

@@ -39,10 +39,11 @@ Windows preview beta:
 powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps1 | iex"
 ```
 
-Homebrew:
+Homebrew (OnlineChefGroep tap — Linux x86_64 currently):
 
 ```bash
-brew install herdr
+brew tap OnlineChefGroep/tap
+brew install OnlineChefGroep/tap/onlinechefgroep-herdr
 ```
 
 mise:

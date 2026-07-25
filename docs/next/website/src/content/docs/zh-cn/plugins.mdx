@@ -326,3 +326,19 @@ v1 没有 Herdr 管理的插件存储 API。需要持久状态的插件应自己
 
 要让插件被收录,给它的公开仓库添加 GitHub 主题标签 `herdr-plugin`。索引
 每 30 分钟刷新一次。发现机制的工作方式见[插件市场](/zh-cn/docs/marketplace/)。
+
+## CHEF fleet 插件（预览）
+
+`com.chefgroep.*` 下的 CHEF fleet 插件通过向
+`$HERDR_PLUGIN_STATE_DIR` 写入 `fleet_ops.json`,为 Fleet Ops Bar 提供可选的
+个人上下文。用 `herdr plugin link <path>` 链接本地 scaffold,再通过
+`herdr plugin action invoke <action-id> --plugin <plugin-id>` 调用动作。
+
+工作项以 Linear 为准;PR/CI 以 GitHub 为准;运行时健康以主机 / Cloudflare API
+为准。不要在 `fleet_ops.json` 中存储密钥。在**设置 → 插件**
+（`ui.fleet_ops_bar`）中切换该栏。
+
+仓库内 scaffold `com.chefgroep.ops` 说明契约;生产库存应放在
+[OnlineChefGroep/herdr-ops](https://github.com/OnlineChefGroep/herdr-ops)。
+`HERDR_HOST_NAME`、`herdr-gateway` HTTP 面与 `/v1/ops/context` 见
+[Fleet ops 与 gateway](/zh-cn/docs/fleet-ops/)。

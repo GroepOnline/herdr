@@ -4,19 +4,29 @@
 
 ### Added
 
-- Preview docs cover CHEF fleet plugins that feed the Fleet Ops Bar through `fleet_ops.json`, including Settings → Plugins (`ui.fleet_ops_bar`) and `herdr plugin action invoke` usage.
+- Preview docs cover CHEF fleet plugins, Fleet Ops Bar, `herdr-gateway` `/v1/ops/context`, Moshi iPhone attach (with mobile screenshots), Homebrew tap install, and release-manifest alignment (`just release-status`).
 - Added the opt-in `dev` update channel for direct installs, using the same preview-manifest schema at `/dev.json`.
+- Added gateway `GET /v1/ops/context` (host + socket + agents/session) so operators can see what runs where before attaching; scaffold plugin `com.chefgroep.ops` points production inventory to `OnlineChefGroep/herdr-ops`.
+- Added Moshi (iPhone mobile terminal) preview docs for SSH/mosh attach into Herdr hosts without Hermes.
+- Added `just release-status` and `scripts/homebrew_formula.py` so stable curl (`latest.json`) and the Homebrew tap stay easy to align after tags.
 
 ### Changed
 
 - Rebuilt PR quality CI as a parallel gate (`Lint`, `Test`, `Maintenance`, `Windows lint`, `Release metadata`, smoke, aggregated `Quality gate`) with mechanical autofix commits, one sticky remediation brief, and `herdr-quality-remediation` dispatch for autonomous fix loops instead of comment-only review bots.
 - Added Cursor/Codex skill `herdr-quality-ci-remediation` plus `herdr-quality-ci-remediator` / `herdr-quality-ci-diagnoser` subagents for autonomous Quality gate fix loops.
 - CI now publishes a dev prerelease after successful `main` merges, updates `website/dev.json`, and lets direct installer smoke tests use `HERDR_CHANNEL=dev` / `--channel dev`.
+- CI skips Windows lint and musl smoke on docs-only / non-platform PRs (force with label `ci-heavy`); nightly canary heavy lane lives in `CI heavy`.
+- Release tooling and docs now target `main` (not `master`); Homebrew install guidance uses `OnlineChefGroep/tap/onlinechefgroep-herdr`.
+- Backfilled `website/latest.json` to stable `v0.7.6` so `curl | sh` installs the current release.
 
 ### Fixed
 
 - Linux clipboard copy/paste now prefers Wayland clipboard tools and skips xclip/xsel entirely on Wayland sessions by default, and every clipboard helper process is now bounded by a timeout instead of blocking indefinitely, preventing paste/copy from hanging when Xwayland's X11 connection is unreachable.
 - Pane applications that query OSC 4 palette colors now inherit the controlling host terminal's palette while preserving child-defined palette overrides.
+- Remote path discovery falls back to `/bin/sh` when the login shell rejects `command -v` (upstream #1201).
+- OMP install respects `PI_CONFIG_DIR` and refuses to share Pi's extension directory (upstream #1696).
+- Pi worktree extension no longer forces workspace focus when starting in the background.
+- Homebrew-managed install detection recognizes the `onlinechefgroep-herdr` Cellar keg name.
 
 ## [0.7.5] - 2026-07-21
 

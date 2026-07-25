@@ -3,6 +3,8 @@ title: 使用 Herdr 的工作方式
 description: 在本地、SSH 内或通过远程连接运行 Herdr。
 ---
 
+import MobileDocShots from '../../../components/MobileDocShots.astro';
+
 在工作所在的地方运行 Herdr,从你所在的任何地方连接。
 
 Herdr 由一个后台会话服务器和一个或多个终端客户端组成。窗格在服务器中持续运行。客户端负责连接、分离和渲染会话。
@@ -57,16 +59,12 @@ herdr
 
 在 iPhone 上,[moshi](https://getmoshi.app/) 这类应用表现很好。
 
-<div class="mobile-doc-shots">
-  <figure>
-    <img src="/assets/mobile-agent-session-v2.jpeg" alt="手机上通过 SSH 的 Herdr 智能体会话" loading="lazy" />
-    <figcaption>SSH 上的智能体会话</figcaption>
-  </figure>
-  <figure>
-    <img src="/assets/mobile-switch-menu-v2.jpeg" alt="手机上 Herdr 的响应式切换菜单" loading="lazy" />
-    <figcaption>响应式切换菜单</figcaption>
-  </figure>
-</div>
+<MobileDocShots
+  sessionAlt="手机上通过 SSH 的 Herdr 智能体会话"
+  sessionCaption="SSH 上的智能体会话"
+  menuAlt="手机上 Herdr 的响应式切换菜单"
+  menuCaption="响应式切换菜单"
+/>
 
 ## 从本地终端远程工作
 

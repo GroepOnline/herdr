@@ -85,6 +85,25 @@ herdr --remote workbox --handoff
 HERDR_REMOTE_BINARY=target/release/herdr herdr --remote workbox
 ```
 
+## 移动端访问（Moshi）
+
+在 iPhone 上,通过 SSH（或 mosh）连接 Herdr 已在运行智能体的同一主机,使用
+[Moshi](https://getmoshi.app/) 等移动终端。Herdr 仍是服务端多路复用器;Moshi
+是手机 UI。
+
+典型流程:
+
+1. 在主机上的 Herdr 中运行智能体（`herdr` 或 `herdr session attach`）。
+2. 通过 SSH 或 mosh 到达主机（fleet 主机上 Tailscale 很合适）。
+3. 从 Moshi 接入需要的 shell 或会话。
+
+若手机无法交互输入密钥密码,连接前请先把密钥载入 `ssh-agent`。
+
+多台主机在线时,设置唯一的 `HERDR_HOST_NAME`,并用
+[Fleet ops 与 gateway](/zh-cn/docs/fleet-ops/)（`/v1/ops/context` 或 Fleet Ops Bar）
+在手机接入前看清**何处运行着什么**。完整 Moshi 说明见
+[Moshi（iPhone）与 Herdr](/zh-cn/docs/moshi/)。
+
 ## 远程命名会话
 
 用 `--session` 搭配 `--remote` 连接远程主机上的命名会话:

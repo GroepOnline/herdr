@@ -471,6 +471,36 @@ in pane or agent APIs. Native non-terminal plugin panes are a later surface.
 
 These meanings apply to reads. For `pane wait-output` only, both `recent` and `recent-unwrapped` search the unwrapped recent snapshot; `recent` remains the default spelling.
 
+## herdr-gateway
+
+`herdr-gateway` is a separate binary that exposes a small HTTP API on top of the
+local Herdr socket. Use it for fleet scripts, health checks, and read-only
+runtime location queries without opening the TUI.
+
+`herdr-gateway` runs in the foreground and does not exit, so start it in its own
+terminal:
+
+```bash
+herdr-gateway
+```
+
+Then query it from a second terminal:
+
+```bash
+curl -s http://127.0.0.1:7777/health
+curl -s http://127.0.0.1:7777/v1/ops/context
+```
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `HERDR_GATEWAY_PORT` | `7777` | Listen port (localhost) |
+| `HERDR_SOCKET_PATH` | default Herdr socket | Target server |
+
+Routes include `/health`, `/v1/ops/context`, `/v1/agents`, `/v1/workspaces`,
+`/v1/session`, and SSE `/v1/events`. See
+[Fleet ops and gateway](/docs/fleet-ops/) for the ops contract and host identity
+(`HERDR_HOST_NAME`).
+
 ## Environment variables
 
 | Variable | Purpose |

@@ -84,7 +84,15 @@ async function copyPreviewDocs(sourceDir, destinationDir) {
 export function rewritePreviewDocContent(content, relativePath = '') {
   const rewritten = content
     .replaceAll('/docs/', '/docs/preview/')
-    .replaceAll('../../../public/', '../../../../public/')
+    // Splash-hero frontmatter references bundled assets with a relative `file:`
+    // path into `public/`. Preview docs live one directory deeper, so only
+    // these asset paths gain an extra `../`. Anchoring to the `file:` key (at
+    // line start, optionally quoted) avoids rewriting `../public/` substrings
+    // inside unrelated URLs or prose such as https://example.com/../public/x.
+    .replace(
+      /^(\s*file:\s*["']?)((?:\.\.\/)+public\/)/gm,
+      (_match, prefix, assetPath) => `${prefix}../${assetPath}`,
+    )
     // Preview docs live one directory deeper than stable docs, so component
     // imports need one more parent segment regardless of locale depth. Only
     // MDX import lines are rewritten; prose mentioning relative paths is not.

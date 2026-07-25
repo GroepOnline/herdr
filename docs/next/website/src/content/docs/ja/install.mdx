@@ -23,10 +23,22 @@ powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps
 
 ## Homebrew でインストール
 
+OnlineChefGroep は専用 Homebrew tap から Herdr を配布しています。上流の
+`brew install herdr` 公式式は
+[herdr.chefgroep.nl/latest.json](https://herdr.chefgroep.nl/latest.json)
+の安定版より遅れることがあります。
+
 すでに Homebrew を使っている場合:
 
 ```bash
-brew install herdr
+brew tap OnlineChefGroep/tap
+brew install OnlineChefGroep/tap/onlinechefgroep-herdr
+```
+
+アップデート:
+
+```bash
+brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr
 ```
 
 ## mise でインストール
@@ -49,7 +61,7 @@ nix build github:OnlineChefGroep/herdr/v0.x.y
 nix profile install github:OnlineChefGroep/herdr/v0.x.y
 ```
 
-`v0.x.y` は最新のリリースタグに置き換えてください。タグを省略すると `master` を追跡できますが、通常のインストールにはリリースタグを推奨します。
+`v0.x.y` は最新のリリースタグに置き換えてください。タグを省略すると `main` を追跡できますが、通常のインストールにはリリースタグを推奨します。
 
 flake は開発用シェルも公開しています:
 
@@ -107,6 +119,29 @@ herdr
 ```
 
 シェルが `herdr` を見つけられない場合は、ターミナルを再起動するか、インストール先ディレクトリが PATH に含まれているか確認してください。
+
+## リリースマニフェスト
+
+直接インストールとリモートブートストラップは
+`https://herdr.chefgroep.nl/latest.json` の安定版マニフェストを読みます。これは
+現在の GitHub リリースタグと公開アセットと一致している必要があります。
+`curl | sh` が別マシンの `herdr --version` より古いビルドを入れる場合、リリース後の
+サイト反映まで live マニフェストが古い可能性があります。
+
+ローカルで整合性を確認する（メンテナー / パッケージャー向け）:
+
+```bash
+just release-status
+```
+
+このレシピは `Cargo.toml`、git タグ、GitHub リリースアセット、ローカル
+`website/latest.json`、live サイトマニフェストを比較します。タグ後は
+`python3 scripts/homebrew_formula.py --version X.Y.Z` で Homebrew 式を再生成し、
+[OnlineChefGroep/homebrew-tap](https://github.com/OnlineChefGroep/homebrew-tap)
+へ PR を開いてください。
+
+プレビュー / dev 直接インストールは `/preview.json` と `/dev.json` で同じ
+スキーマを使います。
 
 ## アップデート
 

@@ -82,6 +82,24 @@ herdr
 
 先用 `ssh <host>` 确认普通 OpenSSH 连接正常。若在非交互 shell、CI 或移动终端中使用带密码的密钥，请在远程连接前把密钥载入 `ssh-agent`。见[持久化和远程访问](/zh-cn/docs/persistence-remote/#remote-attach-over-ssh)。
 
+## curl 或 Homebrew 安装了旧版本
+
+直接安装会读取 `https://herdr.chefgroep.nl/latest.json`。若新的
+`curl | sh` 或过时的 Homebrew formula 安装的版本比当前 GitHub 发布更旧，
+可能是 live 清单或 tap formula 尚未更新。
+
+检查:
+
+```bash
+herdr --version
+curl -fsSL https://herdr.chefgroep.nl/latest.json | jq -r .version
+```
+
+直接安装请在清单更新后重新运行安装器或 `herdr update`。Homebrew 请使用
+`brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr`，并参考
+[OnlineChefGroep tap](https://github.com/OnlineChefGroep/homebrew-tap)。
+见[安装 Herdr — 发布清单](/zh-cn/docs/install/#发布清单)。
+
 ## 查找诊断日志
 
 Herdr 日志默认位于 `~/.config/herdr/`:

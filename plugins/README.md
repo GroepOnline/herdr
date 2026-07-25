@@ -17,6 +17,7 @@ herdr plugin link /workspace/plugins/fleet-health
 herdr plugin link /workspace/plugins/cloudflare-tunnel
 herdr plugin link /workspace/plugins/issue-provision
 herdr plugin link /workspace/plugins/session-park
+herdr plugin link /workspace/plugins/ops
 ```
 
 Published copies will later install as GitHub shorthand, for example:
@@ -70,6 +71,7 @@ Rules:
 | Issue / assignee / cycle | Linear GraphQL | `linear-context`, `issue-provision` |
 | PR / CI checks | GitHub REST + GraphQL | `github-status` |
 | Host / node online | Tailscale + SSH probes | `fleet-health` |
+| Runtime location (what/where) | Herdr gateway `/v1/ops/context` + host env | `ops` (scaffold → `OnlineChefGroep/herdr-ops`) |
 | Utrecht fleet inventory | Kater MCP / Utrecht Data OS | `kater-bridge`, `udo-metrics` |
 | Tunnel / DNS health | Cloudflare API | `cloudflare-tunnel` |
 | Parked sessions | Herdr session snapshots + `parked/` | `session-park` |
@@ -89,6 +91,7 @@ project remote SSOT into short-lived `fleet_ops.json` fragments for the bar.
 | `cloudflare-tunnel/` | `com.chefgroep.cloudflare-tunnel` |
 | `issue-provision/` | `com.chefgroep.issue-provision` |
 | `session-park/` | `com.chefgroep.session-park` |
+| `ops/` | `com.chefgroep.ops` (scaffold; production → `OnlineChefGroep/herdr-ops`) |
 
 Run an action headlessly:
 

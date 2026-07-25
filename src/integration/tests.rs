@@ -94,6 +94,7 @@ fn enforce_agent_version_accepts_current_version() {
 
 fn clear_integration_path_env() {
     std::env::remove_var(PI_CODING_AGENT_DIR_ENV_VAR);
+    std::env::remove_var(OMP_CONFIG_DIR_ENV_VAR);
     std::env::remove_var(CLAUDE_CONFIG_DIR_ENV_VAR);
     std::env::remove_var(CODEX_HOME_ENV_VAR);
     std::env::remove_var(COPILOT_HOME_ENV_VAR);
@@ -642,6 +643,60 @@ fn install_omp_uses_pi_coding_agent_dir_env() {
     assert!(!installed.removed_legacy_pi_extension);
 
     clear_integration_path_env();
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn install_omp_refuses_to_share_dir_with_installed_pi() {
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let agent_dir = base.join("shared-agent");
+    let ext_dir = agent_dir.join("extensions");
+    fs::create_dir_all(&ext_dir).unwrap();
+    // A real Pi extension already lives in the shared directory.
+    let pi_path = ext_dir.join(PI_EXTENSION_INSTALL_NAME);
+    fs::write(&pi_path, PI_EXTENSION_ASSET).unwrap();
+    std::env::set_var(PI_CODING_AGENT_DIR_ENV_VAR, &agent_dir);
+
+    let err = install_omp().unwrap_err();
+    assert!(
+        err.to_string().contains("same extension directory"),
+        "unexpected error: {err}"
+    );
+    // Pi's extension must be left intact.
+    assert_eq!(fs::read_to_string(&pi_path).unwrap(), PI_EXTENSION_ASSET);
+    assert!(!ext_dir.join(OMP_EXTENSION_INSTALL_NAME).exists());
+
+    clear_integration_path_env();
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn install_omp_refuses_when_alias_path_resolves_to_installed_pi_dir() {
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let home = base.join("home");
+    let pi_ext_dir = home.join(".pi/agent/extensions");
+    fs::create_dir_all(&pi_ext_dir).unwrap();
+    // A real Pi extension already lives in Pi's canonical extension directory.
+    let pi_path = pi_ext_dir.join(PI_EXTENSION_INSTALL_NAME);
+    fs::write(&pi_path, PI_EXTENSION_ASSET).unwrap();
+    std::env::set_var("HOME", &home);
+    // OMP is pointed at a lexically different path (`.pi/../.pi`) that canonicalizes
+    // to Pi's directory; the guard must still catch the collision.
+    std::env::set_var(OMP_CONFIG_DIR_ENV_VAR, ".pi/../.pi");
+
+    let err = install_omp().unwrap_err();
+    assert!(
+        err.to_string().contains("same extension directory"),
+        "unexpected error: {err}"
+    );
+    // Pi's extension must be left intact.
+    assert_eq!(fs::read_to_string(&pi_path).unwrap(), PI_EXTENSION_ASSET);
+    assert!(!pi_ext_dir.join(OMP_EXTENSION_INSTALL_NAME).exists());
+
+    clear_integration_path_env();
+    std::env::remove_var("HOME");
     let _ = fs::remove_dir_all(base);
 }
 
