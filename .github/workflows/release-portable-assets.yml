@@ -136,16 +136,41 @@ jobs:
           # A glibc aarch64 cross-compiler can compile the Rust target but emits
           # glibc-only symbols in native dependencies such as aws-lc-sys. Route
           # both Cargo's final link and target C/C++ build scripts through Zig's
-          # real aarch64-musl toolchain instead.
+          # real aarch64-musl toolchain instead. cc-rs also forwards Rust's
+          # `aarch64-unknown-linux-musl` triple, which Zig does not understand;
+          # the wrappers remove that duplicate and use Zig's equivalent triple.
+          #
+          # zig cc always injects its own musl crt1.o and honours neither
+          # -nostartfiles nor -nostdlib to suppress it, so Rust's self-contained
+          # CRT plus Zig's CRT produce a duplicate `_start` at link time. Rather
+          # than fight Zig in the wrapper, disable Rust's self-contained linking
+          # for this target (RUSTFLAGS below) so Zig alone owns the CRT, libc,
+          # and libunwind.
           toolchain="$RUNNER_TEMP/aarch64-linux-musl-toolchain"
           mkdir -p "$toolchain"
           cat > "$toolchain/cc" <<'EOF'
-          #!/bin/sh
-          exec zig cc -target aarch64-linux-musl "$@"
+          #!/usr/bin/env bash
+          set -euo pipefail
+          args=()
+          for arg in "$@"; do
+            case "$arg" in
+              --target=aarch64-unknown-linux-musl) ;;
+              *) args+=("$arg") ;;
+            esac
+          done
+          exec zig cc -target aarch64-linux-musl "${args[@]}"
           EOF
           cat > "$toolchain/cxx" <<'EOF'
-          #!/bin/sh
-          exec zig c++ -target aarch64-linux-musl "$@"
+          #!/usr/bin/env bash
+          set -euo pipefail
+          args=()
+          for arg in "$@"; do
+            case "$arg" in
+              --target=aarch64-unknown-linux-musl) ;;
+              *) args+=("$arg") ;;
+            esac
+          done
+          exec zig c++ -target aarch64-linux-musl "${args[@]}"
           EOF
           cat > "$toolchain/ar" <<'EOF'
           #!/bin/sh
@@ -159,6 +184,7 @@ jobs:
 
           {
             echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=$toolchain/cc"
+            echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS=-C link-self-contained=no"
             echo "CC_aarch64_unknown_linux_musl=$toolchain/cc"
             echo "CXX_aarch64_unknown_linux_musl=$toolchain/cxx"
             echo "AR_aarch64_unknown_linux_musl=$toolchain/ar"
