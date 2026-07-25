@@ -1,7 +1,7 @@
 //! View model for the compact Fleet Ops line.
 
 use crate::app::state::AppState;
-use crate::fleet::ops::{FleetOpsMetadata, FleetOpsBarKind};
+use crate::fleet::ops::{FleetOpsBarKind, FleetOpsMetadata};
 
 /// Display-ready Fleet Ops context.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,13 +45,14 @@ pub fn build_fleet_ops_context(app: &AppState) -> FleetOpsContext {
 fn active_pane_metadata(app: &AppState) -> Option<FleetOpsMetadata> {
     let ws_idx = app.active?;
     let ws = app.workspaces.get(ws_idx)?;
-    let active_pane = ws.focused_pane().or_else(|| {
-        ws.tabs
-            .iter()
-            .flat_map(|tab| tab.panes.values())
-            .next()
-    })?;
+    let active_pane = ws
+        .focused_pane()
+        .or_else(|| ws.tabs.iter().flat_map(|tab| tab.panes.values()).next())?;
     let terminal = app.terminals.get(&active_pane.attached_terminal_id)?;
     let host = crate::platform::hostname().unwrap_or_else(|| "local".to_string());
-    Some(FleetOpsMetadata::from_terminal(terminal, &host, &app.fleet_ops_cache))
+    Some(FleetOpsMetadata::from_terminal(
+        terminal,
+        &host,
+        &app.fleet_ops_cache,
+    ))
 }
