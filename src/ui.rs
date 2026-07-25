@@ -8,15 +8,15 @@ use ratatui::{
 mod dialogs;
 mod keybind_help;
 mod menus;
-pub(crate) mod motion;
 mod mobile;
+pub(crate) mod motion;
 mod navigator;
-mod shell;
 mod onboarding;
 mod panes;
 mod release_notes;
 mod scrollbar;
 pub(crate) mod settings;
+mod shell;
 mod sidebar;
 mod sidebar_new;
 mod tabs_new;

@@ -52,9 +52,7 @@ pub fn render_sidebar_new(
         Span::raw(" "),
         Span::styled(
             mode_label(layout.sidebar.mode),
-            Style::default()
-                .fg(p.text)
-                .add_modifier(Modifier::BOLD),
+            Style::default().fg(p.text).add_modifier(Modifier::BOLD),
         ),
     ]));
     frame.render_widget(header, top_line_of(area));
@@ -85,14 +83,22 @@ pub fn render_sidebar_new(
             Span::styled(
                 truncate_primary(&item.primary, row.rect.width, 4),
                 Style::default()
-                    .fg(if selected || active { p.text } else { p.subtext0 })
+                    .fg(if selected || active {
+                        p.text
+                    } else {
+                        p.subtext0
+                    })
                     .add_modifier(Modifier::BOLD),
             ),
         ];
         if let Some(secondary) = &item.secondary {
             spans.push(Span::raw(" "));
             spans.push(Span::styled(
-                truncate_primary(secondary, row.rect.width, 4 + display_width(&item.primary) + 1),
+                truncate_primary(
+                    secondary,
+                    row.rect.width,
+                    4 + display_width(&item.primary) + 1,
+                ),
                 Style::default().fg(label_color).add_modifier(Modifier::DIM),
             ));
         }
@@ -183,7 +189,8 @@ mod tests {
             .draw(|frame| render_sidebar_new(&app, &registry, frame, &layout, &[]))
             .unwrap();
         let buffer = terminal.backend().buffer();
-        let header: String = (layout.sidebar.rect.x..layout.sidebar.rect.x + layout.sidebar.rect.width)
+        let header: String = (layout.sidebar.rect.x
+            ..layout.sidebar.rect.x + layout.sidebar.rect.width)
             .map(|x| buffer[(x, layout.sidebar.rect.y)].symbol())
             .collect();
         assert!(header.contains("Agents"));

@@ -403,7 +403,10 @@ mod tests {
     fn reduced_motion_resolves_duration_to_zero() {
         let mut policy = MotionPolicy::default();
         policy.preference = MotionPreference::Reduced;
-        assert_eq!(policy.resolve_duration(Duration::from_millis(100)), Duration::ZERO);
+        assert_eq!(
+            policy.resolve_duration(Duration::from_millis(100)),
+            Duration::ZERO
+        );
     }
 
     #[test]

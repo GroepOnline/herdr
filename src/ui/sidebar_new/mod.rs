@@ -10,5 +10,8 @@ pub mod model;
 pub mod render;
 
 pub use layout::{layout_sidebar, row_at};
-pub use model::{SidebarItem, SidebarItemId, SidebarModel, SidebarRowKind, build_agents, build_attention, build_workspaces};
+pub use model::{
+    build_agents, build_attention, build_workspaces, SidebarItem, SidebarItemId, SidebarModel,
+    SidebarRowKind,
+};
 pub use render::render_sidebar_new;
