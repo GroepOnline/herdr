@@ -20,10 +20,10 @@ pub(crate) mod settings;
 mod shell;
 mod sidebar;
 mod sidebar_new;
-mod tabs_new;
 mod status;
 mod tab_surface;
 mod tabs;
+mod tabs_new;
 mod text;
 mod widgets;
 
