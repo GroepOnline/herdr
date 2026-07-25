@@ -6,7 +6,7 @@
 
 use ratatui::layout::Rect;
 
-use crate::ui::shell::{compute_shell_layout, ShellLayout, SidebarRowRect, SidebarMode};
+use crate::ui::shell::{compute_shell_layout, ShellLayout, SidebarMode, SidebarRowRect};
 use crate::ui::sidebar_new::model::SidebarModel;
 
 /// Compute per-row rectangles for the current sidebar mode and write them into
@@ -102,7 +102,10 @@ mod tests {
         assert!(!layout.sidebar.rows.is_empty());
         assert_eq!(layout.sidebar.rows[0].rect.y, layout.sidebar.content.y);
         assert_eq!(layout.sidebar.rows[0].rect.height, 1);
-        assert_eq!(layout.sidebar.rows[0].rect.width, layout.sidebar.content.width);
+        assert_eq!(
+            layout.sidebar.rows[0].rect.width,
+            layout.sidebar.content.width
+        );
     }
 
     #[test]
@@ -119,6 +122,9 @@ mod tests {
         layout_sidebar(&mut layout, &model);
 
         let row = row_at(&layout, layout.sidebar.content.x, layout.sidebar.content.y).unwrap();
-        assert!(matches!(row.id, crate::ui::sidebar_new::model::SidebarItemId::Workspace { ws_idx: 0, .. }));
+        assert!(matches!(
+            row.id,
+            crate::ui::sidebar_new::model::SidebarItemId::Workspace { ws_idx: 0, .. }
+        ));
     }
 }

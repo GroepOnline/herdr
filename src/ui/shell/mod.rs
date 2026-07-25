@@ -37,7 +37,10 @@ impl LayoutMode {
 
     /// Whether the sidebar can be shown as a persistent rail.
     pub fn sidebar_visible(self) -> bool {
-        matches!(self, LayoutMode::Wide | LayoutMode::Standard | LayoutMode::Medium)
+        matches!(
+            self,
+            LayoutMode::Wide | LayoutMode::Standard | LayoutMode::Medium
+        )
     }
 
     /// Whether Fleet Ops metadata should be shown inline.
@@ -214,16 +217,22 @@ pub fn compute_shell_layout(
         divider: Rect::default(),
     };
 
-    let fleet_h = if mode.fleet_ops_expanded() { 1u16 } else { 0u16 };
+    let fleet_h = if mode.fleet_ops_expanded() {
+        1u16
+    } else {
+        0u16
+    };
     let (main_content, fleet_rect) = if fleet_h > 0 && main_rect.height > 2 {
-        let [m, f] = Layout::vertical([Constraint::Min(1), Constraint::Length(fleet_h)]).areas(main_rect);
+        let [m, f] =
+            Layout::vertical([Constraint::Min(1), Constraint::Length(fleet_h)]).areas(main_rect);
         (m, f)
     } else {
         (main_rect, Rect::default())
     };
 
     let (tab_bar_rect, terminal_rect) = if main_content.height > 1 {
-        let [t, tr] = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(main_content);
+        let [t, tr] =
+            Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(main_content);
         (t, tr)
     } else {
         (Rect::default(), main_content)
@@ -274,11 +283,26 @@ mod tests {
 
     #[test]
     fn layout_mode_selects_correct_breakpoint() {
-        assert_eq!(LayoutMode::from_area(Rect::new(0, 0, 200, 60)), LayoutMode::Wide);
-        assert_eq!(LayoutMode::from_area(Rect::new(0, 0, 100, 40)), LayoutMode::Standard);
-        assert_eq!(LayoutMode::from_area(Rect::new(0, 0, 60, 20)), LayoutMode::Narrow);
-        assert_eq!(LayoutMode::from_area(Rect::new(0, 0, 40, 20)), LayoutMode::Mobile);
-        assert_eq!(LayoutMode::from_area(Rect::new(0, 0, 20, 10)), LayoutMode::Tiny);
+        assert_eq!(
+            LayoutMode::from_area(Rect::new(0, 0, 200, 60)),
+            LayoutMode::Wide
+        );
+        assert_eq!(
+            LayoutMode::from_area(Rect::new(0, 0, 100, 40)),
+            LayoutMode::Standard
+        );
+        assert_eq!(
+            LayoutMode::from_area(Rect::new(0, 0, 60, 20)),
+            LayoutMode::Narrow
+        );
+        assert_eq!(
+            LayoutMode::from_area(Rect::new(0, 0, 40, 20)),
+            LayoutMode::Mobile
+        );
+        assert_eq!(
+            LayoutMode::from_area(Rect::new(0, 0, 20, 10)),
+            LayoutMode::Tiny
+        );
     }
 
     #[test]

@@ -15,9 +15,17 @@ use crate::terminal::TerminalRuntimeRegistry;
 /// current sort order so selection can survive list rebuilds.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SidebarItemId {
-    Workspace { ws_idx: usize },
-    Agent { ws_idx: usize, tab_idx: usize, pane_id: PaneId },
-    Attention { source_id: String },
+    Workspace {
+        ws_idx: usize,
+    },
+    Agent {
+        ws_idx: usize,
+        tab_idx: usize,
+        pane_id: PaneId,
+    },
+    Attention {
+        source_id: String,
+    },
 }
 
 impl SidebarItemId {
@@ -38,7 +46,11 @@ pub enum SidebarRowKind {
     /// Workspace row, possibly a linked-worktree child.
     Workspace { ws_idx: usize, indented: bool },
     /// Agent row pointing at a concrete pane.
-    Agent { ws_idx: usize, tab_idx: usize, pane_id: PaneId },
+    Agent {
+        ws_idx: usize,
+        tab_idx: usize,
+        pane_id: PaneId,
+    },
     /// Attention row; the source id refers to the originating agent/workspace.
     Attention { source_id: String },
 }
@@ -251,7 +263,8 @@ mod tests {
         let terminal_id = app.workspaces[0].tabs[0].panes[&pane_id]
             .attached_terminal_id
             .clone();
-        app.terminals.get_mut(&terminal_id).unwrap().detected_agent = Some(crate::detect::Agent::Pi);
+        app.terminals.get_mut(&terminal_id).unwrap().detected_agent =
+            Some(crate::detect::Agent::Pi);
 
         let registry = TerminalRuntimeRegistry::new();
         let items = build_agents(&app, &registry);
@@ -280,7 +293,13 @@ mod tests {
         let registry = TerminalRuntimeRegistry::new();
         let items = build_attention(&app, &registry);
         assert_eq!(items.len(), 2);
-        assert!(matches!(items[0].id, SidebarItemId::Agent { ws_idx: 1, .. }));
-        assert!(matches!(items[1].id, SidebarItemId::Agent { ws_idx: 0, .. }));
+        assert!(matches!(
+            items[0].id,
+            SidebarItemId::Agent { ws_idx: 1, .. }
+        ));
+        assert!(matches!(
+            items[1].id,
+            SidebarItemId::Agent { ws_idx: 0, .. }
+        ));
     }
 }
