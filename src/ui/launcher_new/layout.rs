@@ -19,7 +19,8 @@ pub fn layout_launcher(area: Rect) -> LauncherLayout {
     let y = area.y + (area.height.saturating_sub(height)) / 2;
     let overlay = Rect::new(x, y, width, height);
 
-    let [input, list] = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(overlay);
+    let [input, list] =
+        Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(overlay);
 
     LauncherLayout {
         overlay,
@@ -37,7 +38,9 @@ pub fn layout_launcher_rows(layout: &mut LauncherLayout, count: usize) {
         if y >= layout.list.y + layout.list.height {
             break;
         }
-        layout.rows.push(Rect::new(layout.list.x, y, layout.list.width, 1));
+        layout
+            .rows
+            .push(Rect::new(layout.list.x, y, layout.list.width, 1));
         y += 1;
     }
 }
