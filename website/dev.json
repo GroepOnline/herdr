@@ -2,18 +2,31 @@
   "schema_version": 1,
   "channel": "dev",
   "base_version": "0.7.6",
-  "build_id": "2026-07-24-69c4e87e0b43",
-  "commit": "69c4e87e0b4347e2c6eaaac192d0f61609ffd9d1",
-  "built_at": "2026-07-24T22:33:39Z",
+  "build_id": "2026-07-25-789ff1745503",
+  "commit": "789ff1745503af88c8aa6a26fb3ca94f6a8b37eb",
+  "built_at": "2026-07-25T15:44:12Z",
   "protocol": 18,
-  "notes": "Dev build 2026-07-24-69c4e87e0b43\n\nBuilt from `69c4e87e0b43` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/fef349593391be7540cffc73037f394e4f2cdc55...69c4e87e0b4347e2c6eaaac192d0f61609ffd9d1\n\n### Maintenance\n- Stage flat or nested musl artifacts before publish (#73)\n- Fix publish asset path and manifest push auth (#72)",
+  "notes": "Dev build 2026-07-25-789ff1745503\n\nBuilt from `789ff1745503` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/69c4e87e0b4347e2c6eaaac192d0f61609ffd9d1...789ff1745503af88c8aa6a26fb3ca94f6a8b37eb\n\n### Fixed\n- Stable install, CI lanes, fleet ops context (no Hermes) (#74)",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-24-69c4e87e0b43/herdr-linux-x86_64",
-      "sha256": "4cb9ecc3e3746e0eca86c4f756120e9fe07f65c3655240b5baba398eab82b156"
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-25-789ff1745503/herdr-linux-x86_64",
+      "sha256": "80ca4698d70d0eb758413ea23d2d7db778a49097f3f0aebe80e63b00ef417e5e"
     }
   },
   "builds": {
+    "2026-07-25-789ff1745503": {
+      "base_version": "0.7.6",
+      "commit": "789ff1745503af88c8aa6a26fb3ca94f6a8b37eb",
+      "built_at": "2026-07-25T15:44:12Z",
+      "protocol": 18,
+      "tag": "dev-2026-07-25-789ff1745503",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-25-789ff1745503/herdr-linux-x86_64",
+          "sha256": "80ca4698d70d0eb758413ea23d2d7db778a49097f3f0aebe80e63b00ef417e5e"
+        }
+      }
+    },
     "2026-07-24-69c4e87e0b43": {
       "base_version": "0.7.6",
       "commit": "69c4e87e0b4347e2c6eaaac192d0f61609ffd9d1",
