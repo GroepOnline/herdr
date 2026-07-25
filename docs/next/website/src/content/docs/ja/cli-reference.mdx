@@ -429,6 +429,27 @@ herdr plugin pane close <pane_id>
 
 この表は読み取り時の意味です。`pane wait-output` に限り、`recent` と `recent-unwrapped` はどちらも recent の折り返し前スナップショットを検索し、デフォルト表記は `recent` です。
 
+## herdr-gateway
+
+`herdr-gateway` はローカル Herdr ソケットの上に小さな HTTP API を公開する別
+バイナリです。TUI を開かずに fleet スクリプト、ヘルスチェック、読み取り専用の
+ランタイム位置クエリに使います。
+
+```bash
+herdr-gateway
+curl -s http://127.0.0.1:7777/health
+curl -s http://127.0.0.1:7777/v1/ops/context
+```
+
+| 変数 | デフォルト | 目的 |
+| --- | --- | --- |
+| `HERDR_GATEWAY_PORT` | `7777` | 待ち受けポート（localhost） |
+| `HERDR_SOCKET_PATH` | 既定 Herdr ソケット | 対象サーバー |
+
+ルートには `/health`、`/v1/ops/context`、`/v1/agents`、`/v1/workspaces`、
+`/v1/session`、SSE `/v1/events` があります。ops 契約とホスト ID（`HERDR_HOST_NAME`）は
+[Fleet ops と gateway](/ja/docs/fleet-ops/) を参照してください。
+
 ## 環境変数
 
 | 変数 | 目的 |

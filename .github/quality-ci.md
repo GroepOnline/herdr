@@ -39,12 +39,15 @@ Prefer a single required status:
 
 Parallel jobs behind it:
 
-- `CI / Lint`
-- `CI / Test`
-- `CI / Maintenance`
-- `CI / Windows lint` (native `windows-latest` runner)
+- `CI / Changes` (path classification)
+- `CI / Lint` (skipped unless push / rust paths changed)
+- `CI / Test` (skipped unless push / rust paths changed)
+- `CI / Maintenance` (skipped unless push / maintenance paths / docs-only)
+- `CI / Windows lint` (native `windows-latest`; skipped unless push / platform-heavy paths / `ci-heavy` label)
 - `CI / Release metadata`
-- `CI / Release smoke build (x86_64-unknown-linux-musl)`
+- `CI / Release smoke build (x86_64-unknown-linux-musl)` (same selective trigger as Windows lint)
+
+The quality gate treats `skipped` as OK for optional heavy jobs so docs PRs stay fast. Force full heavy coverage on a PR with label `ci-heavy`. Nightly/canary heavy runs live in `CI heavy` (not required).
 
 Validate with:
 

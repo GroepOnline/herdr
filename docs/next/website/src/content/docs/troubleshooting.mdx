@@ -82,6 +82,26 @@ The operating system or outer terminal may consume the chord before Herdr receiv
 
 First confirm that normal OpenSSH works with `ssh <host>`. For a passphrase-protected key in a non-interactive shell, CI job, or mobile terminal, load the key into `ssh-agent` before starting remote attach. See [Persistence and remote access](/docs/persistence-remote/#remote-attach-over-ssh).
 
+## curl or Homebrew installed an older version
+
+Direct installs read `https://herdr.chefgroep.nl/latest.json`. If a fresh
+`curl | sh` or an outdated Homebrew formula installs a build older than the
+current GitHub release, the live manifest or tap formula may not have caught up
+yet.
+
+Check what you have:
+
+```bash
+herdr --version
+curl -fsSL https://herdr.chefgroep.nl/latest.json | jq -r .version
+```
+
+For direct installs, rerun the installer or `herdr update` after the manifest
+updates. For Homebrew, use
+`brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr` from the
+[OnlineChefGroep tap](https://github.com/OnlineChefGroep/homebrew-tap). See
+[Install Herdr — Release manifest](/docs/install/#release-manifest).
+
 ## Find diagnostic logs
 
 Herdr logs live in `~/.config/herdr/` by default:

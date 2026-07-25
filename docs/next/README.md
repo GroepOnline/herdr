@@ -2,7 +2,7 @@
 
 
 <p align="center">
-  <img src="assets/logo.png" alt="herdr" width="100" />
+  <img src="../../assets/logo.png" alt="herdr" width="100" />
 </p>
 
 <p align="center">
@@ -11,7 +11,7 @@
 
 ---
 
-https://github.com/user-attachments/assets/043ec09f-4bdd-41d5-aee0-8fda6b83e267
+<video src="https://herdr.chefgroep.nl/assets/demo-v2.mp4" controls width="100%" autoplay muted loop playsinline></video>
 
 **agent multiplexer that lives in your terminal.**
 
@@ -34,8 +34,11 @@ powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps
 or install with homebrew:
 
 ```bash
-brew install herdr
+brew tap OnlineChefGroep/tap
+brew install OnlineChefGroep/tap/onlinechefgroep-herdr
 ```
+
+update later with `brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr`. the upstream `brew install herdr` formula can lag behind [herdr.chefgroep.nl/latest.json](https://herdr.chefgroep.nl/latest.json).
 
 or install with mise:
 
@@ -81,7 +84,7 @@ Herdr notifies you when a new version is available. Run manually:
 herdr update
 ```
 
-`herdr update` is for installs managed by Herdr's own installer. Homebrew, mise, and Nix installs update through `brew upgrade herdr`, `mise upgrade herdr`, or your Nix workflow, then use the same stop-and-run-again flow if a session is still running the old server. Direct installs can opt into preview builds with `herdr channel set preview`, dev builds with `herdr channel set dev`, and return to stable with `herdr channel set stable` on Linux and macOS. See [install docs](https://herdr.chefgroep.nl/docs/install/) and [session state docs](https://herdr.chefgroep.nl/docs/session-state/) for the full update, restart, restore, and handoff matrix.
+`herdr update` is for installs managed by Herdr's own installer. Homebrew, mise, and Nix installs update through `brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr`, `mise upgrade herdr`, or your Nix workflow, then use the same stop-and-run-again flow if a session is still running the old server. Direct installs can opt into preview builds with `herdr channel set preview`, dev builds with `herdr channel set dev`, and return to stable with `herdr channel set stable` on Linux and macOS. See [install docs](https://herdr.chefgroep.nl/docs/install/) and [session state docs](https://herdr.chefgroep.nl/docs/session-state/) for the full update, restart, restore, and handoff matrix.
 
 Linux and macOS direct installs use the stable update channel by default. Windows beta installs default to preview. To test preview builds from `main` before the next stable release:
 

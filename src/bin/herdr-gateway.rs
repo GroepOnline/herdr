@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use axum::extract::State;
 use axum::response::sse::{Event as SseEvent, KeepAlive, Sse};
@@ -23,25 +23,54 @@ struct GatewayState {
 
 type SharedState = Arc<RwLock<GatewayState>>;
 
+/// Bound each socket exchange so a hung or slow server can't wedge a request.
+const SOCKET_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+/// Refuse to buffer an unbounded response line from the socket.
+const MAX_SOCKET_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
+
 async fn socket_request(socket_path: &PathBuf, req: &Value) -> Result<Value, String> {
-    let mut stream = UnixStream::connect(socket_path)
-        .await
-        .map_err(|e| format!("socket connect: {}", e))?;
+    let exchange = async {
+        let mut stream = UnixStream::connect(socket_path)
+            .await
+            .map_err(|e| format!("socket connect: {}", e))?;
 
-    let mut req_bytes = serde_json::to_vec(req).map_err(|e| e.to_string())?;
-    req_bytes.push(b'\n');
-    stream
-        .write_all(&req_bytes)
-        .await
-        .map_err(|e| e.to_string())?;
+        let mut req_bytes = serde_json::to_vec(req).map_err(|e| e.to_string())?;
+        req_bytes.push(b'\n');
+        stream
+            .write_all(&req_bytes)
+            .await
+            .map_err(|e| e.to_string())?;
 
-    let mut buf = vec![0u8; 65536];
-    let n = stream.read(&mut buf).await.map_err(|e| e.to_string())?;
-    if n == 0 {
-        return Err("empty response".to_string());
+        // Read a single newline-framed response, tolerating short reads and
+        // capping the buffer so a misbehaving server can't exhaust memory.
+        let mut response = Vec::new();
+        let mut buf = [0u8; 8192];
+        loop {
+            let n = stream.read(&mut buf).await.map_err(|e| e.to_string())?;
+            if n == 0 {
+                break;
+            }
+            if let Some(pos) = buf[..n].iter().position(|&b| b == b'\n') {
+                response.extend_from_slice(&buf[..pos]);
+                break;
+            }
+            response.extend_from_slice(&buf[..n]);
+            if response.len() > MAX_SOCKET_RESPONSE_BYTES {
+                return Err("response exceeded maximum size".to_string());
+            }
+        }
+
+        if response.is_empty() {
+            return Err("empty response".to_string());
+        }
+
+        serde_json::from_slice(&response).map_err(|e| format!("json: {}", e))
+    };
+
+    match tokio::time::timeout(SOCKET_REQUEST_TIMEOUT, exchange).await {
+        Ok(result) => result,
+        Err(_) => Err("socket request timed out".to_string()),
     }
-
-    serde_json::from_slice(&buf[..n]).map_err(|e| format!("json: {}", e))
 }
 
 #[allow(dead_code)]
@@ -54,6 +83,18 @@ fn next_id() -> String {
 
 // ── Handlers ──────────────────────────────────────────────────────
 
+fn runtime_host() -> String {
+    ["HERDR_HOST_NAME", "HOSTNAME"]
+        .into_iter()
+        .find_map(|key| {
+            std::env::var(key)
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+        })
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
 async fn health(State(state): State<SharedState>) -> Json<Value> {
     let s = state.read().await;
     let uptime = s.started_at.elapsed().as_secs();
@@ -61,7 +102,33 @@ async fn health(State(state): State<SharedState>) -> Json<Value> {
         "status": "ok",
         "gateway_version": s.version,
         "socket": s.socket_path.display().to_string(),
+        "host": runtime_host(),
         "uptime": uptime,
+    }))
+}
+
+/// Neutral ops/runtime location view for fleet tooling.
+/// Composes public socket methods + host identity; no private TUI socket fields.
+/// Future CHEF inventory plugins should live in OnlineChefGroep/herdr-ops
+/// (`com.chefgroep.ops`) and consume this endpoint / `agent.list`.
+async fn get_ops_context(State(state): State<SharedState>) -> Json<Value> {
+    let s = state.read().await;
+    let agents_req = json!({"id": next_id(), "method": "agent.list", "params": {}});
+    let session_req = json!({"id": next_id(), "method": "session.snapshot", "params": {}});
+    let agents = socket_request(&s.socket_path, &agents_req).await;
+    let session = socket_request(&s.socket_path, &session_req).await;
+    Json(json!({
+        "host": runtime_host(),
+        "socket": s.socket_path.display().to_string(),
+        "gateway_version": s.version,
+        "uptime_seconds": s.started_at.elapsed().as_secs(),
+        "agents": agents.unwrap_or_else(|e| json!({"error": e})),
+        "session": session.unwrap_or_else(|e| json!({"error": e})),
+        "ops_plugin": {
+            "recommended_id": "com.chefgroep.ops",
+            "recommended_repo": "OnlineChefGroep/herdr-ops",
+            "note": "Inventory/health SSOTs belong in herdr-ops plugins; this endpoint is the runtime location surface inside Herdr."
+        }
     }))
 }
 
@@ -197,6 +264,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/session", get(get_session))
         .route("/v1/workspaces", get(get_workspaces))
         .route("/v1/agents", get(get_agents))
+        .route("/v1/ops/context", get(get_ops_context))
         .route("/v1/clipboard", get(get_clipboard).delete(clear_clipboard))
         .route("/v1/events", get(sse_events))
         .with_state(state);

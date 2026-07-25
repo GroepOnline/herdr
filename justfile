@@ -7,7 +7,7 @@ test:
 
 # Run maintenance script and Bun tests
 maintenance:
-    python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_ci_quality scripts.test_config_reference_check scripts.test_dev scripts.test_docs_translation_parity scripts.test_preview scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
+    python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_ci_changed_paths scripts.test_ci_quality scripts.test_config_reference_check scripts.test_dev scripts.test_docs_translation_parity scripts.test_preview scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
     just integration-assets-test
     just plugin-marketplace-test
 
@@ -139,7 +139,7 @@ release-prepare version:
         echo "error: commit your changes first"; \
         exit 1; \
     fi
-    @git fetch origin master --tags
+    @git fetch origin main --tags
     @if git rev-parse "v{{version}}" >/dev/null 2>&1; then \
         echo "error: tag v{{version}} already exists"; \
         exit 1; \
@@ -165,11 +165,11 @@ release-publish version:
         exit 1; \
     fi
     @branch="$(git branch --show-current)"; \
-    if [ "$branch" != "master" ]; then \
-        echo "error: release-publish must run from master, got $branch"; \
+    if [ "$branch" != "main" ]; then \
+        echo "error: release-publish must run from main, got $branch"; \
         exit 1; \
     fi
-    @git fetch origin master --tags
+    @git fetch origin main --tags
     @if git rev-parse "v{{version}}" >/dev/null 2>&1; then \
         echo "error: tag v{{version}} already exists"; \
         exit 1; \
@@ -183,23 +183,49 @@ release-publish version:
     python3 scripts/changelog.py extract --version {{version}} --output /tmp/herdr-release-notes-check.md
     rm -f /tmp/herdr-release-notes-check.md
     @local_head="$(git rev-parse HEAD)"; \
-    remote_head="$(git rev-parse origin/master)"; \
+    remote_head="$(git rev-parse origin/main)"; \
     if ! git merge-base --is-ancestor "$remote_head" "$local_head"; then \
-        echo "error: origin/master is not an ancestor of HEAD; pull or rebase before publishing"; \
+        echo "error: origin/main is not an ancestor of HEAD; pull or rebase before publishing"; \
         exit 1; \
     fi; \
     if [ "$local_head" != "$remote_head" ]; then \
-        echo "pushing release commit to origin/master"; \
-        git push origin HEAD:master; \
+        echo "pushing release commit to origin/main"; \
+        git push origin HEAD:main; \
     fi
     git tag -a v{{version}} -m "v{{version}}"
     git push origin v{{version}}
     @echo "v{{version}} released — GitHub Actions building binaries and updating website/latest.json"
+    @echo "After assets publish: python3 scripts/homebrew_formula.py --version {{version}}"
+    @echo "Then update OnlineChefGroep/homebrew-tap Formula/onlinechefgroep-herdr.rb"
 
 # Prepare, verify, tag, push, and trigger the GitHub Release workflow (usage: just release 0.1.1)
 release version:
     just release-prepare {{version}}
     just release-publish {{version}}
+
+# Show Cargo / tag / GitHub release / local+live latest.json alignment
+# usage: just release-status        (uses Cargo.toml version)
+#        just release-status 0.7.6
+release-status version="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo_version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+    if [ -n "{{version}}" ]; then
+      version="{{version}}"
+    else
+      version="$cargo_version"
+    fi
+    echo "Cargo.toml:          $cargo_version"
+    echo "requested:           $version"
+    echo "local latest.json:   $(python3 -c 'import json; print(json.load(open("website/latest.json"))["version"])')"
+    echo "live latest.json:    $(curl -fsSL https://herdr.chefgroep.nl/latest.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' || echo UNAVAILABLE)"
+    if git rev-parse "v$version" >/dev/null 2>&1; then
+      echo "local tag v$version:  $(git rev-parse --short "v$version")"
+    else
+      echo "local tag v$version:  missing"
+    fi
+    gh release view "v$version" --json tagName,assets,publishedAt --jq '"GitHub release: \(.tagName) published=\(.publishedAt) assets=\([.assets[].name]|join(", "))"' || echo "GitHub release: missing"
+    python3 scripts/changelog.py verify-release-state --version "$version" --live-url https://herdr.chefgroep.nl/latest.json || true
 
 # Print default config
 default-config:

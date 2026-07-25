@@ -365,3 +365,20 @@ GitHub トピック `herdr-plugin` が付いた公開 GitHub リポジトリの�
 プラグインを掲載するには、公開リポジトリに GitHub トピック `herdr-plugin` を
 追加します。インデックスは 30 分ごとに更新されます。発見の仕組みは
 [マーケットプレイス](/ja/docs/marketplace/)を参照してください。
+
+## CHEF fleet プラグイン（プレビュー）
+
+`com.chefgroep.*` の CHEF fleet プラグインは、
+`$HERDR_PLUGIN_STATE_DIR` に `fleet_ops.json` を書き込み、Fleet Ops Bar に
+任意の個人コンテキストを提供します。`herdr plugin link <path>` でローカル
+スキャフォールドをリンクし、`herdr plugin action invoke <action-id> --plugin <plugin-id>`
+でアクションを呼び出します。
+
+作業項目の正本は Linear、PR/CI は GitHub、ランタイム健全性はホスト / Cloudflare
+API です。`fleet_ops.json` にシークレットを保存しないでください。バーは
+**設定 → プラグイン**（`ui.fleet_ops_bar`）で切り替えます。
+
+リポジトリ内スキャフォールド `com.chefgroep.ops` は契約を示します。本番
+インベントリは [OnlineChefGroep/herdr-ops](https://github.com/OnlineChefGroep/herdr-ops)
+に置きます。`HERDR_HOST_NAME`、`herdr-gateway` HTTP 面、`/v1/ops/context` は
+[Fleet ops と gateway](/ja/docs/fleet-ops/) を参照してください。

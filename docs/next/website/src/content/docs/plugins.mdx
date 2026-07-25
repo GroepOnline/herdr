@@ -381,4 +381,9 @@ to the Fleet Ops Bar by writing `fleet_ops.json` into
 
 Linear remains the source of truth for work items; GitHub for PR/CI; host and
 Cloudflare APIs for runtime health. Do not store secrets in `fleet_ops.json`.
-Toggle the bar in Settings → fleet (`ui.fleet_ops_bar`).
+Toggle the bar in **Settings → Plugins** (`ui.fleet_ops_bar`).
+
+The in-repo scaffold `com.chefgroep.ops` documents the contract; production
+inventory belongs in [OnlineChefGroep/herdr-ops](https://github.com/OnlineChefGroep/herdr-ops).
+See [Fleet ops and gateway](/docs/fleet-ops/) for `HERDR_HOST_NAME`, the
+`herdr-gateway` HTTP surface, and `/v1/ops/context`.

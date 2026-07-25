@@ -429,6 +429,33 @@ herdr plugin pane close <pane_id>
 
 此表描述读取时的含义。仅对 `pane wait-output` 而言,`recent` 和 `recent-unwrapped` 都搜索 recent 的未折行快照,默认写法仍是 `recent`。
 
+## herdr-gateway
+
+`herdr-gateway` 是在本地 Herdr socket 之上暴露小型 HTTP API 的独立二进制。
+可用于 fleet 脚本、健康检查以及只读运行时位置查询,而无需打开 TUI。
+
+`herdr-gateway` 在前台运行且不会退出，请在单独的终端中启动它：
+
+```bash
+herdr-gateway
+```
+
+然后在第二个终端中查询：
+
+```bash
+curl -s http://127.0.0.1:7777/health
+curl -s http://127.0.0.1:7777/v1/ops/context
+```
+
+| 变量 | 默认值 | 用途 |
+| --- | --- | --- |
+| `HERDR_GATEWAY_PORT` | `7777` | 监听端口（localhost） |
+| `HERDR_SOCKET_PATH` | 默认 Herdr socket | 目标服务器 |
+
+路由包括 `/health`、`/v1/ops/context`、`/v1/agents`、`/v1/workspaces`、
+`/v1/session` 以及 SSE `/v1/events`。ops 契约与主机标识（`HERDR_HOST_NAME`）见
+[Fleet ops 与 gateway](/zh-cn/docs/fleet-ops/)。
+
 ## 环境变量
 
 | 变量 | 用途 |

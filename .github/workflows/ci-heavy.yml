@@ -1,0 +1,134 @@
+name: CI heavy
+
+# Nightly / post-merge heavy lane. Not a required PR check — keeps free OSS
+# minutes useful without blocking docs PRs. Force on a PR with label `ci-heavy`
+# via the main CI workflow instead.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # ~03:17 UTC daily; jitter via canary lottery below
+    - cron: "17 3 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "build.rs"
+      - "vendor/**"
+      - "assets/**"
+      - "nix/**"
+      - "flake.*"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RUSTFLAGS: "-D warnings"
+  RUST_TOOLCHAIN_VERSION: 1.96.1
+  ZIG_VERSION: 0.15.2
+  BUN_VERSION: 1.3.14
+
+concurrency:
+  group: ci-heavy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lottery:
+    name: Canary lottery
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.pick.outputs.run }}
+    steps:
+      - id: pick
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import os, random
+          # Always run on push/dispatch; ~1/3 of scheduled nightlies.
+          if os.environ.get("GITHUB_EVENT_NAME") != "schedule":
+              print("run=true")
+          else:
+              print(f"run={str(random.randrange(3) == 0).lower()}")
+          PY
+
+  windows-lint:
+    name: Windows lint
+    needs: lottery
+    if: needs.lottery.outputs.run == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      LIBGHOSTTY_VT_SIMD: "false"
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
+          components: clippy
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          key: ci-heavy-windows-lint
+      - name: Install Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - name: Cargo clippy on Windows
+        shell: bash
+        run: cargo clippy --bin herdr --locked -- -D warnings
+
+  release-smoke:
+    name: Release smoke build
+    needs: lottery
+    if: needs.lottery.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      LIBGHOSTTY_VT_OPTIMIZE: ReleaseFast
+      LIBGHOSTTY_VT_SIMD: "true"
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
+          targets: x86_64-unknown-linux-musl
+      - run: rustup target add x86_64-unknown-linux-musl
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build musl-tools libdbus-1-dev pkg-config
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          key: ci-heavy-release-smoke
+      - run: rm -rf .zig-cache vendor/libghostty-vt/.zig-cache vendor/libghostty-vt/zig-out
+      - run: cargo build --release --locked --target x86_64-unknown-linux-musl --config profile.release.lto=false
+
+  heavy-gate:
+    name: Heavy gate
+    runs-on: ubuntu-latest
+    needs: [lottery, windows-lint, release-smoke]
+    if: always()
+    steps:
+      - name: Aggregate
+        run: |
+          set -euo pipefail
+          if [ "${{ needs.lottery.outputs.run }}" != "true" ]; then
+            echo "Canary skipped this schedule; heavy gate OK."
+            exit 0
+          fi
+          for result in "${{ needs.windows-lint.result }}" "${{ needs.release-smoke.result }}"; do
+            if [ "$result" != "success" ]; then
+              echo "Heavy gate failed: $result"
+              exit 1
+            fi
+          done
+          echo "Heavy gate passed."

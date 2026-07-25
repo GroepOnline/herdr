@@ -82,6 +82,25 @@ OS または外側のターミナルが Herdr に届く前にキーを処理し�
 
 まず `ssh <host>` で通常の OpenSSH 接続が動作することを確認してください。非対話シェル、CI、モバイルターミナルでパスフレーズ付きキーを使う場合は、リモートアタッチの前にキーを `ssh-agent` へ読み込んでください。[永続化とリモートアクセス](/ja/docs/persistence-remote/#remote-attach-over-ssh)を参照してください。
 
+## curl または Homebrew で古いバージョンが入った
+
+直接インストールは `https://herdr.chefgroep.nl/latest.json` を読みます。新しい
+`curl | sh` や古い Homebrew 式が現在の GitHub リリースより古いビルドを入れる場合、
+live マニフェストまたは tap 式がまだ追いついていない可能性があります。
+
+確認:
+
+```bash
+herdr --version
+curl -fsSL https://herdr.chefgroep.nl/latest.json | jq -r .version
+```
+
+直接インストールはマニフェスト更新後にインストーラーまたは `herdr update` を再実行。
+Homebrew は
+`brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr` を使い、
+[OnlineChefGroep tap](https://github.com/OnlineChefGroep/homebrew-tap) を参照。
+[インストール — リリースマニフェスト](/ja/docs/install/#リリースマニフェスト)も参照。
+
 ## 診断ログを探す
 
 Herdr のログはデフォルトで `~/.config/herdr/` にあります:

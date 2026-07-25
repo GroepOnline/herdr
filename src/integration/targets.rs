@@ -69,6 +69,19 @@ pub(crate) fn install_pi() -> io::Result<PathBuf> {
 
 pub(crate) fn install_omp() -> io::Result<OmpInstallPaths> {
     let dir = omp_extension_dir()?;
+    let pi_dir = pi_extension_dir()?;
+    // OMP and Pi install distinct files (`herdr-omp-agent-state.ts` vs
+    // `herdr-agent-state.ts`), so sharing a directory is harmless on its own.
+    // The danger is that `remove_legacy_pi_extension_from_omp_dir` treats a
+    // Pi-owned `herdr-agent-state.ts` as OMP legacy residue and deletes it. Only
+    // refuse when the shared directory already holds a real Pi extension that the
+    // install would clobber; otherwise a shared PI_CODING_AGENT_DIR still works.
+    if same_extension_dir(&dir, &pi_dir) && pi_extension_present(&pi_dir)? {
+        return Err(io::Error::other(format!(
+            "Pi and OMP resolve to the same extension directory at {} where Pi is already installed; configure separate agent directories before installing OMP",
+            dir.display()
+        )));
+    }
     ensure_extension_dir(&dir, "omp")?;
 
     let removed_legacy_pi_extension = remove_legacy_pi_extension_from_omp_dir(&dir)?;
@@ -93,6 +106,28 @@ pub(crate) fn remove_legacy_pi_extension_from_omp_dir(dir: &Path) -> io::Result<
     }
 
     Ok(false)
+}
+
+/// Whether `a` and `b` point at the same extension directory. Canonicalizes both
+/// so symlinks, `..` segments, and path aliases that resolve to the same location
+/// still collide; falls back to a lexical comparison when a path cannot be
+/// canonicalized (for example, when it does not exist yet).
+fn same_extension_dir(a: &Path, b: &Path) -> bool {
+    match (fs::canonicalize(a), fs::canonicalize(b)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => a == b,
+    }
+}
+
+/// Whether `dir` already contains a Herdr-installed Pi extension. This is the
+/// exact file `remove_legacy_pi_extension_from_omp_dir` would delete, so it marks
+/// the case where installing OMP into a shared directory would destroy Pi's state.
+fn pi_extension_present(dir: &Path) -> io::Result<bool> {
+    let pi_path = dir.join(PI_EXTENSION_INSTALL_NAME);
+    if !pi_path.is_file() {
+        return Ok(false);
+    }
+    Ok(fs::read_to_string(&pi_path)?.contains("HERDR_INTEGRATION_ID=pi"))
 }
 
 pub(crate) fn install_claude() -> io::Result<ClaudeInstallPaths> {

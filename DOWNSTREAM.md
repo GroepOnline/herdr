@@ -46,3 +46,28 @@ Maintained public distribution of Herdr for OnlineChefGroep agent operations. Th
 - Keep downstream changes explicit and covered by CI.
 - Reconcile upstream changes on a dedicated sync branch; do not mix upstream sync work into a release closeout.
 - Never reuse upstream binaries or checksums for an OnlineChefGroep release.
+- Do not port Hermes-related upstream changes into this distribution.
+
+## Version / install sources of truth
+
+| Surface | Source |
+|---|---|
+| Package version | `Cargo.toml` (+ `npm/package.json` kept in sync) |
+| Git tag | `vX.Y.Z` on `main` via `just release` |
+| Stable curl install | `website/latest.json` → `https://herdr.chefgroep.nl/latest.json` |
+| Homebrew | `OnlineChefGroep/homebrew-tap` formula `onlinechefgroep-herdr` |
+
+Maintainer checks:
+
+```bash
+just release-status            # Cargo / tag / GitHub / local+live latest.json
+python3 scripts/homebrew_formula.py --version X.Y.Z
+```
+
+After a release publishes `herdr-linux-x86_64`, regenerate the tap formula and open a PR on `OnlineChefGroep/homebrew-tap`. Do not leave macOS/ARM formula blocks pointing at older tags when those assets are not published for the new version.
+
+## CI lanes
+
+- Required PR check: `CI / Quality gate` (accepts skipped heavy jobs).
+- Heavy Windows lint + musl smoke run on `main` pushes, `platform_heavy` path changes, or PRs labeled `ci-heavy`.
+- Nightly/canary heavy lane: `.github/workflows/ci-heavy.yml` (not required for merge).
