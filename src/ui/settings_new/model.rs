@@ -33,6 +33,9 @@ pub struct SettingsItem {
 }
 
 /// Build settings items for a category.
-pub fn build_settings_items(_category: SettingsCategory, _app: &crate::app::state::AppState) -> Vec<SettingsItem> {
+pub fn build_settings_items(
+    _category: SettingsCategory,
+    _app: &crate::app::state::AppState,
+) -> Vec<SettingsItem> {
     Vec::new()
 }

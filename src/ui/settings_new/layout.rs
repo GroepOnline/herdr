@@ -20,8 +20,10 @@ pub fn layout_settings(area: Rect) -> SettingsLayout {
     let y = area.y + 2;
     let overlay = Rect::new(x, y, width, height);
 
-    let [category_rail, content] = Layout::horizontal([Constraint::Length(16), Constraint::Min(1)]).areas(overlay);
-    let [content, footer] = Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).areas(content);
+    let [category_rail, content] =
+        Layout::horizontal([Constraint::Length(16), Constraint::Min(1)]).areas(overlay);
+    let [content, footer] =
+        Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).areas(content);
 
     SettingsLayout {
         overlay,

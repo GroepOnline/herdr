@@ -35,7 +35,9 @@ pub fn render_settings_new(
     frame.render_widget(
         Paragraph::new(Line::from(vec![Span::styled(
             "Appearance · Keybinds · Integrations",
-            Style::default().fg(palette.subtext0).add_modifier(Modifier::DIM),
+            Style::default()
+                .fg(palette.subtext0)
+                .add_modifier(Modifier::DIM),
         )])),
         layout.footer,
     );
