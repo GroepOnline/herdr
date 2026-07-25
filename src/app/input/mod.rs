@@ -366,6 +366,9 @@ impl App {
                         source_ws_idx,
                         insert_idx,
                     } => self.move_workspace_via_api(source_ws_idx, insert_idx),
+                    MouseAction::MoveWorkspaceBlock { params } => {
+                        self.move_workspace_block_via_api(params)
+                    }
                     MouseAction::MoveTab {
                         ws_idx,
                         source_tab_idx,

@@ -206,6 +206,38 @@
             },
             {
               "properties": {
+                "before_workspace_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "type": {
+                  "const": "workspace_reordered",
+                  "type": "string"
+                },
+                "workspace_ids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "workspaces": {
+                  "items": {
+                    "$ref": "#/schemas/event/$defs/WorkspaceInfo"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "type",
+                "workspace_ids",
+                "workspaces"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
                 "type": {
                   "const": "workspace_focused",
                   "type": "string"
@@ -702,6 +734,7 @@
             "workspace_closed",
             "workspace_renamed",
             "workspace_moved",
+            "workspace_reordered",
             "workspace_focused",
             "worktree_created",
             "worktree_opened",
@@ -3665,6 +3698,18 @@
             {
               "properties": {
                 "type": {
+                  "const": "workspace.reordered",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "type": {
                   "const": "workspace.closed",
                   "type": "string"
                 }
@@ -4079,6 +4124,26 @@
               ]
             }
           },
+          "type": "object"
+        },
+        "WorkspaceMoveBlockParams": {
+          "properties": {
+            "before_workspace_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "workspace_ids": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "workspace_ids"
+          ],
           "type": "object"
         },
         "WorkspaceMoveParams": {
@@ -4564,6 +4629,22 @@
             },
             "params": {
               "$ref": "#/schemas/request/$defs/WorkspaceMoveParams"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "const": "workspace.move_block",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/WorkspaceMoveBlockParams"
             }
           },
           "required": [
@@ -6337,6 +6418,38 @@
             },
             {
               "properties": {
+                "before_workspace_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "type": {
+                  "const": "workspace_reordered",
+                  "type": "string"
+                },
+                "workspace_ids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "workspaces": {
+                  "items": {
+                    "$ref": "#/schemas/success_response/$defs/WorkspaceInfo"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "type",
+                "workspace_ids",
+                "workspaces"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
                 "type": {
                   "const": "workspace_focused",
                   "type": "string"
@@ -6848,6 +6961,7 @@
             "workspace_closed",
             "workspace_renamed",
             "workspace_moved",
+            "workspace_reordered",
             "workspace_focused",
             "worktree_created",
             "worktree_opened",
