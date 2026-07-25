@@ -90,6 +90,24 @@ fn pane_attention_priority(state: AgentState, seen: bool) -> u8 {
     }
 }
 
+impl Tab {
+    /// Aggregate agent state across all panes in this tab.
+    pub fn aggregate_state(
+        &self,
+        terminals: &HashMap<TerminalId, TerminalState>,
+    ) -> (AgentState, bool) {
+        self.panes
+            .values()
+            .filter_map(|pane| {
+                terminals
+                    .get(&pane.attached_terminal_id)
+                    .map(|terminal| (terminal.state, pane.seen))
+            })
+            .max_by_key(|(state, seen)| pane_attention_priority(*state, *seen))
+            .unwrap_or((AgentState::Unknown, true))
+    }
+}
+
 impl Workspace {
     pub fn aggregate_state(
         &self,
