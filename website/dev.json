@@ -2,18 +2,31 @@
   "schema_version": 1,
   "channel": "dev",
   "base_version": "0.7.6",
-  "build_id": "2026-07-25-1208d7a35a32",
-  "commit": "1208d7a35a328edde6a5309044665e840897198a",
-  "built_at": "2026-07-25T16:14:43Z",
+  "build_id": "2026-07-25-c3f1e660d032",
+  "commit": "c3f1e660d032d770945351b3d8479d8556e58ccb",
+  "built_at": "2026-07-25T16:36:31Z",
   "protocol": 18,
-  "notes": "Dev build 2026-07-25-1208d7a35a32\n\nBuilt from `1208d7a35a32` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/789ff1745503af88c8aa6a26fb3ca94f6a8b37eb...1208d7a35a328edde6a5309044665e840897198a\n\n### Fixed\n- Make tagged releases installable on Linux ARM and macOS (#75)",
+  "notes": "Dev build 2026-07-25-c3f1e660d032\n\nBuilt from `c3f1e660d032` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/1208d7a35a328edde6a5309044665e840897198a...c3f1e660d032d770945351b3d8479d8556e58ccb\n\n### Fixed\n- Link Linux ARM64 releases with musl (#77)",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-25-1208d7a35a32/herdr-linux-x86_64",
-      "sha256": "0a632ec1ad1207af528784ced60a9e5875ce31a2417c3fea4eede1d6cdc03008"
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-25-c3f1e660d032/herdr-linux-x86_64",
+      "sha256": "c621b924d02ce0acda0143db2f3cb0495073929dad3e4a2acb57eb42ee28aad7"
     }
   },
   "builds": {
+    "2026-07-25-c3f1e660d032": {
+      "base_version": "0.7.6",
+      "commit": "c3f1e660d032d770945351b3d8479d8556e58ccb",
+      "built_at": "2026-07-25T16:36:31Z",
+      "protocol": 18,
+      "tag": "dev-2026-07-25-c3f1e660d032",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-25-c3f1e660d032/herdr-linux-x86_64",
+          "sha256": "c621b924d02ce0acda0143db2f3cb0495073929dad3e4a2acb57eb42ee28aad7"
+        }
+      }
+    },
     "2026-07-25-1208d7a35a32": {
       "base_version": "0.7.6",
       "commit": "1208d7a35a328edde6a5309044665e840897198a",
