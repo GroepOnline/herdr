@@ -5,6 +5,7 @@ use ratatui::{
     Frame,
 };
 
+mod fleet_ops_new;
 mod dialogs;
 mod keybind_help;
 mod menus;
