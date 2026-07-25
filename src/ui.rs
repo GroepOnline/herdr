@@ -8,6 +8,7 @@ use ratatui::{
 mod fleet_ops_new;
 mod dialogs;
 mod keybind_help;
+mod launcher_new;
 mod menus;
 mod mobile;
 pub(crate) mod motion;
