@@ -17,6 +17,7 @@ mod onboarding;
 mod panes;
 mod release_notes;
 mod scrollbar;
+mod settings_new;
 pub(crate) mod settings;
 mod shell;
 mod sidebar;
