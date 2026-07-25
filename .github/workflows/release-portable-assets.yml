@@ -1,0 +1,287 @@
+name: Release portable assets
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable tag to backfill, for example v0.7.6
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RUST_TOOLCHAIN_VERSION: 1.96.1
+
+concurrency:
+  group: release-portable-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Resolve stable release
+    # For workflow_run, require the triggering Release run to originate from this
+    # repository (not a fork). This gates the whole pipeline (every job needs
+    # prepare) and prevents cache poisoning from an untrusted head checkout.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      sha: ${{ steps.release.outputs.sha }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: release
+        name: Validate tag and release version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_TAG: ${{ inputs.tag }}
+          RELEASE_WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="$REQUESTED_TAG"
+          else
+            TAG="$(git tag --points-at "$RELEASE_WORKFLOW_SHA" --list 'v[0-9]*' | sort -V | tail -n 1)"
+          fi
+
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "error: could not resolve a stable vX.Y.Z tag (got: ${TAG:-empty})" >&2
+            exit 1
+          fi
+
+          SHA="$(git rev-list -n 1 "$TAG")"
+          VERSION="${TAG#v}"
+          CARGO_VERSION="$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')"
+          if [ "$CARGO_VERSION" != "$VERSION" ]; then
+            echo "error: tag $TAG does not match Cargo.toml version $CARGO_VERSION" >&2
+            exit 1
+          fi
+
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            name: herdr-linux-aarch64
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            name: herdr-macos-x86_64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            name: herdr-macos-aarch64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      LIBGHOSTTY_VT_OPTIMIZE: ReleaseFast
+      LIBGHOSTTY_VT_SIMD: "true"
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
+          targets: ${{ matrix.target }}
+
+      - name: Install Zig on Linux
+        if: runner.os == 'Linux'
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.15.2
+
+      - name: Restore Homebrew Zig cache
+        if: runner.os == 'macOS'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/Library/Caches/Homebrew/downloads
+          key: homebrew-zig-0.15-${{ runner.os }}-${{ runner.arch }}
+          restore-keys: |
+            homebrew-zig-0.15-${{ runner.os }}-
+
+      - name: Install build tools on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo find /etc/apt/sources.list.d -type f \( -iname '*microsoft*' -o -iname '*azure-cli*' \) -print -delete
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build musl-tools gcc-aarch64-linux-gnu crossbuild-essential-arm64 libdbus-1-dev pkg-config
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+
+      - name: Install build tools on macOS
+        if: runner.os == 'macOS'
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install zig@0.15 cmake ninja
+          echo "$(brew --prefix zig@0.15)/bin" >> "$GITHUB_PATH"
+          "$(brew --prefix zig@0.15)/bin/zig" version
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          key: stable-portable-${{ matrix.target }}
+
+      - name: Build release binary
+        run: |
+          rm -rf .zig-cache vendor/libghostty-vt/.zig-cache vendor/libghostty-vt/zig-out
+          cargo build --release --locked --target "${{ matrix.target }}"
+          cp "target/${{ matrix.target }}/release/herdr" "${{ matrix.name }}"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.name }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish portable assets
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          path: built-assets
+
+      - name: Collect release assets and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          cp built-assets/herdr-linux-aarch64/herdr-linux-aarch64 release-assets/
+          cp built-assets/herdr-macos-x86_64/herdr-macos-x86_64 release-assets/
+          cp built-assets/herdr-macos-aarch64/herdr-macos-aarch64 release-assets/
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern herdr-linux-x86_64 --dir release-assets
+
+          for asset in \
+            herdr-linux-x86_64 \
+            herdr-linux-aarch64 \
+            herdr-macos-x86_64 \
+            herdr-macos-aarch64; do
+            test -s "release-assets/$asset"
+            chmod +x "release-assets/$asset"
+          done
+
+          (
+            cd release-assets
+            sha256sum \
+              herdr-linux-x86_64 \
+              herdr-linux-aarch64 \
+              herdr-macos-x86_64 \
+              herdr-macos-aarch64 > SHA256SUMS
+          )
+
+      - name: Upload assets to existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          gh release upload "$TAG" \
+            release-assets/herdr-linux-aarch64 \
+            release-assets/herdr-macos-x86_64 \
+            release-assets/herdr-macos-aarch64 \
+            release-assets/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+  update-manifest:
+    name: Publish portable stable manifest
+    needs: [prepare, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: main
+          fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
+      - name: Add every stable platform to latest.json
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          tag = os.environ["TAG"]
+          version = os.environ["VERSION"]
+          repo = os.environ["RELEASE_REPO"]
+          manifest_path = Path("website/latest.json")
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          if str(manifest.get("version", "")).removeprefix("v") != version:
+              raise SystemExit(
+                  f"website/latest.json is not at {version}: {manifest.get('version')}"
+              )
+
+          targets = {
+              "linux-x86_64": "herdr-linux-x86_64",
+              "linux-aarch64": "herdr-linux-aarch64",
+              "macos-x86_64": "herdr-macos-x86_64",
+              "macos-aarch64": "herdr-macos-aarch64",
+          }
+          assets = {
+              target: f"https://github.com/{repo}/releases/download/{tag}/{filename}"
+              for target, filename in targets.items()
+          }
+          manifest["assets"] = assets
+          release = manifest.get("releases", {}).get(version)
+          if isinstance(release, dict):
+              release["assets"] = assets
+
+          manifest_path.write_text(
+              json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Commit stable manifest
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add website/latest.json
+          git diff --cached --quiet || git commit -m "docs: publish portable assets for v$VERSION"
+          git push origin main
+
+      - name: Trigger website deploy
+        env:
+          DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "CLOUDFLARE_PAGES_DEPLOY_HOOK not set; relying on Cloudflare git auto-deploy"
+            exit 0
+          fi
+          curl -fsS -X POST "$DEPLOY_HOOK" > /dev/null
+          echo "Triggered Cloudflare Pages production deploy"
