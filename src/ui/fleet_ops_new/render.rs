@@ -8,9 +8,9 @@ use ratatui::{
 };
 
 use crate::app::state::AppState;
+use crate::ui::fleet_ops_new::model::FleetOpsContext;
 use crate::ui::shell::FleetOpsLayout;
 use crate::ui::text::truncate_end;
-use crate::ui::fleet_ops_new::model::FleetOpsContext;
 
 /// Render the compact one-line Fleet Ops summary.
 pub fn render_fleet_ops_new(
@@ -30,10 +30,7 @@ pub fn render_fleet_ops_new(
     let summary = truncate_end(&context.summary, layout.rect.width as usize);
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::styled(
-                " ",
-                Style::default().fg(palette.accent),
-            ),
+            Span::styled(" ", Style::default().fg(palette.accent)),
             Span::styled(
                 summary,
                 Style::default()
