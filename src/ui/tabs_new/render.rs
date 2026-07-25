@@ -48,17 +48,15 @@ pub fn render_tab_bar_new(
         }
         spans.push(Span::styled(
             label,
-            Style::default()
-                .fg(fg)
-                .bg(bg)
-                .add_modifier(if tab.active { Modifier::BOLD } else { Modifier::empty() }),
+            Style::default().fg(fg).bg(bg).add_modifier(if tab.active {
+                Modifier::BOLD
+            } else {
+                Modifier::empty()
+            }),
         ));
 
         let style = Style::default().bg(bg);
-        frame.render_widget(
-            Paragraph::new(Line::from(spans)).style(style),
-            rect,
-        );
+        frame.render_widget(Paragraph::new(Line::from(spans)).style(style), rect);
 
         // Active indicator: bottom one-cell rail.
         if tab.active && rect.height > 0 {
