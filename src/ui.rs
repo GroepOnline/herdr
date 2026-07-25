@@ -394,19 +394,10 @@ pub fn render_with_runtime_registry(
     terminal_runtimes: &TerminalRuntimeRegistry,
     frame: &mut Frame,
 ) {
-    let sidebar_area = app.view.sidebar_rect;
     let tab_bar_area = app.view.tab_bar_rect;
     let terminal_area = app.view.terminal_area;
 
-    if app.view.layout == ViewLayout::Mobile {
-        render_mobile_header(app, terminal_runtimes, frame, app.view.mobile_header_rect);
-    } else if sidebar_area.width > 0 {
-        if app.sidebar_collapsed {
-            render_sidebar_collapsed(app, frame, sidebar_area);
-        } else {
-            render_sidebar(app, terminal_runtimes, frame, sidebar_area);
-        }
-    }
+    render_working_animation(app, terminal_runtimes, frame);
     if app.view.layout != ViewLayout::Mobile {
         render_tab_bar(app, frame, tab_bar_area);
     }
@@ -454,6 +445,22 @@ pub fn render_with_runtime_registry(
         Mode::KeybindHelp => render_keybind_help_overlay(app, frame),
         Mode::Navigator => render_navigator_overlay(app, terminal_runtimes, frame),
         Mode::Terminal => {}
+    }
+}
+
+pub(crate) fn render_working_animation(
+    app: &AppState,
+    terminal_runtimes: &TerminalRuntimeRegistry,
+    frame: &mut Frame,
+) {
+    if app.view.layout == ViewLayout::Mobile {
+        render_mobile_header(app, terminal_runtimes, frame, app.view.mobile_header_rect);
+    } else if app.view.sidebar_rect.width > 0 {
+        if app.sidebar_collapsed {
+            render_sidebar_collapsed(app, frame, app.view.sidebar_rect);
+        } else {
+            render_sidebar(app, terminal_runtimes, frame, app.view.sidebar_rect);
+        }
     }
 }
 
