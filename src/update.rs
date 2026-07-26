@@ -3531,7 +3531,8 @@ mod tests {
         // current unreleased checkout. Its protocol is updated by the release
         // flow together with the release assets.
         assert!(manifest.protocol.is_some());
-        assert_eq!(manifest.assets.len(), 1);
+        assert_eq!(manifest.assets.len(), 4);
+        assert!(manifest.assets.contains_key("linux-x86_64"));
         assert!(manifest.releases.contains_key(&manifest.version));
 
         let target = "linux-x86_64";
