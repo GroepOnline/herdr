@@ -152,7 +152,7 @@ mod tests {
     fn multiple_workspaces_with_multiple_tabs() {
         let mut app = AppState::test_new();
         let mut ws1 = Workspace::test_new("one");
-        let mut ws2 = Workspace::test_new("two");
+        let ws2 = Workspace::test_new("two");
         // Add an extra tab to ws1.
         ws1.test_add_tab(None);
         app.workspaces = vec![ws1, ws2];
