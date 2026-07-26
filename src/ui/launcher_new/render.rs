@@ -85,7 +85,7 @@ mod tests {
     use ratatui::{backend::TestBackend, layout::Rect, Terminal};
 
     fn test_palette() -> Palette {
-        Palette::default()
+        Palette::catppuccin()
     }
 
     #[test]
@@ -109,7 +109,6 @@ mod tests {
     #[test]
     fn render_draws_input_prompt() {
         let app = AppState::test_new();
-        let area = Rect::new(0, 0, 80, 24);
         let layout = LauncherLayout {
             overlay: Rect::new(12, 4, 56, 16),
             input: Rect::new(12, 4, 56, 1),
@@ -171,9 +170,6 @@ mod tests {
             .unwrap();
         // item 1 ("beta") should be selected/visible; item 0 ("alpha") unselected and skipped.
         let buffer = terminal.backend().buffer();
-        let line_at_5: String = (0..56)
-            .map(|x| buffer[(12 + x, 5)].symbol().to_string())
-            .collect();
         // Unselected rows use `continue` so they don't render.
         let line_at_6: String = (0..56)
             .map(|x| buffer[(12 + x, 6)].symbol().to_string())

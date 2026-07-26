@@ -99,7 +99,7 @@ mod tests {
     use ratatui::{backend::TestBackend, layout::Rect, Terminal};
 
     fn test_palette() -> Palette {
-        Palette::default()
+        Palette::catppuccin()
     }
 
     #[test]
@@ -282,7 +282,6 @@ mod tests {
             .unwrap();
         // The active indicator should have rendered a "─" on the bottom row.
         let buffer = terminal.backend().buffer();
-        let bottom_cell = buffer[(0, 0)]; // tab bar is at y=0, height=1 => bottom = 0
         let symbols: String = (0..10)
             .map(|x| buffer[(x, 0)].symbol().to_string())
             .collect();

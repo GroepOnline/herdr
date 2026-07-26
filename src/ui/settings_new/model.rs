@@ -1,7 +1,7 @@
 //! View model for the rebuilt settings overlay.
 
 /// A settings category.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SettingsCategory {
     General,
     Appearance,

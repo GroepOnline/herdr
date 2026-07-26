@@ -50,7 +50,7 @@ mod tests {
     use ratatui::{backend::TestBackend, layout::Rect, Terminal};
 
     fn test_palette() -> Palette {
-        Palette::default()
+        Palette::catppuccin()
     }
 
     #[test]

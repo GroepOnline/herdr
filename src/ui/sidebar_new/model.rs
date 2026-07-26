@@ -354,7 +354,7 @@ mod tests {
         let id = SidebarItemId::Agent {
             ws_idx: 1,
             tab_idx: 0,
-            pane_id: crate::layout::PaneId::new(),
+            pane_id: crate::layout::PaneId::from_raw(1),
         };
         assert_eq!(id.workspace_idx(), Some(1));
         let id = SidebarItemId::Attention {

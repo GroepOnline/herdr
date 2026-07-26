@@ -154,8 +154,7 @@ mod tests {
         let mut ws1 = Workspace::test_new("one");
         let mut ws2 = Workspace::test_new("two");
         // Add an extra tab to ws1.
-        let extra_tab = ws1.tabs[0].clone();
-        ws1.tabs.push(extra_tab);
+        ws1.test_add_tab(None);
         app.workspaces = vec![ws1, ws2];
         let items = build_launcher_items(&app);
         let workspace_count = items

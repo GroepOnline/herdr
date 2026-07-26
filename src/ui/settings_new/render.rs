@@ -51,7 +51,7 @@ mod tests {
     use ratatui::{backend::TestBackend, layout::Rect, Terminal};
 
     fn test_palette() -> Palette {
-        Palette::default()
+        Palette::catppuccin()
     }
 
     fn test_layout() -> SettingsLayout {

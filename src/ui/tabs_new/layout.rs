@@ -125,7 +125,6 @@ pub fn fit_tab_label(label: &str, width: u16) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::state::AppState;
     use crate::ui::shell::TabBarLayout;
     use crate::ui::tabs_new::model::TabItem;
     use ratatui::layout::Rect;
