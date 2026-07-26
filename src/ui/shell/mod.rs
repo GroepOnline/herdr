@@ -317,6 +317,8 @@ pub fn render_new_shell(
     // When new_shell is fully implemented, this function will render
     // the complete new UI (sidebar, tabs, terminal, fleet ops, overlays).
 }
+
+fn top_line_of(rect: Rect) -> Rect {
     Rect::new(rect.x, rect.y, rect.width, 1.min(rect.height))
 }
 
