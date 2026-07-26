@@ -462,6 +462,9 @@ pub fn compute_new_shell_view(
     let tab_items = crate::ui::tabs_new::model::build_tabs(app);
     crate::ui::tabs_new::layout::layout_tab_bar(&mut shell_layout.main.tab_bar, &tab_items);
 
+    // Cache the shell layout for hit-test routing.
+    app.new_shell_layout = Some(shell_layout.clone());
+
     // Populate app.view from the shell layout.
     let tab_hit_areas: Vec<Rect> = shell_layout
         .main

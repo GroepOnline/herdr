@@ -1640,6 +1640,9 @@ pub struct AppState {
     /// Set to 0 initially; updated by compute_new_shell_view on each dirty frame.
     #[allow(dead_code)]
     pub new_shell_layout_hash: u64,
+    /// Cached shell layout from the last compute_new_shell_view call.
+    /// Used by handle_mouse for hit-test routing when new_shell is active.
+    pub new_shell_layout: Option<crate::ui::shell::ShellLayout>,
     /// Ratio of sidebar height allocated to the workspaces section.
     pub sidebar_section_split: f32,
     pub agent_panel_sort: AgentPanelSort,
@@ -2045,6 +2048,7 @@ impl AppState {
             new_transitions: crate::ui::motion::TransitionScheduler::new(),
             new_motion_policy: crate::ui::motion::MotionPolicy::default(),
             new_shell_dirty: true,
+            new_shell_layout_hash: 0,
             new_sidebar_prev_mode: 0,
             new_launcher_selected: 0,
             new_fleet_ops_expanded: false,
@@ -2057,6 +2061,7 @@ impl AppState {
             sidebar_collapsed_mode: crate::config::SidebarCollapsedModeConfig::Compact,
             sidebar_section_split: 0.5,
             new_shell: false,
+            new_shell_layout: None,
             agent_panel_sort: AgentPanelSort::Spaces,
             agent_view_override: None,
             sidebar_agents: crate::config::AgentsSidebarConfig::default(),

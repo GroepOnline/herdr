@@ -95,6 +95,66 @@ impl AppState {
         }
     }
 
+    /// Map a new-shell hit-test result to a legacy `MouseAction`.
+    /// Called from `handle_mouse` when `self.new_shell` is true.
+    fn handle_new_shell_click(
+        &mut self,
+        col: u16,
+        row: u16,
+    ) -> Option<MouseAction> {
+        use crate::ui::shell::{hit_test_new_shell, HitTarget};
+
+        let layout = self.new_shell_layout.as_ref()?;
+        let target = hit_test_new_shell(self, layout, col, row)?;
+
+        match target {
+            HitTarget::SidebarModeToggle => {
+                self.new_sidebar_mode = (self.new_sidebar_mode + 1) % 3;
+                self.new_shell_dirty = true;
+                None
+            }
+            HitTarget::SidebarWorkspace { ws_idx } => {
+                self.mode = Mode::Terminal;
+                Some(MouseAction::FocusWorkspace { ws_idx })
+            }
+            HitTarget::SidebarAgent {
+                ws_idx,
+                pane_id,
+                tab_idx: _,
+            } => {
+                self.mode = Mode::Terminal;
+                Some(MouseAction::FocusPane { ws_idx, pane_id })
+            }
+            HitTarget::SidebarAttention { source_id: _ } => {
+                // For attention items, just leave terminal mode.
+                // Full attention routing is a Phase 8+ feature.
+                self.mode = Mode::Terminal;
+                None
+            }
+            HitTarget::Tab { index } => {
+                self.mode = Mode::Terminal;
+                Some(MouseAction::FocusTab { tab_idx: index })
+            }
+            HitTarget::NewTab => {
+                if self.prompt_new_tab_name {
+                    super::modal::open_new_tab_dialog(self);
+                } else {
+                    self.request_new_tab = true;
+                    self.mode = Mode::Terminal;
+                }
+                None
+            }
+            HitTarget::TabScrollLeft => {
+                self.scroll_tabs_left();
+                None
+            }
+            HitTarget::TabScrollRight => {
+                self.scroll_tabs_right();
+                None
+            }
+        }
+    }
+
     pub(super) fn handle_mouse(
         &mut self,
         terminal_runtimes: &mut TerminalRuntimeRegistry,
@@ -103,6 +163,19 @@ impl AppState {
         if self.mode == Mode::Onboarding {
             self.handle_onboarding_mouse(mouse);
             return None;
+        }
+
+        // ── New-shell routing ──────────────────────────────
+        // When the experimental new shell is active, route left-clicks
+        // through hit_test_new_shell before falling through to the
+        // legacy handler.
+        if self.new_shell
+            && matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
+            && matches!(self.mode, Mode::Terminal | Mode::Navigate)
+        {
+            if let Some(action) = self.handle_new_shell_click(mouse.column, mouse.row) {
+                return Some(action);
+            }
         }
 
         let toast_clickable = self.clickable_toast_at(mouse.column, mouse.row)
