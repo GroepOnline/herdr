@@ -77,13 +77,16 @@ fn tab_item_from_runtime(
 mod tests {
     use super::*;
     use crate::app::state::AppState;
+    use crate::workspace::Workspace;
 
     #[test]
     fn build_tabs_reflects_active_tab() {
-        let app = AppState::test_new();
+        let mut app = AppState::test_new();
+        app.workspaces = vec![Workspace::test_new("alpha")];
+        app.active = Some(0);
         let tabs = build_tabs(&app);
-        assert!(!tabs.is_empty());
-        assert!(tabs.iter().any(|t| t.active));
+        assert_eq!(tabs.len(), 1);
+        assert!(tabs[0].active);
     }
 
     #[test]
