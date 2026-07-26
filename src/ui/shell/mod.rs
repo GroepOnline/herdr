@@ -274,6 +274,28 @@ pub fn compute_new_shell_view(
     _resize_panes: bool,
     _cell_size: crate::kitty_graphics::HostCellSize,
 ) {
+    let now = std::time::Instant::now();
+
+    // Detect sidebar mode changes and start transitions.
+    if app.new_sidebar_mode != app.new_sidebar_prev_mode {
+        let from = app.new_sidebar_prev_mode as f32;
+        let to = app.new_sidebar_mode as f32;
+        app.new_transitions.set(crate::ui::motion::Transition::new(
+            crate::ui::motion::UiRegion::SidebarMode,
+            now,
+            app.new_motion_policy
+                .resolve_duration(std::time::Duration::from_millis(140)),
+            from,
+            to,
+            crate::ui::motion::Easing::ease_out,
+            crate::ui::motion::InterruptionPolicy::Retarget,
+        ));
+        app.new_sidebar_prev_mode = app.new_sidebar_mode;
+    }
+
+    // Advance all transitions.
+    app.new_transitions.advance(now);
+
     let mode = LayoutMode::from_area(area);
     let sidebar_mode = match app.new_sidebar_mode {
         0 => SidebarMode::Workspaces,
