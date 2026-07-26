@@ -624,6 +624,7 @@ impl App {
             new_transitions: crate::ui::motion::TransitionScheduler::new(),
             new_motion_policy: crate::ui::motion::MotionPolicy::default(),
             new_sidebar_prev_mode: 0,
+            new_shell_dirty: true,
             sidebar_section_split,
             agent_panel_sort,
             agent_view_override: None,

@@ -1632,6 +1632,7 @@ pub struct AppState {
     pub new_transitions: crate::ui::motion::TransitionScheduler,
     pub new_motion_policy: crate::ui::motion::MotionPolicy,
     pub new_sidebar_prev_mode: u8,
+    pub new_shell_dirty: bool,
     /// Ratio of sidebar height allocated to the workspaces section.
     pub sidebar_section_split: f32,
     pub agent_panel_sort: AgentPanelSort,
@@ -2036,6 +2037,7 @@ impl AppState {
             new_launcher_query: String::new(),
             new_transitions: crate::ui::motion::TransitionScheduler::new(),
             new_motion_policy: crate::ui::motion::MotionPolicy::default(),
+            new_shell_dirty: true,
             new_sidebar_prev_mode: 0,
             new_launcher_selected: 0,
             new_fleet_ops_expanded: false,
