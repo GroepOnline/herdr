@@ -6,6 +6,20 @@
         "command": ".cursor/hooks/deny-rust-builds.sh",
         "matcher": "cargo|rustc|rustup|zig|just|rustfmt|clippy|cargo-nextest",
         "failClosed": true
+      },
+      {
+        "command": ".cursor/hooks/herdr-canvas-shell.sh",
+        "matcher": "herdr\\s+(pane|tab)\\s+"
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": ".cursor/hooks/audit-report-only.sh",
+        "matcher": "UserPromptSubmit"
+      },
+      {
+        "command": ".cursor/hooks/review-means-fix.sh",
+        "matcher": "UserPromptSubmit"
       }
     ]
   }

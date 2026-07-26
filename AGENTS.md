@@ -102,6 +102,7 @@ Agent entrypoints:
 - Skill: `.cursor/skills/herdr-quality-ci-remediation/` (Codex mirror: `.codex/skills/herdr-quality-ci-remediation/`)
 - Subagent (fix): `.cursor/agents/herdr-quality-ci-remediator.md`
 - Subagent (read-only triage): `.cursor/agents/herdr-quality-ci-diagnoser.md`
+- Report-only thermos + Herdr canvas: `.cursor/skills/herdr-thermos-audit/` + `/audit` (global install via `herdr-ops`; agents `audit-canvas` / `audit-scope-mapper`)
 
 Unit tests live next to the code (`#[cfg(test)] mod tests`). New `AppState` or `Workspace` behavior should be testable with `AppState::test_new()` and `Workspace::test_new()` without PTYs.
 
