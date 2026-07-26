@@ -1,6 +1,6 @@
 //! Geometry for the compact tab bar.
 
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::Rect;
 
 use crate::ui::shell::TabBarLayout;
 use crate::ui::tabs_new::model::TabItem;
@@ -71,7 +71,6 @@ pub fn layout_tab_bar(layout: &mut TabBarLayout, tabs: &[TabItem]) -> usize {
                 }
                 if end > active_idx || (end == active_idx + 1 && used > best_used) {
                     best_start = start;
-                    best_used = used;
                     best_end = end;
                     break;
                 }
@@ -92,7 +91,7 @@ pub fn layout_tab_bar(layout: &mut TabBarLayout, tabs: &[TabItem]) -> usize {
     layout.tabs = visible_tabs
         .iter()
         .enumerate()
-        .map(|(local_idx, tab)| {
+        .map(|(local_idx, _tab)| {
             let global_idx = visible_start + local_idx;
             let w = widths[global_idx].min(available);
             let rect = Rect::new(x, area.y, w, area.height);

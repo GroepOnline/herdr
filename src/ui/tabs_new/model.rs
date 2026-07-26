@@ -2,7 +2,7 @@
 
 use crate::app::state::AppState;
 use crate::detect::AgentState;
-use crate::workspace::aggregate::Tab;
+use crate::workspace::{Tab, Workspace};
 
 /// Display-ready tab row.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,18 +44,26 @@ pub fn build_tabs(app: &AppState) -> Vec<TabItem> {
     ws.tabs
         .iter()
         .enumerate()
-        .map(|(idx, tab)| tab_item_from_runtime(idx, tab, active_tab == Some(idx), &app))
+        .map(|(idx, tab)| tab_item_from_runtime(ws, idx, tab, active_tab == idx, app))
         .collect()
 }
 
-fn tab_item_from_runtime(idx: usize, tab: &Tab, active: bool, app: &AppState) -> TabItem {
+fn tab_item_from_runtime(
+    ws: &Workspace,
+    idx: usize,
+    tab: &Tab,
+    active: bool,
+    app: &AppState,
+) -> TabItem {
     let (state, seen) = tab.aggregate_state(&app.terminals);
     let working = state == AgentState::Working;
     let blocked = state == AgentState::Blocked;
     let unseen_done = state == AgentState::Idle && !seen;
     TabItem {
         index: idx,
-        label: tab.label.clone(),
+        label: ws
+            .tab_display_name(idx)
+            .unwrap_or_else(|| (idx + 1).to_string()),
         state,
         seen,
         active,

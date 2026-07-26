@@ -6,7 +6,7 @@
 
 use ratatui::layout::Rect;
 
-use crate::ui::shell::{compute_shell_layout, ShellLayout, SidebarMode, SidebarRowRect};
+use crate::ui::shell::{ShellLayout, SidebarRowRect};
 use crate::ui::sidebar_new::model::SidebarModel;
 
 /// Compute per-row rectangles for the current sidebar mode and write them into
@@ -56,7 +56,7 @@ mod tests {
     use super::*;
     use crate::app::state::AppState;
     use crate::terminal::TerminalRuntimeRegistry;
-    use crate::ui::shell::{LayoutMode, ScrollState, ShellLayout, SidebarMode};
+    use crate::ui::shell::{compute_shell_layout, LayoutMode, ScrollState, ShellLayout, SidebarMode};
     use crate::ui::sidebar_new::model::SidebarModel;
 
     fn test_layout() -> ShellLayout {

@@ -1,7 +1,6 @@
 //! Renderer for the compact tab bar.
 
 use ratatui::{
-    layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
@@ -74,7 +73,7 @@ pub fn render_tab_bar_new(
 fn colors_for_tab(
     tab: &TabItem,
     palette: &crate::app::state::Palette,
-) -> (crate::app::state::Color, crate::app::state::Color) {
+) -> (ratatui::style::Color, ratatui::style::Color) {
     use ratatui::style::Color;
     let fg = match tab.state {
         crate::detect::AgentState::Blocked => palette.red,

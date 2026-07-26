@@ -6,7 +6,8 @@
 //! diverge.
 
 use crate::terminal::TerminalRuntimeRegistry;
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use crate::ui::sidebar_new::model::SidebarItemId;
+use ratatui::layout::{Constraint, Layout, Rect};
 
 /// Width and density breakpoints, expressed in terminal columns.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -119,15 +120,7 @@ impl ScrollState {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SidebarRowRect {
     pub rect: Rect,
-    pub id: SidebarRowId,
-}
-
-/// Identity for a sidebar row. Indices refer to the current mode's item list.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SidebarRowId {
-    Workspace(usize),
-    Agent(usize),
-    Attention(usize),
+    pub id: SidebarItemId,
 }
 
 /// Main content area layout.
@@ -191,8 +184,8 @@ pub fn compute_shell_layout(
     sidebar_width: u16,
     requested_sidebar_mode: SidebarMode,
     workspace_scroll: ScrollState,
-    agent_scroll: ScrollState,
-    attention_scroll: ScrollState,
+    _agent_scroll: ScrollState,
+    _attention_scroll: ScrollState,
 ) -> ShellLayout {
     let (sidebar_rect, main_rect) = if mode.sidebar_visible() && !sidebar_collapsed {
         let w = sidebar_width.clamp(22, 40);

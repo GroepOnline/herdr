@@ -45,14 +45,22 @@ pub fn build_fleet_ops_context(app: &AppState) -> FleetOpsContext {
 fn active_pane_metadata(app: &AppState) -> Option<FleetOpsMetadata> {
     let ws_idx = app.active?;
     let ws = app.workspaces.get(ws_idx)?;
-    let active_pane = ws
-        .focused_pane()
-        .or_else(|| ws.tabs.iter().flat_map(|tab| tab.panes.values()).next())?;
-    let terminal = app.terminals.get(&active_pane.attached_terminal_id)?;
-    let host = crate::platform::hostname().unwrap_or_else(|| "local".to_string());
+    let pane_id = ws.focused_pane_id().or_else(|| {
+        ws.tabs
+            .iter()
+            .flat_map(|tab| tab.layout.pane_ids())
+            .next()
+            .copied()
+    })?;
+    let pane = ws.pane_state(pane_id)?;
+    let terminal = app.terminals.get(&pane.attached_terminal_id)?;
+    let host = std::env::var("HERDR_HOST_NAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_default();
+    let host = if host.is_empty() { "local" } else { host.as_str() };
     Some(FleetOpsMetadata::from_terminal(
         terminal,
-        &host,
+        host,
         &app.fleet_ops_cache,
     ))
 }

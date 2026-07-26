@@ -35,6 +35,6 @@ pub fn layout_settings(area: Rect) -> SettingsLayout {
 }
 
 /// Compute row rectangles for settings items.
-pub fn settings_row_rect(_layout: &SettingsLayout, index: usize) -> Option<Rect> {
+pub fn settings_row_rect(_layout: &SettingsLayout, _index: usize) -> Option<Rect> {
     None
 }

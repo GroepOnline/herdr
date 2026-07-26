@@ -1,7 +1,6 @@
 //! View model for the global launcher.
 
 use crate::app::state::AppState;
-use crate::ui::shell::SidebarMode;
 
 /// Kinds of launcher items.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,10 +34,12 @@ pub fn build_launcher_items(app: &AppState) -> Vec<LauncherItem> {
             secondary: ws.branch(),
             icon: "□",
         });
-        for (tab_idx, tab) in ws.tabs.iter().enumerate() {
+        for tab_idx in 0..ws.tabs.len() {
             items.push(LauncherItem {
                 kind: LauncherKind::Tab,
-                primary: tab.label.clone(),
+                primary: ws
+                    .tab_display_name(tab_idx)
+                    .unwrap_or_else(|| (tab_idx + 1).to_string()),
                 secondary: Some(format!("workspace {}", idx)),
                 icon: "▸",
             });

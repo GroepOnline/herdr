@@ -11,17 +11,14 @@ flowchart TD
     CI --> Lint[Lint]
     CI --> Test[Test]
     CI --> Maint[Maintenance]
-    CI --> Win[Windows lint]
     CI --> Meta[Release metadata]
-    Lint --> Smoke[Release smoke]
-    Test --> Smoke
     Lint --> Gate[Quality gate]
     Test --> Gate
     Maint --> Gate
-    Win --> Gate
     Meta --> Gate
-    Smoke --> Gate
     Gate -->|still failing| Remediation[quality-remediation]
+    Heavy[CI heavy nightly] --> Win[Windows lint]
+    Heavy --> Smoke[Release smoke]
     Autofix -->|push ci autofix commit| PR
     Remediation --> Comment[sticky PR comment]
     Remediation --> Label[quality-remediation label]
@@ -43,11 +40,11 @@ Parallel jobs behind it:
 - `CI / Lint` (skipped unless push / rust paths changed)
 - `CI / Test` (skipped unless push / rust paths changed)
 - `CI / Maintenance` (skipped unless push / maintenance paths / docs-only)
-- `CI / Windows lint` (native `windows-latest`; skipped unless push / platform-heavy paths / `ci-heavy` label)
-- `CI / Release metadata`
-- `CI / Release smoke build (x86_64-unknown-linux-musl)` (same selective trigger as Windows lint)
+- `CI / Release metadata` (skipped unless push / release-meta paths)
 
-The quality gate treats `skipped` as OK for optional heavy jobs so docs PRs stay fast. Force full heavy coverage on a PR with label `ci-heavy`. Nightly/canary heavy runs live in `CI heavy` (not required).
+Windows lint and musl release smoke are **not** PR gate jobs. They run in `CI heavy` (nightly / `main` push / manual dispatch). Agents and merge policy should ignore those checks on pull requests.
+
+The quality gate treats `skipped` as OK for optional maintenance/metadata lanes so docs PRs stay fast.
 
 Validate with:
 

@@ -14,7 +14,7 @@ use ratatui::{
 
 use crate::app::state::AppState;
 use crate::terminal::TerminalRuntimeRegistry;
-use crate::ui::shell::{LayoutMode, ShellLayout, SidebarMode};
+use crate::ui::shell::{ShellLayout, SidebarMode};
 use crate::ui::sidebar_new::model::{SidebarItem, SidebarItemId};
 use crate::ui::status::{state_dot, state_label_color};
 
@@ -155,7 +155,6 @@ mod tests {
     use crate::app::state::AppState;
     use crate::terminal::TerminalRuntimeRegistry;
     use crate::ui::shell::{compute_shell_layout, LayoutMode, ScrollState, SidebarMode};
-    use crate::ui::sidebar_new::model::SidebarModel;
     use ratatui::{backend::TestBackend, Terminal};
 
     #[test]

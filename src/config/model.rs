@@ -1685,6 +1685,7 @@ impl Default for UiConfig {
             accent: "cyan".into(),
             toast: ToastConfig::default(),
             sound: SoundConfig::default(),
+            new_shell: false,
         }
     }
 }

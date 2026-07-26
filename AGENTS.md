@@ -93,7 +93,7 @@ Run `just check` before committing unless Can explicitly accepts narrower valida
 
 ### Quality CI
 
-Quality CI is the required parallel gate for PRs. The single required check is `CI / Quality gate` (aggregates Lint, Test, Maintenance, Windows lint, Release metadata, and Release smoke). Spec: `.github/quality-ci.md`.
+Quality CI is the required parallel gate for PRs. The single required check is `CI / Quality gate` (aggregates Linux Lint, Test, Maintenance, and Release metadata). Windows lint and musl smoke run in `CI heavy` only — not merge blockers. Spec: `.github/quality-ci.md`.
 
 Mechanical failures are auto-committed by `quality-autofix.yml` (`ci: autofix mechanical quality`). Non-mechanical failures get one sticky `<!-- herdr-quality-remediation -->` PR comment, the `quality-remediation` label, and a `repository_dispatch` event `herdr-quality-remediation` for Cursor Automations / cloud agents. Agents should inspect `gh run view <run_id> --log-failed`, fix the real failure, push to the PR branch, and validate with `gh pr checks <pr> --watch`. This Cloud VM forbids local Cargo builds; use GitHub Actions as the source of truth. Opt out with PR label `ci-autofix-disabled`.
 
@@ -270,7 +270,7 @@ If you are helping an external contributor, never open a GitHub issue for them. 
 
 ## Cursor Cloud specific instructions
 
-**Local Rust/Zig builds are blocked on the Cloud VM.** A fail-closed shell hook (`.cursor/hooks.json` → `.cursor/hooks/deny-rust-builds.sh`) denies `cargo`, `rustc`, `rustup`, `cargo-nextest`, `clippy`, `zig build`, and `just test|check|lint|ci` because they saturate the VM CPU. Do not try to build/test/lint locally and do not work around the hook. **Validate with GitHub Actions instead:** `gh pr checks` for the PR, `gh run list --workflow=ci.yml`, and `gh run view <id> --log-failed` for failures. CI (`.github/workflows/ci.yml`) runs fmt, `cargo check`, `cargo nextest`, `clippy`, Windows lint, and a release smoke build.
+**Local Rust/Zig builds are blocked on the Cloud VM.** A fail-closed shell hook (`.cursor/hooks.json` → `.cursor/hooks/deny-rust-builds.sh`) denies `cargo`, `rustc`, `rustup`, `cargo-nextest`, `clippy`, `zig build`, and `just test|check|lint|ci` because they saturate the VM CPU. Do not try to build/test/lint locally and do not work around the hook. **Validate with GitHub Actions instead:** `gh pr checks` for the PR, `gh run list --workflow=ci.yml`, and `gh run view <id> --log-failed` for failures. PR CI (`.github/workflows/ci.yml`) runs fmt, clippy, and nextest on Linux plus maintenance/metadata lanes. Windows lint and musl smoke live in `CI heavy` (nightly / `main` push).
 
 Because of the hook, the "Testing" section commands above (`just test`, `just check`, `cargo build`, `./target/debug/herdr ...`) are for a normal dev machine, not this VM. Treat them as the CI contract, run on GitHub Actions.
 
