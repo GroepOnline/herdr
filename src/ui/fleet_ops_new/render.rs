@@ -120,6 +120,9 @@ mod tests {
         let line: String = (0..80)
             .map(|x| buffer[(x, 39)].symbol().to_string())
             .collect();
-        assert!(line.contains("test-summary"), "expected fleet ops text: {line}");
+        assert!(
+            line.contains("test-summary"),
+            "expected fleet ops text: {line}"
+        );
     }
 }

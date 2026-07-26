@@ -86,10 +86,7 @@ mod tests {
         let area = Rect::new(0, 0, 100, 40);
         let layout = layout_settings(area);
         assert_eq!(layout.content.width, layout.overlay.width - 16);
-        assert_eq!(
-            layout.content.height + 1,
-            layout.overlay.height
-        );
+        assert_eq!(layout.content.height + 1, layout.overlay.height);
     }
 
     #[test]

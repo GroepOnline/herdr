@@ -286,6 +286,9 @@ mod tests {
         let symbols: String = (0..10)
             .map(|x| buffer[(x, 0)].symbol().to_string())
             .collect();
-        assert!(symbols.contains('─'), "expected active indicator: {symbols}");
+        assert!(
+            symbols.contains('─'),
+            "expected active indicator: {symbols}"
+        );
     }
 }

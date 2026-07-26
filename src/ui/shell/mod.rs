@@ -600,9 +600,21 @@ mod tests {
             true, // collapsed
             28,
             SidebarMode::Workspaces,
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
         );
         assert_eq!(layout.sidebar.rect.width, 0);
     }
@@ -615,9 +627,21 @@ mod tests {
             true, // collapsed
             28,
             SidebarMode::Workspaces,
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
         );
         assert_eq!(layout.sidebar.rect.width, 4);
     }
@@ -630,9 +654,21 @@ mod tests {
             false,
             28,
             SidebarMode::Workspaces,
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
         );
         assert_eq!(layout.sidebar.rect.width, 0);
         assert_eq!(layout.fleet_ops.rect.width, 0);
@@ -655,9 +691,21 @@ mod tests {
                 false,
                 28,
                 SidebarMode::Workspaces,
-                ScrollState { offset: 0, visible: 10, total: 5 },
-                ScrollState { offset: 0, visible: 10, total: 5 },
-                ScrollState { offset: 0, visible: 10, total: 5 },
+                ScrollState {
+                    offset: 0,
+                    visible: 10,
+                    total: 5,
+                },
+                ScrollState {
+                    offset: 0,
+                    visible: 10,
+                    total: 5,
+                },
+                ScrollState {
+                    offset: 0,
+                    visible: 10,
+                    total: 5,
+                },
             );
             // Every mode should produce a ShellLayout without panic.
             assert!(layout.area.width > 0);
@@ -673,11 +721,23 @@ mod tests {
 
     #[test]
     fn scroll_state_max_offset() {
-        let s = ScrollState { offset: 0, visible: 5, total: 10 };
+        let s = ScrollState {
+            offset: 0,
+            visible: 5,
+            total: 10,
+        };
         assert_eq!(s.max_offset(), 5);
-        let s = ScrollState { offset: 0, visible: 10, total: 5 };
+        let s = ScrollState {
+            offset: 0,
+            visible: 10,
+            total: 5,
+        };
         assert_eq!(s.max_offset(), 0);
-        let s = ScrollState { offset: 0, visible: 0, total: 0 };
+        let s = ScrollState {
+            offset: 0,
+            visible: 0,
+            total: 0,
+        };
         assert_eq!(s.max_offset(), 0);
     }
 
@@ -689,9 +749,21 @@ mod tests {
             false,
             28,
             SidebarMode::Workspaces,
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
         );
         assert_eq!(layout.fleet_ops.rect.width, 0);
     }

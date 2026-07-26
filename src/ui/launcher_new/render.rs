@@ -149,10 +149,7 @@ mod tests {
             list: Rect::new(12, 5, 56, 15),
             rows: Vec::new(),
         };
-        layout.rows = vec![
-            Rect::new(12, 5, 56, 1),
-            Rect::new(12, 6, 56, 1),
-        ];
+        layout.rows = vec![Rect::new(12, 5, 56, 1), Rect::new(12, 6, 56, 1)];
         let items = vec![
             LauncherItem {
                 kind: LauncherKind::Workspace,

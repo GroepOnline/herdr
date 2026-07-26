@@ -332,7 +332,10 @@ mod tests {
     fn sidebar_item_with_secondary_and_indent() {
         let item = SidebarItem::new(
             SidebarItemId::Workspace { ws_idx: 0 },
-            SidebarRowKind::Workspace { ws_idx: 0, indented: true },
+            SidebarRowKind::Workspace {
+                ws_idx: 0,
+                indented: true,
+            },
             "test".into(),
             AgentState::Working,
             false,
@@ -348,9 +351,15 @@ mod tests {
     fn sidebar_item_id_workspace_idx() {
         let id = SidebarItemId::Workspace { ws_idx: 3 };
         assert_eq!(id.workspace_idx(), Some(3));
-        let id = SidebarItemId::Agent { ws_idx: 1, tab_idx: 0, pane_id: crate::layout::PaneId::new() };
+        let id = SidebarItemId::Agent {
+            ws_idx: 1,
+            tab_idx: 0,
+            pane_id: crate::layout::PaneId::new(),
+        };
         assert_eq!(id.workspace_idx(), Some(1));
-        let id = SidebarItemId::Attention { source_id: "x".into() };
+        let id = SidebarItemId::Attention {
+            source_id: "x".into(),
+        };
         assert_eq!(id.workspace_idx(), None);
     }
 
@@ -405,7 +414,10 @@ mod tests {
     fn sidebar_item_clone_and_eq() {
         let item = SidebarItem::new(
             SidebarItemId::Workspace { ws_idx: 0 },
-            SidebarRowKind::Workspace { ws_idx: 0, indented: false },
+            SidebarRowKind::Workspace {
+                ws_idx: 0,
+                indented: false,
+            },
             "hello".into(),
             AgentState::Idle,
             true,
