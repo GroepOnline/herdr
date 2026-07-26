@@ -5,8 +5,8 @@
 //! designed to be shared between rendering and hit testing so the two never
 //! diverge.
 
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use crate::terminal::TerminalRuntimeRegistry;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 /// Width and density breakpoints, expressed in terminal columns.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
