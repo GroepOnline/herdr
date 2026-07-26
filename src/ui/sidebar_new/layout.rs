@@ -56,7 +56,9 @@ mod tests {
     use super::*;
     use crate::app::state::AppState;
     use crate::terminal::TerminalRuntimeRegistry;
-    use crate::ui::shell::{compute_shell_layout, LayoutMode, ScrollState, ShellLayout, SidebarMode};
+    use crate::ui::shell::{
+        compute_shell_layout, LayoutMode, ScrollState, ShellLayout, SidebarMode,
+    };
     use crate::ui::sidebar_new::model::SidebarModel;
 
     fn test_layout() -> ShellLayout {

@@ -57,7 +57,11 @@ fn active_pane_metadata(app: &AppState) -> Option<FleetOpsMetadata> {
     let host = std::env::var("HERDR_HOST_NAME")
         .or_else(|_| std::env::var("HOSTNAME"))
         .unwrap_or_default();
-    let host = if host.is_empty() { "local" } else { host.as_str() };
+    let host = if host.is_empty() {
+        "local"
+    } else {
+        host.as_str()
+    };
     Some(FleetOpsMetadata::from_terminal(
         terminal,
         host,
