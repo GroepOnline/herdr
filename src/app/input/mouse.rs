@@ -4082,9 +4082,21 @@ mod tests {
             false,
             28,
             SidebarMode::Workspaces,
-            ScrollState { offset: 0, visible: 20, total: 5 },
-            ScrollState { offset: 0, visible: 20, total: 5 },
-            ScrollState { offset: 0, visible: 20, total: 5 },
+            ScrollState {
+                offset: 0,
+                visible: 20,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 20,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 20,
+                total: 5,
+            },
         )
     }
 
@@ -4142,15 +4154,30 @@ mod tests {
     fn new_shell_sidebar_agent_click_returns_focus_pane() {
         let mut app = app_for_new_shell_test();
         let layout = app.new_shell_layout.clone().unwrap();
-        let agent_row = Rect::new(layout.sidebar.content.x, layout.sidebar.content.y + 1, 20, 1);
+        let agent_row = Rect::new(
+            layout.sidebar.content.x,
+            layout.sidebar.content.y + 1,
+            20,
+            1,
+        );
         let mut new_layout = layout.clone();
         new_layout.sidebar.rows = vec![shell::SidebarRowRect {
             rect: agent_row,
-            id: SidebarItemId::Agent { ws_idx: 0, tab_idx: 0, pane_id: crate::layout::PaneId(42) },
+            id: SidebarItemId::Agent {
+                ws_idx: 0,
+                tab_idx: 0,
+                pane_id: crate::layout::PaneId(42),
+            },
         }];
         app.new_shell_layout = Some(new_layout);
         let result = app.handle_new_shell_click(agent_row.x + 2, agent_row.y);
-        assert_eq!(result, Some(MouseAction::FocusPane { ws_idx: 0, pane_id: crate::layout::PaneId(42) }));
+        assert_eq!(
+            result,
+            Some(MouseAction::FocusPane {
+                ws_idx: 0,
+                pane_id: crate::layout::PaneId(42)
+            })
+        );
         assert_eq!(app.mode, Mode::Terminal);
     }
 
@@ -4158,11 +4185,18 @@ mod tests {
     fn new_shell_sidebar_attention_click_exits_to_terminal() {
         let mut app = app_for_new_shell_test();
         let layout = app.new_shell_layout.clone().unwrap();
-        let attn_row = Rect::new(layout.sidebar.content.x, layout.sidebar.content.y + 2, 20, 1);
+        let attn_row = Rect::new(
+            layout.sidebar.content.x,
+            layout.sidebar.content.y + 2,
+            20,
+            1,
+        );
         let mut new_layout = layout.clone();
         new_layout.sidebar.rows = vec![shell::SidebarRowRect {
             rect: attn_row,
-            id: SidebarItemId::Attention { source_id: "agent-blocked".into() },
+            id: SidebarItemId::Attention {
+                source_id: "agent-blocked".into(),
+            },
         }];
         app.new_shell_layout = Some(new_layout);
         app.mode = Mode::Navigate;
@@ -4195,7 +4229,12 @@ mod tests {
         let col = first_tab.rect.x + 2;
         let row = first_tab.rect.y;
         let result = app.handle_new_shell_click(col, row);
-        assert_eq!(result, Some(MouseAction::FocusTab { tab_idx: first_tab.index }));
+        assert_eq!(
+            result,
+            Some(MouseAction::FocusTab {
+                tab_idx: first_tab.index
+            })
+        );
         assert_eq!(app.mode, Mode::Terminal);
     }
 
