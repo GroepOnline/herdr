@@ -248,13 +248,8 @@ mod tests {
         app.ensure_test_terminals();
         for ws in &app.workspaces {
             let pane_id = ws.tabs[0].root_pane;
-            let terminal_id = ws.tabs[0].panes[&pane_id]
-                .attached_terminal_id
-                .clone();
-            app.terminals
-                .get_mut(&terminal_id)
-                .unwrap()
-                .detected_agent = Some(agent);
+            let terminal_id = ws.tabs[0].panes[&pane_id].attached_terminal_id.clone();
+            app.terminals.get_mut(&terminal_id).unwrap().detected_agent = Some(agent);
         }
     }
 
