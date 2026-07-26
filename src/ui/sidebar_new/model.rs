@@ -283,8 +283,7 @@ mod tests {
             .attached_terminal_id
             .clone();
         app.terminals.get_mut(&tid_one).unwrap().state = AgentState::Working;
-        app.terminals.get_mut(&tid_one).unwrap().detected_agent =
-            Some(crate::detect::Agent::Pi);
+        app.terminals.get_mut(&tid_one).unwrap().detected_agent = Some(crate::detect::Agent::Pi);
 
         let pane_id_two = app.workspaces[1].tabs[0].root_pane;
         let tid_two = app.workspaces[1].tabs[0].panes[&pane_id_two]
