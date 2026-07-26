@@ -183,7 +183,17 @@ pub fn compute_shell_layout(
     _agent_scroll: ScrollState,
     _attention_scroll: ScrollState,
 ) -> ShellLayout {
-    compute_shell_layout_with_anim(area, mode, sidebar_collapsed, sidebar_width, requested_sidebar_mode, workspace_scroll, _agent_scroll, _attention_scroll, 1.0)
+    compute_shell_layout_with_anim(
+        area,
+        mode,
+        sidebar_collapsed,
+        sidebar_width,
+        requested_sidebar_mode,
+        workspace_scroll,
+        _agent_scroll,
+        _attention_scroll,
+        1.0,
+    )
 }
 
 /// Like `compute_shell_layout` but accepts a `sidebar_anim_progress` parameter
@@ -203,14 +213,20 @@ pub fn compute_shell_layout_with_anim(
     let (sidebar_rect, main_rect) = if mode.sidebar_visible() && !sidebar_collapsed {
         let w = sidebar_width.clamp(22, 40);
         let animated_w = ((w as f32) * progress) as u16;
-        let w_final = if animated_w < 2 && progress < 0.5 { 0 } else { animated_w.max(2) };
-        let [s, m] = Layout::horizontal([Constraint::Length(w_final), Constraint::Min(1)]).areas(area);
+        let w_final = if animated_w < 2 && progress < 0.5 {
+            0
+        } else {
+            animated_w.max(2)
+        };
+        let [s, m] =
+            Layout::horizontal([Constraint::Length(w_final), Constraint::Min(1)]).areas(area);
         (s, m)
     } else if mode == LayoutMode::Narrow && sidebar_collapsed {
         // In narrow mode a collapsed rail may still be visible.
         let w = 4u16;
         let animated_w = ((w as f32) * progress) as u16;
-        let [s, m] = Layout::horizontal([Constraint::Length(animated_w), Constraint::Min(1)]).areas(area);
+        let [s, m] =
+            Layout::horizontal([Constraint::Length(animated_w), Constraint::Min(1)]).areas(area);
         (s, m)
     } else {
         (Rect::default(), area)
@@ -888,9 +904,21 @@ mod tests {
             false,
             28,
             SidebarMode::Workspaces,
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
             1.0,
         );
         assert!(layout.sidebar.rect.width > 0);
@@ -902,9 +930,21 @@ mod tests {
             false,
             28,
             SidebarMode::Workspaces,
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
             0.0,
         );
         assert_eq!(layout.sidebar.rect.width, 0);
@@ -916,9 +956,21 @@ mod tests {
             false,
             30,
             SidebarMode::Workspaces,
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
             0.5,
         );
         assert_eq!(layout.sidebar.rect.width, 15); // 30 * 0.5 = 15
@@ -932,9 +984,21 @@ mod tests {
             true,
             28,
             SidebarMode::Workspaces,
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
-            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
+            ScrollState {
+                offset: 0,
+                visible: 10,
+                total: 5,
+            },
             0.5,
         );
         assert_eq!(layout.sidebar.rect.width, 2); // 4 * 0.5 = 2

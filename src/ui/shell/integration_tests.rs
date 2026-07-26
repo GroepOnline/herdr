@@ -11,11 +11,7 @@
 
 #[cfg(test)]
 mod integration {
-    use ratatui::{
-        backend::TestBackend,
-        layout::Rect,
-        Terminal,
-    };
+    use ratatui::{backend::TestBackend, layout::Rect, Terminal};
 
     use crate::app::state::AppState;
     use crate::terminal::TerminalRuntimeRegistry;
@@ -25,11 +21,7 @@ mod integration {
     use crate::workspace::Workspace;
 
     /// Helper: collect visible text from a buffer row.
-    fn buffer_row_text(
-        buffer: &ratatui::buffer::Buffer,
-        area: Rect,
-        row: u16,
-    ) -> String {
+    fn buffer_row_text(buffer: &ratatui::buffer::Buffer, area: Rect, row: u16) -> String {
         (area.x..area.x + area.width)
             .map(|x| buffer[(x, row)].symbol())
             .collect::<String>()
@@ -39,9 +31,8 @@ mod integration {
 
     /// Helper: check if any row in the buffer contains the given substring.
     fn buffer_contains(buffer: &ratatui::buffer::Buffer, area: Rect, needle: &str) -> bool {
-        (area.y..area.y + area.height).any(|row| {
-            buffer_row_text(buffer, area, row).contains(needle)
-        })
+        (area.y..area.y + area.height)
+            .any(|row| buffer_row_text(buffer, area, row).contains(needle))
     }
 
     /// Helper: build a minimal AppState with one workspace and one pane.
@@ -57,10 +48,7 @@ mod integration {
     /// Helper: build AppState with two workspaces and agents detected.
     fn app_with_two_workspaces_and_agents() -> AppState {
         let mut app = AppState::test_new();
-        app.workspaces = vec![
-            Workspace::test_new("alpha"),
-            Workspace::test_new("beta"),
-        ];
+        app.workspaces = vec![Workspace::test_new("alpha"), Workspace::test_new("beta")];
         app.active = Some(0);
         app.selected = 0;
         app.new_shell = true;
@@ -71,20 +59,16 @@ mod integration {
         let tid_a = app.workspaces[0].tabs[0].panes[&pane_a]
             .attached_terminal_id
             .clone();
-        app.terminals.get_mut(&tid_a).unwrap().detected_agent =
-            Some(crate::detect::Agent::Pi);
-        app.terminals.get_mut(&tid_a).unwrap().state =
-            crate::detect::AgentState::Working;
+        app.terminals.get_mut(&tid_a).unwrap().detected_agent = Some(crate::detect::Agent::Pi);
+        app.terminals.get_mut(&tid_a).unwrap().state = crate::detect::AgentState::Working;
 
         // Tag beta's root pane as a Claude agent (blocked).
         let pane_b = app.workspaces[1].tabs[0].root_pane;
         let tid_b = app.workspaces[1].tabs[0].panes[&pane_b]
             .attached_terminal_id
             .clone();
-        app.terminals.get_mut(&tid_b).unwrap().detected_agent =
-            Some(crate::detect::Agent::Claude);
-        app.terminals.get_mut(&tid_b).unwrap().state =
-            crate::detect::AgentState::Blocked;
+        app.terminals.get_mut(&tid_b).unwrap().detected_agent = Some(crate::detect::Agent::Claude);
+        app.terminals.get_mut(&tid_b).unwrap().state = crate::detect::AgentState::Blocked;
 
         app
     }
@@ -115,15 +99,24 @@ mod integration {
 
         // Verify sidebar header is rendered.
         let sidebar_area = app.view.sidebar_rect;
-        assert!(sidebar_area.width > 0, "sidebar should be visible in standard mode");
+        assert!(
+            sidebar_area.width > 0,
+            "sidebar should be visible in standard mode"
+        );
         assert!(
             buffer_contains(buffer, sidebar_area, "Workspaces"),
             "sidebar header should contain 'Workspaces'"
         );
 
         // Verify tab bar geometry populated.
-        assert!(!app.view.tab_hit_areas.is_empty(), "tab hit areas should be populated");
-        assert!(app.view.terminal_area.width > 0, "terminal area should be non-zero");
+        assert!(
+            !app.view.tab_hit_areas.is_empty(),
+            "tab hit areas should be populated"
+        );
+        assert!(
+            app.view.terminal_area.width > 0,
+            "terminal area should be non-zero"
+        );
 
         // Verify sidebar rows were laid out.
         let sidebar_text = buffer_row_text(buffer, sidebar_area, sidebar_area.y + 1);
@@ -155,7 +148,10 @@ mod integration {
         let buffer = terminal.backend().buffer();
 
         // Collapsed sidebar should have zero width.
-        assert_eq!(app.view.sidebar_rect.width, 0, "collapsed sidebar should be hidden");
+        assert_eq!(
+            app.view.sidebar_rect.width, 0,
+            "collapsed sidebar should be hidden"
+        );
     }
 
     #[test]
@@ -180,7 +176,10 @@ mod integration {
 
         // Tab bar should exist and have at least one tab.
         assert!(app.view.tab_bar_rect.width > 0, "tab bar should be visible");
-        assert!(app.view.tab_hit_areas.len() >= 1, "should have at least one tab");
+        assert!(
+            app.view.tab_hit_areas.len() >= 1,
+            "should have at least one tab"
+        );
 
         // The tab bar row should contain text (tab labels).
         let tab_row = buffer_row_text(buffer, area, app.view.tab_bar_rect.y);
@@ -236,10 +235,7 @@ mod integration {
         );
 
         // In Narrow mode (width 60), sidebar should be hidden.
-        assert_eq!(
-            LayoutMode::from_area(area),
-            LayoutMode::Narrow,
-        );
+        assert_eq!(LayoutMode::from_area(area), LayoutMode::Narrow,);
         assert_eq!(app.view.sidebar_rect.width, 0, "narrow mode hides sidebar");
         assert!(app.view.terminal_area.width > 0);
     }
@@ -263,7 +259,10 @@ mod integration {
         let full_height = area.height;
         let used = app.view.tab_bar_rect.height + app.view.terminal_area.height;
         // Just check that the layout consumed most of the height.
-        assert!(used >= full_height - 2, "layout should fill most of the frame");
+        assert!(
+            used >= full_height - 2,
+            "layout should fill most of the frame"
+        );
     }
 
     // ── Multi-workspace + agent detection pipeline ─────────────────────
