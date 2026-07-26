@@ -97,11 +97,7 @@ impl AppState {
 
     /// Map a new-shell hit-test result to a legacy `MouseAction`.
     /// Called from `handle_mouse` when `self.new_shell` is true.
-    fn handle_new_shell_click(
-        &mut self,
-        col: u16,
-        row: u16,
-    ) -> Option<MouseAction> {
+    fn handle_new_shell_click(&mut self, col: u16, row: u16) -> Option<MouseAction> {
         use crate::ui::shell::{hit_test_new_shell, HitTarget};
 
         let layout = self.new_shell_layout.as_ref()?;
