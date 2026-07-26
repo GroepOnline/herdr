@@ -4066,4 +4066,214 @@ mod tests {
 
         assert_eq!(wheel_routing(input_state), WheelRouting::HostScroll);
     }
+
+    // ── New-shell hit-test routing tests ─────────────────────────────
+
+    use crate::ui::shell::{self, HitTarget, LayoutMode, ScrollState, ShellLayout, SidebarMode};
+    use crate::ui::sidebar_new::layout::row_at;
+    use crate::ui::sidebar_new::model::SidebarItemId;
+    use ratatui::layout::Rect;
+
+    /// Build a realistic `ShellLayout` in Standard mode with sidebar visible.
+    fn new_shell_test_layout() -> ShellLayout {
+        shell::compute_shell_layout(
+            Rect::new(0, 0, 120, 40),
+            LayoutMode::Standard,
+            false,
+            28,
+            SidebarMode::Workspaces,
+            ScrollState { offset: 0, visible: 20, total: 5 },
+            ScrollState { offset: 0, visible: 20, total: 5 },
+            ScrollState { offset: 0, visible: 20, total: 5 },
+        )
+    }
+
+    fn app_for_new_shell_test() -> crate::app::AppState {
+        let mut app = crate::app::AppState::test_new();
+        app.new_shell = true;
+        app.new_shell_layout = Some(new_shell_test_layout());
+        app
+    }
+
+    #[test]
+    fn new_shell_sidebar_mode_toggle_cycles() {
+        let mut app = app_for_new_shell_test();
+        let layout = app.new_shell_layout.clone().unwrap();
+        let toggle_row = layout.sidebar.mode_switcher.y;
+        let toggle_col = layout.sidebar.mode_switcher.x + 2;
+        assert_eq!(app.new_sidebar_mode, 0);
+        app.handle_new_shell_click(toggle_col, toggle_row);
+        assert_eq!(app.new_sidebar_mode, 1);
+        assert!(app.new_shell_dirty);
+        app.new_shell_dirty = false;
+        app.handle_new_shell_click(toggle_col, toggle_row);
+        assert_eq!(app.new_sidebar_mode, 2);
+        app.handle_new_shell_click(toggle_col, toggle_row);
+        assert_eq!(app.new_sidebar_mode, 0);
+    }
+
+    #[test]
+    fn new_shell_sidebar_mode_toggle_returns_none() {
+        let mut app = app_for_new_shell_test();
+        let layout = app.new_shell_layout.clone().unwrap();
+        let toggle_row = layout.sidebar.mode_switcher.y;
+        let toggle_col = layout.sidebar.mode_switcher.x + 2;
+        let result = app.handle_new_shell_click(toggle_col, toggle_row);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn new_shell_sidebar_workspace_click_returns_focus_workspace() {
+        let mut app = app_for_new_shell_test();
+        let layout = app.new_shell_layout.clone().unwrap();
+        let ws_row = Rect::new(layout.sidebar.content.x, layout.sidebar.content.y, 20, 1);
+        let mut new_layout = layout.clone();
+        new_layout.sidebar.rows = vec![shell::SidebarRowRect {
+            rect: ws_row,
+            id: SidebarItemId::Workspace { ws_idx: 0 },
+        }];
+        app.new_shell_layout = Some(new_layout);
+        let result = app.handle_new_shell_click(ws_row.x + 2, ws_row.y);
+        assert_eq!(result, Some(MouseAction::FocusWorkspace { ws_idx: 0 }));
+        assert_eq!(app.mode, Mode::Terminal);
+    }
+
+    #[test]
+    fn new_shell_sidebar_agent_click_returns_focus_pane() {
+        let mut app = app_for_new_shell_test();
+        let layout = app.new_shell_layout.clone().unwrap();
+        let agent_row = Rect::new(layout.sidebar.content.x, layout.sidebar.content.y + 1, 20, 1);
+        let mut new_layout = layout.clone();
+        new_layout.sidebar.rows = vec![shell::SidebarRowRect {
+            rect: agent_row,
+            id: SidebarItemId::Agent { ws_idx: 0, tab_idx: 0, pane_id: crate::layout::PaneId(42) },
+        }];
+        app.new_shell_layout = Some(new_layout);
+        let result = app.handle_new_shell_click(agent_row.x + 2, agent_row.y);
+        assert_eq!(result, Some(MouseAction::FocusPane { ws_idx: 0, pane_id: crate::layout::PaneId(42) }));
+        assert_eq!(app.mode, Mode::Terminal);
+    }
+
+    #[test]
+    fn new_shell_sidebar_attention_click_exits_to_terminal() {
+        let mut app = app_for_new_shell_test();
+        let layout = app.new_shell_layout.clone().unwrap();
+        let attn_row = Rect::new(layout.sidebar.content.x, layout.sidebar.content.y + 2, 20, 1);
+        let mut new_layout = layout.clone();
+        new_layout.sidebar.rows = vec![shell::SidebarRowRect {
+            rect: attn_row,
+            id: SidebarItemId::Attention { source_id: "agent-blocked".into() },
+        }];
+        app.new_shell_layout = Some(new_layout);
+        app.mode = Mode::Navigate;
+        let result = app.handle_new_shell_click(attn_row.x + 2, attn_row.y);
+        assert!(result.is_none());
+        assert_eq!(app.mode, Mode::Terminal);
+    }
+
+    #[test]
+    fn new_shell_sidebar_miss_returns_none() {
+        let mut app = app_for_new_shell_test();
+        let layout = app.new_shell_layout.clone().unwrap();
+        let mut new_layout = layout.clone();
+        new_layout.sidebar.rows = vec![];
+        app.new_shell_layout = Some(new_layout);
+        let col = new_layout.sidebar.content.x + 2;
+        let row = new_layout.sidebar.content.y + 5;
+        let result = app.handle_new_shell_click(col, row);
+        assert!(result.is_none());
+        assert_eq!(app.mode, Mode::Terminal);
+    }
+
+    #[test]
+    fn new_shell_tab_click_returns_focus_tab() {
+        let mut app = app_for_new_shell_test();
+        let layout = app.new_shell_layout.clone().unwrap();
+        let tab_bar = &layout.main.tab_bar;
+        assert!(!tab_bar.tabs.is_empty());
+        let first_tab = &tab_bar.tabs[0];
+        let col = first_tab.rect.x + 2;
+        let row = first_tab.rect.y;
+        let result = app.handle_new_shell_click(col, row);
+        assert_eq!(result, Some(MouseAction::FocusTab { tab_idx: first_tab.index }));
+        assert_eq!(app.mode, Mode::Terminal);
+    }
+
+    #[test]
+    fn new_shell_new_tab_click_requests_new_tab() {
+        let mut app = app_for_new_shell_test();
+        let layout = app.new_shell_layout.clone().unwrap();
+        let tab_bar = &layout.main.tab_bar;
+        let col = tab_bar.new_tab.x + 1;
+        let row = tab_bar.new_tab.y;
+        let result = app.handle_new_shell_click(col, row);
+        assert!(result.is_none());
+        assert!(app.request_new_tab);
+        assert_eq!(app.mode, Mode::Terminal);
+    }
+
+    #[test]
+    fn new_shell_new_tab_with_prompt_opens_dialog() {
+        let mut app = app_for_new_shell_test();
+        let layout = app.new_shell_layout.clone().unwrap();
+        let tab_bar = &layout.main.tab_bar;
+        app.prompt_new_tab_name = true;
+        let col = tab_bar.new_tab.x + 1;
+        let row = tab_bar.new_tab.y;
+        let result = app.handle_new_shell_click(col, row);
+        assert!(result.is_none());
+        assert!(!app.request_new_tab);
+    }
+
+    #[test]
+    fn new_shell_tab_scroll_left_tracks() {
+        let mut app = app_for_new_shell_test();
+        let layout = app.new_shell_layout.clone().unwrap();
+        let tab_bar = &layout.main.tab_bar;
+        let col = tab_bar.scroll_left.x + 1;
+        let row = tab_bar.scroll_left.y;
+        let before = app.tab_scroll_offset;
+        let result = app.handle_new_shell_click(col, row);
+        assert!(result.is_none());
+        assert!(app.tab_scroll_offset <= before);
+    }
+
+    #[test]
+    fn new_shell_tab_scroll_right_tracks() {
+        let mut app = app_for_new_shell_test();
+        let layout = app.new_shell_layout.clone().unwrap();
+        let tab_bar = &layout.main.tab_bar;
+        let col = tab_bar.scroll_right.x + 1;
+        let row = tab_bar.scroll_right.y;
+        let before = app.tab_scroll_offset;
+        let result = app.handle_new_shell_click(col, row);
+        assert!(result.is_none());
+        assert!(app.tab_scroll_offset >= before);
+    }
+
+    #[test]
+    fn new_shell_click_without_layout_returns_none() {
+        let mut app = crate::app::AppState::test_new();
+        app.new_shell = true;
+        app.new_shell_layout = None;
+        let result = app.handle_new_shell_click(10, 2);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn old_shell_ignores_new_shell_routing() {
+        let mut app = crate::app::AppState::test_new();
+        app.new_shell = false;
+        app.new_shell_layout = Some(new_shell_test_layout());
+        let result = app.handle_new_shell_click(10, 2);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn new_shell_click_outside_all_regions_returns_none() {
+        let mut app = app_for_new_shell_test();
+        let result = app.handle_new_shell_click(200, 200);
+        assert!(result.is_none());
+        assert_eq!(app.mode, Mode::Terminal);
+    }
 }
