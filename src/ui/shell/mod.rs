@@ -411,6 +411,19 @@ pub fn compute_new_shell_view(
         _ => SidebarMode::Attention,
     };
 
+    // ── Phase 8: Skip rebuild when nothing changed ─────────────────
+    // When the shell is not dirty and the area hasn't changed, reuse the
+    // cached layout.  State changes (agent state, workspace changes, resize)
+    // set new_shell_dirty = true so this gate is bypassed.
+    let hash = crate::ui::shell::layout_hash(area, app.new_sidebar_collapsed, app.new_sidebar_mode);
+    if !app.new_shell_dirty && app.new_shell_layout_hash == hash && app.new_shell_layout_hash != 0 {
+        // Cache hit — skip rebuild, just advance transitions for motion.
+        app.new_transitions.advance(std::time::Instant::now());
+        return;
+    }
+    app.new_shell_layout_hash = hash;
+    app.new_shell_dirty = false;
+
     // Build sidebar model and compute shell layout.
     let mut sidebar_model = crate::ui::sidebar_new::model::SidebarModel::new();
     sidebar_model.rebuild(app, terminal_runtimes);
@@ -618,6 +631,112 @@ fn top_line_of(rect: Rect) -> Rect {
 fn inset_top(rect: Rect, n: u16) -> Rect {
     let h = rect.height.saturating_sub(n);
     Rect::new(rect.x, rect.y + n, rect.width, h)
+}
+
+/// Phase 8: Compute a cheap hash of layout inputs so we can skip recomputation
+/// when nothing has changed.  Uses the area dimensions, collapsed flag, and
+/// sidebar mode — all layout-determining inputs that don't require rebuilding
+/// the model.
+pub fn layout_hash(area: Rect, collapsed: bool, sidebar_mode: u8) -> u64 {
+    let mut h: u64 = 0;
+    h = h.wrapping_mul(31).wrapping_add(area.x as u64);
+    h = h.wrapping_mul(31).wrapping_add(area.y as u64);
+    h = h.wrapping_mul(31).wrapping_add(area.width as u64);
+    h = h.wrapping_mul(31).wrapping_add(area.height as u64);
+    h = h.wrapping_mul(31).wrapping_add(u64::from(collapsed));
+    h = h.wrapping_mul(31).wrapping_add(sidebar_mode as u64);
+    h
+}
+
+// ── Phase 9: Hit-test routing for the new shell ────────────────────
+
+/// Resolve a mouse click at `(col, row)` in the new shell to the appropriate
+/// target.  Returns `None` when the click hits dead space or the terminal area
+/// (which is handled by the existing pane input path).
+pub fn hit_test_new_shell(
+    app: &crate::app::AppState,
+    shell_layout: &ShellLayout,
+    col: u16,
+    row: u16,
+) -> Option<HitTarget> {
+    use crate::ui::sidebar_new::layout::row_at;
+    use crate::ui::sidebar_new::model::SidebarItemId;
+
+    let sidebar = &shell_layout.sidebar;
+    if col < sidebar.rect.x + sidebar.rect.width && sidebar.rect.width > 0 {
+        // Click is in the sidebar area.
+        // Check mode-switcher row (top row).
+        if row == sidebar.mode_switcher.y {
+            return Some(HitTarget::SidebarModeToggle);
+        }
+        // Check a sidebar row.
+        if let Some(hit) = row_at(shell_layout, col, row) {
+            return match &hit.id {
+                SidebarItemId::Workspace { ws_idx } => {
+                    Some(HitTarget::SidebarWorkspace { ws_idx: *ws_idx })
+                }
+                SidebarItemId::Agent { ws_idx, tab_idx, pane_id } => {
+                    Some(HitTarget::SidebarAgent {
+                        ws_idx: *ws_idx,
+                        tab_idx: *tab_idx,
+                        pane_id: *pane_id,
+                    })
+                }
+                SidebarItemId::Attention { source_id } => {
+                    Some(HitTarget::SidebarAttention {
+                        source_id: source_id.clone(),
+                    })
+                }
+            };
+        }
+        return None;
+    }
+
+    // Tab bar hit testing.
+    let tab_bar = &shell_layout.main.tab_bar;
+    if row == tab_bar.rect.y && tab_bar.rect.width > 0 {
+        for tab in &tab_bar.tabs {
+            if tab.visible && col >= tab.rect.x && col < tab.rect.x + tab.rect.width {
+                return Some(HitTarget::Tab { index: tab.index });
+            }
+        }
+        if col >= tab_bar.new_tab.x && col < tab_bar.new_tab.x + tab_bar.new_tab.width {
+            return Some(HitTarget::NewTab);
+        }
+        if col >= tab_bar.scroll_left.x && col < tab_bar.scroll_left.x + tab_bar.scroll_left.width {
+            return Some(HitTarget::TabScrollLeft);
+        }
+        if col >= tab_bar.scroll_right.x && col < tab_bar.scroll_right.x + tab_bar.scroll_right.width {
+            return Some(HitTarget::TabScrollRight);
+        }
+    }
+
+    None
+}
+
+/// Hit-test target for the new shell UI.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HitTarget {
+    /// Clicked the sidebar mode switcher header.
+    SidebarModeToggle,
+    /// Clicked a workspace row.
+    SidebarWorkspace { ws_idx: usize },
+    /// Clicked an agent row.
+    SidebarAgent {
+        ws_idx: usize,
+        tab_idx: usize,
+        pane_id: crate::layout::PaneId,
+    },
+    /// Clicked an attention row.
+    SidebarAttention { source_id: String },
+    /// Clicked a tab.
+    Tab { index: usize },
+    /// Clicked the new-tab button.
+    NewTab,
+    /// Clicked the tab scroll-left arrow.
+    TabScrollLeft,
+    /// Clicked the tab scroll-right arrow.
+    TabScrollRight,
 }
 
 // ── Integration tests (end-to-end model→layout→render pipeline) ────

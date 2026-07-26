@@ -1636,6 +1636,10 @@ pub struct AppState {
     pub new_sidebar_prev_mode: u8,
     #[allow(dead_code)]
     pub new_shell_dirty: bool,
+    /// Phase 8: Layout input hash to detect no-op frames and skip recomputation.
+    /// Set to 0 initially; updated by compute_new_shell_view on each dirty frame.
+    #[allow(dead_code)]
+    pub new_shell_layout_hash: u64,
     /// Ratio of sidebar height allocated to the workspaces section.
     pub sidebar_section_split: f32,
     pub agent_panel_sort: AgentPanelSort,
