@@ -50,7 +50,6 @@ fn active_pane_metadata(app: &AppState) -> Option<FleetOpsMetadata> {
             .iter()
             .flat_map(|tab| tab.layout.pane_ids())
             .next()
-            .copied()
     })?;
     let pane = ws.pane_state(pane_id)?;
     let terminal = app.terminals.get(&pane.attached_terminal_id)?;
