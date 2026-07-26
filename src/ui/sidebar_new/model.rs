@@ -240,8 +240,23 @@ impl SidebarModel {
 mod tests {
     use super::*;
     use crate::app::state::AppState;
+    use crate::detect::Agent;
     use crate::terminal::TerminalRuntimeRegistry;
     use crate::workspace::Workspace;
+
+    fn seed_detected_agents(app: &mut AppState, agent: Agent) {
+        app.ensure_test_terminals();
+        for ws in &app.workspaces {
+            let pane_id = ws.tabs[0].root_pane;
+            let terminal_id = ws.tabs[0].panes[&pane_id]
+                .attached_terminal_id
+                .clone();
+            app.terminals
+                .get_mut(&terminal_id)
+                .unwrap()
+                .detected_agent = Some(agent);
+        }
+    }
 
     #[test]
     fn workspaces_reflects_aggregate_state() {
@@ -323,6 +338,7 @@ mod tests {
     fn sidebar_model_caches_all_modes() {
         let mut app = AppState::test_new();
         app.workspaces = vec![Workspace::test_new("a"), Workspace::test_new("b")];
+        seed_detected_agents(&mut app, Agent::Pi);
         let registry = TerminalRuntimeRegistry::new();
         let mut model = SidebarModel::new();
         model.rebuild(&app, &registry);
@@ -400,6 +416,7 @@ mod tests {
     fn sidebar_model_items_for_mode() {
         let mut app = AppState::test_new();
         app.workspaces = vec![Workspace::test_new("a")];
+        seed_detected_agents(&mut app, Agent::Pi);
         let registry = TerminalRuntimeRegistry::new();
         let mut model = SidebarModel::new();
         model.rebuild(&app, &registry);
