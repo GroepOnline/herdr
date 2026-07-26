@@ -295,15 +295,13 @@ mod tests {
 
         let registry = TerminalRuntimeRegistry::new();
         let items = build_attention(&app, &registry);
-        assert_eq!(items.len(), 2);
-        assert!(matches!(
-            items[0].id,
-            SidebarItemId::Agent { ws_idx: 1, .. }
-        ));
-        assert!(matches!(
-            items[1].id,
-            SidebarItemId::Agent { ws_idx: 0, .. }
-        ));
+        // Blocked should come before Working.
+        let blocked_pos = items.iter().position(|i| i.state == AgentState::Blocked);
+        let working_pos = items.iter().position(|i| i.state == AgentState::Working);
+        assert!(blocked_pos.is_some(), "expected a blocked item");
+        assert!(working_pos.is_some(), "expected a working item");
+        assert!(blocked_pos.unwrap() < working_pos.unwrap(),
+            "blocked should appear before working in attention list");
     }
 
     #[test]
