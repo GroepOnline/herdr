@@ -1625,13 +1625,16 @@ pub struct AppState {
     pub new_sidebar_mode: u8,
     pub new_sidebar_collapsed: bool,
     pub new_launcher_open: bool,
+    #[allow(dead_code)]
     pub new_launcher_query: String,
     pub new_launcher_selected: usize,
+    #[allow(dead_code)]
     pub new_fleet_ops_expanded: bool,
     pub new_settings_open: bool,
     pub new_transitions: crate::ui::motion::TransitionScheduler,
     pub new_motion_policy: crate::ui::motion::MotionPolicy,
     pub new_sidebar_prev_mode: u8,
+    #[allow(dead_code)]
     pub new_shell_dirty: bool,
     /// Ratio of sidebar height allocated to the workspaces section.
     pub sidebar_section_split: f32,

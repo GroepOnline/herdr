@@ -160,17 +160,9 @@ pub struct FleetOpsLayout {
 }
 
 /// Overlay geometry placeholder.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct OverlayLayout {
     pub area: Rect,
-}
-
-impl Default for OverlayLayout {
-    fn default() -> Self {
-        Self {
-            area: Rect::default(),
-        }
-    }
 }
 
 /// Compute the shell layout for a given total area and desired configuration.

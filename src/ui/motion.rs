@@ -250,8 +250,8 @@ impl TransitionScheduler {
     /// Remove completed transitions and advance all others. Returns the next
     /// useful wake-up instant, or `None` if no transitions are active.
     pub fn advance(&mut self, now: Instant) -> Option<Instant> {
-        self.scalar.retain(|_, t| t.sample(now).1 == false);
-        self.rects.retain(|t| t.sample(now).1 == false);
+        self.scalar.retain(|_, t| !t.sample(now).1);
+        self.rects.retain(|t| !t.sample(now).1);
 
         let mut next: Option<Instant> = None;
         for t in self.scalar.values() {
@@ -401,8 +401,10 @@ mod tests {
 
     #[test]
     fn reduced_motion_resolves_duration_to_zero() {
-        let mut policy = MotionPolicy::default();
-        policy.preference = MotionPreference::Reduced;
+        let policy = MotionPolicy {
+            preference: MotionPreference::Reduced,
+            ..Default::default()
+        };
         assert_eq!(
             policy.resolve_duration(Duration::from_millis(100)),
             Duration::ZERO

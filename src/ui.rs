@@ -6,11 +6,14 @@ use ratatui::{
 };
 
 mod dialogs;
+#[allow(dead_code)]
 mod fleet_ops_new;
 mod keybind_help;
+#[allow(dead_code)]
 mod launcher_new;
 mod menus;
 mod mobile;
+#[allow(dead_code)]
 pub(crate) mod motion;
 mod navigator;
 mod onboarding;
@@ -18,13 +21,17 @@ mod panes;
 mod release_notes;
 mod scrollbar;
 pub(crate) mod settings;
+#[allow(dead_code)]
 mod settings_new;
+#[allow(dead_code)]
 mod shell;
 mod sidebar;
+#[allow(dead_code)]
 mod sidebar_new;
 mod status;
 mod tab_surface;
 mod tabs;
+#[allow(dead_code)]
 mod tabs_new;
 mod text;
 mod widgets;

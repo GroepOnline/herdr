@@ -33,15 +33,14 @@ pub fn layout_launcher(area: Rect) -> LauncherLayout {
 /// Compute per-row rectangles for the launcher list.
 pub fn layout_launcher_rows(layout: &mut LauncherLayout, count: usize) {
     layout.rows.clear();
-    let mut y = layout.list.y;
-    for _ in 0..count.min(layout.list.height as usize) {
+    for offset in 0..count.min(layout.list.height as usize) {
+        let y = layout.list.y.saturating_add(offset as u16);
         if y >= layout.list.y + layout.list.height {
             break;
         }
         layout
             .rows
             .push(Rect::new(layout.list.x, y, layout.list.width, 1));
-        y += 1;
     }
 }
 
