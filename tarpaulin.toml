@@ -1,0 +1,44 @@
+# tarpaulin.toml — code coverage configuration for the Herdr TUI project.
+#
+# Coverage targets the new-shell rewrite modules so we can track
+# progress toward 95% line coverage before the old UI is removed.
+#
+# Run:  cargo tarpaulin --config tarpaulin.toml
+# Or:   cargo tarpaulin --out Html --output-dir target/tarpaulin
+
+[default]
+# Focus coverage on new-shell and shared motion modules.
+include = [
+    "src/ui/shell/*.rs",
+    "src/ui/sidebar_new/*.rs",
+    "src/ui/tabs_new/*.rs",
+    "src/ui/fleet_ops_new/*.rs",
+    "src/ui/launcher_new/*.rs",
+    "src/ui/settings_new/*.rs",
+    "src/ui/motion.rs",
+]
+
+# Exclude test modules themselves from coverage accounting.
+exclude = [
+    "tests/*",
+    "src/**/tests/*",
+]
+
+# Fail under thresholds.
+fail-under = { line = 85, branch = 70 }
+
+# Output multiple formats.
+out = ["Html", "Lcov", "Json"]
+
+# Run all tests (unit + integration).
+all-features = false
+tests = true
+
+# Colour output.
+color = "Auto"
+
+# Timeout per test in seconds.
+proc-macro-test-timeout = 60
+
+# Skip cleaning between runs for speed during development.
+skip-clean = true

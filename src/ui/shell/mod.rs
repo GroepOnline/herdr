@@ -169,6 +169,10 @@ pub struct OverlayLayout {
 ///
 /// This function is pure: it does not mutate `AppState`.  All scroll clamping
 /// happens here using the supplied `ScrollState` values.
+///
+/// `sidebar_anim_progress` is an optional 0.0–1.0 value from the motion
+/// system that interpolates the sidebar width during expand/collapse
+/// transitions.  When `None` (or 1.0), the full target width is used.
 pub fn compute_shell_layout(
     area: Rect,
     mode: LayoutMode,
@@ -179,14 +183,34 @@ pub fn compute_shell_layout(
     _agent_scroll: ScrollState,
     _attention_scroll: ScrollState,
 ) -> ShellLayout {
+    compute_shell_layout_with_anim(area, mode, sidebar_collapsed, sidebar_width, requested_sidebar_mode, workspace_scroll, _agent_scroll, _attention_scroll, 1.0)
+}
+
+/// Like `compute_shell_layout` but accepts a `sidebar_anim_progress` parameter
+/// (0.0 = fully collapsed / zero width, 1.0 = fully expanded).
+pub fn compute_shell_layout_with_anim(
+    area: Rect,
+    mode: LayoutMode,
+    sidebar_collapsed: bool,
+    sidebar_width: u16,
+    requested_sidebar_mode: SidebarMode,
+    workspace_scroll: ScrollState,
+    _agent_scroll: ScrollState,
+    _attention_scroll: ScrollState,
+    sidebar_anim_progress: f32,
+) -> ShellLayout {
+    let progress = sidebar_anim_progress.clamp(0.0, 1.0);
     let (sidebar_rect, main_rect) = if mode.sidebar_visible() && !sidebar_collapsed {
         let w = sidebar_width.clamp(22, 40);
-        let [s, m] = Layout::horizontal([Constraint::Length(w), Constraint::Min(1)]).areas(area);
+        let animated_w = ((w as f32) * progress) as u16;
+        let w_final = if animated_w < 2 && progress < 0.5 { 0 } else { animated_w.max(2) };
+        let [s, m] = Layout::horizontal([Constraint::Length(w_final), Constraint::Min(1)]).areas(area);
         (s, m)
     } else if mode == LayoutMode::Narrow && sidebar_collapsed {
         // In narrow mode a collapsed rail may still be visible.
         let w = 4u16;
-        let [s, m] = Layout::horizontal([Constraint::Length(w), Constraint::Min(1)]).areas(area);
+        let animated_w = ((w as f32) * progress) as u16;
+        let [s, m] = Layout::horizontal([Constraint::Length(animated_w), Constraint::Min(1)]).areas(area);
         (s, m)
     } else {
         (Rect::default(), area)
@@ -268,7 +292,10 @@ pub fn compute_new_shell_view(
 ) {
     let now = std::time::Instant::now();
 
-    // Detect sidebar mode changes and start transitions.
+    // ── Phase 7: Sidebar mode-switch transition ────────────────────
+    // When the user switches sidebar modes (Workspaces→Agents→Attention),
+    // start a short ease-out transition that render_new_shell samples
+    // to cross-fade the header label.
     if app.new_sidebar_mode != app.new_sidebar_prev_mode {
         let from = app.new_sidebar_prev_mode as f32;
         let to = app.new_sidebar_mode as f32;
@@ -285,8 +312,81 @@ pub fn compute_new_shell_view(
         app.new_sidebar_prev_mode = app.new_sidebar_mode;
     }
 
-    // Advance all transitions.
+    // ── Phase 7: Sidebar expand/collapse transition ─────────────────
+    // When the sidebar is toggled, animate the width from 0→1 or 1→0.
+    // We use a stored prev-collapsed field to detect edges.  (For now
+    // we infer the transition purely from the collapsed flag changing
+    // between frames; a dedicated field will be added in Phase 9.)
+    {
+        let target_progress: f32 = if app.new_sidebar_collapsed { 0.0 } else { 1.0 };
+        let current = app
+            .new_transitions
+            .sample_scalar(crate::ui::motion::UiRegion::Sidebar, now)
+            .unwrap_or(target_progress);
+        // If the target differs from current, start (or retarget) a transition.
+        if (target_progress - current).abs() > 0.01 {
+            app.new_transitions.set(crate::ui::motion::Transition::new(
+                crate::ui::motion::UiRegion::Sidebar,
+                now,
+                app.new_motion_policy
+                    .resolve_duration(std::time::Duration::from_millis(180)),
+                current,
+                target_progress,
+                crate::ui::motion::Easing::smooth,
+                crate::ui::motion::InterruptionPolicy::Retarget,
+            ));
+        }
+    }
+
+    // ── Phase 7: Attention pulse for blocked agents ─────────────────
+    // When any agent is in Blocked state, maintain a pulsing transition
+    // on UiRegion::Toast that the render path can sample for visual emphasis.
+    {
+        let has_blocked = app
+            .workspaces
+            .iter()
+            .any(|ws| ws.aggregate_state(&app.terminals).0 == crate::detect::AgentState::Blocked);
+        if has_blocked {
+            let pulse = app
+                .new_transitions
+                .sample_scalar(crate::ui::motion::UiRegion::Toast, now)
+                .unwrap_or(0.0);
+            if pulse < 0.01 {
+                // Start a repeating pulse: 0→1 over 600ms, ease-in-out.
+                app.new_transitions.set(crate::ui::motion::Transition::new(
+                    crate::ui::motion::UiRegion::Toast,
+                    now,
+                    app.new_motion_policy
+                        .resolve_duration(std::time::Duration::from_millis(600)),
+                    0.0,
+                    1.0,
+                    crate::ui::motion::Easing::ease_in_out,
+                    crate::ui::motion::InterruptionPolicy::Retarget,
+                ));
+            } else if pulse > 0.99 {
+                // Reverse: 1→0 over 600ms.
+                app.new_transitions.set(crate::ui::motion::Transition::new(
+                    crate::ui::motion::UiRegion::Toast,
+                    now,
+                    app.new_motion_policy
+                        .resolve_duration(std::time::Duration::from_millis(600)),
+                    1.0,
+                    0.0,
+                    crate::ui::motion::Easing::ease_in_out,
+                    crate::ui::motion::InterruptionPolicy::Retarget,
+                ));
+            }
+        }
+    }
+
+    // Advance all transitions (removes completed ones, returns next wake time).
     app.new_transitions.advance(now);
+
+    // Sample the sidebar animation progress for layout.
+    let sidebar_anim = app
+        .new_transitions
+        .sample_scalar(crate::ui::motion::UiRegion::Sidebar, now)
+        .unwrap_or(if app.new_sidebar_collapsed { 0.0 } else { 1.0 });
 
     let mode = LayoutMode::from_area(area);
     let sidebar_mode = match app.new_sidebar_mode {
@@ -310,7 +410,7 @@ pub fn compute_new_shell_view(
         total: sidebar_model.items_for_mode(SidebarMode::Agents).len(),
     };
 
-    let mut shell_layout = compute_shell_layout(
+    let mut shell_layout = compute_shell_layout_with_anim(
         area,
         mode,
         app.new_sidebar_collapsed,
@@ -323,6 +423,7 @@ pub fn compute_new_shell_view(
             visible: 20,
             total: 0,
         },
+        sidebar_anim,
     );
 
     // Layout sidebar rows.
@@ -392,8 +493,13 @@ pub fn render_new_shell(
         total: sidebar_model.items_for_mode(SidebarMode::Agents).len(),
     };
 
-    // Compute shell layout.
-    let mut shell_layout = compute_shell_layout(
+    // Compute shell layout with animation progress sampled from transitions.
+    let now = std::time::Instant::now();
+    let sidebar_anim = app
+        .new_transitions
+        .sample_scalar(crate::ui::motion::UiRegion::Sidebar, now)
+        .unwrap_or(if app.new_sidebar_collapsed { 0.0 } else { 1.0 });
+    let mut shell_layout = compute_shell_layout_with_anim(
         area,
         mode,
         app.new_sidebar_collapsed,
@@ -406,6 +512,7 @@ pub fn render_new_shell(
             visible: 20,
             total: 0,
         },
+        sidebar_anim,
     );
 
     // Layout sidebar rows from the model.
@@ -496,6 +603,10 @@ fn inset_top(rect: Rect, n: u16) -> Rect {
     let h = rect.height.saturating_sub(n);
     Rect::new(rect.x, rect.y + n, rect.width, h)
 }
+
+// ── Integration tests (end-to-end model→layout→render pipeline) ────
+#[cfg(test)]
+mod integration_tests;
 
 #[cfg(test)]
 mod tests {
@@ -766,5 +877,66 @@ mod tests {
             },
         );
         assert_eq!(layout.fleet_ops.rect.width, 0);
+    }
+
+    #[test]
+    fn animation_progress_interpolates_sidebar_width() {
+        // Full progress (1.0) → full sidebar width.
+        let layout = compute_shell_layout_with_anim(
+            Rect::new(0, 0, 120, 40),
+            LayoutMode::Standard,
+            false,
+            28,
+            SidebarMode::Workspaces,
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            1.0,
+        );
+        assert!(layout.sidebar.rect.width > 0);
+
+        // Zero progress → zero sidebar width.
+        let layout = compute_shell_layout_with_anim(
+            Rect::new(0, 0, 120, 40),
+            LayoutMode::Standard,
+            false,
+            28,
+            SidebarMode::Workspaces,
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            0.0,
+        );
+        assert_eq!(layout.sidebar.rect.width, 0);
+
+        // Half progress → sidebar width around half.
+        let layout = compute_shell_layout_with_anim(
+            Rect::new(0, 0, 120, 40),
+            LayoutMode::Standard,
+            false,
+            30,
+            SidebarMode::Workspaces,
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            0.5,
+        );
+        assert_eq!(layout.sidebar.rect.width, 15); // 30 * 0.5 = 15
+    }
+
+    #[test]
+    fn narrow_collapsed_animation_progress_scales_rail() {
+        let layout = compute_shell_layout_with_anim(
+            Rect::new(0, 0, 60, 20),
+            LayoutMode::Narrow,
+            true,
+            28,
+            SidebarMode::Workspaces,
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            0.5,
+        );
+        assert_eq!(layout.sidebar.rect.width, 2); // 4 * 0.5 = 2
     }
 }
