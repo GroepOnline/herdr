@@ -427,6 +427,18 @@ pub fn render_new_shell(
         &app.palette,
     );
 
+    // Render Fleet Ops compact status line.
+    let fleet_ctx = crate::ui::fleet_ops_new::model::build_fleet_ops_context(app);
+    if shell_layout.fleet_ops.rect.width > 0 && shell_layout.fleet_ops.rect.height > 0 {
+        crate::ui::fleet_ops_new::render::render_fleet_ops_new(
+            app,
+            frame,
+            &shell_layout.fleet_ops,
+            &fleet_ctx,
+            &app.palette,
+        );
+    }
+
     // Render terminal area — placeholder for now; full terminal rendering
     // integration comes in later phases.
     let terminal_area = shell_layout.main.terminal;
@@ -435,6 +447,37 @@ pub fn render_new_shell(
         frame.render_widget(
             Paragraph::new("[new shell terminal area — Phase 3]"),
             terminal_area,
+        );
+    }
+
+    // Render launcher overlay if open.
+    if app.new_launcher_open {
+        let mut launcher_layout =
+            crate::ui::launcher_new::layout::layout_launcher(area);
+        let launcher_items = crate::ui::launcher_new::model::build_launcher_items(app);
+        crate::ui::launcher_new::layout::layout_launcher_rows(
+            &mut launcher_layout,
+            launcher_items.len(),
+        );
+        crate::ui::launcher_new::render::render_launcher_new(
+            app,
+            frame,
+            &launcher_layout,
+            &launcher_items,
+            app.new_launcher_selected,
+            &app.palette,
+        );
+    }
+
+    // Render settings overlay if open.
+    if app.new_settings_open {
+        let settings_layout = crate::ui::settings_new::layout::layout_settings(area);
+        crate::ui::settings_new::render::render_settings_new(
+            app,
+            frame,
+            &settings_layout,
+            crate::ui::settings_new::model::SettingsCategory::Appearance,
+            &app.palette,
         );
     }
 }
