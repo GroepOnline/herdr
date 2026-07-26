@@ -23,6 +23,7 @@ jobs:
   conventional-commits:
     if: github.event_name != 'push' || github.ref_name == 'master'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -36,7 +37,9 @@ jobs:
 
       - name: Validate PR title
         if: github.event_name == 'pull_request'
-        run: python3 scripts/conventional_commits.py "${{ github.event.pull_request.title }}"
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: python3 scripts/conventional_commits.py "$PR_TITLE"
 
   check:
     name: check (${{ matrix.os }})
