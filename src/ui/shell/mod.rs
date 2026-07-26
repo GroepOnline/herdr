@@ -675,18 +675,18 @@ pub fn hit_test_new_shell(
                 SidebarItemId::Workspace { ws_idx } => {
                     Some(HitTarget::SidebarWorkspace { ws_idx: *ws_idx })
                 }
-                SidebarItemId::Agent { ws_idx, tab_idx, pane_id } => {
-                    Some(HitTarget::SidebarAgent {
-                        ws_idx: *ws_idx,
-                        tab_idx: *tab_idx,
-                        pane_id: *pane_id,
-                    })
-                }
-                SidebarItemId::Attention { source_id } => {
-                    Some(HitTarget::SidebarAttention {
-                        source_id: source_id.clone(),
-                    })
-                }
+                SidebarItemId::Agent {
+                    ws_idx,
+                    tab_idx,
+                    pane_id,
+                } => Some(HitTarget::SidebarAgent {
+                    ws_idx: *ws_idx,
+                    tab_idx: *tab_idx,
+                    pane_id: *pane_id,
+                }),
+                SidebarItemId::Attention { source_id } => Some(HitTarget::SidebarAttention {
+                    source_id: source_id.clone(),
+                }),
             };
         }
         return None;
@@ -706,7 +706,9 @@ pub fn hit_test_new_shell(
         if col >= tab_bar.scroll_left.x && col < tab_bar.scroll_left.x + tab_bar.scroll_left.width {
             return Some(HitTarget::TabScrollLeft);
         }
-        if col >= tab_bar.scroll_right.x && col < tab_bar.scroll_right.x + tab_bar.scroll_right.width {
+        if col >= tab_bar.scroll_right.x
+            && col < tab_bar.scroll_right.x + tab_bar.scroll_right.width
+        {
             return Some(HitTarget::TabScrollRight);
         }
     }
