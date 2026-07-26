@@ -45,12 +45,9 @@ pub fn build_fleet_ops_context(app: &AppState) -> FleetOpsContext {
 fn active_pane_metadata(app: &AppState) -> Option<FleetOpsMetadata> {
     let ws_idx = app.active?;
     let ws = app.workspaces.get(ws_idx)?;
-    let pane_id = ws.focused_pane_id().or_else(|| {
-        ws.tabs
-            .iter()
-            .flat_map(|tab| tab.layout.pane_ids())
-            .next()
-    })?;
+    let pane_id = ws
+        .focused_pane_id()
+        .or_else(|| ws.tabs.iter().flat_map(|tab| tab.layout.pane_ids()).next())?;
     let pane = ws.pane_state(pane_id)?;
     let terminal = app.terminals.get(&pane.attached_terminal_id)?;
     let host = std::env::var("HERDR_HOST_NAME")
