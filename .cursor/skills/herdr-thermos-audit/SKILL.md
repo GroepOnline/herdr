@@ -51,13 +51,14 @@ painted into Herdr tabs beside the conductor. Findings stay findings.
 
 ## Workflow
 
+0. **Look first** — `herdr workspace/tab/pane/worktree list` + existing `/tmp/<repo>-audit-*/canvas`. Reuse labeled panes/tabs; restore content if `/tmp` was wiped (brain reports). Never blind-create duplicate tabs. Details: [references/herdr-canvas.md](references/herdr-canvas.md).
 1. **Scope** — repo, `base..HEAD` or named commit/PR. Patch under `/tmp/<repo>-audit-<date>/diff/`.
 2. **Gather** — file list + hot excerpts (absolute paths). No megabyte dumps in prompts.
-3. **Canvas** — [references/herdr-canvas.md](references/herdr-canvas.md). Tabs: `map`, `findings`, `connections`; neighbor `where-live` with path plattegrond. Render via `scripts/render-canvas.sh` or direct `herdr pane run <id> /usr/bin/less -R <file>`.
+3. **Canvas** — tabs `map` / `findings` / `connections` + neighbor `where-live`. Prefer `herdr pane run <id> /usr/bin/less -R <file>` on **existing** panes. Optional fix lanes: `herdr worktree create|open` instead of orphan `/tmp` worktrees.
 4. **Fan-out** — A+B(+C) same scope package, REPORT ONLY in every prompt.
 5. **Fan-in** — dedupe; A∩B raises weight. Write `01-findings.md` + `03-FINAL.md`.
 6. **Paint** — reload less viewers (`R` or re-run less binary). Focus `findings` for Joep.
-7. **Brain** — FINAL ingest with SHA + top findings + artifact paths.
+7. **Brain** — FINAL ingest with SHA + top findings + artifact paths (also the restore source if `/tmp` dies).
 8. **Stop** — no fixers unless asked. Chain handoff: see joep-workflow-templates `Audit → Thermos → Canvas`, then optional `Review → Fix → CI`.
 
 ## Prompt package (every lane)
@@ -69,10 +70,13 @@ painted into Herdr tabs beside the conductor. Findings stay findings.
 
 ## Herdr CLI pitfalls (learned)
 
+- **Look first** — inventory panes/tabs/worktrees before create.
 - Prefer `herdr pane run <pane> /usr/bin/less -R <absfile>` — avoids `q`+`bash` paste races.
 - Do not `send-keys q` then immediately `pane run` with `bash -lc`.
-- Recreate tabs if lost; record current tab/pane ids in `WHERE-LIVE.md`.
+- Restore content onto existing panes when `/tmp` canvas vanished; only recreate tabs if labels are gone.
+- Record current tab/pane ids in `WHERE-LIVE.md` after every restore.
 - Keep focus on Joep's workspace; use `--no-focus` when creating background tabs.
+- Prefer `herdr worktree open|create` for multi-agent fix lanes Joep should see.
 
 ## Related
 
