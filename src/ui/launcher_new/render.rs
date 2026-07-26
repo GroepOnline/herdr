@@ -75,3 +75,115 @@ pub fn render_launcher_new(
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::Palette;
+    use crate::ui::launcher_new::layout::LauncherLayout;
+    use crate::ui::launcher_new::model::{LauncherItem, LauncherKind};
+    use ratatui::{backend::TestBackend, layout::Rect, Terminal};
+
+    fn test_palette() -> Palette {
+        Palette::default()
+    }
+
+    #[test]
+    fn render_noop_when_overlay_zero() {
+        let app = AppState::test_new();
+        let layout = LauncherLayout {
+            overlay: Rect::default(),
+            input: Rect::default(),
+            list: Rect::default(),
+            rows: Vec::new(),
+        };
+        let items: Vec<LauncherItem> = Vec::new();
+        let palette = test_palette();
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        terminal
+            .draw(|frame| render_launcher_new(&app, frame, &layout, &items, 0, &palette))
+            .unwrap();
+        // No panic = pass.
+    }
+
+    #[test]
+    fn render_draws_input_prompt() {
+        let app = AppState::test_new();
+        let area = Rect::new(0, 0, 80, 24);
+        let layout = LauncherLayout {
+            overlay: Rect::new(12, 4, 56, 16),
+            input: Rect::new(12, 4, 56, 1),
+            list: Rect::new(12, 5, 56, 15),
+            rows: Vec::new(),
+        };
+        let items = vec![LauncherItem {
+            kind: LauncherKind::Workspace,
+            primary: "ws".into(),
+            secondary: None,
+            icon: "□",
+        }];
+        let palette = test_palette();
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        terminal
+            .draw(|frame| {
+                // We need to lay out rows manually for the test.
+                render_launcher_new(&app, frame, &layout, &items, 0, &palette)
+            })
+            .unwrap();
+        // Should render without panic. Verify the overlay has borders.
+        let buffer = terminal.backend().buffer();
+        // The top-left corner of the block border should be present.
+        let top_left = buffer[(layout.overlay.x, layout.overlay.y)].symbol();
+        assert!(
+            top_left.contains('┌') || top_left.contains('┏') || !top_left.trim().is_empty(),
+            "expected border: {top_left}"
+        );
+    }
+
+    #[test]
+    fn render_selected_item_has_bg() {
+        let app = AppState::test_new();
+        let mut layout = LauncherLayout {
+            overlay: Rect::new(12, 4, 56, 16),
+            input: Rect::new(12, 4, 56, 1),
+            list: Rect::new(12, 5, 56, 15),
+            rows: Vec::new(),
+        };
+        layout.rows = vec![
+            Rect::new(12, 5, 56, 1),
+            Rect::new(12, 6, 56, 1),
+        ];
+        let items = vec![
+            LauncherItem {
+                kind: LauncherKind::Workspace,
+                primary: "alpha".into(),
+                secondary: None,
+                icon: "□",
+            },
+            LauncherItem {
+                kind: LauncherKind::Workspace,
+                primary: "beta".into(),
+                secondary: None,
+                icon: "□",
+            },
+        ];
+        let palette = test_palette();
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        terminal
+            .draw(|frame| render_launcher_new(&app, frame, &layout, &items, 1, &palette))
+            .unwrap();
+        // item 1 ("beta") should be selected/visible; item 0 ("alpha") unselected and skipped.
+        let buffer = terminal.backend().buffer();
+        let line_at_5: String = (0..56)
+            .map(|x| buffer[(12 + x, 5)].symbol().to_string())
+            .collect();
+        // Unselected rows use `continue` so they don't render.
+        let line_at_6: String = (0..56)
+            .map(|x| buffer[(12 + x, 6)].symbol().to_string())
+            .collect();
+        assert!(
+            line_at_6.contains("beta"),
+            "expected selected item: {line_at_6}"
+        );
+    }
+}

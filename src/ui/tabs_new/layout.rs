@@ -121,3 +121,150 @@ pub fn fit_tab_label(label: &str, width: u16) -> String {
     let max = width.saturating_sub(2) as usize;
     truncate_end(label, max.max(1))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::AppState;
+    use crate::ui::shell::TabBarLayout;
+    use crate::ui::tabs_new::model::TabItem;
+    use ratatui::layout::Rect;
+
+    fn test_tabs(count: usize, active_idx: usize) -> Vec<TabItem> {
+        (0..count)
+            .map(|i| TabItem {
+                index: i,
+                label: format!("tab{}", i),
+                state: crate::detect::AgentState::Idle,
+                seen: true,
+                active: i == active_idx,
+                working: false,
+                blocked: false,
+                unseen_done: false,
+            })
+            .collect()
+    }
+
+    fn empty_tab_bar() -> TabBarLayout {
+        TabBarLayout {
+            rect: Rect::default(),
+            tabs: Vec::new(),
+            scroll_left: Rect::default(),
+            scroll_right: Rect::default(),
+            new_tab: Rect::default(),
+            overflow: false,
+        }
+    }
+
+    #[test]
+    fn empty_area_or_tabs_produces_no_layout() {
+        let mut layout = empty_tab_bar();
+        let start = layout_tab_bar(&mut layout, &[]);
+        assert_eq!(start, 0);
+        assert!(layout.tabs.is_empty());
+        assert!(!layout.overflow);
+
+        let mut layout = TabBarLayout {
+            rect: Rect::new(0, 0, 0, 1),
+            ..empty_tab_bar()
+        };
+        let tabs = test_tabs(3, 0);
+        let start = layout_tab_bar(&mut layout, &tabs);
+        assert_eq!(start, 0);
+        assert!(layout.tabs.is_empty());
+    }
+
+    #[test]
+    fn fits_all_tabs_when_space_available() {
+        let mut layout = TabBarLayout {
+            rect: Rect::new(0, 0, 80, 1),
+            ..empty_tab_bar()
+        };
+        let tabs = test_tabs(3, 0);
+        let start = layout_tab_bar(&mut layout, &tabs);
+        assert_eq!(start, 0);
+        assert_eq!(layout.tabs.len(), 3);
+        assert!(!layout.overflow);
+    }
+
+    #[test]
+    fn marks_overflow_when_tabs_exceed_width() {
+        let mut layout = TabBarLayout {
+            rect: Rect::new(0, 0, 20, 1),
+            ..empty_tab_bar()
+        };
+        let tabs = test_tabs(10, 0);
+        layout_tab_bar(&mut layout, &tabs);
+        assert!(layout.overflow);
+        assert!(layout.tabs.len() < 10);
+    }
+
+    #[test]
+    fn slides_to_include_active_tab() {
+        let mut layout = TabBarLayout {
+            rect: Rect::new(0, 0, 30, 1),
+            ..empty_tab_bar()
+        };
+        // Active tab is at the end — should slide viewport to include it.
+        let tabs = test_tabs(8, 7);
+        layout_tab_bar(&mut layout, &tabs);
+        assert!(layout.overflow);
+        assert!(layout.tabs.iter().any(|t| t.index == 7));
+    }
+
+    #[test]
+    fn tab_at_returns_correct_index() {
+        let mut layout = TabBarLayout {
+            rect: Rect::new(0, 0, 80, 1),
+            ..empty_tab_bar()
+        };
+        let tabs = test_tabs(3, 0);
+        layout_tab_bar(&mut layout, &tabs);
+
+        // First tab starts at x=0 with width 4 ("tab0") = 4
+        let first = tab_at(&layout, 0, 0);
+        assert_eq!(first, Some(0));
+
+        // Click outside tabs returns None.
+        assert_eq!(tab_at(&layout, 79, 0), None);
+    }
+
+    #[test]
+    fn fit_tab_label_truncates_long_labels() {
+        let label = "very long tab label that exceeds space";
+        let fitted = fit_tab_label(label, 10);
+        assert!(fitted.len() <= 8); // width - 2 = 8
+        assert!(label.starts_with(&fitted[..fitted.len().saturating_sub(1)]));
+    }
+
+    #[test]
+    fn fit_tab_label_handles_zero_width() {
+        let fitted = fit_tab_label("test", 0);
+        assert_eq!(fitted.len(), 1); // max(1, 0) = 1
+    }
+
+    #[test]
+    fn layout_preserves_active_tab_in_small_viewport() {
+        let mut layout = TabBarLayout {
+            rect: Rect::new(0, 0, 25, 1),
+            ..empty_tab_bar()
+        };
+        // Active tab is #5 out of 8; viewport should slide to include it.
+        let tabs = test_tabs(8, 5);
+        layout_tab_bar(&mut layout, &tabs);
+        let visible_indices: Vec<usize> = layout.tabs.iter().map(|t| t.index).collect();
+        assert!(visible_indices.contains(&5));
+    }
+
+    #[test]
+    fn single_tab_fills_available_width() {
+        let mut layout = TabBarLayout {
+            rect: Rect::new(0, 0, 40, 1),
+            ..empty_tab_bar()
+        };
+        let tabs = test_tabs(1, 0);
+        layout_tab_bar(&mut layout, &tabs);
+        assert_eq!(layout.tabs.len(), 1);
+        assert!(!layout.overflow);
+    }
+}

@@ -85,4 +85,71 @@ mod tests {
         assert!(!tabs.is_empty());
         assert!(tabs.iter().any(|t| t.active));
     }
+
+    #[test]
+    fn build_tabs_returns_empty_for_no_active_workspace() {
+        let mut app = AppState::test_new();
+        app.active = None;
+        let tabs = build_tabs(&app);
+        assert!(tabs.is_empty());
+    }
+
+    #[test]
+    fn build_tabs_handles_missing_workspace() {
+        let mut app = AppState::test_new();
+        app.active = Some(999);
+        let tabs = build_tabs(&app);
+        assert!(tabs.is_empty());
+    }
+
+    #[test]
+    fn tab_item_status_icon_reflects_state() {
+        let blocked = TabItem {
+            index: 0,
+            label: "b".into(),
+            state: AgentState::Blocked,
+            seen: false,
+            active: false,
+            working: false,
+            blocked: true,
+            unseen_done: false,
+        };
+        assert_eq!(blocked.clone().status_icon(), "◉");
+
+        let working = TabItem {
+            index: 0,
+            label: "w".into(),
+            state: AgentState::Working,
+            seen: false,
+            active: false,
+            working: true,
+            blocked: false,
+            unseen_done: false,
+        };
+        assert_eq!(working.clone().status_icon(), "●");
+
+        let unseen = TabItem {
+            index: 0,
+            label: "u".into(),
+            state: AgentState::Idle,
+            seen: false,
+            active: false,
+            working: false,
+            blocked: false,
+            unseen_done: true,
+        };
+        assert_eq!(unseen.clone().status_icon(), "✓");
+
+        let seen = TabItem {
+            index: 0,
+            label: "s".into(),
+            state: AgentState::Idle,
+            seen: true,
+            active: false,
+            working: false,
+            blocked: false,
+            unseen_done: false,
+        };
+        assert_eq!(seen.clone().status_icon(), "");
+    }
 }

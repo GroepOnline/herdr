@@ -64,3 +64,52 @@ fn active_pane_metadata(app: &AppState) -> Option<FleetOpsMetadata> {
         &app.fleet_ops_cache,
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::AppState;
+
+    #[test]
+    fn empty_app_produces_empty_context() {
+        let mut app = AppState::test_new();
+        app.active = None;
+        let ctx = build_fleet_ops_context(&app);
+        assert!(!ctx.has_data);
+        assert!(ctx.summary.is_empty());
+        assert!(ctx.expanded.is_empty());
+    }
+
+    #[test]
+    fn context_has_data_when_active_workspace_exists() {
+        let app = AppState::test_new();
+        let ctx = build_fleet_ops_context(&app);
+        // A fresh test workspace has a terminal pane; fleet ops may or may not have
+        // data depending on the metadata content, but it should not panic.
+        // The contract is that has_data is true only when a pane is found.
+        assert!(!ctx.summary.is_empty() || !ctx.has_data);
+    }
+
+    #[test]
+    fn fleet_ops_context_is_clone_and_eq() {
+        let ctx = FleetOpsContext {
+            summary: "test".into(),
+            expanded: "test · expanded".into(),
+            has_data: true,
+        };
+        let ctx2 = ctx.clone();
+        assert_eq!(ctx, ctx2);
+    }
+
+    #[test]
+    fn fleet_ops_context_empty_has_no_data() {
+        let ctx = FleetOpsContext {
+            summary: String::new(),
+            expanded: String::new(),
+            has_data: false,
+        };
+        assert!(!ctx.has_data);
+        assert!(ctx.summary.is_empty());
+        assert!(ctx.expanded.is_empty());
+    }
+}

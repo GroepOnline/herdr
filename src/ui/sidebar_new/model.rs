@@ -302,4 +302,115 @@ mod tests {
             SidebarItemId::Agent { ws_idx: 0, .. }
         ));
     }
+
+    #[test]
+    fn empty_workspaces_produces_empty_lists() {
+        let mut app = AppState::test_new();
+        app.workspaces = Vec::new();
+        let items = build_workspaces(&app);
+        assert!(items.is_empty());
+        let registry = TerminalRuntimeRegistry::new();
+        let agents = build_agents(&app, &registry);
+        assert!(agents.is_empty());
+        let attention = build_attention(&app, &registry);
+        assert!(attention.is_empty());
+    }
+
+    #[test]
+    fn sidebar_model_caches_all_modes() {
+        let mut app = AppState::test_new();
+        app.workspaces = vec![Workspace::test_new("a"), Workspace::test_new("b")];
+        let registry = TerminalRuntimeRegistry::new();
+        let mut model = SidebarModel::new();
+        model.rebuild(&app, &registry);
+        assert_eq!(model.workspaces.len(), 2);
+        assert!(!model.agents.is_empty());
+        // Attention may be empty if all agents are unknown.
+    }
+
+    #[test]
+    fn sidebar_item_with_secondary_and_indent() {
+        let item = SidebarItem::new(
+            SidebarItemId::Workspace { ws_idx: 0 },
+            SidebarRowKind::Workspace { ws_idx: 0, indented: true },
+            "test".into(),
+            AgentState::Working,
+            false,
+        )
+        .with_secondary("branch")
+        .with_indent(2);
+        assert_eq!(item.secondary, Some("branch".into()));
+        assert_eq!(item.indent, 2);
+        assert_eq!(item.primary, "test");
+    }
+
+    #[test]
+    fn sidebar_item_id_workspace_idx() {
+        let id = SidebarItemId::Workspace { ws_idx: 3 };
+        assert_eq!(id.workspace_idx(), Some(3));
+        let id = SidebarItemId::Agent { ws_idx: 1, tab_idx: 0, pane_id: crate::layout::PaneId::new() };
+        assert_eq!(id.workspace_idx(), Some(1));
+        let id = SidebarItemId::Attention { source_id: "x".into() };
+        assert_eq!(id.workspace_idx(), None);
+    }
+
+    #[test]
+    fn attention_filters_out_unknown_agents() {
+        let mut app = AppState::test_new();
+        app.workspaces = vec![Workspace::test_new("one")];
+        app.ensure_test_terminals();
+        let pane_id = app.workspaces[0].tabs[0].root_pane;
+        let tid = app.workspaces[0].tabs[0].panes[&pane_id]
+            .attached_terminal_id
+            .clone();
+        app.terminals.get_mut(&tid).unwrap().state = AgentState::Unknown;
+        let registry = TerminalRuntimeRegistry::new();
+        let items = build_attention(&app, &registry);
+        assert!(items.is_empty());
+    }
+
+    #[test]
+    fn attention_priority_values() {
+        // Blocked > unseen-idle > Working > seen-idle > Unknown
+        // Helper: attention_priority(AgentState::Blocked, _) should be highest.
+        let p_blocked = super::attention_priority(AgentState::Blocked, false);
+        let p_unseen = super::attention_priority(AgentState::Idle, false);
+        let p_working = super::attention_priority(AgentState::Working, false);
+        let p_seen = super::attention_priority(AgentState::Idle, true);
+        let p_unknown = super::attention_priority(AgentState::Unknown, false);
+        assert!(p_blocked > p_unseen);
+        assert!(p_unseen > p_working);
+        assert!(p_working > p_seen);
+        assert!(p_seen > p_unknown);
+    }
+
+    #[test]
+    fn sidebar_model_items_for_mode() {
+        let mut app = AppState::test_new();
+        app.workspaces = vec![Workspace::test_new("a")];
+        let registry = TerminalRuntimeRegistry::new();
+        let mut model = SidebarModel::new();
+        model.rebuild(&app, &registry);
+
+        let ws = model.items_for_mode(crate::ui::shell::SidebarMode::Workspaces);
+        assert!(!ws.is_empty());
+        let agents = model.items_for_mode(crate::ui::shell::SidebarMode::Agents);
+        assert!(!agents.is_empty());
+        let attn = model.items_for_mode(crate::ui::shell::SidebarMode::Attention);
+        // May be empty if all idle and seen.
+        let _ = attn;
+    }
+
+    #[test]
+    fn sidebar_item_clone_and_eq() {
+        let item = SidebarItem::new(
+            SidebarItemId::Workspace { ws_idx: 0 },
+            SidebarRowKind::Workspace { ws_idx: 0, indented: false },
+            "hello".into(),
+            AgentState::Idle,
+            true,
+        );
+        let item2 = item.clone();
+        assert_eq!(item, item2);
+    }
 }

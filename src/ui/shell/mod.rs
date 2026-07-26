@@ -573,4 +573,134 @@ mod tests {
         .clamped();
         assert_eq!(s.offset, 5);
     }
+
+    #[test]
+    fn scroll_state_zero_offset_when_total_lt_visible() {
+        let s = ScrollState {
+            offset: 3,
+            visible: 10,
+            total: 5,
+        }
+        .clamped();
+        assert_eq!(s.offset, 0);
+    }
+
+    #[test]
+    fn mobile_mode_hides_sidebar() {
+        assert!(!LayoutMode::Mobile.sidebar_visible());
+        assert!(!LayoutMode::Narrow.sidebar_visible());
+        assert!(!LayoutMode::Tiny.sidebar_visible());
+    }
+
+    #[test]
+    fn wide_mode_shows_fleet_ops() {
+        assert!(LayoutMode::Wide.fleet_ops_expanded());
+        assert!(LayoutMode::Standard.fleet_ops_expanded());
+        assert!(!LayoutMode::Narrow.fleet_ops_expanded());
+        assert!(!LayoutMode::Mobile.fleet_ops_expanded());
+    }
+
+    #[test]
+    fn collapsed_sidebar_in_standard_mode_zeroes_sidebar_rect() {
+        let layout = compute_shell_layout(
+            Rect::new(0, 0, 120, 40),
+            LayoutMode::Standard,
+            true, // collapsed
+            28,
+            SidebarMode::Workspaces,
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+        );
+        assert_eq!(layout.sidebar.rect.width, 0);
+    }
+
+    #[test]
+    fn narrow_collapsed_shows_rail() {
+        let layout = compute_shell_layout(
+            Rect::new(0, 0, 60, 20),
+            LayoutMode::Narrow,
+            true, // collapsed
+            28,
+            SidebarMode::Workspaces,
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+        );
+        assert_eq!(layout.sidebar.rect.width, 4);
+    }
+
+    #[test]
+    fn tiny_mode_produces_no_sidebar_or_fleet_ops() {
+        let layout = compute_shell_layout(
+            Rect::new(0, 0, 20, 10),
+            LayoutMode::Tiny,
+            false,
+            28,
+            SidebarMode::Workspaces,
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+        );
+        assert_eq!(layout.sidebar.rect.width, 0);
+        assert_eq!(layout.fleet_ops.rect.width, 0);
+    }
+
+    #[test]
+    fn all_layout_modes_have_labels() {
+        let modes = [
+            LayoutMode::Wide,
+            LayoutMode::Standard,
+            LayoutMode::Medium,
+            LayoutMode::Narrow,
+            LayoutMode::Mobile,
+            LayoutMode::Tiny,
+        ];
+        for mode in &modes {
+            let layout = compute_shell_layout(
+                Rect::new(0, 0, 200, 60),
+                *mode,
+                false,
+                28,
+                SidebarMode::Workspaces,
+                ScrollState { offset: 0, visible: 10, total: 5 },
+                ScrollState { offset: 0, visible: 10, total: 5 },
+                ScrollState { offset: 0, visible: 10, total: 5 },
+            );
+            // Every mode should produce a ShellLayout without panic.
+            assert!(layout.area.width > 0);
+        }
+    }
+
+    #[test]
+    fn sidebar_mode_labels() {
+        assert_eq!(SidebarMode::Workspaces.label(), "Workspaces");
+        assert_eq!(SidebarMode::Agents.label(), "Agents");
+        assert_eq!(SidebarMode::Attention.label(), "Attention");
+    }
+
+    #[test]
+    fn scroll_state_max_offset() {
+        let s = ScrollState { offset: 0, visible: 5, total: 10 };
+        assert_eq!(s.max_offset(), 5);
+        let s = ScrollState { offset: 0, visible: 10, total: 5 };
+        assert_eq!(s.max_offset(), 0);
+        let s = ScrollState { offset: 0, visible: 0, total: 0 };
+        assert_eq!(s.max_offset(), 0);
+    }
+
+    #[test]
+    fn shell_layout_fleet_ops_hidden_when_too_short() {
+        let layout = compute_shell_layout(
+            Rect::new(0, 0, 120, 2),
+            LayoutMode::Standard,
+            false,
+            28,
+            SidebarMode::Workspaces,
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+            ScrollState { offset: 0, visible: 10, total: 5 },
+        );
+        assert_eq!(layout.fleet_ops.rect.width, 0);
+    }
 }

@@ -89,3 +89,203 @@ fn colors_for_tab(
     };
     (fg, bg)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::{AppState, Palette};
+    use crate::ui::shell::TabBarLayout;
+    use crate::ui::tabs_new::model::TabItem;
+    use ratatui::{backend::TestBackend, layout::Rect, Terminal};
+
+    fn test_palette() -> Palette {
+        Palette::default()
+    }
+
+    #[test]
+    fn colors_for_blocked_tab() {
+        let tab = TabItem {
+            index: 0,
+            label: "b".into(),
+            state: crate::detect::AgentState::Blocked,
+            seen: false,
+            active: false,
+            working: false,
+            blocked: true,
+            unseen_done: false,
+        };
+        let palette = test_palette();
+        let (fg, _bg) = colors_for_tab(&tab, &palette);
+        assert_eq!(fg, palette.red);
+    }
+
+    #[test]
+    fn colors_for_working_tab() {
+        let tab = TabItem {
+            index: 0,
+            label: "w".into(),
+            state: crate::detect::AgentState::Working,
+            seen: false,
+            active: false,
+            working: true,
+            blocked: false,
+            unseen_done: false,
+        };
+        let palette = test_palette();
+        let (fg, _bg) = colors_for_tab(&tab, &palette);
+        assert_eq!(fg, palette.yellow);
+    }
+
+    #[test]
+    fn colors_for_unseen_idle_tab() {
+        let tab = TabItem {
+            index: 0,
+            label: "u".into(),
+            state: crate::detect::AgentState::Idle,
+            seen: false,
+            active: false,
+            working: false,
+            blocked: false,
+            unseen_done: true,
+        };
+        let palette = test_palette();
+        let (fg, _bg) = colors_for_tab(&tab, &palette);
+        assert_eq!(fg, palette.teal);
+    }
+
+    #[test]
+    fn colors_for_active_tab_uses_surface_bg() {
+        let tab = TabItem {
+            index: 0,
+            label: "a".into(),
+            state: crate::detect::AgentState::Idle,
+            seen: true,
+            active: true,
+            working: false,
+            blocked: false,
+            unseen_done: false,
+        };
+        let palette = test_palette();
+        let (_fg, bg) = colors_for_tab(&tab, &palette);
+        assert_eq!(bg, palette.surface0);
+    }
+
+    #[test]
+    fn status_icon_for_blocked() {
+        let tab = TabItem {
+            index: 0,
+            label: "b".into(),
+            state: crate::detect::AgentState::Blocked,
+            seen: false,
+            active: false,
+            working: false,
+            blocked: true,
+            unseen_done: false,
+        };
+        assert_eq!(tab.status_icon(), "◉");
+    }
+
+    #[test]
+    fn status_icon_for_working() {
+        let tab = TabItem {
+            index: 0,
+            label: "w".into(),
+            state: crate::detect::AgentState::Working,
+            seen: false,
+            active: false,
+            working: true,
+            blocked: false,
+            unseen_done: false,
+        };
+        assert_eq!(tab.status_icon(), "●");
+    }
+
+    #[test]
+    fn status_icon_for_unseen_done() {
+        let tab = TabItem {
+            index: 0,
+            label: "d".into(),
+            state: crate::detect::AgentState::Idle,
+            seen: false,
+            active: false,
+            working: false,
+            blocked: false,
+            unseen_done: true,
+        };
+        assert_eq!(tab.status_icon(), "✓");
+    }
+
+    #[test]
+    fn status_icon_for_seen_idle() {
+        let tab = TabItem {
+            index: 0,
+            label: "i".into(),
+            state: crate::detect::AgentState::Idle,
+            seen: true,
+            active: false,
+            working: false,
+            blocked: false,
+            unseen_done: false,
+        };
+        assert_eq!(tab.status_icon(), "");
+    }
+
+    #[test]
+    fn render_tab_bar_empty_rect_is_noop() {
+        let app = AppState::test_new();
+        let layout = TabBarLayout {
+            rect: Rect::default(),
+            tabs: Vec::new(),
+            scroll_left: Rect::default(),
+            scroll_right: Rect::default(),
+            new_tab: Rect::default(),
+            overflow: false,
+        };
+        let palette = test_palette();
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        let tabs: Vec<TabItem> = Vec::new();
+        terminal
+            .draw(|frame| render_tab_bar_new(&app, frame, &layout, &tabs, &palette))
+            .unwrap();
+        // No panic = pass.
+    }
+
+    #[test]
+    fn render_tab_bar_draws_active_indicator() {
+        let app = AppState::test_new();
+        let palette = test_palette();
+        let layout = TabBarLayout {
+            rect: Rect::new(0, 0, 80, 1),
+            tabs: vec![crate::ui::shell::TabHitRect {
+                rect: Rect::new(0, 0, 10, 1),
+                index: 0,
+                visible: true,
+            }],
+            scroll_left: Rect::default(),
+            scroll_right: Rect::default(),
+            new_tab: Rect::default(),
+            overflow: false,
+        };
+        let tabs = vec![TabItem {
+            index: 0,
+            label: "test".into(),
+            state: crate::detect::AgentState::Idle,
+            seen: true,
+            active: true,
+            working: false,
+            blocked: false,
+            unseen_done: false,
+        }];
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        terminal
+            .draw(|frame| render_tab_bar_new(&app, frame, &layout, &tabs, &palette))
+            .unwrap();
+        // The active indicator should have rendered a "─" on the bottom row.
+        let buffer = terminal.backend().buffer();
+        let bottom_cell = buffer[(0, 0)]; // tab bar is at y=0, height=1 => bottom = 0
+        let symbols: String = (0..10)
+            .map(|x| buffer[(x, 0)].symbol().to_string())
+            .collect();
+        assert!(symbols.contains('─'), "expected active indicator: {symbols}");
+    }
+}

@@ -54,3 +54,88 @@ pub fn launcher_row_rect(layout: &LauncherLayout, index: usize) -> Option<Rect> 
 pub fn toggle_button_rect(_layout: &LauncherLayout) -> Rect {
     Rect::default()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn layout_centers_overlay() {
+        let area = Rect::new(0, 0, 100, 40);
+        let layout = layout_launcher(area);
+        assert!(layout.overlay.x > 0);
+        assert!(layout.overlay.y > 0);
+        assert!(layout.overlay.width <= 70);
+        assert!(layout.overlay.height <= 28);
+    }
+
+    #[test]
+    fn layout_has_input_and_list_areas() {
+        let area = Rect::new(0, 0, 80, 24);
+        let layout = layout_launcher(area);
+        assert_eq!(layout.input.height, 1);
+        assert_eq!(layout.list.y, layout.input.y + 1);
+    }
+
+    #[test]
+    fn layout_clamps_to_area() {
+        let area = Rect::new(0, 0, 10, 5);
+        let layout = layout_launcher(area);
+        assert!(layout.overlay.width <= 10);
+        assert!(layout.overlay.height <= 5);
+    }
+
+    #[test]
+    fn rows_fill_list_area() {
+        let area = Rect::new(0, 0, 80, 24);
+        let mut layout = layout_launcher(area);
+        let count = 5;
+        layout_launcher_rows(&mut layout, count);
+        assert_eq!(layout.rows.len(), count);
+        assert_eq!(layout.rows[0].y, layout.list.y);
+        assert_eq!(layout.rows[4].y, layout.list.y + 4);
+    }
+
+    #[test]
+    fn rows_truncated_when_count_exceeds_height() {
+        let area = Rect::new(0, 0, 80, 10);
+        let mut layout = layout_launcher(area);
+        layout_launcher_rows(&mut layout, 100);
+        assert!(layout.rows.len() <= layout.list.height as usize);
+    }
+
+    #[test]
+    fn launcher_row_rect_out_of_bounds() {
+        let area = Rect::new(0, 0, 80, 24);
+        let mut layout = layout_launcher(area);
+        layout_launcher_rows(&mut layout, 3);
+        assert!(launcher_row_rect(&layout, 0).is_some());
+        assert!(launcher_row_rect(&layout, 2).is_some());
+        assert!(launcher_row_rect(&layout, 5).is_none());
+    }
+
+    #[test]
+    fn toggle_button_rect_is_default() {
+        let area = Rect::new(0, 0, 80, 24);
+        let layout = layout_launcher(area);
+        assert_eq!(toggle_button_rect(&layout), Rect::default());
+    }
+
+    #[test]
+    fn zero_count_clears_rows() {
+        let area = Rect::new(0, 0, 80, 24);
+        let mut layout = layout_launcher(area);
+        layout_launcher_rows(&mut layout, 5);
+        assert_eq!(layout.rows.len(), 5);
+        layout_launcher_rows(&mut layout, 0);
+        assert!(layout.rows.is_empty());
+    }
+
+    #[test]
+    fn tiny_area_still_produces_layout() {
+        let area = Rect::new(0, 0, 4, 4);
+        let layout = layout_launcher(area);
+        assert!(layout.overlay.width >= 2);
+        assert!(layout.overlay.height >= 2);
+    }
+}
