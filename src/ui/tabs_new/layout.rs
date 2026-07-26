@@ -127,6 +127,7 @@ mod tests {
     use super::*;
     use crate::ui::shell::TabBarLayout;
     use crate::ui::tabs_new::model::TabItem;
+    use crate::ui::text::display_width;
     use ratatui::layout::Rect;
 
     fn test_tabs(count: usize, active_idx: usize) -> Vec<TabItem> {
@@ -232,14 +233,16 @@ mod tests {
     fn fit_tab_label_truncates_long_labels() {
         let label = "very long tab label that exceeds space";
         let fitted = fit_tab_label(label, 10);
-        assert!(fitted.len() <= 8); // width - 2 = 8
-        assert!(label.starts_with(&fitted[..fitted.len().saturating_sub(1)]));
+        assert!(display_width(&fitted) <= 8); // width - 2 = 8
+        let prefix = fitted.trim_end_matches('…');
+        assert!(label.starts_with(prefix));
     }
 
     #[test]
     fn fit_tab_label_handles_zero_width() {
         let fitted = fit_tab_label("test", 0);
-        assert_eq!(fitted.len(), 1); // max(1, 0) = 1
+        assert_eq!(display_width(&fitted), 1); // max(1, 0) = 1
+        assert_eq!(fitted, "…");
     }
 
     #[test]
