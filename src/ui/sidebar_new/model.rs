@@ -300,8 +300,10 @@ mod tests {
         let working_pos = items.iter().position(|i| i.state == AgentState::Working);
         assert!(blocked_pos.is_some(), "expected a blocked item");
         assert!(working_pos.is_some(), "expected a working item");
-        assert!(blocked_pos.unwrap() < working_pos.unwrap(),
-            "blocked should appear before working in attention list");
+        assert!(
+            blocked_pos.unwrap() < working_pos.unwrap(),
+            "blocked should appear before working in attention list"
+        );
     }
 
     #[test]
