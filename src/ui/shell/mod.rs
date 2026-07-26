@@ -452,8 +452,7 @@ pub fn render_new_shell(
 
     // Render launcher overlay if open.
     if app.new_launcher_open {
-        let mut launcher_layout =
-            crate::ui::launcher_new::layout::layout_launcher(area);
+        let mut launcher_layout = crate::ui::launcher_new::layout::layout_launcher(area);
         let launcher_items = crate::ui::launcher_new::model::build_launcher_items(app);
         crate::ui::launcher_new::layout::layout_launcher_rows(
             &mut launcher_layout,
