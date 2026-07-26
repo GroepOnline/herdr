@@ -96,6 +96,7 @@ impl Easing {
 
 /// Affected UI region for a transition. The scheduler uses this to cancel or
 /// coalesce related transitions.
+#[allow(dead_code)] // PaneChrome and Scrollbar reserved for Phase 7/8
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum UiRegion {
     Sidebar,
@@ -236,6 +237,7 @@ impl TransitionScheduler {
     }
 
     /// Register or replace a rectangular transition.
+    #[allow(dead_code)] // reserved for Phase 7 rect transitions
     pub fn set_rect(&mut self, transition: RectTransition) {
         self.rects.retain(|r| r.region != transition.region);
         self.rects.push(transition);
@@ -243,6 +245,7 @@ impl TransitionScheduler {
 
     /// Cancel any transitions for a region and snap them to their target values.
     /// Returns the scalar value (if any) that should be considered final.
+    #[allow(dead_code)] // reserved for Phase 7 interrupt handling
     pub fn cancel(&mut self, region: UiRegion) -> Option<f32> {
         self.scalar.remove(&region).map(|t| t.target())
     }
@@ -271,6 +274,7 @@ impl TransitionScheduler {
     }
 
     /// Sample a rectangular transition at the given time.
+    #[allow(dead_code)] // reserved for Phase 7 rect interpolation
     pub fn sample_rect(&self, region: UiRegion, now: Instant) -> Option<Rect> {
         self.rects
             .iter()
@@ -284,6 +288,7 @@ impl TransitionScheduler {
     }
 
     /// True if there is an transition for the given region.
+    #[allow(dead_code)] // reserved for Phase 9 hit-test routing
     pub fn has_region(&self, region: UiRegion) -> bool {
         self.scalar.contains_key(&region) || self.rects.iter().any(|t| t.region == region)
     }
@@ -338,10 +343,12 @@ impl MotionPolicy {
 mod tests {
     use super::*;
 
+    #[allow(dead_code)] // reserved for future manual-clock tests
     struct ManualClock {
         now: std::sync::Mutex<Instant>,
     }
 
+    #[allow(dead_code)] // reserved for future manual-clock tests
     impl Clock for ManualClock {
         fn now(&self) -> Instant {
             *self.now.lock().unwrap()
