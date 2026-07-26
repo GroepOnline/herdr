@@ -272,28 +272,79 @@ pub fn compute_shell_layout(
 /// Compute view geometry for the new shell.
 ///
 /// This is the new-shell equivalent of `compute_view_internal` — it computes
-/// the new `ShellLayout` and stores it in `app.view`.  Pane resizing is
-/// delegated to the existing machinery.
+/// the full `ShellLayout`, builds sidebar model + tab items, and stores
+/// geometry in `app.view`.
 pub fn compute_new_shell_view(
     app: &mut crate::app::AppState,
-    _terminal_runtimes: &TerminalRuntimeRegistry,
+    terminal_runtimes: &TerminalRuntimeRegistry,
     area: Rect,
     _resize_panes: bool,
     _cell_size: crate::kitty_graphics::HostCellSize,
 ) {
-    // For Phase 1, use a minimal full-terminal layout.
-    // Later phases will wire the full ShellLayout, sidebar, tabs, etc.
+    let mode = LayoutMode::from_area(area);
+    let sidebar_mode = match app.new_sidebar_mode {
+        0 => SidebarMode::Workspaces,
+        1 => SidebarMode::Agents,
+        _ => SidebarMode::Attention,
+    };
+
+    // Build sidebar model and compute shell layout.
+    let mut sidebar_model = crate::ui::sidebar_new::model::SidebarModel::new();
+    sidebar_model.rebuild(app, terminal_runtimes);
+
+    let workspace_scroll = ScrollState {
+        offset: app.workspace_scroll,
+        visible: 20,
+        total: sidebar_model.items_for_mode(sidebar_mode).len(),
+    };
+    let agent_scroll = ScrollState {
+        offset: app.agent_panel_scroll,
+        visible: 20,
+        total: sidebar_model.items_for_mode(SidebarMode::Agents).len(),
+    };
+
+    let mut shell_layout = compute_shell_layout(
+        area,
+        mode,
+        app.new_sidebar_collapsed,
+        app.sidebar_width,
+        sidebar_mode,
+        workspace_scroll,
+        agent_scroll,
+        ScrollState {
+            offset: 0,
+            visible: 20,
+            total: 0,
+        },
+    );
+
+    // Layout sidebar rows.
+    crate::ui::sidebar_new::layout::layout_sidebar(&mut shell_layout, &sidebar_model);
+
+    // Build and layout tab bar.
+    let tab_items = crate::ui::tabs_new::model::build_tabs(app);
+    crate::ui::tabs_new::layout::layout_tab_bar(&mut shell_layout.main.tab_bar, &tab_items);
+
+    // Populate app.view from the shell layout.
+    let tab_hit_areas: Vec<Rect> = shell_layout
+        .main
+        .tab_bar
+        .tabs
+        .iter()
+        .map(|h| h.rect)
+        .collect();
+
     app.view = crate::app::ViewState {
         layout: crate::app::state::ViewLayout::Desktop,
-        sidebar_rect: Rect::default(),
+        sidebar_rect: shell_layout.sidebar.rect,
         workspace_card_areas: Vec::new(),
         navigator_rows: Vec::new(),
-        tab_bar_rect: Rect::default(),
-        tab_hit_areas: Vec::new(),
-        tab_scroll_left_hit_area: Rect::default(),
-        tab_scroll_right_hit_area: Rect::default(),
-        new_tab_hit_area: Rect::default(),
-        terminal_area: area,
+        tab_bar_rect: shell_layout.main.tab_bar.rect,
+        tab_hit_areas,
+        tab_scroll_left_hit_area: shell_layout.main.tab_bar.scroll_left,
+        tab_scroll_right_hit_area: shell_layout.main.tab_bar.scroll_right,
+        new_tab_hit_area: shell_layout.main.tab_bar.new_tab,
+        terminal_area: shell_layout.main.terminal,
         mobile_header_rect: Rect::default(),
         mobile_menu_hit_area: Rect::default(),
         toast_hit_area: Rect::default(),
@@ -305,17 +356,87 @@ pub fn compute_new_shell_view(
 /// Render the new terminal shell UI.
 ///
 /// This is the new-shell equivalent of `render_with_runtime_registry`.
-/// Phase 1 renders a minimal placeholder.  Later phases will add the
-/// unified sidebar, compact tabs, launcher, settings, etc.
+/// Renders the unified sidebar, compact tabs, and terminal area.
 pub fn render_new_shell(
-    _app: &crate::app::AppState,
-    _terminal_runtimes: &TerminalRuntimeRegistry,
-    _frame: &mut ratatui::Frame,
+    app: &crate::app::AppState,
+    terminal_runtimes: &TerminalRuntimeRegistry,
+    frame: &mut ratatui::Frame,
 ) {
-    // Phase 1 placeholder: the terminal pane renders via the existing
-    // tab_surface mechanism in `render_with_runtime_registry`.
-    // When new_shell is fully implemented, this function will render
-    // the complete new UI (sidebar, tabs, terminal, fleet ops, overlays).
+    let area = frame.area();
+    let mode = LayoutMode::from_area(area);
+    let sidebar_mode = match app.new_sidebar_mode {
+        0 => SidebarMode::Workspaces,
+        1 => SidebarMode::Agents,
+        _ => SidebarMode::Attention,
+    };
+
+    // Build sidebar model.
+    let mut sidebar_model = crate::ui::sidebar_new::model::SidebarModel::new();
+    sidebar_model.rebuild(app, terminal_runtimes);
+
+    let workspace_scroll = ScrollState {
+        offset: app.workspace_scroll,
+        visible: 20,
+        total: sidebar_model.items_for_mode(sidebar_mode).len(),
+    };
+    let agent_scroll = ScrollState {
+        offset: app.agent_panel_scroll,
+        visible: 20,
+        total: sidebar_model.items_for_mode(SidebarMode::Agents).len(),
+    };
+
+    // Compute shell layout.
+    let mut shell_layout = compute_shell_layout(
+        area,
+        mode,
+        app.new_sidebar_collapsed,
+        app.sidebar_width,
+        sidebar_mode,
+        workspace_scroll,
+        agent_scroll,
+        ScrollState {
+            offset: 0,
+            visible: 20,
+            total: 0,
+        },
+    );
+
+    // Layout sidebar rows from the model.
+    crate::ui::sidebar_new::layout::layout_sidebar(&mut shell_layout, &sidebar_model);
+
+    // Build and layout tab bar.
+    let tab_items = crate::ui::tabs_new::model::build_tabs(app);
+    crate::ui::tabs_new::layout::layout_tab_bar(&mut shell_layout.main.tab_bar, &tab_items);
+
+    // Render sidebar.
+    let items = sidebar_model.items_for_mode(sidebar_mode).to_vec();
+    crate::ui::sidebar_new::render::render_sidebar_new(
+        app,
+        terminal_runtimes,
+        frame,
+        &shell_layout,
+        &items,
+    );
+
+    // Render compact tab bar.
+    crate::ui::tabs_new::render::render_tab_bar_new(
+        app,
+        frame,
+        &shell_layout.main.tab_bar,
+        &tab_items,
+        &app.palette,
+    );
+
+    // Render terminal area — placeholder for now; full terminal rendering
+    // integration comes in later phases.
+    let terminal_area = shell_layout.main.terminal;
+    if terminal_area.width > 0 && terminal_area.height > 0 {
+        use ratatui::widgets::Paragraph;
+        frame.render_widget(
+            Paragraph::new("[new shell terminal area — Phase 3]"),
+            terminal_area,
+        );
+    }
 }
 
 fn top_line_of(rect: Rect) -> Rect {
