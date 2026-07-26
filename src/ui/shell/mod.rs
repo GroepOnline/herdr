@@ -6,6 +6,7 @@
 //! diverge.
 
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use crate::terminal::TerminalRuntimeRegistry;
 
 /// Width and density breakpoints, expressed in terminal columns.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -268,7 +269,54 @@ pub fn compute_shell_layout(
     }
 }
 
-fn top_line_of(rect: Rect) -> Rect {
+/// Compute view geometry for the new shell.
+///
+/// This is the new-shell equivalent of `compute_view_internal` — it computes
+/// the new `ShellLayout` and stores it in `app.view`.  Pane resizing is
+/// delegated to the existing machinery.
+pub fn compute_new_shell_view(
+    app: &mut crate::app::AppState,
+    _terminal_runtimes: &TerminalRuntimeRegistry,
+    area: Rect,
+    _resize_panes: bool,
+    _cell_size: crate::kitty_graphics::HostCellSize,
+) {
+    // For Phase 1, use a minimal full-terminal layout.
+    // Later phases will wire the full ShellLayout, sidebar, tabs, etc.
+    app.view = crate::app::ViewState {
+        layout: crate::app::state::ViewLayout::Desktop,
+        sidebar_rect: Rect::default(),
+        workspace_card_areas: Vec::new(),
+        navigator_rows: Vec::new(),
+        tab_bar_rect: Rect::default(),
+        tab_hit_areas: Vec::new(),
+        tab_scroll_left_hit_area: Rect::default(),
+        tab_scroll_right_hit_area: Rect::default(),
+        new_tab_hit_area: Rect::default(),
+        terminal_area: area,
+        mobile_header_rect: Rect::default(),
+        mobile_menu_hit_area: Rect::default(),
+        toast_hit_area: Rect::default(),
+        pane_infos: Vec::new(),
+        split_borders: Vec::new(),
+    };
+}
+
+/// Render the new terminal shell UI.
+///
+/// This is the new-shell equivalent of `render_with_runtime_registry`.
+/// Phase 1 renders a minimal placeholder.  Later phases will add the
+/// unified sidebar, compact tabs, launcher, settings, etc.
+pub fn render_new_shell(
+    _app: &crate::app::AppState,
+    _terminal_runtimes: &TerminalRuntimeRegistry,
+    _frame: &mut ratatui::Frame,
+) {
+    // Phase 1 placeholder: the terminal pane renders via the existing
+    // tab_surface mechanism in `render_with_runtime_registry`.
+    // When new_shell is fully implemented, this function will render
+    // the complete new UI (sidebar, tabs, terminal, fleet ops, overlays).
+}
     Rect::new(rect.x, rect.y, rect.width, 1.min(rect.height))
 }
 
