@@ -2,18 +2,31 @@
   "schema_version": 1,
   "channel": "dev",
   "base_version": "0.7.6",
-  "build_id": "2026-07-25-2903932847f8",
-  "commit": "2903932847f86375c51589246d2eadb7dabe9f1c",
-  "built_at": "2026-07-25T17:27:21Z",
+  "build_id": "2026-07-27-7ab2f60a311c",
+  "commit": "7ab2f60a311c8aff530dfdbca8e4df00be0e1b73",
+  "built_at": "2026-07-27T17:27:24Z",
   "protocol": 18,
-  "notes": "Dev build 2026-07-25-2903932847f8\n\nBuilt from `2903932847f8` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/c3f1e660d032d770945351b3d8479d8556e58ccb...2903932847f86375c51589246d2eadb7dabe9f1c\n\n### Fixed\n- Complete Linux ARM64 stable release linking (#78)\n\n### Maintenance\n- Publish portable assets for v0.7.6",
+  "notes": "Dev build 2026-07-27-7ab2f60a311c\n\nBuilt from `7ab2f60a311c` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/2903932847f86375c51589246d2eadb7dabe9f1c...7ab2f60a311c8aff530dfdbca8e4df00be0e1b73\n\n### Fixed\n- Remove invalid members permission from PR gate (#84)",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-25-2903932847f8/herdr-linux-x86_64",
-      "sha256": "aa6de6a2c046a76ebc363f083805e908fa1fd78a03c1fe3ca52872b44da6dcc1"
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-27-7ab2f60a311c/herdr-linux-x86_64",
+      "sha256": "a42e537137e776f7e7a5d8266f0143deb2c4471728efab173d66b22aec069c1d"
     }
   },
   "builds": {
+    "2026-07-27-7ab2f60a311c": {
+      "base_version": "0.7.6",
+      "commit": "7ab2f60a311c8aff530dfdbca8e4df00be0e1b73",
+      "built_at": "2026-07-27T17:27:24Z",
+      "protocol": 18,
+      "tag": "dev-2026-07-27-7ab2f60a311c",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-27-7ab2f60a311c/herdr-linux-x86_64",
+          "sha256": "a42e537137e776f7e7a5d8266f0143deb2c4471728efab173d66b22aec069c1d"
+        }
+      }
+    },
     "2026-07-25-2903932847f8": {
       "base_version": "0.7.6",
       "commit": "2903932847f86375c51589246d2eadb7dabe9f1c",
