@@ -16,15 +16,27 @@ const SKILL: &str = include_str!("../SKILL.md");
 /// Each entry pairs a user utterance with the description substrings that
 /// give the router a lexical anchor for it.
 const DIRECTIVE_CASES: &[(&str, &[&str])] = &[
-    ("use herdr to open 3 panes and orchestrate the tasks", &["use herdr", "orchestrate"]),
+    (
+        "use herdr to open 3 panes and orchestrate the tasks",
+        &["use herdr", "orchestrate"],
+    ),
     ("open this in herdr", &["open this in herdr"]),
     ("have herdr do this", &["have herdr do this"]),
     ("run this with herdr", &["run this with herdr"]),
     ("use the herdr skill", &["use the herdr skill"]),
-    ("let herdr manage the panes", &["let herdr manage the panes"]),
-    ("have herdr open panes and orchestrate", &["have herdr open panes and orchestrate this"]),
+    (
+        "let herdr manage the panes",
+        &["let herdr manage the panes"],
+    ),
+    (
+        "have herdr open panes and orchestrate",
+        &["have herdr open panes and orchestrate this"],
+    ),
     // Spoken/transcribed alias: users say and STT writes "herder".
-    ("have herder split a pane and start codex", &["herder", "split panes"]),
+    (
+        "have herder split a pane and start codex",
+        &["herder", "split panes"],
+    ),
 ];
 
 /// Descriptive mentions that must not be presented as triggers. The
@@ -38,7 +50,9 @@ const DESCRIPTIVE_CASES: &[(&str, &str)] = &[
 ];
 
 fn frontmatter() -> &'static str {
-    let rest = SKILL.strip_prefix("---\n").expect("SKILL.md must start with frontmatter");
+    let rest = SKILL
+        .strip_prefix("---\n")
+        .expect("SKILL.md must start with frontmatter");
     let end = rest.find("\n---").expect("frontmatter must be terminated");
     &rest[..end]
 }
@@ -67,7 +81,10 @@ fn description_anchors_directive_phrasings() {
     let desc = description();
     for (utterance, anchors) in DIRECTIVE_CASES {
         for anchor in *anchors {
-            assert!(desc.contains(anchor), "no anchor {anchor:?} for {utterance:?}");
+            assert!(
+                desc.contains(anchor),
+                "no anchor {anchor:?} for {utterance:?}"
+            );
         }
     }
 }
@@ -87,10 +104,19 @@ fn description_covers_alias_spellings() {
 fn description_is_affirmative_and_immediate() {
     let desc = description();
     let leads_with_restriction = desc.starts_with("use only") || desc.starts_with("do not");
-    assert!(!leads_with_restriction, "description must not lead with a restriction");
-    assert!(desc.contains("invoke on the mention"), "missing immediate-invocation directive");
+    assert!(
+        !leads_with_restriction,
+        "description must not lead with a restriction"
+    );
+    assert!(
+        desc.contains("invoke on the mention"),
+        "missing immediate-invocation directive"
+    );
     let anti_investigation = "do not first ask what herdr is or search for it";
-    assert!(desc.contains(anti_investigation), "missing anti-investigation directive");
+    assert!(
+        desc.contains(anti_investigation),
+        "missing anti-investigation directive"
+    );
 }
 
 /// Descriptive mentions stay suppressed: the description keeps one negative
@@ -98,9 +124,15 @@ fn description_is_affirmative_and_immediate() {
 #[test]
 fn description_suppresses_descriptive_mentions() {
     let desc = description();
-    let clause = desc.split("do not use when").nth(1).expect("missing suppression clause");
+    let clause = desc
+        .split("do not use when")
+        .nth(1)
+        .expect("missing suppression clause");
     for (utterance, verb) in DESCRIPTIVE_CASES {
-        assert!(clause.contains(verb), "clause misses {verb:?} for {utterance:?}");
+        assert!(
+            clause.contains(verb),
+            "clause misses {verb:?} for {utterance:?}"
+        );
     }
 }
 
@@ -108,7 +140,13 @@ fn description_suppresses_descriptive_mentions() {
 /// not in the description, where it reads as a pre-invocation precondition.
 #[test]
 fn env_gate_is_in_body_not_description() {
-    assert!(!description().contains("herdr_env"), "HERDR_ENV must not gate invocation");
+    assert!(
+        !description().contains("herdr_env"),
+        "HERDR_ENV must not gate invocation"
+    );
     let body = &SKILL[SKILL.find("\n---").expect("frontmatter end") + 4..];
-    assert!(body.contains("HERDR_ENV"), "body must keep the HERDR_ENV check");
+    assert!(
+        body.contains("HERDR_ENV"),
+        "body must keep the HERDR_ENV check"
+    );
 }
