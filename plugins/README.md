@@ -18,6 +18,7 @@ herdr plugin link /workspace/plugins/cloudflare-tunnel
 herdr plugin link /workspace/plugins/issue-provision
 herdr plugin link /workspace/plugins/session-park
 herdr plugin link /workspace/plugins/ops
+herdr plugin link /workspace/plugins/output-panel
 ```
 
 Published copies will later install as GitHub shorthand, for example:
@@ -92,6 +93,7 @@ project remote SSOT into short-lived `fleet_ops.json` fragments for the bar.
 | `issue-provision/` | `com.chefgroep.issue-provision` |
 | `session-park/` | `com.chefgroep.session-park` |
 | `ops/` | `com.chefgroep.ops` (scaffold; production → `OnlineChefGroep/herdr-ops`) |
+| `output-panel/` | `com.chefgroep.output-panel` (universal output browser: panes, Herdr/plugin logs, MCP, network, systemd, agent sessions, custom — see `output-panel/README.md`) |
 
 Run an action headlessly:
 

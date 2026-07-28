@@ -1,0 +1,27 @@
+{
+  "name": "herdr",
+  "user": "ubuntu",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "install": "bash scripts/cursor-cloud-install.sh",
+  "start": "bash scripts/cursor-cloud-start.sh",
+  "agentCanUpdateSnapshot": true,
+  "repositoryDependencies": [
+    "github.com/OnlineChefGroep/cursor",
+    "github.com/OnlineChefGroep/herdr-ops",
+    "github.com/OnlineChefGroep/ChefGroep-Skills",
+    "github.com/OnlineChefGroep/chefgroep-vault"
+  ],
+  "ports": [
+    {
+      "name": "noVNC",
+      "port": 6080
+    },
+    {
+      "name": "VNC",
+      "port": 5901
+    }
+  ]
+}

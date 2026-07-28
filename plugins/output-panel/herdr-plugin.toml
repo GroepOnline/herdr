@@ -1,0 +1,41 @@
+# CHEF Output Panel — universal output/log browser for Herdr
+id = "com.chefgroep.output-panel"
+name = "Output Panel"
+version = "0.2.0"
+min_herdr_version = "0.7.5"
+description = "Browse every output source on this machine: panes, Herdr server/client logs, plugin logs and state, MCP logs, network probes, systemd journals, agent sessions and user-defined channels"
+platforms = ["linux", "macos"]
+
+[[actions]]
+id = "open"
+title = "Open Output Panel"
+description = "Open the Output Panel overlay (browse / read / follow)"
+contexts = ["global", "workspace", "pane"]
+command = ["node", "src/index.js", "open-pane"]
+
+[[actions]]
+id = "list-channels"
+title = "List output channels"
+description = "Print every channel (all categories) as JSON"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "list-channels"]
+
+[[actions]]
+id = "groups"
+title = "List channel groups"
+description = "Print channel ids grouped by category as JSON"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "groups"]
+
+[[actions]]
+id = "read-channel"
+title = "Read channel"
+description = "Read any channel by id (pass the channel id, or a bare pane id)"
+contexts = ["global", "workspace", "pane"]
+command = ["node", "src/index.js", "read-channel"]
+
+[[panes]]
+id = "output"
+title = "Output"
+placement = "overlay"
+command = ["node", "src/tui.js"]

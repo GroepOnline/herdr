@@ -1,0 +1,36 @@
+{
+  "_comment": "Copy to $HERDR_PLUGIN_CONFIG_DIR/channels.json (default ~/.config/herdr/plugins/config/com.chefgroep.output-panel/channels.json). Every entry becomes a channel in the panel. Values are redacted like any other channel.",
+  "channels": [
+    {
+      "id": "syslog",
+      "title": "system log",
+      "kind": "file",
+      "path": "/var/log/syslog",
+      "group": "Custom",
+      "lines": 300
+    },
+    {
+      "id": "brave-cdp",
+      "title": "brave cdp wrapper",
+      "kind": "file",
+      "path": "/tmp/brave-origin-beta-cdp.log",
+      "group": "Custom"
+    },
+    {
+      "id": "docker-ps",
+      "title": "docker containers",
+      "kind": "command",
+      "argv": ["docker", "ps", "--all", "--format", "table {{.Names}}\t{{.Status}}\t{{.Ports}}"],
+      "group": "Custom",
+      "timeout_ms": 5000
+    },
+    {
+      "id": "gh-runs",
+      "title": "github actions (herdr)",
+      "kind": "command",
+      "argv": ["gh", "run", "list", "--repo", "OnlineChefGroep/herdr", "--limit", "15"],
+      "group": "Custom",
+      "timeout_ms": 8000
+    }
+  ]
+}

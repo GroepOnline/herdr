@@ -271,11 +271,34 @@ If you are helping an external contributor, never open a GitHub issue for them. 
 
 ## Cursor Cloud specific instructions
 
+Repo-managed environment: `.cursor/environment.json` + `.cursor/Dockerfile` +
+`scripts/cursor-cloud-install.sh` + `scripts/cursor-cloud-start.sh`.
+
+Lifecycle:
+
+1. **Image** — Ubuntu + `gh`, Node 22, Tailscale package, xfce/TigerVNC/noVNC deps (Computer Use).
+2. **install** — sync skills from `OnlineChefGroep/cursor`, `ChefGroep-Skills`, `herdr-ops`; install Lightpanda + `agent-browser` + herdr (dev channel); optional Vault MCP build. No `cargo` / `just check`.
+3. **start** — write `~/.cursor/mcp.json` from secrets; start Tailscale **userspace**; desktop login hints.
+
+**Required Cursor Secrets** (dashboard → Cloud Agents → Secrets; never commit values):
+
+| Secret | Purpose |
+| --- | --- |
+| `TS_AUTH_KEY_RESUABLE` | Same reusable Tailscale auth key used by existing `cursor-cloud-*` fleet nodes (spelling intentional; not `TS_API_KEY`) |
+| `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` | Cloudflare Access headers for remote Kater SSE |
+| `KATER_SSE_URL` | Optional; default `https://kater.chefgroep.online/sse` |
+
+Also ensure the Cloud Agent GitHub token can read the private `repositoryDependencies` listed in `.cursor/environment.json`.
+
+**Fleet join + snapshot:** `start` brings the VM onto the ChefGroep tailnet as hostname `cursor-cloud-herdr` (userspace Tailscale), pings `joep` / `bc-scan-2` / `bc-scan-arm`, and probes Vault Serve at `https://joep.tail86a8f2.ts.net/`. Vault MCP runs on joep over Tailscale SSH (`chefgroep-vault` → `chefvault-mcp`); dashboard/login uses Serve. After the first green boot, save/update the Cloud Agents **workspace snapshot** (`agentCanUpdateSnapshot: true`) so later agents reuse the baked image+tools.
+
 **Local Rust/Zig builds are blocked on the Cloud VM.** A fail-closed shell hook (`.cursor/hooks.json` → `.cursor/hooks/deny-rust-builds.sh`) denies `cargo`, `rustc`, `rustup`, `cargo-nextest`, `clippy`, `zig build`, and `just test|check|lint|ci` because they saturate the VM CPU. Do not try to build/test/lint locally and do not work around the hook. **Validate with GitHub Actions instead:** `gh pr checks` for the PR, `gh run list --workflow=ci.yml`, and `gh run view <id> --log-failed` for failures. CI (`.github/workflows/ci.yml`) runs fmt, `cargo check`, `cargo nextest`, `clippy`, Windows lint, and a release smoke build.
 
 Because of the hook, the "Testing" section commands above (`just test`, `just check`, `cargo build`, `./target/debug/herdr ...`) are for a normal dev machine, not this VM. Treat them as the CI contract, run on GitHub Actions.
 
-**Run the real binary without building.** The CI `release-build` job uploads a runnable static binary artifact (`ci-smoke-herdr-linux-x86_64`). To exercise herdr on the VM, download it from a green run and run it headlessly — this does not trip the build hook:
+**CLIs expected after install:** `gh`, `herdr` (dev install script), `lightpanda`, `agent-browser`, `chefgroep-agent-browser-mcp`. Skills live under `~/.cursor/skills` and `~/.agents/skills`.
+
+**Run the real binary without building.** Prefer the installed `herdr` CLI. Alternatively the CI `release-build` job uploads `ci-smoke-herdr-linux-x86_64`:
 
 ```bash
 gh run download <run-id> -n ci-smoke-herdr-linux-x86_64 -D /tmp/herdr-bin
@@ -287,7 +310,7 @@ HOME=/tmp/herdr-home /tmp/herdr-bin/herdr-linux-x86_64 pane run w1:p1 echo hello
 HOME=/tmp/herdr-home /tmp/herdr-bin/herdr-linux-x86_64 pane read w1:p1 --source recent --format text
 ```
 
-Toolchain state on the VM: Rust `1.96.1` is pre-baked at `/usr/local/cargo/bin` (matches `rust-toolchain.toml`). Zig `0.15.2`, `just`, `cargo-nextest`, and `bun` are NOT installed locally — they exist only in CI, and their names themselves trip the deny hook, so do not install them here.
+Do not install Zig / `just` / `cargo-nextest` / `bun` on the Cloud VM to work around the deny hook.
 
 Other non-obvious caveats:
 
@@ -295,20 +318,25 @@ Other non-obvious caveats:
 - The TUI needs a real terminal (TTY). For headless verification, run `herdr server` and drive it with the CLI/socket API (see the block above).
 - On Linux containers where `/dev/ptmx` is a symlink to `/dev/pts/ptmx`, the `live_handoff` PTY master fd check accepts both paths.
 
-### GUI desktop (VNC)
+### GUI desktop (VNC) + browser login
 
-An xfce4 desktop runs at boot via TigerVNC on display `:1` (noVNC/websockify front it); nothing extra is needed to start it. To demo the *interactive* herdr TUI (not just the headless server) on that desktop, symlink the downloaded CI binary onto `PATH` and launch it in the xfce4 terminal:
+Computer Use / xfce desktop is part of the Cloud image (noVNC often `:6080`, VNC `:5901`). Use it to log into sites once so cookies land in `~/.config/chefgroep/agent-browser-chrome`. Never wipe that profile.
+
+Default browser automation: MCP `chefgroep-browser` (Lightpanda). Fleet cookies when Tailscale is up: MCP `chefgroep-browser-fleet` → `bc-scan-2`. Forbidden defaults: `cursor-ide-browser`, Browse plugin, ad-hoc Chrome profiles.
+
+Interactive herdr TUI on the desktop:
 
 ```bash
-sudo ln -sf /tmp/herdr-bin/herdr-linux-x86_64 /usr/local/bin/herdr
-# then, in the desktop terminal: `herdr`  (prefix key is ctrl+b; ctrl+b then o splits)
+# herdr should already be on PATH from install; otherwise symlink a CI smoke binary
+herdr   # prefix key is ctrl+b; ctrl+b then o splits
 ```
 
 ### Tailscale (userspace networking)
 
-Tailscale is not pre-installed and its default kernel/TUN mode does NOT work on the Cloud VM. Install it (`curl -fsSL https://tailscale.com/install.sh | sh`) and always run the daemon in userspace mode:
+`scripts/cursor-cloud-start.sh` starts Tailscale in **userspace** mode when `TS_AUTH_KEY_RESUABLE` is set. Default kernel/TUN mode does not work on Cloud VMs.
 
 ```bash
+# Done by start script; manual equivalent:
 sudo tailscaled --tun=userspace-networking \
   --outbound-http-proxy-listen=localhost:1054 --socks5-server=localhost:1055 &
 sudo tailscale up --authkey="$TS_AUTH_KEY_RESUABLE" --hostname=cursor-cloud-herdr --accept-dns=false
@@ -316,7 +344,13 @@ sudo tailscale up --authkey="$TS_AUTH_KEY_RESUABLE" --hostname=cursor-cloud-herd
 
 Non-obvious caveats:
 
-- The reusable node auth key is provided as the secret `TS_AUTH_KEY_RESUABLE` (note the spelling); `TS_API_KEY` is the tailnet API key, not a node key.
+- The reusable node auth key is the secret `TS_AUTH_KEY_RESUABLE` (note the spelling); `TS_API_KEY` is the tailnet API key, not a node key.
 - `tailscaled` runs as root here, so `tailscale status|ip|ping` need `sudo` (root-owned socket).
-- In userspace mode the host kernel cannot route `100.x`/`fd7a:` addresses directly. `tailscale ping` works (it goes through tailscaled), but for app egress onto the tailnet use the SOCKS5 proxy `localhost:1055` or HTTP proxy `localhost:1054` (e.g. `curl --socks5-hostname localhost:1055 ...`, or `export ALL_PROXY=socks5h://localhost:1055/`).
-- This is a per-session runtime setup (system package + running daemon); it is intentionally NOT in the update script.
+- In userspace mode the host kernel cannot route `100.x`/`fd7a:` addresses directly. `tailscale ping` works (it goes through tailscaled), but for app egress onto the tailnet use the SOCKS5 proxy `localhost:1055` or HTTP proxy `localhost:1054` (e.g. `curl --socks5-hostname localhost:1055 ...`, or `source ~/.config/chefgroep/cloud-tailscale-env.sh`).
+- Fleet SSH MCP (`chefgroep-browser-fleet`, `joep-brain`, `upcloud`) needs Tailscale up **and** Cloud Agent SSH keys authorized on those hosts.
+
+### Kater + Vault on Cloud
+
+- **Kater:** MCP server `kater` points at `KATER_SSE_URL` (default `https://kater.chefgroep.online/sse`) with Cloudflare Access headers from secrets.
+- **Vault:** after Tailscale join, dashboard is Vault Serve on joep (`https://joep.tail86a8f2.ts.net/`). MCP `chefgroep-vault` is `scripts/cursor-cloud-vault-mcp.sh` → Tailscale SSH to `joep` → local `chefvault-mcp` (Docker/clipboard stay on joep; tokens stay in joep `~/.config/chefgroep/vault.json`).
+- Login UX: Vault Serve / Cloud desktop / Lightpanda profile — not autonomous OAuth.
