@@ -50,7 +50,7 @@ echo "Installing Zig ($ZIG_VERSION)..."
 if ! command -v zig &> /dev/null || [[ "$(zig version)" != "$ZIG_VERSION" ]]; then
     cd /tmp
     # Use standard format for URL based on how Zig constructs its download links
-    ZIG_URL=$(curl -s https://ziglang.org/download/index.json | jq -r '."'${ZIG_VERSION}'" | to_entries[] | select(.key | match("x86_64-linux|linux-x86_64")) | .value.tarball')
+    ZIG_URL=$(curl -s https://ziglang.org/download/index.json | jq -r '."'"${ZIG_VERSION}"'" | to_entries[] | select(.key | match("x86_64-linux|linux-x86_64")) | .value.tarball')
     if [ -z "$ZIG_URL" ] || [ "$ZIG_URL" == "null" ]; then
         # Default to the most common pattern
         ZIG_URL="https://ziglang.org/download/$ZIG_VERSION/zig-linux-x86_64-$ZIG_VERSION.tar.xz"
@@ -97,9 +97,11 @@ export LIBGHOSTTY_VT_SIMD="true"
 
 # Persist environment variables for interactive testing
 if ! grep -q 'LIBGHOSTTY_VT_OPTIMIZE' ~/.bashrc; then
-    echo 'export LIBGHOSTTY_VT_OPTIMIZE="Debug"' >> ~/.bashrc
-    echo 'export LIBGHOSTTY_VT_SIMD="true"' >> ~/.bashrc
-    echo 'export PATH="$HOME/.cargo/bin:$HOME/.bun/bin:/usr/local/bin:$PATH"' >> ~/.bashrc
+    {
+        echo 'export LIBGHOSTTY_VT_OPTIMIZE="Debug"'
+        echo 'export LIBGHOSTTY_VT_SIMD="true"'
+        echo 'export PATH="$HOME/.cargo/bin:$HOME/.bun/bin:/usr/local/bin:$PATH"'
+    } >> ~/.bashrc
 fi
 
 echo "Building project to cache dependencies..."
