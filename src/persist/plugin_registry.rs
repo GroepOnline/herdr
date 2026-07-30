@@ -279,4 +279,105 @@ mod tests {
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].plugin_id, "example.second");
     }
+
+    fn with_temp_config_dir(name: &str, test: impl FnOnce(PathBuf)) {
+        let _guard = crate::config::test_config_env_lock().lock().unwrap();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let config_dir = std::env::temp_dir().join(format!(
+            "herdr-registry-config-{name}-{}-{nanos}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&config_dir).unwrap();
+
+        let old_xdg = std::env::var_os("XDG_CONFIG_HOME");
+        std::env::set_var("XDG_CONFIG_HOME", &config_dir);
+
+        let expected_registry_path = config_dir.join(crate::config::app_dir_name()).join("plugins.json");
+
+        // Ensure its parent exists
+        std::fs::create_dir_all(expected_registry_path.parent().unwrap()).unwrap();
+
+        struct EnvGuard {
+            old_xdg: Option<std::ffi::OsString>,
+            temp_dir: PathBuf,
+        }
+
+        impl Drop for EnvGuard {
+            fn drop(&mut self) {
+                if let Some(ref old) = self.old_xdg {
+                    std::env::set_var("XDG_CONFIG_HOME", old);
+                } else {
+                    std::env::remove_var("XDG_CONFIG_HOME");
+                }
+                let _ = std::fs::remove_dir_all(&self.temp_dir);
+            }
+        }
+
+        let _guard_env = EnvGuard {
+            old_xdg,
+            temp_dir: config_dir,
+        };
+
+        test(expected_registry_path);
+    }
+
+    #[test]
+    fn try_load_returns_ok_on_missing_file() {
+        with_temp_config_dir("try_load_missing", |_path| {
+            let loaded = try_load().unwrap();
+            assert!(loaded.is_empty());
+        });
+    }
+
+    #[test]
+    fn try_load_returns_error_on_corrupt_file() {
+        with_temp_config_dir("try_load_corrupt", |path| {
+            std::fs::write(&path, b"not valid json").unwrap();
+            assert!(try_load().is_err());
+        });
+    }
+
+    #[test]
+    fn try_load_returns_plugins_on_success() {
+        with_temp_config_dir("try_load_success", |path| {
+            let plugins = vec![sample_plugin("example.tryload")];
+            save_to_path(&path, &plugins).unwrap();
+
+            let loaded = try_load().unwrap();
+            assert_eq!(loaded.len(), 1);
+            assert_eq!(loaded[0].plugin_id, "example.tryload");
+        });
+    }
+
+    #[test]
+    fn load_returns_empty_on_missing_file() {
+        with_temp_config_dir("load_missing", |_path| {
+            let loaded = load();
+            assert!(loaded.is_empty());
+        });
+    }
+
+    #[test]
+    fn load_returns_empty_on_corrupt_file() {
+        with_temp_config_dir("load_corrupt", |path| {
+            std::fs::write(&path, b"not valid json").unwrap();
+            let loaded = load();
+            assert!(loaded.is_empty());
+        });
+    }
+
+    #[test]
+    fn load_returns_plugins_on_success() {
+        with_temp_config_dir("load_success", |path| {
+            let plugins = vec![sample_plugin("example.load")];
+            save_to_path(&path, &plugins).unwrap();
+
+            let loaded = load();
+            assert_eq!(loaded.len(), 1);
+            assert_eq!(loaded[0].plugin_id, "example.load");
+        });
+    }
 }
