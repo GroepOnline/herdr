@@ -644,7 +644,7 @@ impl App {
         for plugin in plugins {
             for handler in &plugin.link_handlers {
                 if ensure_platform_supported(
-                    &effective_platforms(&handler.platforms, &plugin.platforms).clone(),
+                    effective_platforms(&handler.platforms, &plugin.platforms),
                     &handler.id,
                 )
                 .is_err()
@@ -659,7 +659,7 @@ impl App {
                     continue;
                 };
                 if ensure_platform_supported(
-                    &effective_platforms(&action.platforms, &plugin.platforms).clone(),
+                    effective_platforms(&action.platforms, &plugin.platforms),
                     &action.id,
                 )
                 .is_err()
