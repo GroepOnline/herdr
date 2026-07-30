@@ -58,3 +58,21 @@ pub fn read_runtime_status_at(
         ))),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_read_runtime_status_at_missing_file() {
+        let socket_path = std::env::temp_dir().join("non_existent_herdr_socket_for_test.sock");
+        if socket_path.exists() {
+            let _ = std::fs::remove_file(&socket_path);
+        }
+
+        let result = read_runtime_status_at(&socket_path, Duration::from_millis(100));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), None);
+    }
+}
