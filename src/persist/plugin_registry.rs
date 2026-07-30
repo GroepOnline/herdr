@@ -295,7 +295,9 @@ mod tests {
         let old_xdg = std::env::var_os("XDG_CONFIG_HOME");
         std::env::set_var("XDG_CONFIG_HOME", &config_dir);
 
-        let expected_registry_path = config_dir.join(crate::config::app_dir_name()).join("plugins.json");
+        let expected_registry_path = config_dir
+            .join(crate::config::app_dir_name())
+            .join("plugins.json");
 
         // Ensure its parent exists
         std::fs::create_dir_all(expected_registry_path.parent().unwrap()).unwrap();
