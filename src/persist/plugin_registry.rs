@@ -281,7 +281,11 @@ mod tests {
     }
 
     fn with_temp_config_dir(name: &str, test: impl FnOnce(PathBuf)) {
-        let _guard = crate::config::test_config_env_lock().lock().unwrap();
+        // Recover from poisoning: EnvGuard restores XDG_CONFIG_HOME on unwind, so a
+        // panicking test body leaves no shared state behind for the next test.
+        let _guard = crate::config::test_config_env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
