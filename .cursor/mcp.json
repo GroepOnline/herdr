@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "stitch": {
+      "command": "/home/joep/.local/bin/chefgroep-stitch-mcp"
+    }
+  }
+}
