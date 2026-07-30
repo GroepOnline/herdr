@@ -2,18 +2,31 @@
   "schema_version": 1,
   "channel": "dev",
   "base_version": "0.7.6",
-  "build_id": "2026-07-27-7ab2f60a311c",
-  "commit": "7ab2f60a311c8aff530dfdbca8e4df00be0e1b73",
-  "built_at": "2026-07-27T17:27:24Z",
+  "build_id": "2026-07-30-7d3afd3616b0",
+  "commit": "7d3afd3616b03ee1456d32fdc289a6fc9512a907",
+  "built_at": "2026-07-30T16:38:57Z",
   "protocol": 18,
-  "notes": "Dev build 2026-07-27-7ab2f60a311c\n\nBuilt from `7ab2f60a311c` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/2903932847f86375c51589246d2eadb7dabe9f1c...7ab2f60a311c8aff530dfdbca8e4df00be0e1b73\n\n### Fixed\n- Remove invalid members permission from PR gate (#84)",
+  "notes": "Dev build 2026-07-30-7d3afd3616b0\n\nBuilt from `7d3afd3616b0` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/7ab2f60a311c8aff530dfdbca8e4df00be0e1b73...7d3afd3616b03ee1456d32fdc289a6fc9512a907\n\n### Maintenance\n- Add Stitch MCP launcher (#97)",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-27-7ab2f60a311c/herdr-linux-x86_64",
-      "sha256": "a42e537137e776f7e7a5d8266f0143deb2c4471728efab173d66b22aec069c1d"
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-30-7d3afd3616b0/herdr-linux-x86_64",
+      "sha256": "bee78b1443fc0f87e02b61269bf0e4cfb062308b22a62fc4a5e42437eb956717"
     }
   },
   "builds": {
+    "2026-07-30-7d3afd3616b0": {
+      "base_version": "0.7.6",
+      "commit": "7d3afd3616b03ee1456d32fdc289a6fc9512a907",
+      "built_at": "2026-07-30T16:38:57Z",
+      "protocol": 18,
+      "tag": "dev-2026-07-30-7d3afd3616b0",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-30-7d3afd3616b0/herdr-linux-x86_64",
+          "sha256": "bee78b1443fc0f87e02b61269bf0e4cfb062308b22a62fc4a5e42437eb956717"
+        }
+      }
+    },
     "2026-07-27-7ab2f60a311c": {
       "base_version": "0.7.6",
       "commit": "7ab2f60a311c8aff530dfdbca8e4df00be0e1b73",
