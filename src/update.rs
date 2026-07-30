@@ -3673,6 +3673,7 @@ mod tests {
         // current unreleased checkout. Its protocol is updated by the release
         // flow together with the release assets.
         assert!(manifest.protocol.is_some());
+        assert_eq!(manifest.assets.len(), 4);
         assert!(manifest.releases.contains_key(&manifest.version));
 
         // The published target set grew over time, so assert the invariant
