@@ -194,9 +194,9 @@ impl App {
             .collect::<Vec<_>>();
         plugins.sort_by(|left, right| left.plugin_id.cmp(&right.plugin_id));
         for plugin in plugins {
-            for startup in plugin.startup.clone() {
+            for startup in &plugin.startup {
                 if ensure_platform_supported(
-                    &effective_platforms(&startup.platforms, &plugin.platforms).clone(),
+                    effective_platforms(&startup.platforms, &plugin.platforms),
                     "startup",
                 )
                 .is_err()
@@ -207,7 +207,7 @@ impl App {
                     &plugin,
                     None,
                     Some("startup".to_string()),
-                    startup.command,
+                    startup.command.clone(),
                     &context,
                     None,
                 );
@@ -241,12 +241,12 @@ impl App {
         let event_json = serde_json::to_string(event).ok();
         let context = self.plugin_context_for_event(event, event_name);
         for plugin in plugins {
-            for hook in plugin.events.clone() {
+            for hook in &plugin.events {
                 if hook.on != event_name {
                     continue;
                 }
                 if ensure_platform_supported(
-                    &effective_platforms(&hook.platforms, &plugin.platforms).clone(),
+                    effective_platforms(&hook.platforms, &plugin.platforms),
                     event_name,
                 )
                 .is_err()
