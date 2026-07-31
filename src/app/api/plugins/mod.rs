@@ -83,14 +83,24 @@ impl App {
     }
 
     pub(crate) fn settings_install_catalog_plugin(&mut self, source: &str) {
+        if self
+            .state
+            .settings
+            .plugin_install_job
+            .as_ref()
+            .is_some_and(|job| job.status == crate::app::state::PluginInstallJobStatus::Pending)
+        {
+            return;
+        }
         self.state.plugin_install_messages.clear();
-        let pending = format!("installing {source}…");
-        self.state.settings.plugin_install_job = Some(crate::app::state::PluginInstallJob {
-            source: source.to_string(),
-            status: crate::app::state::PluginInstallJobStatus::Pending,
-            message: pending.clone(),
-        });
-        self.state.plugin_install_messages.push(pending);
+        if self.no_session {
+            self.finish_plugin_install_job(
+                source,
+                false,
+                "plugin registry unavailable in no-session mode",
+            );
+            return;
+        }
 
         let exe = match std::env::current_exe() {
             Ok(exe) => exe,
@@ -103,35 +113,73 @@ impl App {
                 return;
             }
         };
-        let output = match std::process::Command::new(&exe)
-            .args(["plugin", "install", source, "--yes"])
-            .stdin(std::process::Stdio::null())
-            .output()
-        {
-            Ok(output) => output,
+
+        let pending = format!("installing {source}…");
+        self.state.settings.plugin_install_job = Some(crate::app::state::PluginInstallJob {
+            source: source.to_string(),
+            status: crate::app::state::PluginInstallJobStatus::Pending,
+            message: pending.clone(),
+        });
+        self.state.plugin_install_messages.push(pending);
+
+        // The install shells out to `herdr plugin install`, which clones and builds;
+        // run it off the event loop so the pending status renders and input stays live.
+        let event_tx = self.event_tx.clone();
+        let source = source.to_string();
+        std::thread::spawn(move || {
+            let (success, summary) = match std::process::Command::new(&exe)
+                .args(["plugin", "install", &source, "--yes"])
+                .stdin(std::process::Stdio::null())
+                .output()
+            {
+                Ok(output) => {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let success = output.status.success();
+                    (
+                        success,
+                        summarize_plugin_install_output(&stdout, &stderr, success),
+                    )
+                }
+                Err(err) => (false, format!("failed to run install: {err}")),
+            };
+            let _ = event_tx.blocking_send(crate::events::AppEvent::PluginInstallFinished {
+                source,
+                success,
+                summary,
+            });
+        });
+    }
+
+    pub(crate) fn finish_catalog_plugin_install(
+        &mut self,
+        source: &str,
+        success: bool,
+        summary: &str,
+    ) {
+        if !success {
+            self.finish_plugin_install_job(source, false, &format!("install failed: {summary}"));
+            return;
+        }
+        // A successful CLI install is only visible once the registry reloads; a failed
+        // reload leaves the settings list stale, so report it instead of claiming success.
+        match reload_installed_plugins_state(&mut self.state.installed_plugins) {
+            Ok(()) => {
+                self.finish_plugin_install_job(
+                    source,
+                    true,
+                    &format!("installed {source}: {summary}"),
+                );
+                self.state.mark_session_dirty();
+            }
             Err(err) => {
+                tracing::warn!(error = %err, "failed to reload installed plugins after install");
                 self.finish_plugin_install_job(
                     source,
                     false,
-                    &format!("failed to run install: {err}"),
+                    &format!("installed {source} but reloading plugins failed: {err}"),
                 );
-                return;
             }
-        };
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let success = output.status.success();
-        let summary = summarize_plugin_install_output(&stdout, &stderr, success);
-        let message = if success {
-            format!("installed {source}: {summary}")
-        } else {
-            format!("install failed: {summary}")
-        };
-        self.finish_plugin_install_job(source, success, &message);
-        if success {
-            self.reload_plugins_for_settings();
-            self.state.mark_session_dirty();
         }
     }
 

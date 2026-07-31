@@ -2966,6 +2966,7 @@ impl AppState {
             AppEvent::WorktreeAddFinished(_) => Vec::new(),
             AppEvent::WorktreeRemoveFinished(_) => Vec::new(),
             AppEvent::PluginCommandFinished { .. } => Vec::new(),
+            AppEvent::PluginInstallFinished { .. } => Vec::new(),
             AppEvent::GithubStatusRefreshed { results } => {
                 let _ = results;
                 Vec::new()
