@@ -95,12 +95,12 @@ Download the binary and `SHA256SUMS` from [GitHub releases](https://github.com/O
 Example:
 
 ```bash
-sha256sum --check SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS
 chmod +x herdr-linux-x86_64
 mv herdr-linux-x86_64 ~/.local/bin/herdr
 ```
 
-On macOS, use `shasum -a 256` when `sha256sum` is unavailable.
+On macOS, use `shasum -a 256 --ignore-missing --check SHA256SUMS` when `sha256sum` is unavailable.
 
 ## Direct-install update channels
 
