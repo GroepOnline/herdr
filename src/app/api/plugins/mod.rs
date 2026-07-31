@@ -95,7 +95,11 @@ impl App {
         let exe = match std::env::current_exe() {
             Ok(exe) => exe,
             Err(err) => {
-                self.finish_plugin_install_job(source, false, &format!("failed to locate herdr binary: {err}"));
+                self.finish_plugin_install_job(
+                    source,
+                    false,
+                    &format!("failed to locate herdr binary: {err}"),
+                );
                 return;
             }
         };

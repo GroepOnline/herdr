@@ -32,12 +32,7 @@ pub(crate) struct SettingsRow {
     pub search_extra: Option<String>,
 }
 
-fn matches_filter(
-    filter: &str,
-    label: &str,
-    detail: Option<&str>,
-    extra: Option<&str>,
-) -> bool {
+fn matches_filter(filter: &str, label: &str, detail: Option<&str>, extra: Option<&str>) -> bool {
     if filter.is_empty() {
         return true;
     }
@@ -333,10 +328,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                         }),
                         kind: SettingsRowKind::Toggle,
                         id: SettingsItemId::InstalledPlugin { index },
-                        search_extra: Some(format!(
-                            "{} {source_label}",
-                            plugin.plugin_id
-                        )),
+                        search_extra: Some(format!("{} {source_label}", plugin.plugin_id)),
                     });
                 }
             }
