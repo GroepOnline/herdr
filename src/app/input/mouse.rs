@@ -4246,7 +4246,7 @@ mod tests {
         app.new_shell_layout = Some(new_layout);
         let result = app.handle_new_shell_click(col, row);
         assert!(result.is_none());
-        assert_eq!(app.mode, Mode::Terminal);
+        assert_eq!(app.mode, Mode::Navigate);
     }
 
     #[test]
