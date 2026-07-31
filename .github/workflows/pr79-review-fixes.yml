@@ -1,0 +1,178 @@
+name: PR 79 review remediation
+
+on:
+  push:
+    branches:
+      - freebuff/changes-fx8b6gcy
+    paths:
+      - .github/workflows/pr79-review-fixes.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: freebuff/changes-fx8b6gcy
+          fetch-depth: 0
+
+      - name: Apply independent review fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str, expected: int = 1) -> None:
+              p = Path(path)
+              text = p.read_text()
+              actual = text.count(old)
+              if actual != expected:
+                  raise SystemExit(f"{path}: expected {expected} occurrences, found {actual}: {old!r}")
+              p.write_text(text.replace(old, new))
+
+          # Explain intentional dead fields and remove stale allows.
+          replace(
+              "src/app/state.rs",
+              "    #[allow(dead_code)]\n    pub new_launcher_query: String,",
+              "    // Reserved for launcher filtering once text input is wired.\n    #[allow(dead_code)]\n    pub new_launcher_query: String,",
+          )
+          replace(
+              "src/app/state.rs",
+              "    #[allow(dead_code)]\n    pub new_fleet_ops_expanded: bool,",
+              "    // Reserved for Fleet Ops expansion once its input path is wired.\n    #[allow(dead_code)]\n    pub new_fleet_ops_expanded: bool,",
+          )
+          replace(
+              "src/app/state.rs",
+              "    #[allow(dead_code)]\n    pub new_shell_dirty: bool,",
+              "    pub new_shell_dirty: bool,",
+          )
+          replace(
+              "src/app/state.rs",
+              "    #[allow(dead_code)]\n    pub new_shell_layout_hash: u64,",
+              "    pub new_shell_layout_hash: u64,",
+          )
+
+          # Render every launcher result; only selected rows get the highlight.
+          replace(
+              "src/ui/launcher_new/render.rs",
+              "    style::{Modifier, Style},",
+              "    style::{Color, Modifier, Style},",
+          )
+          replace(
+              "src/ui/launcher_new/render.rs",
+              "        let bg = if is_selected {\n            palette.surface0\n        } else {\n            continue;\n        };",
+              "        let bg = if is_selected {\n            palette.surface0\n        } else {\n            Color::Reset\n        };",
+          )
+          replace(
+              "src/ui/launcher_new/render.rs",
+              "        // item 1 (\"beta\") should be selected/visible; item 0 (\"alpha\") unselected and skipped.\n        let buffer = terminal.backend().buffer();\n        // Unselected rows use `continue` so they don't render.\n        let line_at_6: String = (0..56)\n            .map(|x| buffer[(12 + x, 6)].symbol().to_string())\n            .collect();\n        assert!(\n            line_at_6.contains(\"beta\"),\n            \"expected selected item: {line_at_6}\"\n        );",
+              "        let buffer = terminal.backend().buffer();\n        let line_at_5: String = (0..56)\n            .map(|x| buffer[(12 + x, 5)].symbol().to_string())\n            .collect();\n        let line_at_6: String = (0..56)\n            .map(|x| buffer[(12 + x, 6)].symbol().to_string())\n            .collect();\n        assert!(line_at_5.contains(\"alpha\"), \"expected unselected item: {line_at_5}\");\n        assert!(line_at_6.contains(\"beta\"), \"expected selected item: {line_at_6}\");\n        assert_eq!(buffer[(12, 5)].bg, Color::Reset);\n        assert_eq!(buffer[(12, 6)].bg, palette.surface0);",
+          )
+
+          # Keep settings inside both the terminal and the documented 100-column cap.
+          replace(
+              "src/ui/settings_new/layout.rs",
+              "    let width = area.width.saturating_sub(4).min(100).max(area.width / 2);",
+              "    let width = area.width.saturating_sub(4).min(100);",
+          )
+          replace(
+              "src/ui/settings_new/layout.rs",
+              "        let area = Rect::new(0, 0, 200, 60);\n        let layout = layout_settings(area);\n        assert!(layout.overlay.width <= 100);",
+              "        let area = Rect::new(0, 0, 300, 60);\n        let layout = layout_settings(area);\n        assert_eq!(layout.overlay.width, 100);",
+          )
+
+          # Resolve rustfmt/clippy findings in the integration tests.
+          replace(
+              "src/ui/shell/integration_tests.rs",
+              "    use crate::ui::shell::{\n        compute_new_shell_view, render_new_shell, LayoutMode,\n    };",
+              "    use crate::ui::shell::{compute_new_shell_view, render_new_shell, LayoutMode};",
+          )
+          replace(
+              "src/ui/shell/integration_tests.rs",
+              "            app.view.tab_hit_areas.len() >= 1,",
+              "            !app.view.tab_hit_areas.is_empty(),",
+          )
+
+          # Give Medium a real breakpoint while preserving width=100 as Standard.
+          replace(
+              "src/ui/shell/mod.rs",
+              "            50..=79 => LayoutMode::Narrow,\n            80..=159 => LayoutMode::Standard,",
+              "            50..=79 => LayoutMode::Narrow,\n            80..=99 => LayoutMode::Medium,\n            100..=159 => LayoutMode::Standard,",
+          )
+          replace(
+              "src/ui/shell/mod.rs",
+              "        assert_eq!(\n            LayoutMode::from_area(Rect::new(0, 0, 100, 40)),\n            LayoutMode::Standard\n        );",
+              "        assert_eq!(\n            LayoutMode::from_area(Rect::new(0, 0, 100, 40)),\n            LayoutMode::Standard\n        );\n        assert_eq!(\n            LayoutMode::from_area(Rect::new(0, 0, 90, 30)),\n            LayoutMode::Medium\n        );",
+          )
+
+          # Clip raw sidebar buffer writes at the frame boundary.
+          replace(
+              "src/ui/sidebar_new/render.rs",
+              "        let buf = frame.buffer_mut();\n        let sep_style = Style::default().fg(p.surface_dim);\n        for y in area.y..area.y + area.height {\n            buf[(sep_x, y)].set_symbol(\"│\");\n            buf[(sep_x, y)].set_style(sep_style);\n        }",
+              "        let buf = frame.buffer_mut();\n        let buf_area = buf.area;\n        let sep_style = Style::default().fg(p.surface_dim);\n        for y in area.y..area.y.saturating_add(area.height) {\n            let position = ratatui::layout::Position { x: sep_x, y };\n            if buf_area.contains(position) {\n                buf[(sep_x, y)].set_symbol(\"│\");\n                buf[(sep_x, y)].set_style(sep_style);\n            }\n        }",
+          )
+
+          # Reset reusable tab layout state and apply the declared minimum width.
+          replace(
+              "src/ui/tabs_new/layout.rs",
+              "    let available = area.width.saturating_sub(CLOSE_WIDTH);\n    let mut widths = Vec::with_capacity(tabs.len());",
+              "    let available = area.width.saturating_sub(CLOSE_WIDTH);\n    layout.overflow = false;\n    let mut widths = Vec::with_capacity(tabs.len());",
+          )
+          replace(
+              "src/ui/tabs_new/layout.rs",
+              "        widths.push(label_w.min(available));",
+              "        widths.push(label_w.max(MIN_TAB_WIDTH).min(available));",
+          )
+
+          # Make aggregation deterministic when attention priority ties.
+          replace(
+              "src/workspace/aggregate.rs",
+              "            .max_by_key(|(state, seen)| pane_attention_priority(*state, *seen))",
+              "            .max_by_key(|(state, seen)| (pane_attention_priority(*state, *seen), !*seen))",
+              2,
+          )
+          marker = "    #[test]\n    fn pane_details_prefers_agent_name_over_detected_agent_label() {"
+          test = '''    #[test]
+    fn aggregate_state_equal_priority_prefers_unseen() {
+        let mut ws = Workspace::test_new("test");
+        let id2 = ws.test_split(Direction::Horizontal);
+        let root_id = ws.tabs[0]
+            .panes
+            .keys()
+            .find(|id| **id != id2)
+            .copied()
+            .unwrap();
+        let mut terminals = HashMap::new();
+        for pane_id in [root_id, id2] {
+            let mut terminal = terminal_for_pane(&ws, pane_id);
+            terminal.state = AgentState::Working;
+            terminals.insert(terminal.id.clone(), terminal);
+        }
+        ws.tabs[0].panes.get_mut(&root_id).unwrap().seen = true;
+        ws.tabs[0].panes.get_mut(&id2).unwrap().seen = false;
+
+        let (state, seen) = ws.aggregate_state(&terminals);
+
+        assert_eq!(state, AgentState::Working);
+        assert!(!seen);
+    }
+
+'''
+          replace("src/workspace/aggregate.rs", marker, test + marker)
+          PY
+
+          cargo fmt --all
+
+      - name: Remove temporary files and push
+        shell: bash
+        run: |
+          git config user.name OnlineChef
+          git config user.email chefadmin@chefgroep.online
+          git rm .github/workflows/pr79-review-fixes.yml
+          git rm -f src/ui/pr79_ci_trigger.rs || true
+          git add src/app/state.rs src/ui/launcher_new/render.rs src/ui/settings_new/layout.rs src/ui/shell/integration_tests.rs src/ui/shell/mod.rs src/ui/sidebar_new/render.rs src/ui/tabs_new/layout.rs src/workspace/aggregate.rs
+          git commit -m "fix(ui): address new-shell review blockers"
+          git push origin HEAD:freebuff/changes-fx8b6gcy
