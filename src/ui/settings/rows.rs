@@ -28,15 +28,23 @@ pub(crate) struct SettingsRow {
     pub detail: Option<String>,
     pub kind: SettingsRowKind,
     pub id: SettingsItemId,
+    /// Extra haystack for settings search (e.g. plugin id / source).
+    pub search_extra: Option<String>,
 }
 
-fn matches_filter(filter: &str, label: &str, detail: Option<&str>) -> bool {
+fn matches_filter(
+    filter: &str,
+    label: &str,
+    detail: Option<&str>,
+    extra: Option<&str>,
+) -> bool {
     if filter.is_empty() {
         return true;
     }
     let needle = filter.to_ascii_lowercase();
     label.to_ascii_lowercase().contains(&needle)
         || detail.is_some_and(|d| d.to_ascii_lowercase().contains(&needle))
+        || extra.is_some_and(|e| e.to_ascii_lowercase().contains(&needle))
 }
 
 pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<SettingsRow> {
@@ -50,6 +58,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 detail: Some("follow terminal light/dark appearance".to_string()),
                 kind: SettingsRowKind::Toggle,
                 id: SettingsItemId::ThemeAutoSwitch,
+                search_extra: None,
             });
             for (idx, name) in THEME_NAMES.iter().enumerate() {
                 rows.push(SettingsRow {
@@ -57,6 +66,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     detail: None,
                     kind: SettingsRowKind::Theme,
                     id: SettingsItemId::Theme { index: idx },
+                    search_extra: None,
                 });
             }
             let category = active_spinner_category(app.settings.spinner_category);
@@ -68,6 +78,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     detail: Some(trail),
                     kind: SettingsRowKind::Spinner,
                     id: SettingsItemId::Spinner { index: idx },
+                    search_extra: None,
                 });
             }
         }
@@ -99,6 +110,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     detail: Some(detail.to_string()),
                     kind: SettingsRowKind::Toggle,
                     id,
+                    search_extra: None,
                 });
             }
             rows.push(SettingsRow {
@@ -106,12 +118,14 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 detail: Some(app.sidebar_collapsed_mode_label()),
                 kind: SettingsRowKind::Choice,
                 id: SettingsItemId::SidebarCollapsedMode,
+                search_extra: None,
             });
             rows.push(SettingsRow {
                 label: "agent panel sort".to_string(),
                 detail: Some(app.agent_panel_sort_label()),
                 kind: SettingsRowKind::Choice,
                 id: SettingsItemId::AgentPanelSort,
+                search_extra: None,
             });
             for (idx, id) in PaneTemplateId::ALL.iter().enumerate() {
                 let tmpl = id.template();
@@ -120,6 +134,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     detail: Some(tmpl.description.to_string()),
                     kind: SettingsRowKind::Template,
                     id: SettingsItemId::PaneTemplate { index: idx },
+                    search_extra: None,
                 });
             }
         }
@@ -161,6 +176,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     detail: Some(detail.to_string()),
                     kind: SettingsRowKind::Toggle,
                     id,
+                    search_extra: None,
                 });
             }
             rows.push(SettingsRow {
@@ -168,6 +184,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 detail: Some(app.host_cursor_label()),
                 kind: SettingsRowKind::Choice,
                 id: SettingsItemId::HostCursor,
+                search_extra: None,
             });
             let prefix = crate::config::format_key_combo((app.prefix_code, app.prefix_mods));
             rows.push(SettingsRow {
@@ -175,6 +192,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 detail: Some(format!("press {prefix}+? or open prefix help")),
                 kind: SettingsRowKind::Note,
                 id: SettingsItemId::KeybindHelp,
+                search_extra: None,
             });
         }
         SettingsSection::Terminal => {
@@ -183,18 +201,21 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 detail: Some(app.default_shell_display()),
                 kind: SettingsRowKind::Choice,
                 id: SettingsItemId::DefaultShell,
+                search_extra: None,
             });
             rows.push(SettingsRow {
                 label: "shell mode".to_string(),
                 detail: Some(app.shell_mode_label()),
                 kind: SettingsRowKind::Choice,
                 id: SettingsItemId::ShellMode,
+                search_extra: None,
             });
             rows.push(SettingsRow {
                 label: "new pane cwd".to_string(),
                 detail: Some(app.new_terminal_cwd_label()),
                 kind: SettingsRowKind::Choice,
                 id: SettingsItemId::NewTerminalCwd,
+                search_extra: None,
             });
             for (idx, (_bytes, label)) in scrollback_presets().iter().enumerate() {
                 rows.push(SettingsRow {
@@ -202,6 +223,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     detail: None,
                     kind: SettingsRowKind::Choice,
                     id: SettingsItemId::ScrollbackPreset { index: idx },
+                    search_extra: None,
                 });
             }
         }
@@ -211,6 +233,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 detail: None,
                 kind: SettingsRowKind::Toggle,
                 id: SettingsItemId::SoundAlerts,
+                search_extra: None,
             });
             for delivery in [
                 ToastDelivery::Off,
@@ -229,6 +252,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     detail: None,
                     kind: SettingsRowKind::Choice,
                     id: SettingsItemId::ToastDelivery { delivery },
+                    search_extra: None,
                 });
             }
             rows.push(SettingsRow {
@@ -236,18 +260,21 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 detail: Some(format!("{}s", app.toast_config.delay_seconds)),
                 kind: SettingsRowKind::Choice,
                 id: SettingsItemId::ToastDelay,
+                search_extra: None,
             });
             rows.push(SettingsRow {
                 label: "herdr toast position".to_string(),
                 detail: Some(app.toast_herdr_position_label()),
                 kind: SettingsRowKind::Choice,
                 id: SettingsItemId::ToastHerdrPosition,
+                search_extra: None,
             });
             rows.push(SettingsRow {
                 label: "clipboard toast".to_string(),
                 detail: Some(app.clipboard_toast_label()),
                 kind: SettingsRowKind::Choice,
                 id: SettingsItemId::ClipboardToast,
+                search_extra: None,
             });
         }
         SettingsSection::Agents => {
@@ -256,6 +283,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 detail: Some("resume supported agent sessions when restoring".to_string()),
                 kind: SettingsRowKind::Toggle,
                 id: SettingsItemId::ResumeAgentsOnRestore,
+                search_extra: None,
             });
             for (idx, item) in app.integration_recommendations.iter().enumerate() {
                 rows.push(SettingsRow {
@@ -263,6 +291,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     detail: Some(item.status_label().to_string()),
                     kind: SettingsRowKind::Integration,
                     id: SettingsItemId::Integration { index: idx },
+                    search_extra: None,
                 });
             }
             if app.integration_recommendations.is_empty() {
@@ -271,6 +300,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     detail: None,
                     kind: SettingsRowKind::Note,
                     id: SettingsItemId::IntegrationsEmpty,
+                    search_extra: None,
                 });
             }
         }
@@ -280,6 +310,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 detail: Some("toggle to enable or disable".to_string()),
                 kind: SettingsRowKind::Note,
                 id: SettingsItemId::PluginsInstalledHeader,
+                search_extra: None,
             });
             let installed = installed_plugins_sorted(app);
             if installed.is_empty() {
@@ -288,9 +319,11 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     detail: Some("pick something below to add".to_string()),
                     kind: SettingsRowKind::Note,
                     id: SettingsItemId::PluginsEmpty,
+                    search_extra: None,
                 });
             } else {
                 for (index, plugin) in installed.iter().enumerate() {
+                    let source_label = plugin_source_search_label(plugin);
                     rows.push(SettingsRow {
                         label: plugin.name.clone(),
                         detail: Some(if plugin.enabled {
@@ -300,6 +333,10 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                         }),
                         kind: SettingsRowKind::Toggle,
                         id: SettingsItemId::InstalledPlugin { index },
+                        search_extra: Some(format!(
+                            "{} {source_label}",
+                            plugin.plugin_id
+                        )),
                     });
                 }
             }
@@ -310,6 +347,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     detail: Some("enter installs in one step".to_string()),
                     kind: SettingsRowKind::Note,
                     id: SettingsItemId::PluginsCatalogHeader,
+                    search_extra: None,
                 });
                 for entry in catalog {
                     rows.push(SettingsRow {
@@ -319,6 +357,10 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                         id: SettingsItemId::CatalogPlugin {
                             plugin_id: entry.plugin_id,
                         },
+                        search_extra: Some(format!(
+                            "{} {} {}",
+                            entry.blurb, entry.source, entry.plugin_id
+                        )),
                     });
                 }
             }
@@ -329,24 +371,28 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 detail: None,
                 kind: SettingsRowKind::Choice,
                 id: SettingsItemId::UpdateChannelStable,
+                search_extra: None,
             });
             rows.push(SettingsRow {
                 label: "preview channel".to_string(),
                 detail: None,
                 kind: SettingsRowKind::Choice,
                 id: SettingsItemId::UpdateChannelPreview,
+                search_extra: None,
             });
             rows.push(SettingsRow {
                 label: "version check".to_string(),
                 detail: Some("check for herdr updates in the background".to_string()),
                 kind: SettingsRowKind::Toggle,
                 id: SettingsItemId::VersionCheck,
+                search_extra: None,
             });
             rows.push(SettingsRow {
                 label: "manifest check".to_string(),
                 detail: Some("check for agent detection manifest updates".to_string()),
                 kind: SettingsRowKind::Toggle,
                 id: SettingsItemId::ManifestCheck,
+                search_extra: None,
             });
         }
         SettingsSection::Advanced => {
@@ -356,6 +402,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     detail: None,
                     kind: SettingsRowKind::Toggle,
                     id: SettingsItemId::Experiment(setting),
+                    search_extra: None,
                 });
             }
             rows.push(SettingsRow {
@@ -363,6 +410,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 detail: Some("show fleet operations bar above the terminal".to_string()),
                 kind: SettingsRowKind::Toggle,
                 id: SettingsItemId::FleetOpsBar,
+                search_extra: None,
             });
             for (label, detail, id) in [
                 (
@@ -381,6 +429,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     detail: Some(detail.to_string()),
                     kind: SettingsRowKind::Toggle,
                     id,
+                    search_extra: None,
                 });
             }
             rows.push(SettingsRow {
@@ -388,24 +437,49 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 detail: Some(app.worktree_directory.display().to_string()),
                 kind: SettingsRowKind::Note,
                 id: SettingsItemId::WorktreesPath,
+                search_extra: None,
             });
             rows.push(SettingsRow {
                 label: "reload config".to_string(),
                 detail: Some("prefix reload or herdr server reload-config".to_string()),
                 kind: SettingsRowKind::Note,
                 id: SettingsItemId::ReloadConfig,
+                search_extra: None,
             });
             rows.push(SettingsRow {
                 label: "config file".to_string(),
                 detail: Some(crate::config::config_path().display().to_string()),
                 kind: SettingsRowKind::Note,
                 id: SettingsItemId::ConfigFile,
+                search_extra: None,
             });
         }
     }
 
-    rows.retain(|row| matches_filter(filter, &row.label, row.detail.as_deref()));
+    rows.retain(|row| {
+        matches_filter(
+            filter,
+            &row.label,
+            row.detail.as_deref(),
+            row.search_extra.as_deref(),
+        )
+    });
     rows
+}
+
+fn plugin_source_search_label(plugin: &crate::api::schema::InstalledPluginInfo) -> String {
+    let source = &plugin.source;
+    match (&source.owner, &source.repo) {
+        (Some(owner), Some(repo)) => {
+            let mut label = format!("{owner}/{repo}");
+            if let Some(subdir) = &source.subdir {
+                label.push('/');
+                label.push_str(subdir);
+            }
+            label
+        }
+        _ => plugin.plugin_id.clone(),
+    }
 }
 
 pub(crate) fn row_toggle_checked(

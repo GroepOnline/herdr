@@ -112,6 +112,9 @@ impl App {
             SettingsAction::InstallCatalogPlugin { source } => {
                 self.settings_install_catalog_plugin(&source);
             }
+            SettingsAction::RefreshInstalledPlugins => {
+                self.settings_refresh_installed_plugins();
+            }
         }
         self.state.settings.config_snapshot = SettingsConfigSnapshot::load();
         self.state.theme_runtime.auto_switch =
@@ -189,6 +192,7 @@ fn apply_settings(state: &mut AppState) -> Option<SettingsAction> {
             Some(SettingsAction::InstallRecommendedIntegrations)
         }
         SettingsSection::Agents => None,
+        SettingsSection::Plugins => Some(SettingsAction::RefreshInstalledPlugins),
         _ => {
             super::modal::leave_modal(state);
             None
@@ -378,6 +382,7 @@ pub(crate) fn open_settings(state: &mut AppState) {
 pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
     state.integration_install_messages.clear();
     state.plugin_install_messages.clear();
+    state.settings.plugin_install_job = None;
     state.settings.original_palette = Some(state.palette.clone());
     state.settings.original_theme = Some(state.theme_name.clone());
     state.settings.config_snapshot = SettingsConfigSnapshot::load();
@@ -707,5 +712,26 @@ mod tests {
             path: std::path::PathBuf::from("/tmp/herdr-test-integration"),
             state,
         }
+    }
+
+    #[test]
+    fn plugins_apply_action_refreshes_installed_plugins() {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::Plugins);
+
+        let action = apply_settings(&mut state);
+
+        assert_eq!(action, Some(SettingsAction::RefreshInstalledPlugins));
+        assert_eq!(state.mode, Mode::Settings);
+    }
+
+    #[test]
+    fn plugins_search_matches_catalog_source_and_plugin_id() {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::Plugins);
+        state.settings.search = "chef-linear-context".to_string();
+
+        let rows = section_rows(&state, SettingsSection::Plugins);
+        assert!(rows.iter().any(|row| row.label == "Linear issues"));
     }
 }
