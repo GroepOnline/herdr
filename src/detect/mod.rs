@@ -64,6 +64,7 @@ pub enum Agent {
     Freebuff,
     Junie,
     OpenClaude,
+    Aider,
 }
 
 impl Agent {
@@ -117,6 +118,7 @@ pub fn agent_label(agent: Agent) -> &'static str {
         Agent::Freebuff => "freebuff",
         Agent::Junie => "junie",
         Agent::OpenClaude => "openclaude",
+        Agent::Aider => "aider",
     }
 }
 

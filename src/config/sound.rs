@@ -144,6 +144,7 @@ impl AgentSoundOverrides {
             Some(Agent::Freebuff) => self.freebuff,
             Some(Agent::Junie) => self.junie,
             Some(Agent::OpenClaude) => self.open_claude,
+            Some(Agent::Aider) => AgentSoundSetting::Default,
             None => AgentSoundSetting::Default,
         }
     }
