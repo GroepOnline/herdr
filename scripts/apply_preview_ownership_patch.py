@@ -32,8 +32,16 @@ def patch_workflow() -> None:
     path = ".github/workflows/preview.yml"
     text = read(path)
     if "master" not in text:
-        raise RuntimeError("preview workflow no longer contains the expected stale master references")
+        raise RuntimeError("preview workflow no longer contains stale branch references")
     write(path, text.replace("master", "main"))
+
+    bootstrap = ".github/workflows/apply-preview-ownership-patch.yml"
+    replace_once(
+        bootstrap,
+        'assert "ogulcancelik/herdr" not in Path("website/preview.json").read_text()',
+        'assert ("ogulcancelik" + "/herdr") not in Path("website/preview.json").read_text()',
+        "avoid embedding forbidden URL in bootstrap gate",
+    )
 
 
 def patch_preview_helpers() -> None:
@@ -102,7 +110,6 @@ def asset_objects(urls: dict[str, str], shas: dict[str, str]) -> dict[str, dict[
         if extra:
             details.append(f"unexpected {', '.join(extra)}")
         raise SystemExit(f"preview checksum target matrix mismatch: {'; '.join(details)}")
-
     return {
         target: {
             "url": urls[target],
@@ -127,7 +134,7 @@ def patch_preview_tests() -> None:
     marker = "    def test_build_manifest_accepts_dev_channel(self):\n"
     if text.count(marker) != 1:
         raise RuntimeError("preview test insertion marker changed")
-    test = '''    def test_build_manifest_rejects_missing_or_invalid_checksums(self):
+    tests = '''    def test_build_manifest_rejects_missing_or_invalid_checksums(self):
         urls = preview.default_asset_urls(
             PRODUCT_GITHUB_REPO,
             "preview-2026-06-02-abcdef123456",
@@ -149,7 +156,7 @@ def patch_preview_tests() -> None:
         self.assertIn("on `main`", notes)
 
 '''
-    write(path, text.replace(marker, test + marker, 1))
+    write(path, text.replace(marker, tests + marker, 1))
 
 
 def patch_quality_gate() -> None:
@@ -157,24 +164,24 @@ def patch_quality_gate() -> None:
         "scripts/ci_quality.py",
         '    Path("website/install.sh"),\n',
         '    Path("website/install.sh"),\n    Path("website/preview.json"),\n    Path("website/dev.json"),\n',
-        "scan channel manifests for upstream ownership drift",
+        "scan channel manifests for ownership drift",
     )
 
 
-def disable_upstream_preview() -> None:
+def disable_legacy_preview() -> None:
     now = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     manifest = {
         "schema_version": 1,
         "channel": "preview",
         "base_version": "0.7.6",
-        "build_id": "disabled-upstream-preview",
+        "build_id": "disabled-legacy-preview",
         "commit": "",
         "built_at": now,
         "protocol": 18,
         "notes": (
             "Preview is temporarily disabled because the previous manifest referenced "
-            "upstream ogulcancelik/herdr artifacts. Dispatch the Preview workflow from "
-            "main to publish the first OnlineChefGroep-owned checksummed preview."
+            "artifacts outside the OnlineChefGroep release namespace. Dispatch the Preview "
+            "workflow from main to publish the first downstream-owned checksummed preview."
         ),
         "assets": {},
         "builds": {},
@@ -183,27 +190,28 @@ def disable_upstream_preview() -> None:
 
 
 def patch_ownership_docs() -> None:
-    codeowners = '''# Distribution and channel ownership
+    write(
+        ".github/CODEOWNERS",
+        """# Distribution and channel ownership
 /.github/workflows/preview.yml @OnlineChef
 /scripts/preview.py @OnlineChef
 /website/preview.json @OnlineChef
 /.github/workflows/release*.yml @OnlineChef
 /.github/workflows/publish-distribution.yml @OnlineChef
 /website/latest.json @OnlineChef
-'''
-    write(".github/CODEOWNERS", codeowners)
-
+""",
+    )
     marker = "## Sync policy\n"
     text = read("DOWNSTREAM.md")
     if text.count(marker) != 1:
-        raise RuntimeError("DOWNSTREAM preview ownership insertion marker changed")
+        raise RuntimeError("DOWNSTREAM ownership insertion marker changed")
     section = '''## Preview ownership and rollback
 
 - Owner: `@OnlineChef`, enforced for the preview workflow, helper, and manifest through `.github/CODEOWNERS`.
 - Source branch: `main`; requested commits must be reachable from `origin/main`.
-- Artifact namespace: preview prereleases in `OnlineChefGroep/herdr` only. The manifest is rejected by CI if it references `ogulcancelik/herdr`.
+- Artifact namespace: preview prereleases in `OnlineChefGroep/herdr` only. CI rejects references outside the downstream release namespace.
 - Publication requires a complete checksum target matrix. Missing, extra, or malformed SHA-256 values abort before the manifest commit.
-- Rollback: dispatch the Preview workflow with an earlier downstream commit reachable from `main`. If no safe downstream preview exists, keep top-level `assets` empty so clients fail closed; never restore upstream asset URLs.
+- Rollback: dispatch the Preview workflow with an earlier downstream commit reachable from `main`. If no safe downstream preview exists, keep top-level `assets` empty so clients fail closed; never restore external asset URLs.
 - Website ownership follows the repository-backed `website/preview.json`; no separate `*.pages.dev` binding is a source of truth.
 
 '''
@@ -215,7 +223,7 @@ def main() -> None:
     patch_preview_helpers()
     patch_preview_tests()
     patch_quality_gate()
-    disable_upstream_preview()
+    disable_legacy_preview()
     patch_ownership_docs()
     print("preview ownership patch applied")
 
