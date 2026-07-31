@@ -107,6 +107,10 @@ function sha256(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
+function binaryMatches(path, expected) {
+  return existsSync(path) && sha256(path) === expected;
+}
+
 async function install() {
   const target = `${process.platform}-${process.arch}`;
   const asset = TARGETS[target];
@@ -116,18 +120,22 @@ async function install() {
     );
   }
 
-  if (existsSync(BINARY_PATH)) {
-    console.log(`herdr ${VERSION} already installed`);
-    return;
-  }
-
   mkdirSync(BIN_DIR, { recursive: true });
   const tempPath = join(BIN_DIR, `.herdr-download-${process.pid}-${Date.now()}`);
 
   try {
-    console.log(`Downloading herdr ${VERSION} (${target})...`);
     const sums = await downloadText(releaseUrl("SHA256SUMS"));
     const expected = expectedChecksum(sums, asset);
+    if (binaryMatches(BINARY_PATH, expected)) {
+      console.log(`herdr ${VERSION} already installed and verified`);
+      return;
+    }
+
+    if (existsSync(BINARY_PATH)) {
+      console.log(`Replacing unverified herdr binary for ${target}...`);
+    } else {
+      console.log(`Downloading herdr ${VERSION} (${target})...`);
+    }
     await downloadFile(releaseUrl(asset), tempPath);
 
     const actual = sha256(tempPath);
@@ -143,7 +151,16 @@ async function install() {
   }
 }
 
-install().catch((error) => {
-  console.error(`herdr install failed: ${error.message}`);
-  process.exitCode = 1;
-});
+module.exports = {
+  binaryMatches,
+  expectedChecksum,
+  repositorySlug,
+  sha256,
+};
+
+if (require.main === module) {
+  install().catch((error) => {
+    console.error(`herdr install failed: ${error.message}`);
+    process.exitCode = 1;
+  });
+}
