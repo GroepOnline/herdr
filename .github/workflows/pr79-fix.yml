@@ -1,0 +1,117 @@
+name: PR 79 compile remediation
+
+on:
+  push:
+    branches:
+      - freebuff/changes-fx8b6gcy
+    paths:
+      - .github/workflows/pr79-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: freebuff/changes-fx8b6gcy
+          fetch-depth: 0
+
+      - name: Apply exact compile fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str, expected: int = 1) -> None:
+              p = Path(path)
+              text = p.read_text()
+              actual = text.count(old)
+              if actual != expected:
+                  raise SystemExit(f"{path}: expected {expected} occurrences, found {actual}: {old!r}")
+              p.write_text(text.replace(old, new))
+
+          replace(
+              "src/ui.rs",
+              "#[allow(dead_code)]\nmod shell;",
+              "#[allow(dead_code)]\npub(crate) mod shell;",
+          )
+          replace(
+              "src/ui.rs",
+              "#[allow(dead_code)]\nmod sidebar_new;",
+              "#[allow(dead_code)]\npub(crate) mod sidebar_new;",
+          )
+
+          replace(
+              "src/app/mod.rs",
+              "            new_shell_dirty: true,\n            sidebar_section_split,",
+              "            new_shell_dirty: true,\n            new_shell_layout_hash: 0,\n            new_shell_layout: None,\n            sidebar_section_split,",
+          )
+
+          replace(
+              "src/ui/shell/mod.rs",
+              "pub fn hit_test_new_shell(\n    app: &crate::app::AppState,",
+              "pub fn hit_test_new_shell(\n    _app: &crate::app::AppState,",
+          )
+
+          replace(
+              "src/ui/shell/integration_tests.rs",
+              "        compute_new_shell_view, render_new_shell, LayoutMode, ScrollState, SidebarMode,\n",
+              "        compute_new_shell_view, render_new_shell, LayoutMode,\n",
+          )
+          replace(
+              "src/ui/shell/integration_tests.rs",
+              "        let buffer = terminal.backend().buffer();\n\n        // Collapsed sidebar should have zero width.",
+              "\n        // Collapsed sidebar should have zero width.",
+          )
+
+          replace(
+              "src/app/input/mouse.rs",
+              "    use crate::ui::sidebar_new::model::SidebarItemId;\n    use ratatui::layout::Rect;\n",
+              "    use crate::ui::sidebar_new::model::SidebarItemId;\n",
+          )
+          replace(
+              "src/app/input/mouse.rs",
+              "crate::layout::PaneId(42)",
+              "crate::layout::PaneId::from_raw(42)",
+              2,
+          )
+          replace(
+              "src/app/input/mouse.rs",
+              "app.tab_scroll_offset",
+              "app.tab_scroll",
+              4,
+          )
+          replace(
+              "src/app/input/mouse.rs",
+              "        app.new_shell_layout = Some(new_layout);\n        let col = new_layout.sidebar.content.x + 2;\n        let row = new_layout.sidebar.content.y + 5;",
+              "        let col = new_layout.sidebar.content.x + 2;\n        let row = new_layout.sidebar.content.y + 5;\n        app.new_shell_layout = Some(new_layout);",
+          )
+          replace(
+              "src/app/input/mouse.rs",
+              "        assert_eq!(result, Some(MouseAction::FocusWorkspace { ws_idx: 0 }));",
+              "        assert!(matches!(\n            result,\n            Some(MouseAction::FocusWorkspace { ws_idx: 0 })\n        ));",
+          )
+          replace(
+              "src/app/input/mouse.rs",
+              "        assert_eq!(\n            result,\n            Some(MouseAction::FocusPane {\n                ws_idx: 0,\n                pane_id: crate::layout::PaneId::from_raw(42)\n            })\n        );",
+              "        assert!(matches!(\n            result,\n            Some(MouseAction::FocusPane { ws_idx: 0, pane_id })\n                if pane_id == crate::layout::PaneId::from_raw(42)\n        ));",
+          )
+          replace(
+              "src/app/input/mouse.rs",
+              "        assert_eq!(\n            result,\n            Some(MouseAction::FocusTab {\n                tab_idx: first_tab.index\n            })\n        );",
+              "        assert!(matches!(\n            result,\n            Some(MouseAction::FocusTab { tab_idx }) if tab_idx == first_tab.index\n        ));",
+          )
+          PY
+
+      - name: Remove temporary workflow and push
+        shell: bash
+        run: |
+          git config user.name OnlineChef
+          git config user.email chefadmin@chefgroep.online
+          git rm .github/workflows/pr79-fix.yml
+          git add src/ui.rs src/app/mod.rs src/app/input/mouse.rs src/ui/shell/mod.rs src/ui/shell/integration_tests.rs
+          git commit -m "fix(ui): resolve initial new-shell compile blockers"
+          git push origin HEAD:freebuff/changes-fx8b6gcy
