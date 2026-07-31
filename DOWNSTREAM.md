@@ -69,5 +69,5 @@ After a release publishes `herdr-linux-x86_64`, regenerate the tap formula and o
 ## CI lanes
 
 - Required PR check: `CI / Quality gate` (accepts skipped heavy jobs).
-- Heavy Windows lint + musl smoke run on `main` pushes and the nightly `CI heavy` workflow (not required for PR merge).
-- Nightly/canary heavy lane: `.github/workflows/ci-heavy.yml` (informational only for PRs).
+- Heavy Windows lint + musl smoke run on `main` pushes, `platform_heavy` path changes, or PRs labeled `ci-heavy`.
+- Nightly/canary heavy lane: `.github/workflows/ci-heavy.yml` (not required for merge).
