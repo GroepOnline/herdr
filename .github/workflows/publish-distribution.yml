@@ -1,85 +1,205 @@
 name: Publish distribution
 
-# Publishes onlinechefgroep-herdr to npmjs.org after a GitHub release.
-# Required secret: NPM_TOKEN (org-level, visibility all — same as pi-agent-orchestrator).
+# Called only after Release portable assets has uploaded and verified all four
+# binaries plus SHA256SUMS. Cross-repository Homebrew writes require
+# HOMEBREW_TAP_DEPLOY_KEY; npm writes require NPM_TOKEN.
 
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      version:
-        description: Version to publish (must match an existing GitHub release tag, without v prefix)
+      tag:
+        description: Existing stable tag, for example v0.7.6
         required: true
         type: string
+      dry_run:
+        description: Validate and package without publishing npm or Homebrew
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      NPM_TOKEN:
+        required: false
+      HOMEBREW_TAP_DEPLOY_KEY:
+        required: false
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable tag, for example v0.7.6
+        required: true
+        type: string
+      dry_run:
+        description: Validate and package without publishing npm or Homebrew
+        required: true
+        default: true
+        type: boolean
 
 concurrency:
-  group: npm-publish-${{ github.event.release.tag_name || format('v{0}', github.event.inputs.version) || github.ref }}
+  group: distribution-${{ inputs.tag }}
   cancel-in-progress: false
 
 permissions:
   contents: read
+  id-token: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  npm:
-    name: npm (onlinechefgroep-herdr)
+  publish:
+    name: Verify and publish npm + Homebrew
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: npm
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Resolve version
-        id: version
+      - name: Resolve and validate release identity
+        id: release
         env:
-          INPUT_VERSION: ${{ inputs.version }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="$INPUT_VERSION"
-          else
-            VERSION="$RELEASE_TAG"
-            VERSION="${VERSION#v}"
-          fi
-          test -n "$VERSION"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Verify GitHub release assets exist
-        env:
+          TAG: ${{ inputs.tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          for asset in herdr-linux-x86_64; do
-            gh release view "v${VERSION}" -R "${{ github.repository }}" --json assets \
-              --jq '.assets[].name' | grep -Fx "$asset" >/dev/null \
-              || { echo "missing release asset: $asset"; exit 1; }
-          done
-
-      - name: Sync npm package version
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.version = process.argv[1];
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          " "$VERSION"
-          node -e "
-            const fs = require('fs');
-            let install = fs.readFileSync('install.js', 'utf8');
-            install = install.replace(/^const VERSION = \".*\";/m, 'const VERSION = \"' + process.argv[1] + '\";');
-            fs.writeFileSync('install.js', install);
-          " "$VERSION"
+          set -euo pipefail
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "error: tag must match vX.Y.Z (got ${TAG:-empty})" >&2
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          CARGO_VERSION="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')"
+          NPM_VERSION="$(node -p 'require("./npm/package.json").version')"
+          test "$VERSION" = "$CARGO_VERSION"
+          test "$VERSION" = "$NPM_VERSION"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease \
+            --jq 'select(.isDraft == false and .isPrerelease == false)' >/dev/null
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6 # v4
         with:
           node-version: "22"
           registry-url: https://registry.npmjs.org
 
-      - name: Publish to npm
+      - name: Download and verify complete release matrix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'herdr-linux-x86_64' \
+            --pattern 'herdr-linux-aarch64' \
+            --pattern 'herdr-macos-x86_64' \
+            --pattern 'herdr-macos-aarch64' \
+            --pattern 'SHA256SUMS' \
+            --dir release-assets
+
+          expected=(
+            herdr-linux-x86_64
+            herdr-linux-aarch64
+            herdr-macos-x86_64
+            herdr-macos-aarch64
+          )
+          for asset in "${expected[@]}"; do
+            test -s "release-assets/$asset"
+            grep -Eq "^[a-fA-F0-9]{64}[[:space:]]+\\*?${asset}$" release-assets/SHA256SUMS
+          done
+          test "$(grep -Ec '^[a-fA-F0-9]{64}[[:space:]]+\\*?herdr-' release-assets/SHA256SUMS)" -eq 4
+          (cd release-assets && sha256sum --check --strict SHA256SUMS)
+
+      - name: Generate and validate Homebrew formula
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 scripts/homebrew_formula.py \
+            --version "$VERSION" \
+            --checksums release-assets/SHA256SUMS \
+            --output "$RUNNER_TEMP/onlinechefgroep-herdr.rb"
+          ruby -c "$RUNNER_TEMP/onlinechefgroep-herdr.rb"
+          diff -u packaging/homebrew/onlinechefgroep-herdr.rb "$RUNNER_TEMP/onlinechefgroep-herdr.rb"
+
+      - name: Pack npm artifact
+        id: npm_pack
+        run: |
+          set -euo pipefail
+          PACK_JSON="$(npm pack ./npm --pack-destination "$RUNNER_TEMP" --json)"
+          TARBALL="$RUNNER_TEMP/$(jq -r '.[0].filename' <<<"$PACK_JSON")"
+          test -s "$TARBALL"
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          npm publish "$TARBALL" --dry-run --access public
+
+      - name: Smoke-test npm postinstall and binary
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          TARBALL: ${{ steps.npm_pack.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/npm-smoke"
+          cd "$RUNNER_TEMP/npm-smoke"
+          npm init --yes >/dev/null
+          npm install "$TARBALL"
+          ./node_modules/.bin/herdr --version | grep -F "$VERSION"
+          test -x node_modules/onlinechefgroep-herdr/bin/herdr
+
+      - name: Require publication credentials
+        if: ${{ !inputs.dry_run }}
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          HOMEBREW_TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$NPM_TOKEN" || { echo "NPM_TOKEN is required" >&2; exit 1; }
+          test -n "$HOMEBREW_TAP_DEPLOY_KEY" || { echo "HOMEBREW_TAP_DEPLOY_KEY is required" >&2; exit 1; }
+
+      - name: Publish npm package when absent
+        if: ${{ !inputs.dry_run }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
+          VERSION: ${{ steps.release.outputs.version }}
+          TARBALL: ${{ steps.npm_pack.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          if npm view "onlinechefgroep-herdr@$VERSION" version --json >/dev/null 2>&1; then
+            echo "onlinechefgroep-herdr@$VERSION already exists; publication is idempotently complete"
+          else
+            npm publish "$TARBALL" --access public --provenance
+          fi
+
+      - name: Check out Homebrew tap
+        if: ${{ !inputs.dry_run }}
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: OnlineChefGroep/homebrew-tap
+          path: homebrew-tap
+          ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+          persist-credentials: true
+
+      - name: Publish Homebrew formula
+        if: ${{ !inputs.dry_run }}
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p homebrew-tap/Formula
+          cp "$RUNNER_TEMP/onlinechefgroep-herdr.rb" \
+            homebrew-tap/Formula/onlinechefgroep-herdr.rb
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/onlinechefgroep-herdr.rb
+          git diff --cached --quiet || git commit -m "herdr: update formula to v$VERSION"
+          git push
+
+      - name: Upload dry-run evidence
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: distribution-dry-run-${{ inputs.tag }}
+          path: |
+            ${{ steps.npm_pack.outputs.tarball }}
+            ${{ runner.temp }}/onlinechefgroep-herdr.rb
+            release-assets/SHA256SUMS
+          if-no-files-found: error
