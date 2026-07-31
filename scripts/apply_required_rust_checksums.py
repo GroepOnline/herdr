@@ -7,6 +7,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# Fixture digests. Required checksums must be 64 hexadecimal characters, so the
+# short placeholders the tests used before ("deadbeef", "new", "old") are no
+# longer valid manifest values.
+FIXTURE_DIGEST = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+PREVIEW_DIGEST = "deadbeef" + "0" * 56
+REMOTE_LATEST_DIGEST = "a" * 64
+REMOTE_ARCHIVE_DIGEST = "b" * 64
+
 
 def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
@@ -17,11 +25,17 @@ def write(path: str, text: str) -> None:
 
 
 def replace_once(path: str, old: str, new: str, label: str) -> None:
+    replace_exactly(path, old, new, 1, label)
+
+
+def replace_exactly(path: str, old: str, new: str, expected: int, label: str) -> None:
     text = read(path)
     count = text.count(old)
-    if count != 1:
-        raise RuntimeError(f"{label}: expected one match in {path}, found {count}")
-    write(path, text.replace(old, new, 1))
+    if count != expected:
+        raise RuntimeError(
+            f"{label}: expected {expected} match(es) in {path}, found {count}"
+        )
+    write(path, text.replace(old, new))
 
 
 def patch_checksum() -> None:
@@ -220,6 +234,83 @@ mod asset_checksum_tests {
 ''',
         "verify self-update checksum unconditionally",
     )
+    replace_once(
+        "src/update.rs",
+        '''        if let Some(sha256) = &release.sha256 {
+            tracing::debug!(sha256 = %sha256, "selected Windows update asset has checksum");
+        }
+''',
+        '''        tracing::debug!(
+            sha256 = %release.sha256,
+            "selected Windows update asset has checksum"
+        );
+''',
+        "log the required Windows update checksum",
+    )
+
+
+def patch_update_fixtures() -> None:
+    replace_exactly(
+        "src/update.rs",
+        '''            sha256: None,
+            notes_body:''',
+        f'''            sha256: "{FIXTURE_DIGEST}".to_string(),
+            notes_body:''',
+        4,
+        "give release fixtures a required checksum",
+    )
+    replace_exactly(
+        "src/update.rs",
+        '"sha256": "deadbeef"',
+        f'"sha256": "{PREVIEW_DIGEST}"',
+        3,
+        "use a valid digest in prerelease fixtures",
+    )
+    replace_once(
+        "src/update.rs",
+        'assert_eq!(release.sha256.as_deref(), Some("deadbeef"));',
+        f'assert_eq!(release.sha256, "{PREVIEW_DIGEST}");',
+        "assert the required prerelease checksum",
+    )
+    replace_exactly(
+        "src/update.rs",
+        '"linux-x86_64": "https://example.com/herdr-linux-x86_64"',
+        '"linux-x86_64": {"url": "https://example.com/herdr-linux-x86_64", '
+        f'"sha256": "{FIXTURE_DIGEST}"}}',
+        2,
+        "checksum the stable manifest fixtures",
+    )
+    replace_once(
+        "src/update.rs",
+        '\\"linux-x86_64\\": \\"https://example.com/herdr-linux-x86_64\\",',
+        '\\"linux-x86_64\\": {\\"url\\": '
+        '\\"https://example.com/herdr-linux-x86_64\\", '
+        f'\\"sha256\\": \\"{FIXTURE_DIGEST}\\"}},',
+        "checksum the escaped manifest fixture",
+    )
+    replace_once(
+        "src/update.rs",
+        '\\"macos-aarch64\\": \\"https://example.com/herdr-macos-aarch64\\"',
+        '\\"macos-aarch64\\": {\\"url\\": '
+        '\\"https://example.com/herdr-macos-aarch64\\", '
+        f'\\"sha256\\": \\"{FIXTURE_DIGEST}\\"}}',
+        "checksum the escaped macos manifest fixture",
+    )
+    replace_exactly(
+        "src/update.rs",
+        '"linux_x86_64": "https://example.com/unused"',
+        '"linux_x86_64": {"url": "https://example.com/unused", '
+        f'"sha256": "{FIXTURE_DIGEST}"}}',
+        3,
+        "checksum the release-notes manifest fixtures",
+    )
+    replace_once(
+        "src/update.rs",
+        '"{asset_key}": "https://example.com/herdr"',
+        '"{asset_key}": {{"url": "https://example.com/herdr", '
+        f'"sha256": "{FIXTURE_DIGEST}"}}}}',
+        "checksum the announcement manifest fixture",
+    )
 
 
 def patch_remote() -> None:
@@ -389,10 +480,49 @@ mod remote_asset_checksum_tests {
     )
 
 
+def patch_remote_fixtures() -> None:
+    replace_exactly(
+        "src/remote/unix.rs",
+        '"linux-x86_64": "https://example.com/latest"',
+        '"linux-x86_64": {"url": "https://example.com/latest", '
+        f'"sha256": "{REMOTE_LATEST_DIGEST}"}}',
+        4,
+        "checksum the remote latest fixtures",
+    )
+    replace_exactly(
+        "src/remote/unix.rs",
+        '"linux-x86_64": "https://example.com/archive"',
+        '"linux-x86_64": {"url": "https://example.com/archive", '
+        f'"sha256": "{REMOTE_ARCHIVE_DIGEST}"}}',
+        4,
+        "checksum the remote archive fixtures",
+    )
+    replace_once(
+        "src/remote/unix.rs",
+        '"sha256": "new"',
+        f'"sha256": "{REMOTE_LATEST_DIGEST}"',
+        "use a valid digest for the newest remote build",
+    )
+    replace_once(
+        "src/remote/unix.rs",
+        '"sha256": "old"',
+        f'"sha256": "{REMOTE_ARCHIVE_DIGEST}"',
+        "use a valid digest for the archived remote build",
+    )
+    replace_once(
+        "src/remote/unix.rs",
+        'assert_eq!(asset.sha256(), Some("old"));',
+        f'assert_eq!(asset.sha256(), "{REMOTE_ARCHIVE_DIGEST}");',
+        "assert the required remote checksum",
+    )
+
+
 def main() -> None:
     patch_checksum()
     patch_update()
+    patch_update_fixtures()
     patch_remote()
+    patch_remote_fixtures()
     print("required Rust checksum patch applied")
 
 
