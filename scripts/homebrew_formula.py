@@ -20,6 +20,13 @@ from pathlib import Path
 from typing import Any
 
 _ALLOWED_HOSTS = frozenset({"api.github.com", "github.com"})
+# GitHub redirects asset downloads to its object storage hosts. Redirect
+# targets are re-validated against this allowlist and never carry the token.
+_ALLOWED_REDIRECT_HOSTS = _ALLOWED_HOSTS | {
+    "objects.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+}
+_API_HOST = "api.github.com"
 _SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 
 try:
@@ -28,26 +35,44 @@ except ImportError:  # pragma: no cover - direct script execution
     from product_config import PRODUCT_GITHUB_REPO, RELEASE_TARGETS
 
 
-def _validate_url(url: str) -> None:
+def _validate_url(url: str, allowed_hosts: frozenset[str] | set[str] = _ALLOWED_HOSTS) -> None:
     parts = urllib.parse.urlsplit(url)
     if parts.scheme != "https":
         raise ValueError(f"refusing non-HTTPS URL: {url}")
-    if parts.hostname not in _ALLOWED_HOSTS:
+    if parts.hostname not in allowed_hosts:
         raise ValueError(f"refusing URL outside GitHub allowlist: {url}")
 
 
-def _get(url: str) -> bytes:
+class _StrictRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Re-validate every redirect target and never forward credentials."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
+        _validate_url(newurl, _ALLOWED_REDIRECT_HOSTS)
+        redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if redirected is not None:
+            redirected.remove_header("Authorization")
+        return redirected
+
+
+def _get(url: str, *, authenticate: bool = False) -> bytes:
     _validate_url(url)
     headers = {
         "Accept": "application/vnd.github+json",
         "User-Agent": "onlinechefgroep-herdr-homebrew-generator",
     }
-    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
+    # The token is only ever sent to the API host: asset URLs redirect to
+    # storage hosts that must never receive the credential.
+    if authenticate and urllib.parse.urlsplit(url).hostname == _API_HOST:
+        token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, headers=headers)
     ctx = ssl.create_default_context()
-    with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+    opener = urllib.request.build_opener(
+        urllib.request.HTTPSHandler(context=ctx),
+        _StrictRedirectHandler(),
+    )
+    with opener.open(req, timeout=30) as resp:
         return resp.read()
 
 
@@ -223,7 +248,7 @@ def main() -> int:
     try:
         tag = f"v{args.version.removeprefix('v')}"
         api = f"https://api.github.com/repos/{args.repo}/releases/tags/{tag}"
-        release = json.loads(_get(api).decode("utf-8"))
+        release = json.loads(_get(api, authenticate=True).decode("utf-8"))
         if not isinstance(release, dict):
             raise ValueError("unexpected GitHub release response")
         release_assets = release_asset_map(release)
