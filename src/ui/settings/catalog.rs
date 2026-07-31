@@ -408,7 +408,7 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
             .filter(|entry| !state.installed_plugins.contains_key(entry.plugin_id))
             .map(|entry| SettingsAction::InstallCatalogPlugin {
                 source: entry.source.to_string(),
-            })
+            }),
         SettingsItemId::Theme { .. }
         | SettingsItemId::KeybindHelp
         | SettingsItemId::Integration { .. }
