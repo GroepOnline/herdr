@@ -1,0 +1,66 @@
+name: Apply distribution hardening checkout patch
+
+on:
+  push:
+    branches:
+      - dist/harden-release-chain
+    paths:
+      - scripts/apply_dist_hardening_checkout_patch.py
+      - .github/workflows/apply-dist-hardening-checkout-patch.yml
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: dist/harden-release-chain
+          fetch-depth: 0
+          persist-credentials: true
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          components: rustfmt
+
+      - name: Apply checkout-level changes
+        run: python3 scripts/apply_dist_hardening_checkout_patch.py
+
+      - name: Format Rust
+        run: cargo fmt --all
+
+      - name: Run release tooling tests
+        run: |
+          python3 -m unittest \
+            scripts.test_changelog \
+            scripts.test_release_manifest_hardening \
+            scripts.test_homebrew_formula \
+            scripts.test_ci_quality
+          python3 scripts/ci_quality.py check-latest-json-manifest
+
+      - name: Run npm install-method regression tests
+        run: cargo test --locked --lib npm_
+
+      - name: Commit checkout patch and remove bootstrap files
+        run: |
+          set -euo pipefail
+          git rm \
+            scripts/apply_dist_hardening_checkout_patch.py \
+            .github/workflows/apply-dist-hardening-checkout-patch.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            .github/workflows/release.yml \
+            .github/workflows/release-portable-assets.yml \
+            website/latest.json \
+            src/update.rs \
+            src/remote/unix.rs
+          git diff --cached --check
+          git commit -m "dist: atomically harden release promotion and managed updates"
+          git push origin HEAD:dist/harden-release-chain
