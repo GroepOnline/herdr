@@ -176,6 +176,12 @@ pub enum AppEvent {
         stderr: String,
         error: Option<String>,
     },
+    /// A settings-initiated catalog plugin install finished.
+    PluginInstallFinished {
+        source: String,
+        success: bool,
+        summary: String,
+    },
     /// Background `git worktree add` completed.
     WorktreeAddFinished(Box<WorktreeAddResult>),
     /// Background `git worktree remove` completed.
