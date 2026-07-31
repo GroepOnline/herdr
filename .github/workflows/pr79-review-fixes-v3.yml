@@ -1,0 +1,36 @@
+name: PR 79 review remediation v3
+
+on:
+  push:
+    branches:
+      - freebuff/changes-fx8b6gcy
+    paths:
+      - .github/workflows/pr79-review-fixes-v3.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: freebuff/changes-fx8b6gcy
+          fetch-depth: 0
+
+      - name: Apply review fixes
+        run: |
+          python3 .github/pr79_review_fixes.py
+          cargo fmt --all
+
+      - name: Remove temporary files and push
+        run: |
+          git config user.name OnlineChef
+          git config user.email chefadmin@chefgroep.online
+          git rm .github/workflows/pr79-review-fixes-v3.yml
+          git rm .github/pr79_review_fixes.py
+          git rm -f src/ui/pr79_ci_trigger.rs || true
+          git add src/app/state.rs src/ui/launcher_new/render.rs src/ui/settings_new/layout.rs src/ui/shell/integration_tests.rs src/ui/shell/mod.rs src/ui/sidebar_new/render.rs src/ui/tabs_new/layout.rs src/workspace/aggregate.rs
+          git commit -m "fix(ui): address new-shell review blockers"
+          git push origin HEAD:freebuff/changes-fx8b6gcy
