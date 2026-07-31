@@ -1,9 +1,11 @@
-use std::{
-    fs::File,
-    io::{self, Read},
-    path::Path,
-};
+use std::io;
 
+// Only the manifest-side grammar check is cross-platform. Windows updates run
+// through install.ps1, so nothing on that target hashes a downloaded file.
+#[cfg(not(windows))]
+use std::{fs::File, io::Read, path::Path};
+
+#[cfg(not(windows))]
 use sha2::{Digest, Sha256};
 
 pub(crate) fn normalize_sha256(expected: &str) -> io::Result<String> {
@@ -17,6 +19,7 @@ pub(crate) fn normalize_sha256(expected: &str) -> io::Result<String> {
     Ok(expected)
 }
 
+#[cfg(not(windows))]
 pub(crate) fn verify_sha256(path: &Path, expected: &str) -> io::Result<()> {
     let expected = normalize_sha256(expected)?;
     let actual = file_sha256(path)?;
@@ -29,6 +32,7 @@ pub(crate) fn verify_sha256(path: &Path, expected: &str) -> io::Result<()> {
     Ok(())
 }
 
+#[cfg(not(windows))]
 fn file_sha256(path: &Path) -> io::Result<String> {
     let mut file = File::open(path)?;
     let mut hasher = Sha256::new();
@@ -43,6 +47,7 @@ fn file_sha256(path: &Path) -> io::Result<String> {
     Ok(to_lower_hex(&hasher.finalize()))
 }
 
+#[cfg(not(windows))]
 fn to_lower_hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut output = String::with_capacity(bytes.len() * 2);
@@ -55,8 +60,6 @@ fn to_lower_hex(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-
     #[test]
     fn normalizes_valid_sha256_and_rejects_invalid_values() {
         assert_eq!(
@@ -71,8 +74,11 @@ mod tests {
         assert!(super::normalize_sha256(&"g".repeat(64)).is_err());
     }
 
+    #[cfg(not(windows))]
     #[test]
     fn verifies_matching_sha256() {
+        use std::fs;
+
         let path = std::env::temp_dir().join(format!("herdr-checksum-test-{}", std::process::id()));
         fs::write(&path, b"herdr").unwrap();
         let result = super::verify_sha256(
