@@ -6,21 +6,52 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any
 
-DEFAULT_LIVE_MANIFEST_URL = "https://herdr.dev/latest.json"
+try:
+    from scripts.product_config import (
+        DEFAULT_LIVE_MANIFEST_URL as PRODUCT_LIVE_MANIFEST_URL,
+        PRODUCT_GITHUB_REPO,
+        RELEASE_TARGETS,
+    )
+except ModuleNotFoundError:  # Direct execution: python scripts/changelog.py
+    from product_config import (
+        DEFAULT_LIVE_MANIFEST_URL as PRODUCT_LIVE_MANIFEST_URL,
+        PRODUCT_GITHUB_REPO,
+        RELEASE_TARGETS,
+    )
+
+DEFAULT_LIVE_MANIFEST_URL = PRODUCT_LIVE_MANIFEST_URL
 
 SECTION_RE = re.compile(r"^##\s+(?:\[(?P<bracketed>[^\]]+)\]|(?P<plain>.+?))\s*$", re.MULTILINE)
 VERSION_WITH_DATE_RE = re.compile(r"^(?P<version>.+?)\s+-\s+\d{4}-\d{2}-\d{2}$")
+# Kept as a literal because CI also guards this downstream ownership boundary.
 DEFAULT_RELEASE_REPO = "OnlineChefGroep/herdr"
+if DEFAULT_RELEASE_REPO != PRODUCT_GITHUB_REPO:
+    raise RuntimeError("product_config.py and changelog.py disagree on the release repository")
+
 DEFAULT_LATEST_JSON_PATH = Path("website/latest.json")
 DEFAULT_PRODUCT_ANNOUNCEMENT_PATH = Path("docs/next/product-announcement.json")
 PROTOCOL_SOURCE_PATH = Path("src/protocol/wire.rs")
+
+# Legacy manifest helpers intentionally retain the historical single-target
+# behavior so archived release records and external callers remain readable.
 ASSET_TARGETS = ("linux-x86_64",)
 EXPECTED_ASSET_NAMES = {target: f"herdr-{target}" for target in ASSET_TARGETS}
+
+# Only a promoted stable release must satisfy the complete, checksummed matrix.
+PROMOTED_ASSET_TARGETS = tuple(
+    f"{target['platform']}-{target['arch']}" for target in RELEASE_TARGETS
+)
+PROMOTED_EXPECTED_ASSET_NAMES = {
+    f"{target['platform']}-{target['arch']}": target["asset"]
+    for target in RELEASE_TARGETS
+}
+SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 
 
 @dataclass(frozen=True)
@@ -164,7 +195,63 @@ def infer_protocol_from_notes(notes: str) -> int | None:
     return int(match.group(1))
 
 
-def normalize_assets(value: Any, label: str) -> dict[str, str]:
+def normalize_checksum(value: Any, label: str) -> str:
+    if not isinstance(value, str):
+        raise ChangelogError(f"{label} must be a SHA-256 string")
+    checksum = value.strip().lower()
+    if SHA256_RE.fullmatch(checksum) is None:
+        raise ChangelogError(f"{label} must be 64 hexadecimal characters")
+    return checksum
+
+
+def normalize_promoted_assets(value: Any, label: str) -> dict[str, dict[str, str]]:
+    if not isinstance(value, dict):
+        raise ChangelogError(f"{label} must be an object")
+
+    expected = set(PROMOTED_ASSET_TARGETS)
+    actual = set(value)
+    if actual != expected:
+        missing = sorted(expected - actual)
+        extra = sorted(actual - expected)
+        details: list[str] = []
+        if missing:
+            details.append(f"missing {', '.join(missing)}")
+        if extra:
+            details.append(f"unexpected {', '.join(extra)}")
+        raise ChangelogError(f"{label} target matrix mismatch: {'; '.join(details)}")
+
+    normalized: dict[str, dict[str, str]] = {}
+    for target in PROMOTED_ASSET_TARGETS:
+        entry = value.get(target)
+        if not isinstance(entry, dict):
+            raise ChangelogError(f"{label}.{target} must be an object with url and sha256")
+        if set(entry) != {"url", "sha256"}:
+            raise ChangelogError(f"{label}.{target} must contain only url and sha256")
+        url = entry.get("url")
+        if not isinstance(url, str) or not url.strip():
+            raise ChangelogError(f"{label}.{target}.url must be a non-empty string")
+        normalized[target] = {
+            "url": url.strip(),
+            "sha256": normalize_checksum(entry.get("sha256"), f"{label}.{target}.sha256"),
+        }
+    return normalized
+
+
+def assets_are_checksummed(value: Any) -> bool:
+    return isinstance(value, dict) and any(isinstance(entry, dict) for entry in value.values())
+
+
+def normalize_assets(value: Any, label: str) -> dict[str, Any]:
+    """Normalize legacy archives or a strict promoted asset matrix.
+
+    Historical manifests used one or more plain URL strings. Current promoted
+    releases use four ``{"url", "sha256"}`` objects. This dual reader prevents
+    hardening the current contract from corrupting old release history.
+    """
+
+    if assets_are_checksummed(value):
+        return normalize_promoted_assets(value, label)
+
     if not isinstance(value, dict):
         raise ChangelogError(f"{label} must be an object")
 
@@ -237,7 +324,7 @@ def normalize_releases(value: Any) -> dict[str, dict[str, Any]]:
 def build_latest_json(
     version: str,
     notes: str,
-    assets: dict[str, str],
+    assets: dict[str, Any],
     protocol: int | None = None,
     announcement: dict[str, str] | None = None,
     releases: dict[str, Any] | None = None,
@@ -276,10 +363,12 @@ def build_latest_json(
         manifest["announcement"] = normalized_announcement
     manifest["releases"] = archived_releases
 
-    return json.dumps(manifest, indent=2) + "\n"
+    return json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
 
 
 def default_release_assets(version: str, repo: str = DEFAULT_RELEASE_REPO) -> dict[str, str]:
+    """Return the historical default used when an archived record has no assets."""
+
     normalized_version = normalize_version(version)
     tag = f"v{normalized_version}"
     return {
@@ -288,8 +377,78 @@ def default_release_assets(version: str, repo: str = DEFAULT_RELEASE_REPO) -> di
     }
 
 
+def promoted_release_asset_urls(
+    version: str, repo: str = DEFAULT_RELEASE_REPO
+) -> dict[str, str]:
+    normalized_version = normalize_version(version)
+    tag = f"v{normalized_version}"
+    return {
+        target: f"https://github.com/{repo}/releases/download/{tag}/{asset_name}"
+        for target, asset_name in PROMOTED_EXPECTED_ASSET_NAMES.items()
+    }
+
+
+def promoted_release_assets(
+    version: str,
+    checksums: dict[str, str],
+    repo: str = DEFAULT_RELEASE_REPO,
+) -> dict[str, dict[str, str]]:
+    urls = promoted_release_asset_urls(version, repo)
+    assets: dict[str, dict[str, str]] = {}
+    for target, asset_name in PROMOTED_EXPECTED_ASSET_NAMES.items():
+        if asset_name not in checksums:
+            raise ChangelogError(f"checksums are missing {asset_name}")
+        assets[target] = {
+            "url": urls[target],
+            "sha256": normalize_checksum(checksums[asset_name], f"checksum for {asset_name}"),
+        }
+    return assets
+
+
+def parse_sha256sums(text: str, label: str = "SHA256SUMS") -> dict[str, str]:
+    checksums: dict[str, str] = {}
+    for line_number, raw_line in enumerate(text.splitlines(), start=1):
+        line = raw_line.strip()
+        if not line:
+            continue
+        match = re.fullmatch(r"([a-fA-F0-9]{64})\s+\*?(.+)", line)
+        if match is None:
+            raise ChangelogError(f"{label}:{line_number} is not a valid SHA256SUMS line")
+        checksum = match.group(1).lower()
+        asset_name = match.group(2).strip()
+        if not asset_name or "/" in asset_name or "\\" in asset_name:
+            raise ChangelogError(f"{label}:{line_number} contains an invalid asset name")
+        if asset_name in checksums:
+            raise ChangelogError(f"{label} contains duplicate checksum for {asset_name}")
+        checksums[asset_name] = checksum
+
+    if not checksums:
+        raise ChangelogError(f"{label} is empty")
+    return checksums
+
+
+def load_sha256sums(path: Path) -> dict[str, str]:
+    try:
+        return parse_sha256sums(path.read_text(encoding="utf-8"), str(path))
+    except FileNotFoundError as exc:
+        raise ChangelogError(f"file not found: {path}") from exc
+
+
+def asset_digest(asset: dict[str, Any], asset_name: str) -> str | None:
+    raw = asset.get("digest")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    algorithm, separator, checksum = raw.strip().partition(":")
+    if separator != ":" or algorithm.lower() != "sha256":
+        raise ChangelogError(f"GitHub release asset {asset_name} has unsupported digest {raw!r}")
+    return normalize_checksum(checksum, f"GitHub release asset {asset_name} digest")
+
+
 def manifest_from_release_payload(
-    payload: dict[str, Any], version: str, protocol: int | None = None
+    payload: dict[str, Any],
+    version: str,
+    protocol: int | None = None,
+    checksums: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     normalized_version = normalize_version(version)
     tag_name = str(payload.get("tagName") or "")
@@ -317,15 +476,45 @@ def manifest_from_release_payload(
             if isinstance(name, str) and name not in release_assets:
                 release_assets[name] = asset
 
-    manifest_assets: dict[str, str] = {}
-    for target, asset_name in EXPECTED_ASSET_NAMES.items():
-        asset = release_assets.get(asset_name)
-        if not isinstance(asset, dict):
-            raise ChangelogError(f"GitHub release v{normalized_version} is missing asset {asset_name}")
-        url = str(asset.get("url") or "").strip()
-        if not url:
-            raise ChangelogError(f"GitHub release asset {asset_name} is missing a download URL")
-        manifest_assets[target] = url
+    # Backwards-compatible mode for tests and callers that only need the old
+    # release metadata shape. Stable promotion always supplies SHA256SUMS.
+    if checksums is None:
+        manifest_assets: dict[str, str] = {}
+        for target, asset_name in EXPECTED_ASSET_NAMES.items():
+            asset = release_assets.get(asset_name)
+            if not isinstance(asset, dict):
+                raise ChangelogError(
+                    f"GitHub release v{normalized_version} is missing asset {asset_name}"
+                )
+            url = str(asset.get("url") or "").strip()
+            if not url:
+                raise ChangelogError(f"GitHub release asset {asset_name} is missing a download URL")
+            manifest_assets[target] = url
+    else:
+        manifest_assets = {}
+        for target, asset_name in PROMOTED_EXPECTED_ASSET_NAMES.items():
+            asset = release_assets.get(asset_name)
+            if not isinstance(asset, dict):
+                raise ChangelogError(
+                    f"GitHub release v{normalized_version} is missing asset {asset_name}"
+                )
+            url = str(asset.get("url") or "").strip()
+            if not url:
+                raise ChangelogError(f"GitHub release asset {asset_name} is missing a download URL")
+            checksum = checksums.get(asset_name)
+            if checksum is None:
+                raise ChangelogError(f"SHA256SUMS is missing {asset_name}")
+            normalized_checksum = normalize_checksum(checksum, f"checksum for {asset_name}")
+            published_digest = asset_digest(asset, asset_name)
+            if published_digest is not None and published_digest != normalized_checksum:
+                raise ChangelogError(
+                    f"GitHub digest for {asset_name} does not match SHA256SUMS"
+                )
+            manifest_assets[target] = {
+                "url": url,
+                "sha256": normalized_checksum,
+            }
+        manifest_assets = normalize_promoted_assets(manifest_assets, "release assets")
 
     return {
         "version": normalized_version,
@@ -378,11 +567,17 @@ def ensure_manifest_matches_expected(
 
 def ensure_current_release_assets_are_mirrored(manifest: dict[str, Any], label: str) -> None:
     canonical = canonicalize_manifest(manifest, label)
-    releases = normalize_releases(manifest.get("releases"))
+    releases = manifest.get("releases")
+    if not isinstance(releases, dict):
+        raise ChangelogError(f"{label} is missing releases")
     metadata = releases.get(canonical["version"])
-    if metadata is None:
+    if not isinstance(metadata, dict):
         raise ChangelogError(f"{label} is missing releases.{canonical['version']}")
-    if metadata.get("assets") != canonical["assets"]:
+    mirrored_assets = normalize_assets(
+        metadata.get("assets"),
+        f"{label} releases.{canonical['version']}.assets",
+    )
+    if mirrored_assets != canonical["assets"]:
         raise ChangelogError(
             f"{label} releases.{canonical['version']}.assets must match top-level assets"
         )
@@ -484,6 +679,31 @@ def fetch_release_payload(version: str, repo: str) -> dict[str, Any]:
     return payload
 
 
+def fetch_release_checksums(version: str, repo: str) -> dict[str, str]:
+    normalized_version = normalize_version(version)
+    with tempfile.TemporaryDirectory(prefix="herdr-release-checksums-") as tmp:
+        command = [
+            "gh",
+            "release",
+            "download",
+            f"v{normalized_version}",
+            "--repo",
+            repo,
+            "--pattern",
+            "SHA256SUMS",
+            "--dir",
+            tmp,
+            "--clobber",
+        ]
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            stderr = result.stderr.strip() or result.stdout.strip() or "unknown gh error"
+            raise ChangelogError(
+                f"failed to download SHA256SUMS for v{normalized_version}: {stderr}"
+            )
+        return load_sha256sums(Path(tmp) / "SHA256SUMS")
+
+
 def fetch_remote_json(url: str, label: str) -> dict[str, Any]:
     command = [
         "curl",
@@ -511,9 +731,11 @@ def fetch_remote_json(url: str, label: str) -> dict[str, Any]:
     return payload
 
 
-def verify_asset_urls_resolve(assets: dict[str, str], label: str) -> None:
-    for target in ASSET_TARGETS:
-        url = assets[target]
+def verify_asset_urls_resolve(assets: dict[str, Any], label: str) -> None:
+    targets = PROMOTED_ASSET_TARGETS if assets_are_checksummed(assets) else ASSET_TARGETS
+    for target in targets:
+        entry = assets[target]
+        url = entry["url"] if isinstance(entry, dict) else entry
         command = [
             "curl",
             "-fsSIL",
@@ -539,6 +761,16 @@ def ensure_manifest_is_outdated(current_manifest: dict[str, Any], version: str) 
     if parse_version(current_version) >= parse_version(version):
         raise ChangelogError(
             f"website/latest.json is already at v{normalize_version(current_version)}; expected something older than v{normalize_version(version)}"
+        )
+
+
+def ensure_manifest_is_not_newer(current_manifest: dict[str, Any], version: str) -> None:
+    current_version = current_manifest.get("version")
+    if not isinstance(current_version, str):
+        raise ChangelogError("website/latest.json is missing a string version")
+    if parse_version(current_version) > parse_version(version):
+        raise ChangelogError(
+            f"website/latest.json is at newer v{normalize_version(current_version)}; refusing to promote v{normalize_version(version)}"
         )
 
 
@@ -572,15 +804,30 @@ def cmd_extract(args: argparse.Namespace) -> int:
     return 0
 
 
+def resolve_release_checksums(args: argparse.Namespace, version: str) -> dict[str, str]:
+    if args.checksums:
+        return load_sha256sums(Path(args.checksums))
+    return fetch_release_checksums(version, args.repo)
+
+
 def cmd_sync_latest_json(args: argparse.Namespace) -> int:
     manifest_path = Path(args.output)
     version = normalize_version(args.version)
 
     current_manifest = load_json(manifest_path)
-    ensure_manifest_is_outdated(current_manifest, version)
+    if args.allow_current_version:
+        ensure_manifest_is_not_newer(current_manifest, version)
+    else:
+        ensure_manifest_is_outdated(current_manifest, version)
 
+    checksums = resolve_release_checksums(args, version)
     release_payload = fetch_release_payload(version, args.repo)
-    new_manifest = manifest_from_release_payload(release_payload, version, args.protocol)
+    new_manifest = manifest_from_release_payload(
+        release_payload,
+        version,
+        args.protocol,
+        checksums=checksums,
+    )
     announcement_path = Path(args.announcement)
     announcement = load_product_announcement(announcement_path)
     output = build_latest_json(
@@ -595,7 +842,7 @@ def cmd_sync_latest_json(args: argparse.Namespace) -> int:
     if announcement is not None:
         write_text(announcement_path, "null\n")
 
-    print(f"updated {manifest_path} from GitHub release v{version}")
+    print(f"updated {manifest_path} from complete GitHub release v{version}")
     if announcement is not None:
         print(f"included product announcement from {announcement_path}")
         print(f"cleared {announcement_path}")
@@ -610,7 +857,7 @@ def cmd_sync_latest_json(args: argparse.Namespace) -> int:
     print("next:")
     print(f"  git diff -- {manifest_path}")
     print(f"  git add {manifest_path}")
-    print(f"  git commit -m \"docs: update website manifest for v{version}\"")
+    print(f'  git commit -m "docs: update website manifest for v{version}"')
     print("  git push")
     return 0
 
@@ -628,8 +875,14 @@ def cmd_validate_product_announcement(args: argparse.Namespace) -> int:
 
 def cmd_verify_release_state(args: argparse.Namespace) -> int:
     version = normalize_version(args.version)
+    checksums = resolve_release_checksums(args, version)
     release_payload = fetch_release_payload(version, args.repo)
-    expected_manifest = manifest_from_release_payload(release_payload, version, args.protocol)
+    expected_manifest = manifest_from_release_payload(
+        release_payload,
+        version,
+        args.protocol,
+        checksums=checksums,
+    )
 
     local_raw_manifest = load_json(Path(args.output))
     local_manifest = ensure_manifest_matches_expected(
@@ -677,13 +930,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     sync_latest_json = subparsers.add_parser(
         "sync-latest-json",
-        help="Update website/latest.json from a published GitHub release",
+        help="Atomically promote website/latest.json from a complete checksummed release",
     )
     sync_latest_json.add_argument("--version", required=True)
     sync_latest_json.add_argument("--repo", default=DEFAULT_RELEASE_REPO)
     sync_latest_json.add_argument("--output", default=str(DEFAULT_LATEST_JSON_PATH))
     sync_latest_json.add_argument("--announcement", default=str(DEFAULT_PRODUCT_ANNOUNCEMENT_PATH))
     sync_latest_json.add_argument("--protocol", type=int)
+    sync_latest_json.add_argument(
+        "--checksums",
+        help="Verified SHA256SUMS path; downloaded from the release when omitted",
+    )
+    sync_latest_json.add_argument(
+        "--allow-current-version",
+        action="store_true",
+        help="Allow checksum backfill for the currently promoted version",
+    )
     sync_latest_json.set_defaults(func=cmd_sync_latest_json)
 
     validate_product_announcement = subparsers.add_parser(
@@ -697,13 +959,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     verify_release_state = subparsers.add_parser(
         "verify-release-state",
-        help="Verify GitHub release, local manifest, live manifest, and asset URLs all match",
+        help="Verify GitHub release, checksums, local manifest, live manifest, and asset URLs",
     )
     verify_release_state.add_argument("--version", required=True)
     verify_release_state.add_argument("--repo", default=DEFAULT_RELEASE_REPO)
     verify_release_state.add_argument("--output", default=str(DEFAULT_LATEST_JSON_PATH))
     verify_release_state.add_argument("--live-url", default=DEFAULT_LIVE_MANIFEST_URL)
     verify_release_state.add_argument("--protocol", type=int)
+    verify_release_state.add_argument(
+        "--checksums",
+        help="Verified SHA256SUMS path; downloaded from the release when omitted",
+    )
     verify_release_state.set_defaults(func=cmd_verify_release_state)
 
     return parser
