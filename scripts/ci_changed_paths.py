@@ -78,7 +78,7 @@ def main() -> int:
                     "plugins/",
                     ".pi/",
                 ),
-                exact=("justfile", "AGENTS.md", "DOWNSTREAM.md"),
+                exact=("justfile", "AGENTS.md", "DOWNSTREAM.md", "website/install.sh"),
             )
             for f in files
         )
@@ -93,6 +93,7 @@ def main() -> int:
                     "docs/next/CHANGELOG.md",
                     "docs/next/product-announcement.json",
                     "website/latest.json",
+                    "website/install.sh",
                     "justfile",
                 ),
             )

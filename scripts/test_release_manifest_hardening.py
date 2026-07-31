@@ -106,6 +106,30 @@ class ReleaseManifestHardeningTests(unittest.TestCase):
                 checksums=checksums,
             )
 
+    def test_legacy_archive_preserves_all_plain_string_targets(self) -> None:
+        checksums = self.checksums()
+        promoted = promoted_release_assets("1.2.3", checksums)
+        legacy_assets = {
+            "linux-x86_64": "https://example.invalid/legacy-linux-x86_64",
+            "linux-aarch64": "https://example.invalid/legacy-linux-aarch64",
+            "macos-aarch64": "https://example.invalid/legacy-macos-aarch64",
+        }
+        manifest = json.loads(
+            build_latest_json(
+                "1.2.3",
+                "### Fixed\n- Hardened release promotion.",
+                promoted,
+                protocol=42,
+                releases={
+                    "1.2.2": {
+                        "notes": "### Fixed\n- Legacy release.",
+                        "assets": legacy_assets,
+                    }
+                },
+            )
+        )
+        self.assertEqual(manifest["releases"]["1.2.2"]["assets"], legacy_assets)
+
     def test_latest_manifest_mirrors_promoted_assets_and_preserves_legacy(self) -> None:
         checksums = self.checksums()
         promoted = promoted_release_assets("1.2.3", checksums)
