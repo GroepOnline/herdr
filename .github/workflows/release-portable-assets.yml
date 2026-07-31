@@ -313,6 +313,7 @@ jobs:
         env:
           TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           ANNOUNCEMENT_PATH="$RUNNER_TEMP/product-announcement.json"
@@ -339,15 +340,20 @@ jobs:
           fi
 
           python3 scripts/ci_quality.py check-latest-json-manifest
+          python3 scripts/homebrew_formula.py \
+            --version "$VERSION" \
+            --checksums release-assets/SHA256SUMS \
+            --output packaging/homebrew/onlinechefgroep-herdr.rb
+          ruby -c packaging/homebrew/onlinechefgroep-herdr.rb
 
-      - name: Commit stable manifest
+      - name: Commit stable manifest and formula
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add website/latest.json docs/next/product-announcement.json
+          git add website/latest.json docs/next/product-announcement.json packaging/homebrew/onlinechefgroep-herdr.rb
           git diff --cached --quiet || git commit -m "docs: atomically promote v$VERSION"
           git push origin main
 

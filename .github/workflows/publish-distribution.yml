@@ -119,7 +119,6 @@ jobs:
             --checksums release-assets/SHA256SUMS \
             --output "$RUNNER_TEMP/onlinechefgroep-herdr.rb"
           ruby -c "$RUNNER_TEMP/onlinechefgroep-herdr.rb"
-          diff -u packaging/homebrew/onlinechefgroep-herdr.rb "$RUNNER_TEMP/onlinechefgroep-herdr.rb"
 
       - name: Pack npm artifact
         id: npm_pack

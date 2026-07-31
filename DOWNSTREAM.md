@@ -1,73 +1,51 @@
 # OnlineChefGroep/herdr — downstream distribution
 
-Maintained public distribution of Herdr for OnlineChefGroep agent operations. This repository carries downstream product, agent-detection, gateway, fleet-control, packaging, and release changes that are validated independently before publication.
+Maintained public Herdr distribution for OnlineChefGroep agent operations. Downstream product, agent-detection, gateway, fleet-control, packaging, and release changes remain explicit and independently validated.
 
-## v0.7.4 release baseline
+## Distribution contract
 
-- Release branch: `release/v0.7.4`
-- Target branch: `main`
-- Package version: `0.7.4`
-- Toolchain: stable Rust, Zig `0.15.2`, Node.js `>=18`
+- Canonical repository: `OnlineChefGroep/herdr`
+- Package version source: `Cargo.toml`; `npm/package.json` is mechanically synchronized
+- Toolchain: pinned Rust in CI, Zig `0.15.2`, Node.js `>=18`
+- Stable native assets: Linux and macOS, x86_64 and ARM64
 - npm package: `onlinechefgroep-herdr`
-- Release assets: Linux x86_64 only (Debian/amd64 fleet)
-- Windows prebuilt: not published
-- macOS / ARM64: not published by this fork
+- Homebrew tap/formula: `OnlineChefGroep/homebrew-tap` / `onlinechefgroep-herdr`
+- Stable install manifest: `website/latest.json` → `https://herdr.chefgroep.nl/latest.json`
+- Native Windows: preview-only until a stable Windows release contract is declared
 
-## Downstream patches
+## Release trust chain
 
-### Agent and operator support
+1. `just release-prepare X.Y.Z` finalizes changelog/docs, updates Cargo, synchronizes npm metadata, and runs the full validation set.
+2. `just release-publish X.Y.Z` tags the validated `main` commit.
+3. `release.yml` builds Linux x86_64 and creates the GitHub release. It does not promote `latest.json`.
+4. `release-portable-assets.yml` builds the other three stable targets, uploads all four binaries plus `SHA256SUMS`, downloads them again, and verifies every checksum.
+5. Only after that complete verification does the workflow atomically promote `website/latest.json`, mirror the current asset metadata under `releases`, and generate the four-target Homebrew formula.
+6. `publish-distribution.yml` smoke-tests the npm tarball/postinstall, publishes npm idempotently, and pushes the generated formula to the Homebrew tap. Manual runs default to `dry_run`.
+7. `just release-verify X.Y.Z` strictly compares the GitHub release, checksums, local manifest, live manifest, and asset URLs.
 
-- Agent manifests for `freebuff`, `junie`, and `openclaude`
-- Fleet Ops Bar, fleet/plugin settings, workspace templates, and gateway API/SSE support
+A partial release can exist on GitHub while portable builders finish, but it cannot become the public stable manifest or package-manager release.
 
-### Prefix and direct-attach behavior
+## Installer/update ownership
 
-- Default prefix is `ctrl+a`
-- Direct attach uses the configured prefix without silently falling back
-- Single-byte and multi-byte terminal sequences are preserved, including split input reads and literal doubled-prefix forwarding
-
-### Distribution and release controls
-
-- Cargo, npm, installer, changelog, and release metadata are version-aligned
-- Release manifest generation reads `OnlineChefGroep/herdr`, not the upstream repository
-- CI builds the single linux-x86_64 artifact produced by the release workflow
-- Local Zig caches and build output are excluded from Git
-
-## Release procedure
-
-1. Merge the validated release pull request into `main`.
-2. Create tag `v0.7.4` on the merge commit.
-3. `release.yml` builds and publishes the linux-x86_64 GitHub release asset.
-4. The published release triggers `publish-distribution.yml`, which verifies all assets before publishing npm.
-5. Update the Homebrew formula URL and SHA-256 values after the immutable release assets exist.
+- Direct Linux/macOS installs require manifest SHA-256 metadata and atomically replace the binary only after verification.
+- npm postinstall verifies `SHA256SUMS` and installs inside `node_modules/onlinechefgroep-herdr/bin`.
+- `herdr update` detects Homebrew, npm, mise, and Nix paths and refuses to overwrite package-managed files.
+- Homebrew, npm, mise, and Nix installations update through their respective package manager.
 
 ## Sync policy
 
-- Keep downstream changes explicit and covered by CI.
-- Reconcile upstream changes on a dedicated sync branch; do not mix upstream sync work into a release closeout.
+- Reconcile upstream on dedicated sync branches; do not combine upstream sync with release closeout.
 - Never reuse upstream binaries or checksums for an OnlineChefGroep release.
+- Keep downstream behavior covered by CI and preserve the baseline rather than removing tests or weakening runtime functionality.
 - Do not port Hermes-related upstream changes into this distribution.
 
-## Version / install sources of truth
-
-| Surface | Source |
-|---|---|
-| Package version | `Cargo.toml` (+ `npm/package.json` kept in sync) |
-| Git tag | `vX.Y.Z` on `main` via `just release` |
-| Stable curl install | `website/latest.json` → `https://herdr.chefgroep.nl/latest.json` |
-| Homebrew | `OnlineChefGroep/homebrew-tap` formula `onlinechefgroep-herdr` |
-
-Maintainer checks:
+## Maintainer checks
 
 ```bash
-just release-status            # Cargo / tag / GitHub / local+live latest.json
-python3 scripts/homebrew_formula.py --version X.Y.Z
+just release-metadata
+just maintenance
+just release-status
+just release-verify 0.7.6
 ```
 
-After a release publishes `herdr-linux-x86_64`, regenerate the tap formula and open a PR on `OnlineChefGroep/homebrew-tap`. Do not leave macOS/ARM formula blocks pointing at older tags when those assets are not published for the new version.
-
-## CI lanes
-
-- Required PR check: `CI / Quality gate` (accepts skipped heavy jobs).
-- Heavy Windows lint + musl smoke run on `main` pushes, `platform_heavy` path changes, or PRs labeled `ci-heavy`.
-- Nightly/canary heavy lane: `.github/workflows/ci-heavy.yml` (not required for merge).
+The required PR check is `CI / Quality gate`. Heavy platform lanes run on relevant paths, `main` pushes, or PRs labeled `ci-heavy`; the nightly/canary lane remains non-required.

@@ -1,48 +1,41 @@
 # onlinechefgroep-herdr
 
-Herdr - fast terminal multiplexer with AI agent detection.
-
-OnlineChefGroep distribution of [OnlineChefGroep/herdr](https://github.com/OnlineChefGroep/herdr).
+OnlineChefGroep's Herdr distribution: a terminal-native multiplexer and control surface for AI coding agents.
 
 ## Install
 
 ```bash
-npm install -g onlinechefgroep-herdr
+npm install --global onlinechefgroep-herdr
+# or
+bun add --global onlinechefgroep-herdr
 ```
 
-Or with bun:
+The package supports Linux and macOS on x64 and ARM64. During postinstall it downloads the matching binary from the same GitHub release as the package version, validates it against `SHA256SUMS`, and atomically installs it inside the package. Native Windows binaries remain preview-only and are not installed by this package.
+
+## Update
 
 ```bash
-bun add -g onlinechefgroep-herdr
+npm install --global onlinechefgroep-herdr@latest
 ```
 
-Prebuilt binaries are published for Linux (x64/arm64) and macOS (x64/arm64). Windows is not part of the v0.7.4 binary release.
+`herdr update` detects npm-managed binaries and directs them back to npm instead of overwriting files inside `node_modules`.
 
 ## Quick start
 
 ```bash
-herdr              # start multiplexer
-herdr --version    # show version
-herdr config       # show config
+herdr
+herdr --version
+herdr config
 ```
-
-## Features
-
-- AI agent detection (Claude Code, Copilot, Cursor, Devin, OpenCode, +20 more)
-- Split panes, tabs, workspaces
-- Remote pairing via SSH
-- Kitty graphics protocol
-- Workspace persistence and snapshots
-- Copy mode with vim/emacs bindings
 
 ## Build from source
 
 ```bash
 git clone https://github.com/OnlineChefGroep/herdr.git
 cd herdr
-cargo build --release
+cargo build --release --locked
 ```
 
 ## License
 
-MIT - see [LICENSE](https://github.com/OnlineChefGroep/herdr/blob/main/LICENSE)
+AGPL-3.0-or-later — see [LICENSE](https://github.com/OnlineChefGroep/herdr/blob/main/LICENSE).

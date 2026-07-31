@@ -37,7 +37,7 @@ class CiQualityTests(unittest.TestCase):
 
         (root / "src/lib.rs").write_text("\n", encoding="utf-8")
         (root / "Cargo.toml").write_text(
-            f'[package]\nname = "herdr"\nversion = "{cargo_version}"\n',
+            f'[package]\nname = "herdr"\nversion = "{cargo_version}"\nlicense = "AGPL-3.0-or-later"\n',
             encoding="utf-8",
         )
         (root / "npm/package.json").write_text(
@@ -45,6 +45,7 @@ class CiQualityTests(unittest.TestCase):
                 {
                     "name": "onlinechefgroep-herdr",
                     "version": npm_version,
+                    "license": "AGPL-3.0-or-later",
                     "repository": {
                         "type": "git",
                         "url": "https://github.com/OnlineChefGroep/herdr.git",
@@ -117,6 +118,18 @@ class CiQualityTests(unittest.TestCase):
             self.write_fixture(root, "1.2.3", "1.2.3")
 
             check_release_metadata(root)
+
+    def test_check_release_metadata_rejects_license_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_fixture(root, "1.2.3", "1.2.3")
+            package_path = root / "npm/package.json"
+            package = json.loads(package_path.read_text(encoding="utf-8"))
+            package["license"] = "MIT"
+            package_path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(QualityError, "does not match Cargo.toml"):
+                check_release_metadata(root)
 
     def test_check_release_metadata_uses_matching_changelog_section(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

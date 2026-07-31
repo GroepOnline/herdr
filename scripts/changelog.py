@@ -260,8 +260,9 @@ def normalize_assets(value: Any, label: str) -> dict[str, Any]:
         raise ChangelogError(f"{label} is missing asset URL for {', '.join(missing_targets)}")
 
     normalized_assets: dict[str, str] = {}
-    for target in ASSET_TARGETS:
-        url = value.get(target)
+    for target, url in value.items():
+        if not isinstance(target, str) or not target.strip():
+            raise ChangelogError(f"{label} contains an invalid asset target")
         if not isinstance(url, str) or not url.strip():
             raise ChangelogError(f"{label} is missing asset URL for {target}")
         normalized_assets[target] = url.strip()

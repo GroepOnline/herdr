@@ -47,7 +47,9 @@ DISTRIBUTION_URL_PATHS = (
     Path("npm"),
     Path("packaging"),
     Path(".github/workflows"),
+    Path("website/install.sh"),
     Path("website/src/content/docs/install.mdx"),
+    Path("docs/next/website/src/content/docs/install.mdx"),
     Path("src/remote/unix.rs"),
     Path("scripts/changelog.py"),
     Path("scripts/homebrew_formula.py"),
@@ -108,6 +110,17 @@ def read_cargo_version(root: Path) -> str:
     if not isinstance(version, str) or not version:
         raise QualityError(f"{CARGO_TOML_PATH} is missing package.version")
     return version
+
+
+def read_cargo_license(root: Path) -> str:
+    try:
+        data = tomllib.loads(read_text(root, CARGO_TOML_PATH))
+    except tomllib.TOMLDecodeError as exc:
+        raise QualityError(f"invalid TOML in {CARGO_TOML_PATH}: {exc}") from exc
+    license_name = data.get("package", {}).get("license")
+    if not isinstance(license_name, str) or not license_name:
+        raise QualityError(f"{CARGO_TOML_PATH} is missing package.license")
+    return license_name
 
 
 def read_npm_package_version(root: Path) -> str:
@@ -272,6 +285,11 @@ def check_release_metadata(root: Path) -> None:
     npm_readme = read_text(root, NPM_README_PATH)
 
     package = load_json_object(root, NPM_PACKAGE_PATH)
+    cargo_license = read_cargo_license(root)
+    if package.get("license") != cargo_license:
+        raise QualityError(
+            f"{NPM_PACKAGE_PATH} license {package.get('license')!r} does not match Cargo.toml {cargo_license!r}"
+        )
     if package.get("os") != ["linux", "darwin"]:
         raise QualityError(f'{NPM_PACKAGE_PATH} os must be ["linux", "darwin"]')
     if package_version != version:

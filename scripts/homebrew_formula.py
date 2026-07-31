@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import ssl
 import sys
@@ -37,13 +38,14 @@ def _validate_url(url: str) -> None:
 
 def _get(url: str) -> bytes:
     _validate_url(url)
-    req = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "onlinechefgroep-herdr-homebrew-generator",
-        },
-    )
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "onlinechefgroep-herdr-homebrew-generator",
+    }
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(url, headers=headers)
     ctx = ssl.create_default_context()
     with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
         return resp.read()
