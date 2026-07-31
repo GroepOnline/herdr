@@ -305,8 +305,8 @@ pub fn compute_new_shell_view(
     app: &mut crate::app::AppState,
     terminal_runtimes: &TerminalRuntimeRegistry,
     area: Rect,
-    _resize_panes: bool,
-    _cell_size: crate::kitty_graphics::HostCellSize,
+    resize_panes: bool,
+    cell_size: crate::kitty_graphics::HostCellSize,
 ) {
     let now = std::time::Instant::now();
 
@@ -463,6 +463,29 @@ pub fn compute_new_shell_view(
     let tab_items = crate::ui::tabs_new::model::build_tabs(app);
     crate::ui::tabs_new::layout::layout_tab_bar(&mut shell_layout.main.tab_bar, &tab_items);
 
+    // Reuse the established pane geometry/runtime path inside the new shell.
+    let tab_surface = super::compute_tab_surface(
+        app,
+        terminal_runtimes,
+        shell_layout.main.terminal,
+        resize_panes,
+        cell_size,
+    );
+    if resize_panes {
+        super::resize_background_tab_panes_to_area(
+            app,
+            terminal_runtimes,
+            shell_layout.main.terminal,
+            cell_size,
+        );
+        super::resize_popup_pane(
+            app,
+            terminal_runtimes,
+            shell_layout.main.terminal,
+            cell_size,
+        );
+    }
+
     // Cache the shell layout for hit-test routing.
     app.new_shell_layout = Some(shell_layout.clone());
 
@@ -489,9 +512,10 @@ pub fn compute_new_shell_view(
         mobile_header_rect: Rect::default(),
         mobile_menu_hit_area: Rect::default(),
         toast_hit_area: Rect::default(),
-        pane_infos: Vec::new(),
-        split_borders: Vec::new(),
+        pane_infos: tab_surface.pane_infos,
+        split_borders: tab_surface.split_borders,
     };
+    app.sync_copy_mode_search_geometry();
 }
 
 /// Render the new terminal shell UI.
@@ -541,13 +565,18 @@ pub fn render_new_shell(
     }
 
     let terminal_area = shell_layout.main.terminal;
-    if terminal_area.width > 0 && terminal_area.height > 0 {
-        use ratatui::widgets::Paragraph;
-        frame.render_widget(
-            Paragraph::new("[new shell terminal area — integration pending]"),
-            terminal_area,
-        );
+    if app
+        .active
+        .and_then(|ws_idx| app.workspaces.get(ws_idx))
+        .is_some()
+    {
+        super::render_tab_surface(app, terminal_runtimes, app.view.tab_surface(), frame);
+    } else {
+        super::render_empty(app, frame, terminal_area);
     }
+
+    super::render_notifications(app, frame, terminal_area);
+    super::render_popup_pane(app, terminal_runtimes, frame, terminal_area);
 
     if app.new_launcher_open {
         let mut launcher_layout = crate::ui::launcher_new::layout::layout_launcher(area);

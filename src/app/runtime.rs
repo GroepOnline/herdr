@@ -434,7 +434,10 @@ impl App {
     }
 
     fn sync_animation_timer_with_interval(&mut self, now: Instant, interval: Duration) {
-        if self.agent_panel_has_animation() || self.state.mode == crate::app::Mode::Settings {
+        if self.agent_panel_has_animation()
+            || self.state.mode == crate::app::Mode::Settings
+            || (self.state.new_shell && self.state.new_transitions.is_active())
+        {
             self.next_animation_tick.get_or_insert(now + interval);
         } else {
             self.next_animation_tick = None;
@@ -1055,6 +1058,39 @@ mod tests {
         assert_eq!(jobs.len(), 1);
         assert_eq!(jobs[0].cache_key, cwd);
         let _ = std::fs::remove_dir_all(&cwd);
+    }
+
+    #[test]
+    fn new_shell_transition_schedules_deterministic_animation_deadline() {
+        let mut app = super::super::App::new(
+            &crate::config::Config::default(),
+            true,
+            None,
+            tokio::sync::mpsc::unbounded_channel().1,
+            crate::api::EventHub::default(),
+        );
+        app.state.new_shell = true;
+        let now = Instant::now();
+        let interval = Duration::from_millis(17);
+        app.state
+            .new_transitions
+            .set(crate::ui::motion::Transition::new(
+                crate::ui::motion::UiRegion::Sidebar,
+                now,
+                Duration::from_millis(100),
+                0.0,
+                1.0,
+                crate::ui::motion::Easing::linear,
+                crate::ui::motion::InterruptionPolicy::Retarget,
+            ));
+
+        app.sync_animation_timer_with_interval(now, interval);
+
+        assert_eq!(app.next_animation_tick, Some(now + interval));
+        assert_eq!(
+            app.next_headless_loop_deadline_with_git_refresh(now, false, false),
+            Some(now + interval)
+        );
     }
 
     #[test]

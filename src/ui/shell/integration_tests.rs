@@ -188,8 +188,14 @@ mod integration {
     }
 
     #[test]
-    fn full_pipeline_renders_terminal_placeholder() {
+    fn full_pipeline_renders_real_terminal_surface() {
         let mut app = app_with_workspace("tmpl");
+        let pane_id = app.workspaces[0].tabs[0].root_pane;
+        app.workspaces[0].insert_test_runtime(
+            pane_id,
+            crate::terminal::TerminalRuntime::test_with_screen_bytes(40, 10, b"NEW-SHELL-TERMINAL"),
+        );
+        app.mode = crate::app::Mode::Terminal;
         let registry = TerminalRuntimeRegistry::new();
         let area = Rect::new(0, 0, 120, 40);
 
@@ -207,14 +213,17 @@ mod integration {
             .unwrap();
         let buffer = terminal.backend().buffer();
 
-        // Terminal area should contain the placeholder text.
         let terminal_area = app.view.terminal_area;
         assert!(terminal_area.width > 0, "terminal area should be non-zero");
-        let term_text = buffer_row_text(buffer, area, terminal_area.y);
         assert!(
-            term_text.contains("new shell terminal area"),
-            "terminal placeholder should be visible: got '{term_text}'"
+            buffer_contains(buffer, terminal_area, "NEW-SHELL-TERMINAL"),
+            "terminal runtime content should be visible"
         );
+        assert!(!buffer_contains(
+            buffer,
+            terminal_area,
+            "new shell terminal area"
+        ));
     }
 
     #[test]
