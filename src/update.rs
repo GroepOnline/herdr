@@ -209,6 +209,18 @@ mod asset_checksum_tests {
     }
 
     #[test]
+    fn update_asset_rejects_empty_sha256() {
+        assert!(serde_json::from_str::<AssetRef>(
+            r#"{"url":"https://example.test/herdr","sha256":""}"#
+        )
+        .is_err());
+        assert!(serde_json::from_str::<AssetRef>(
+            r#"{"url":"https://example.test/herdr","sha256":"   "}"#
+        )
+        .is_err());
+    }
+
+    #[test]
     fn update_asset_rejects_legacy_url_string() {
         assert!(serde_json::from_str::<AssetRef>(r#""https://example.test/herdr""#).is_err());
     }
@@ -3394,6 +3406,18 @@ mod tests {
             manifest.download_url_for("linux", "x86_64").as_deref(),
             Some("https://example.com/herdr-linux-x86_64")
         );
+    }
+
+    #[test]
+    fn update_manifest_rejects_asset_without_checksum() {
+        let json = r#"{
+            "version": "1.0.0",
+            "notes": "### Test",
+            "assets": {
+                "linux-x86_64": {"url": "https://example.com/herdr"}
+            }
+        }"#;
+        assert!(serde_json::from_str::<UpdateManifest>(json).is_err());
     }
 
     #[test]

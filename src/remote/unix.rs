@@ -380,6 +380,18 @@ mod remote_asset_checksum_tests {
     }
 
     #[test]
+    fn remote_asset_rejects_empty_sha256() {
+        assert!(serde_json::from_str::<RemoteAssetRef>(
+            r#"{"url":"https://example.test/herdr","sha256":""}"#
+        )
+        .is_err());
+        assert!(serde_json::from_str::<RemoteAssetRef>(
+            r#"{"url":"https://example.test/herdr","sha256":"   "}"#
+        )
+        .is_err());
+    }
+
+    #[test]
     fn remote_asset_rejects_legacy_url_string() {
         assert!(serde_json::from_str::<RemoteAssetRef>(r#""https://example.test/herdr""#).is_err());
     }
@@ -2742,6 +2754,17 @@ mod tests {
                 .map(RemoteAssetRef::url),
             Some("https://example.com/latest")
         );
+    }
+
+    #[test]
+    fn remote_update_manifest_rejects_asset_without_checksum() {
+        let json = r#"{
+            "version": "1.2.3",
+            "assets": {
+                "linux-x86_64": {"url": "https://example.com/latest"}
+            }
+        }"#;
+        assert!(serde_json::from_str::<RemoteUpdateManifest>(json).is_err());
     }
 
     #[test]
