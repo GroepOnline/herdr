@@ -37,7 +37,7 @@ RELEASE_TARGETS: Final = (
         "arch": "x86_64",
         "npm_platform": "linux",
         "npm_arch": "x64",
-        "rust_target": "x86_64-unknown-linux-gnu",
+        "rust_target": "x86_64-unknown-linux-musl",
         "asset": "herdr-linux-x86_64",
     },
     {
@@ -45,7 +45,7 @@ RELEASE_TARGETS: Final = (
         "arch": "aarch64",
         "npm_platform": "linux",
         "npm_arch": "arm64",
-        "rust_target": "aarch64-unknown-linux-gnu",
+        "rust_target": "aarch64-unknown-linux-musl",
         "asset": "herdr-linux-aarch64",
     },
     {
