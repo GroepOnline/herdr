@@ -139,17 +139,15 @@ jobs:
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
         run: |
           python3 <<'PY'
-          import json
           import os
-          import re
           import subprocess
-          import tomllib
           from pathlib import Path
 
-          HARDCODED_INSTALLER_VERSION_RE = re.compile(
-              r'(?m)^const VERSION = ["\'][^"\']+["\'];$'
+          from scripts.ci_quality import (
+              read_cargo_version,
+              read_installer_version,
+              read_npm_package_version,
           )
-          INSTALLER_VERSION_SOURCE = "const VERSION = packageJson.version;"
 
           def output(name, value):
               with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
@@ -171,31 +169,18 @@ jobs:
               output("skip_reason", f"already autofixed {head_sha}")
               raise SystemExit(0)
 
-          cargo = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))
-          cargo_version = cargo["package"]["version"]
+          root = Path(".")
+          cargo_version = read_cargo_version(root)
+          package_version = read_npm_package_version(root)
+          installer_version = read_installer_version(root)
+          needs_sync = package_version != cargo_version
 
-          package = json.loads(Path("npm/package.json").read_text(encoding="utf-8"))
-          package_version = package["version"]
-
-          installer = Path("npm/install.js").read_text(encoding="utf-8")
-          installer_hardcodes_version = bool(
-              HARDCODED_INSTALLER_VERSION_RE.search(installer)
-          )
-          if not installer_hardcodes_version and INSTALLER_VERSION_SOURCE not in installer:
-              raise SystemExit(
-                  f"npm/install.js must use {INSTALLER_VERSION_SOURCE}"
-              )
-
-          needs_sync = package_version != cargo_version or installer_hardcodes_version
           output("skip", "false")
           output("skip_reason", "")
           output("needs_sync", str(needs_sync).lower())
           output("cargo_version", cargo_version)
           output("package_version", package_version)
-          output(
-              "installer_version_source",
-              "hardcoded" if installer_hardcodes_version else "npm/package.json",
-          )
+          output("installer_version", installer_version)
           PY
 
       - name: Report skipped autofix
@@ -209,12 +194,12 @@ jobs:
         env:
           CARGO_VERSION: ${{ steps.inspect.outputs.cargo_version }}
           PACKAGE_VERSION: ${{ steps.inspect.outputs.package_version }}
-          INSTALLER_VERSION_SOURCE: ${{ steps.inspect.outputs.installer_version_source }}
+          INSTALLER_VERSION: ${{ steps.inspect.outputs.installer_version }}
           NEEDS_SYNC: ${{ steps.inspect.outputs.needs_sync }}
         run: |
           echo "Cargo.toml version: $CARGO_VERSION"
           echo "npm/package.json version: $PACKAGE_VERSION"
-          echo "npm/install.js VERSION source: $INSTALLER_VERSION_SOURCE"
+          echo "npm/install.js package-derived version: $INSTALLER_VERSION"
           echo "Needs release metadata sync: $NEEDS_SYNC"
 
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
@@ -225,53 +210,11 @@ jobs:
 
       - name: Sync npm release metadata
         if: steps.pr.outputs.skip != 'true' && steps.current.outputs.skip != 'true' && steps.inspect.outputs.skip != 'true'
-        run: |
-          python3 <<'PY'
-          import json
-          import re
-          import tomllib
-          from pathlib import Path
-
-          HARDCODED_INSTALLER_VERSION_RE = re.compile(
-              r'(?m)^const VERSION = ["\'][^"\']+["\'];$'
-          )
-          INSTALLER_VERSION_SOURCE = "const VERSION = packageJson.version;"
-
-          cargo = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))
-          version = cargo["package"]["version"]
-          changed = False
-
-          package_path = Path("npm/package.json")
-          package = json.loads(package_path.read_text(encoding="utf-8"))
-          if package.get("version") != version:
-              package["version"] = version
-              package_path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
-              changed = True
-
-          installer_path = Path("npm/install.js")
-          installer = installer_path.read_text(encoding="utf-8")
-          updated_installer, count = HARDCODED_INSTALLER_VERSION_RE.subn(
-              INSTALLER_VERSION_SOURCE,
-              installer,
-              count=1,
-          )
-          if count:
-              installer_path.write_text(updated_installer, encoding="utf-8")
-              installer = updated_installer
-              changed = True
-          if INSTALLER_VERSION_SOURCE not in installer:
-              raise SystemExit(f"npm/install.js must use {INSTALLER_VERSION_SOURCE}")
-
-          if changed:
-              print(f"Synced npm release metadata to {version}.")
-          else:
-              print(f"npm release metadata already matches {version}.")
-          PY
+        run: python3 scripts/ci_quality.py sync-release-metadata
 
       - name: Format Rust sources
         if: steps.pr.outputs.skip != 'true' && steps.current.outputs.skip != 'true' && steps.inspect.outputs.skip != 'true'
-        run: |
-          cargo fmt --all
+        run: cargo fmt --all
 
       - name: Commit and push changes
         if: steps.pr.outputs.skip != 'true' && steps.current.outputs.skip != 'true' && steps.inspect.outputs.skip != 'true'
