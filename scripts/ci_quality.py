@@ -9,7 +9,12 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
+
+try:
+    from scripts.product_config import RELEASE_TARGETS, release_asset_url
+except ModuleNotFoundError:  # Direct execution: python scripts/ci_quality.py
+    from product_config import RELEASE_TARGETS, release_asset_url
 
 CARGO_TOML_PATH = Path("Cargo.toml")
 NPM_PACKAGE_PATH = Path("npm/package.json")
@@ -18,11 +23,15 @@ CHANGELOG_PATH = Path("CHANGELOG.md")
 GATEWAY_PATH = Path("src/bin/herdr-gateway.rs")
 CHANGELOG_SCRIPT_PATH = Path("scripts/changelog.py")
 NPM_README_PATH = Path("npm/README.md")
+LATEST_JSON_PATH = Path("website/latest.json")
 
 EXPECTED_RELEASE_REPO = 'DEFAULT_RELEASE_REPO = "OnlineChefGroep/herdr"'
 GATEWAY_VERSION_SOURCE = 'env!("CARGO_PKG_VERSION")'
-
-INSTALLER_VERSION_RE = re.compile(r'(?m)^const VERSION = "(?P<version>[^"]+)";$')
+INSTALLER_VERSION_SOURCE = "const VERSION = packageJson.version;"
+HARDCODED_INSTALLER_VERSION_RE = re.compile(
+    r'(?m)^const VERSION = ["\'][^"\']+["\'];$'
+)
+SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 CHANGELOG_SECTION_RE = re.compile(
     r"^##\s+(?:\[(?P<bracketed>[^\]]+)\]|(?P<plain>.+?))"
     r"(?:\s+-\s+\d{4}-\d{2}-\d{2})?\s*$",
@@ -30,6 +39,35 @@ CHANGELOG_SECTION_RE = re.compile(
 )
 RELEASE_SUBHEADING_RE = re.compile(r"^### (?P<title>Added|Fixed|Changed)\s*$", re.MULTILINE)
 ANY_SUBHEADING_RE = re.compile(r"^### .+$", re.MULTILINE)
+
+DISTRIBUTION_URL_PATHS = (
+    Path("README.md"),
+    Path("DOWNSTREAM.md"),
+    Path("justfile"),
+    Path("npm"),
+    Path("packaging"),
+    Path(".github/workflows"),
+    Path("website/src/content/docs/install.mdx"),
+    Path("src/remote/unix.rs"),
+    Path("scripts/changelog.py"),
+    Path("scripts/homebrew_formula.py"),
+)
+FORBIDDEN_PRODUCT_REFERENCES = (
+    "ogulcancelik/herdr",
+    "github-ogulcancelik-herdr",
+)
+TEXT_SUFFIXES = {
+    "",
+    ".js",
+    ".json",
+    ".md",
+    ".py",
+    ".rb",
+    ".rs",
+    ".toml",
+    ".yaml",
+    ".yml",
+}
 
 
 class QualityError(ValueError):
@@ -81,11 +119,16 @@ def read_npm_package_version(root: Path) -> str:
 
 
 def read_installer_version(root: Path) -> str:
+    """Validate that install.js reads its version from package.json."""
+
     installer = read_text(root, NPM_INSTALL_PATH)
-    match = INSTALLER_VERSION_RE.search(installer)
-    if match is None:
-        raise QualityError(f"{NPM_INSTALL_PATH} is missing const VERSION")
-    return match.group("version")
+    if HARDCODED_INSTALLER_VERSION_RE.search(installer):
+        raise QualityError(
+            f"{NPM_INSTALL_PATH} must not hardcode VERSION; read package.json instead"
+        )
+    if INSTALLER_VERSION_SOURCE not in installer:
+        raise QualityError(f"{NPM_INSTALL_PATH} must use {INSTALLER_VERSION_SOURCE}")
+    return read_npm_package_version(root)
 
 
 def normalize_section_title(match: re.Match[str]) -> str:
@@ -121,6 +164,104 @@ def check_release_note_bullets(changelog: str, version: str) -> None:
         )
 
 
+def expected_manifest_assets(version: str) -> dict[str, str]:
+    return {
+        f"{target['platform']}-{target['arch']}": release_asset_url(
+            version, target["asset"]
+        )
+        for target in RELEASE_TARGETS
+    }
+
+
+def validate_manifest_assets(assets: Any, version: str, location: str) -> None:
+    if not isinstance(assets, dict):
+        raise QualityError(f"{location} must be an object")
+
+    expected = expected_manifest_assets(version)
+    if set(assets) != set(expected):
+        missing = sorted(set(expected) - set(assets))
+        extra = sorted(set(assets) - set(expected))
+        details = []
+        if missing:
+            details.append(f"missing {', '.join(missing)}")
+        if extra:
+            details.append(f"unexpected {', '.join(extra)}")
+        raise QualityError(f"{location} target matrix mismatch: {'; '.join(details)}")
+
+    for target_key, expected_url in expected.items():
+        entry = assets[target_key]
+        if not isinstance(entry, dict):
+            raise QualityError(f"{location}.{target_key} must be an object with url and sha256")
+        if set(entry) != {"url", "sha256"}:
+            raise QualityError(f"{location}.{target_key} must contain only url and sha256")
+        if entry.get("url") != expected_url:
+            raise QualityError(
+                f"{location}.{target_key}.url must be {expected_url}, got {entry.get('url')!r}"
+            )
+        checksum = entry.get("sha256")
+        if not isinstance(checksum, str) or SHA256_RE.fullmatch(checksum) is None:
+            raise QualityError(f"{location}.{target_key}.sha256 must be 64 lowercase hex chars")
+
+
+def check_latest_json_manifest(root: Path) -> None:
+    version = read_cargo_version(root)
+    manifest = load_json_object(root, LATEST_JSON_PATH)
+    if manifest.get("version") != version:
+        raise QualityError(
+            f"{LATEST_JSON_PATH} version {manifest.get('version')!r} does not match Cargo.toml {version}"
+        )
+
+    validate_manifest_assets(manifest.get("assets"), version, "latest.json.assets")
+
+    releases = manifest.get("releases")
+    if not isinstance(releases, dict):
+        raise QualityError(f"{LATEST_JSON_PATH} releases must be an object")
+    release = releases.get(version)
+    if not isinstance(release, dict):
+        raise QualityError(f"{LATEST_JSON_PATH} releases is missing {version}")
+    validate_manifest_assets(
+        release.get("assets"), version, f"latest.json.releases.{version}.assets"
+    )
+
+
+def iter_distribution_files(root: Path) -> Iterable[Path]:
+    seen: set[Path] = set()
+    for relative in DISTRIBUTION_URL_PATHS:
+        candidate = repo_path(root, relative)
+        if candidate.is_file():
+            resolved = candidate.resolve()
+            if resolved not in seen:
+                seen.add(resolved)
+                yield candidate
+            continue
+        if not candidate.is_dir():
+            continue
+        for path in sorted(candidate.rglob("*")):
+            if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
+                continue
+            resolved = path.resolve()
+            if resolved not in seen:
+                seen.add(resolved)
+                yield path
+
+
+def check_product_urls(root: Path) -> None:
+    violations: list[str] = []
+    for path in iter_distribution_files(root):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            for forbidden in FORBIDDEN_PRODUCT_REFERENCES:
+                if forbidden in line:
+                    violations.append(f"{path.relative_to(root)}:{line_number}: {forbidden}")
+    if violations:
+        raise QualityError(
+            "distribution surfaces reference upstream product URLs:\n" + "\n".join(violations)
+        )
+
+
 def check_release_metadata(root: Path) -> None:
     version = read_cargo_version(root)
     package_version = read_npm_package_version(root)
@@ -131,15 +272,16 @@ def check_release_metadata(root: Path) -> None:
     npm_readme = read_text(root, NPM_README_PATH)
 
     package = load_json_object(root, NPM_PACKAGE_PATH)
-    if package.get("os") != ["linux"]:
-        raise QualityError(f'{NPM_PACKAGE_PATH} os must be ["linux"]')
+    if package.get("os") != ["linux", "darwin"]:
+        raise QualityError(f'{NPM_PACKAGE_PATH} os must be ["linux", "darwin"]')
     if package_version != version:
         raise QualityError(
             f"{NPM_PACKAGE_PATH} version {package_version} does not match Cargo.toml {version}"
         )
     if installer_version != version:
         raise QualityError(
-            f"{NPM_INSTALL_PATH} VERSION {installer_version} does not match Cargo.toml {version}"
+            f"{NPM_INSTALL_PATH} package-derived version {installer_version} "
+            f"does not match Cargo.toml {version}"
         )
     if f"## [{version}]" not in changelog:
         raise QualityError(f"{CHANGELOG_PATH} is missing ## [{version}]")
@@ -151,32 +293,19 @@ def check_release_metadata(root: Path) -> None:
         raise QualityError(f"{NPM_README_PATH} contains RMEOF")
 
     check_release_note_bullets(changelog, version)
+    check_latest_json_manifest(root)
+    check_product_urls(root)
 
 
 def sync_release_metadata(root: Path) -> bool:
     version = read_cargo_version(root)
-    changed = False
-
     package_path = repo_path(root, NPM_PACKAGE_PATH)
     package = load_json_object(root, NPM_PACKAGE_PATH)
-    if package.get("version") != version:
-        package["version"] = version
-        package_path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
-        changed = True
-
-    installer = read_text(root, NPM_INSTALL_PATH)
-    updated_installer, count = INSTALLER_VERSION_RE.subn(
-        f'const VERSION = "{version}";',
-        installer,
-        count=1,
-    )
-    if count != 1:
-        raise QualityError(f"{NPM_INSTALL_PATH} is missing const VERSION")
-    if updated_installer != installer:
-        write_text(root, NPM_INSTALL_PATH, updated_installer)
-        changed = True
-
-    return changed
+    if package.get("version") == version:
+        return False
+    package["version"] = version
+    package_path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
+    return True
 
 
 def needs_rustfmt(root: Path) -> bool:
@@ -199,16 +328,28 @@ def needs_rustfmt(root: Path) -> bool:
 
 def detect_autofix(root: Path) -> dict[str, bool]:
     version = read_cargo_version(root)
+    read_installer_version(root)
     return {
         "needs_fmt": needs_rustfmt(root),
-        "needs_metadata_sync": read_npm_package_version(root) != version
-        or read_installer_version(root) != version,
+        "needs_metadata_sync": read_npm_package_version(root) != version,
     }
 
 
 def cmd_check_release_metadata(args: argparse.Namespace) -> int:
     check_release_metadata(Path(args.root))
     print("release metadata: OK")
+    return 0
+
+
+def cmd_check_latest_json_manifest(args: argparse.Namespace) -> int:
+    check_latest_json_manifest(Path(args.root))
+    print("latest.json manifest: OK")
+    return 0
+
+
+def cmd_check_product_urls(args: argparse.Namespace) -> int:
+    check_product_urls(Path(args.root))
+    print("distribution product URLs: OK")
     return 0
 
 
@@ -242,6 +383,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_root_argument(check)
     check.set_defaults(func=cmd_check_release_metadata)
+
+    latest = subparsers.add_parser(
+        "check-latest-json-manifest",
+        help="Validate the promoted latest.json release matrix and checksums",
+    )
+    add_root_argument(latest)
+    latest.set_defaults(func=cmd_check_latest_json_manifest)
+
+    product_urls = subparsers.add_parser(
+        "check-product-urls",
+        help="Reject upstream product references in distribution surfaces",
+    )
+    add_root_argument(product_urls)
+    product_urls.set_defaults(func=cmd_check_product_urls)
 
     sync = subparsers.add_parser(
         "sync-release-metadata",
