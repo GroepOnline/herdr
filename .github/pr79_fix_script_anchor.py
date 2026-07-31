@@ -13,4 +13,9 @@ old = '''replace(
 new = old.replace("    1,\n)", "    2,\n)")
 if text.count(old) != 1:
     raise SystemExit("sidebar width patch anchor not found exactly once")
-path.write_text(text.replace(old, new))
+text = text.replace(old, new)
+old_comment = '    "    overflow controls populated.\\n"\n'
+new_comment = '    "    /// overflow controls populated.\\n"\n'
+if text.count(old_comment) != 1:
+    raise SystemExit("generated test comment anchor not found exactly once")
+path.write_text(text.replace(old_comment, new_comment))
