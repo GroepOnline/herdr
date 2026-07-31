@@ -3410,13 +3410,13 @@ mod tests {
 
     #[test]
     fn update_manifest_rejects_asset_without_checksum() {
-        let json = r#"{
+        let json = r####"{
             "version": "1.0.0",
             "notes": "### Test",
             "assets": {
                 "linux-x86_64": {"url": "https://example.com/herdr"}
             }
-        }"#;
+        }"####;
         assert!(serde_json::from_str::<UpdateManifest>(json).is_err());
     }
 
