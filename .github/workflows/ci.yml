@@ -168,6 +168,13 @@ jobs:
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
           version: ${{ env.ZIG_VERSION }}
+          # Restored Windows Zig caches have produced missing generated files.
+          # Keep this lane deterministic; Rust's Cargo cache remains enabled.
+          use-cache: false
+
+      - name: Remove Zig build outputs
+        shell: bash
+        run: rm -rf .zig-cache vendor/libghostty-vt/.zig-cache vendor/libghostty-vt/zig-out
 
       - name: Cargo clippy on Windows
         shell: bash
