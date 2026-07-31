@@ -14,18 +14,16 @@ from typing import Any
 
 try:
     from scripts.product_config import (
-        DEFAULT_LIVE_MANIFEST_URL as PRODUCT_LIVE_MANIFEST_URL,
+        DEFAULT_LIVE_MANIFEST_URL,
         PRODUCT_GITHUB_REPO,
         RELEASE_TARGETS,
     )
 except ModuleNotFoundError:  # Direct execution: python scripts/changelog.py
     from product_config import (
-        DEFAULT_LIVE_MANIFEST_URL as PRODUCT_LIVE_MANIFEST_URL,
+        DEFAULT_LIVE_MANIFEST_URL,
         PRODUCT_GITHUB_REPO,
         RELEASE_TARGETS,
     )
-
-DEFAULT_LIVE_MANIFEST_URL = PRODUCT_LIVE_MANIFEST_URL
 
 SECTION_RE = re.compile(r"^##\s+(?:\[(?P<bracketed>[^\]]+)\]|(?P<plain>.+?))\s*$", re.MULTILINE)
 VERSION_WITH_DATE_RE = re.compile(r"^(?P<version>.+?)\s+-\s+\d{4}-\d{2}-\d{2}$")
