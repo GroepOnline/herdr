@@ -146,7 +146,10 @@ jobs:
           import tomllib
           from pathlib import Path
 
-          INSTALLER_VERSION_RE = re.compile(r'(?m)^const VERSION = "(?P<version>[^"]+)";$')
+          HARDCODED_INSTALLER_VERSION_RE = re.compile(
+              r'(?m)^const VERSION = ["\'][^"\']+["\'];$'
+          )
+          INSTALLER_VERSION_SOURCE = "const VERSION = packageJson.version;"
 
           def output(name, value):
               with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
@@ -175,18 +178,24 @@ jobs:
           package_version = package["version"]
 
           installer = Path("npm/install.js").read_text(encoding="utf-8")
-          match = INSTALLER_VERSION_RE.search(installer)
-          if match is None:
-              raise SystemExit("npm/install.js is missing const VERSION")
-          installer_version = match.group("version")
+          installer_hardcodes_version = bool(
+              HARDCODED_INSTALLER_VERSION_RE.search(installer)
+          )
+          if not installer_hardcodes_version and INSTALLER_VERSION_SOURCE not in installer:
+              raise SystemExit(
+                  f"npm/install.js must use {INSTALLER_VERSION_SOURCE}"
+              )
 
-          needs_sync = package_version != cargo_version or installer_version != cargo_version
+          needs_sync = package_version != cargo_version or installer_hardcodes_version
           output("skip", "false")
           output("skip_reason", "")
           output("needs_sync", str(needs_sync).lower())
           output("cargo_version", cargo_version)
           output("package_version", package_version)
-          output("installer_version", installer_version)
+          output(
+              "installer_version_source",
+              "hardcoded" if installer_hardcodes_version else "npm/package.json",
+          )
           PY
 
       - name: Report skipped autofix
@@ -200,12 +209,12 @@ jobs:
         env:
           CARGO_VERSION: ${{ steps.inspect.outputs.cargo_version }}
           PACKAGE_VERSION: ${{ steps.inspect.outputs.package_version }}
-          INSTALLER_VERSION: ${{ steps.inspect.outputs.installer_version }}
+          INSTALLER_VERSION_SOURCE: ${{ steps.inspect.outputs.installer_version_source }}
           NEEDS_SYNC: ${{ steps.inspect.outputs.needs_sync }}
         run: |
           echo "Cargo.toml version: $CARGO_VERSION"
           echo "npm/package.json version: $PACKAGE_VERSION"
-          echo "npm/install.js VERSION: $INSTALLER_VERSION"
+          echo "npm/install.js VERSION source: $INSTALLER_VERSION_SOURCE"
           echo "Needs release metadata sync: $NEEDS_SYNC"
 
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
@@ -223,7 +232,10 @@ jobs:
           import tomllib
           from pathlib import Path
 
-          INSTALLER_VERSION_RE = re.compile(r'(?m)^const VERSION = "(?P<version>[^"]+)";$')
+          HARDCODED_INSTALLER_VERSION_RE = re.compile(
+              r'(?m)^const VERSION = ["\'][^"\']+["\'];$'
+          )
+          INSTALLER_VERSION_SOURCE = "const VERSION = packageJson.version;"
 
           cargo = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))
           version = cargo["package"]["version"]
@@ -238,16 +250,17 @@ jobs:
 
           installer_path = Path("npm/install.js")
           installer = installer_path.read_text(encoding="utf-8")
-          updated_installer, count = INSTALLER_VERSION_RE.subn(
-              f'const VERSION = "{version}";',
+          updated_installer, count = HARDCODED_INSTALLER_VERSION_RE.subn(
+              INSTALLER_VERSION_SOURCE,
               installer,
               count=1,
           )
-          if count != 1:
-              raise SystemExit("npm/install.js is missing const VERSION")
-          if updated_installer != installer:
+          if count:
               installer_path.write_text(updated_installer, encoding="utf-8")
+              installer = updated_installer
               changed = True
+          if INSTALLER_VERSION_SOURCE not in installer:
+              raise SystemExit(f"npm/install.js must use {INSTALLER_VERSION_SOURCE}")
 
           if changed:
               print(f"Synced npm release metadata to {version}.")
