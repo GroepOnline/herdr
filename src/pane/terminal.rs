@@ -143,6 +143,12 @@ pub(crate) struct ProcessBytesResult {
     pub host_palette_queries: Vec<HostPaletteQuery>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub(crate) struct TerminalReadSnapshot {
+    pub text: String,
+    pub truncated: bool,
+}
+
 pub(crate) struct GhosttyPaneTerminal {
     pub core: Mutex<GhosttyPaneCore>,
     key_encoder: Mutex<crate::ghostty::KeyEncoder>,
@@ -392,16 +398,24 @@ impl PaneTerminal {
         self.ghostty.recent_text(lines)
     }
 
-    pub fn recent_ansi(&self, lines: usize) -> String {
-        self.ghostty.recent_ansi(lines)
+    pub(crate) fn recent_text_snapshot(&self, lines: usize) -> TerminalReadSnapshot {
+        self.ghostty.recent_text_snapshot(lines)
     }
 
-    pub fn recent_unwrapped_text(&self, lines: usize) -> String {
-        self.ghostty.recent_unwrapped_text(lines)
+    pub(crate) fn recent_ansi_snapshot(&self, lines: usize) -> TerminalReadSnapshot {
+        self.ghostty.recent_ansi_snapshot(lines)
+    }
+
+    pub(crate) fn recent_unwrapped_text_snapshot(&self, lines: usize) -> TerminalReadSnapshot {
+        self.ghostty.recent_unwrapped_text_snapshot(lines)
     }
 
     pub fn recent_unwrapped_ansi(&self, lines: usize) -> String {
         self.ghostty.recent_unwrapped_ansi(lines)
+    }
+
+    pub(crate) fn recent_unwrapped_ansi_snapshot(&self, lines: usize) -> TerminalReadSnapshot {
+        self.ghostty.recent_unwrapped_ansi_snapshot(lines)
     }
 
     pub fn extract_selection(&self, selection: &crate::selection::Selection) -> Option<String> {
@@ -1373,6 +1387,8 @@ impl GhosttyPaneTerminal {
         let Ok(mut core) = self.core.lock() else {
             return;
         };
+        #[cfg(windows)]
+        core.kitty_keyboard.observe(ansi.as_bytes());
         core.terminal.write(ansi.as_bytes());
         #[cfg(windows)]
         windows_recent_fallback::update(&mut core);
@@ -1652,6 +1668,9 @@ impl GhosttyPaneTerminal {
             mouse_protocol_mode,
             mouse_protocol_encoding,
             mouse_alternate_scroll,
+            #[cfg(windows)]
+            modify_other_keys: core.kitty_keyboard.modify_other_keys_enabled(),
+            #[cfg(not(windows))]
             modify_other_keys: core
                 .terminal
                 .keyboard_state_ansi()
@@ -1706,6 +1725,18 @@ impl GhosttyPaneTerminal {
         key: crate::input::TerminalKey,
         protocol: crate::input::KeyboardProtocol,
     ) -> Vec<u8> {
+        #[cfg(windows)]
+        if let Some(bytes) = crate::platform::encode_windows_conpty_shift_enter(key) {
+            if self.core.lock().is_ok_and(|core| {
+                core.terminal
+                    .kitty_keyboard_flags()
+                    .is_ok_and(|flags| flags == 0)
+                    && !core.kitty_keyboard.modify_other_keys_enabled()
+            }) {
+                return bytes;
+            }
+        }
+
         if ghostty_prefers_herdr_text_encoding(key) {
             return crate::input::encode_terminal_key(key, protocol);
         }
@@ -1809,34 +1840,52 @@ impl GhosttyPaneTerminal {
     }
 
     pub fn recent_text(&self, lines: usize) -> String {
+        self.recent_text_snapshot(lines).text
+    }
+
+    pub(crate) fn recent_text_snapshot(&self, lines: usize) -> TerminalReadSnapshot {
         self.core
             .lock()
             .ok()
-            .and_then(|core| ghostty_recent_text(&core, lines).ok())
+            .and_then(|core| ghostty_recent_text_snapshot(&core, lines).ok())
             .unwrap_or_default()
     }
 
+    #[cfg(test)]
     pub fn recent_ansi(&self, lines: usize) -> String {
+        self.recent_ansi_snapshot(lines).text
+    }
+
+    pub(crate) fn recent_ansi_snapshot(&self, lines: usize) -> TerminalReadSnapshot {
         self.core
             .lock()
             .ok()
-            .and_then(|core| ghostty_recent_ansi(&core, lines, false).ok())
+            .and_then(|core| ghostty_recent_ansi_snapshot(&core, lines, false).ok())
             .unwrap_or_default()
     }
 
+    #[cfg(test)]
     pub fn recent_unwrapped_text(&self, lines: usize) -> String {
+        self.recent_unwrapped_text_snapshot(lines).text
+    }
+
+    pub(crate) fn recent_unwrapped_text_snapshot(&self, lines: usize) -> TerminalReadSnapshot {
         self.core
             .lock()
             .ok()
-            .and_then(|core| ghostty_recent_text_unwrapped(&core, lines).ok())
+            .and_then(|core| ghostty_recent_text_unwrapped_snapshot(&core, lines).ok())
             .unwrap_or_default()
     }
 
     pub fn recent_unwrapped_ansi(&self, lines: usize) -> String {
+        self.recent_unwrapped_ansi_snapshot(lines).text
+    }
+
+    pub(crate) fn recent_unwrapped_ansi_snapshot(&self, lines: usize) -> TerminalReadSnapshot {
         self.core
             .lock()
             .ok()
-            .and_then(|core| ghostty_recent_ansi(&core, lines, true).ok())
+            .and_then(|core| ghostty_recent_ansi_snapshot(&core, lines, true).ok())
             .unwrap_or_default()
     }
 
@@ -2396,34 +2445,23 @@ fn ghostty_recent_text(
     core: &GhosttyPaneCore,
     lines: usize,
 ) -> Result<String, crate::ghostty::Error> {
-    let text = ghostty_recent_text_for_terminal(&core.terminal, lines)?;
-    #[cfg(windows)]
-    {
-        if text.trim().is_empty() {
-            let fallback = windows_recent_fallback::recent_text(core, lines, false);
-            if !fallback.trim().is_empty() {
-                return Ok(fallback);
-            }
-        }
-    }
-    Ok(text)
+    ghostty_recent_text_snapshot(core, lines).map(|snapshot| snapshot.text)
 }
 
-fn ghostty_recent_text_unwrapped(
+fn ghostty_recent_text_snapshot(
     core: &GhosttyPaneCore,
     lines: usize,
-) -> Result<String, crate::ghostty::Error> {
+) -> Result<TerminalReadSnapshot, crate::ghostty::Error> {
+    let text = ghostty_recent_text_for_terminal(&core.terminal, lines)?;
+    Ok(finish_recent_snapshot(core, text, lines, false))
+}
+
+fn ghostty_recent_text_unwrapped_snapshot(
+    core: &GhosttyPaneCore,
+    lines: usize,
+) -> Result<TerminalReadSnapshot, crate::ghostty::Error> {
     let text = ghostty_recent_text_unwrapped_for_terminal(&core.terminal, lines)?;
-    #[cfg(windows)]
-    {
-        if text.trim().is_empty() {
-            let fallback = windows_recent_fallback::recent_text(core, lines, true);
-            if !fallback.trim().is_empty() {
-                return Ok(fallback);
-            }
-        }
-    }
-    Ok(text)
+    Ok(finish_recent_snapshot(core, text, lines, true))
 }
 
 fn ghostty_recent_ansi(
@@ -2431,17 +2469,42 @@ fn ghostty_recent_ansi(
     lines: usize,
     unwrap: bool,
 ) -> Result<String, crate::ghostty::Error> {
-    let ansi = ghostty_recent_ansi_for_terminal(&core.terminal, lines, unwrap)?;
+    ghostty_recent_ansi_snapshot(core, lines, unwrap).map(|snapshot| snapshot.text)
+}
+
+fn ghostty_recent_ansi_snapshot(
+    core: &GhosttyPaneCore,
+    lines: usize,
+    unwrap: bool,
+) -> Result<TerminalReadSnapshot, crate::ghostty::Error> {
+    let text = ghostty_recent_ansi_for_terminal(&core.terminal, lines, unwrap)?;
+    Ok(finish_recent_snapshot(core, text, lines, unwrap))
+}
+
+fn finish_recent_snapshot(
+    core: &GhosttyPaneCore,
+    text: String,
+    lines: usize,
+    unwrap: bool,
+) -> TerminalReadSnapshot {
+    #[cfg(not(windows))]
+    let _ = unwrap;
     #[cfg(windows)]
-    {
-        if ansi.trim().is_empty() {
-            let fallback = windows_recent_fallback::recent_text(core, lines, unwrap);
-            if !fallback.trim().is_empty() {
-                return Ok(fallback);
-            }
+    if text.trim().is_empty() {
+        let fallback = windows_recent_fallback::recent_text(core, lines, unwrap);
+        if !fallback.text.trim().is_empty() {
+            return fallback;
         }
     }
-    Ok(ansi)
+
+    // Recent read limits are measured in rendered rows, including blank or styled rows.
+    TerminalReadSnapshot {
+        text,
+        truncated: core
+            .terminal
+            .total_rows()
+            .is_ok_and(|total_rows| total_rows > lines),
+    }
 }
 
 fn ghostty_recent_text_for_terminal(
@@ -4116,11 +4179,16 @@ mod tests {
     fn ghostty_modify_other_keys_mode_one_preserves_shift_enter() {
         let (tx, _rx) = mpsc::channel(4);
         let terminal = crate::ghostty::Terminal::new(80, 24, 0).unwrap();
-        let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
-        let pane_id = PaneId::from_raw(1);
-        pane.process_pty_bytes(pane_id, 0, b"\x1b[>4;1m", &tx);
-
+        let pane = GhosttyPaneTerminal::new(terminal, tx).unwrap();
         let key = crate::input::parse_terminal_key_sequence("\x1b[13;2u").unwrap();
+
+        #[cfg(windows)]
+        assert_eq!(
+            pane.encode_terminal_key(key, crate::input::KeyboardProtocol::Legacy),
+            b"\x1b[13;28;13;1;16;1_"
+        );
+
+        pane.seed_history_ansi("\x1b[>4;1m");
         let encoded = pane.encode_terminal_key(key, crate::input::KeyboardProtocol::Legacy);
 
         assert_eq!(encoded, b"\x1b[27;2;13~");
@@ -4537,6 +4605,20 @@ mod tests {
     }
 
     #[test]
+    fn recent_snapshots_report_omitted_rendered_rows() {
+        let (tx, _rx) = mpsc::channel(4);
+        let mut terminal = crate::ghostty::Terminal::new(20, 3, 100).unwrap();
+        terminal.write(b"one\r\ntwo\r\nthree\r\nfour");
+        let pane = GhosttyPaneTerminal::new(terminal, tx).unwrap();
+
+        assert!(pane.recent_text_snapshot(2).truncated);
+        assert!(pane.recent_ansi_snapshot(2).truncated);
+        assert!(pane.recent_unwrapped_text_snapshot(2).truncated);
+        assert!(pane.recent_unwrapped_ansi_snapshot(2).truncated);
+        assert!(!pane.recent_text_snapshot(100).truncated);
+    }
+
+    #[test]
     fn plain_text_reads_skip_wide_character_spacer_cells() {
         let (tx, _rx) = mpsc::channel(4);
         let mut terminal = crate::ghostty::Terminal::new(40, 3, 100).unwrap();
@@ -4676,6 +4758,60 @@ mod tests {
 
         assert!(pane.detection_text().trim().is_empty());
         assert!(pane.recent_text(3).trim().is_empty());
+    }
+
+    #[test]
+    fn process_pty_bytes_answers_xtwinops_size_queries() {
+        let (tx, _rx) = mpsc::channel(4);
+        let terminal = crate::ghostty::Terminal::new(80, 24, 0).unwrap();
+        let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
+        let pane_id = PaneId::from_raw(1);
+        pane.resize(24, 80, 9, 18);
+
+        let result = pane.process_pty_bytes(pane_id, 0, b"\x1b[14t\x1b[16t\x1b[18t", &tx);
+
+        assert_eq!(
+            result.terminal_responses,
+            vec![
+                Bytes::from_static(b"\x1b[4;432;720t"),
+                Bytes::from_static(b"\x1b[6;18;9t"),
+                Bytes::from_static(b"\x1b[8;24;80t"),
+            ]
+        );
+    }
+
+    #[test]
+    fn xtwinops_size_queries_follow_successful_resize() {
+        let (tx, _rx) = mpsc::channel(4);
+        let terminal = crate::ghostty::Terminal::new(80, 24, 0).unwrap();
+        let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
+        let pane_id = PaneId::from_raw(1);
+        pane.resize(24, 80, 9, 18);
+        pane.resize(30, 100, 10, 20);
+
+        let result = pane.process_pty_bytes(pane_id, 0, b"\x1b[14t\x1b[16t\x1b[18t", &tx);
+
+        assert_eq!(
+            result.terminal_responses,
+            vec![
+                Bytes::from_static(b"\x1b[4;600;1000t"),
+                Bytes::from_static(b"\x1b[6;20;10t"),
+                Bytes::from_static(b"\x1b[8;30;100t"),
+            ]
+        );
+    }
+
+    #[test]
+    fn xtwinops_size_queries_stay_silent_without_pixel_geometry() {
+        let (tx, _rx) = mpsc::channel(4);
+        let terminal = crate::ghostty::Terminal::new(80, 24, 0).unwrap();
+        let pane = GhosttyPaneTerminal::new(terminal, tx.clone()).unwrap();
+        let pane_id = PaneId::from_raw(1);
+        for (cell_width_px, cell_height_px) in [(0, 0), (0, 18), (9, 0)] {
+            pane.resize(24, 80, cell_width_px, cell_height_px);
+            let result = pane.process_pty_bytes(pane_id, 0, b"\x1b[14t\x1b[16t\x1b[18t", &tx);
+            assert!(result.terminal_responses.is_empty());
+        }
     }
 
     #[test]

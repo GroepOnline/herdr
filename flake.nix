@@ -28,6 +28,14 @@
           overlays = [ rust-overlay.overlays.default ];
         };
       rustToolchainFor = pkgs: pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+      rustDevToolchainFor =
+        pkgs:
+        (rustToolchainFor pkgs).override (toolchain: {
+          extensions = toolchain.extensions ++ [
+            "rust-src"
+            "rust-analyzer"
+          ];
+        });
       rustPlatformFor =
         pkgs:
         let
@@ -70,7 +78,7 @@
         system:
         let
           pkgs = pkgsFor system;
-          rustToolchain = rustToolchainFor pkgs;
+          rustToolchain = rustDevToolchainFor pkgs;
         in
         {
           default = pkgs.mkShell {

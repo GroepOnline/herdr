@@ -1737,6 +1737,10 @@ async fn run_client_loop(
             }
             ClientLoopEvent::Resize(new_cols, new_rows, cell_width_px, cell_height_px) => {
                 state.reported_size = (new_cols, new_rows);
+                // Resizing invalidates the host-side blit baseline.
+                // Fork BlitEncoder path: reset encoder so the next frame is forced full
+                // (upstream uses a separate `repaint_pending` flag not present here).
+                state.request_full_redraw();
                 let msg = ClientMessage::Resize {
                     cols: new_cols,
                     rows: new_rows,
@@ -2388,7 +2392,16 @@ fn current_terminal_geometry(kitty_graphics_enabled: bool) -> (u16, u16, u32, u3
     )
 }
 
-/// Polls the terminal size and sends resize events when it changes.
+/// Reports polled changes and signalled resizes that return to the same size.
+fn resize_report_required(
+    signalled: bool,
+    new_size: (u16, u16, u32, u32),
+    last_size: (u16, u16, u32, u32),
+) -> bool {
+    signalled || new_size != last_size
+}
+
+/// Watches the terminal size and sends resize events when it changes.
 fn resize_poll_loop(
     resize_tx: tokio::sync::mpsc::Sender<ClientLoopEvent>,
     initial_cols: u16,
@@ -2396,6 +2409,7 @@ fn resize_poll_loop(
     kitty_graphics_enabled: bool,
     should_quit: &Arc<AtomicBool>,
 ) {
+    crate::platform::watch_terminal_resize_signal();
     let (_, _, initial_cell_width, initial_cell_height) =
         current_terminal_geometry(kitty_graphics_enabled);
     let mut last_size = (
@@ -2406,8 +2420,9 @@ fn resize_poll_loop(
     );
     while !should_quit.load(Ordering::Acquire) {
         std::thread::sleep(Duration::from_millis(100));
+        let signalled = crate::platform::take_terminal_resize_signal();
         let new_size = current_terminal_geometry(kitty_graphics_enabled);
-        if new_size != last_size {
+        if resize_report_required(signalled, new_size, last_size) {
             last_size = new_size;
             if resize_tx
                 .blocking_send(ClientLoopEvent::Resize(
@@ -2456,6 +2471,15 @@ mod tests {
     fn env_lock() -> &'static Mutex<()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    #[test]
+    fn resize_signal_reports_even_when_polled_size_is_unchanged() {
+        let size = (120, 40, 8, 16);
+        assert!(resize_report_required(true, size, size));
+        assert!(!resize_report_required(false, size, size));
+        assert!(resize_report_required(false, (120, 41, 8, 16), size));
+        assert!(resize_report_required(false, (120, 40, 9, 18), size));
     }
 
     fn restore_env_var(key: &str, value: Option<OsString>) {

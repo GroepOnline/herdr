@@ -21,12 +21,20 @@
 
 ### Fixed
 
+- Vibe and other Kitty-keyboard pane applications now receive shifted letters and punctuation when they request associated text. (#2020)
+- Ctrl-clicking a pane URL no longer forwards an unmatched mouse release to alternate-screen applications, preventing duplicate browser tabs. (#1761)
 - Linux clipboard copy/paste now prefers Wayland clipboard tools and skips xclip/xsel entirely on Wayland sessions by default, and every clipboard helper process is now bounded by a timeout instead of blocking indefinitely, preventing paste/copy from hanging when Xwayland's X11 connection is unreachable.
 - Pane applications that query OSC 4 palette colors now inherit the controlling host terminal's palette while preserving child-defined palette overrides.
 - Remote path discovery falls back to `/bin/sh` when the login shell rejects `command -v` (upstream #1201).
 - OMP install respects `PI_CONFIG_DIR` and refuses to share Pi's extension directory (upstream #1696).
 - Pi worktree extension no longer forces workspace focus when starting in the background.
 - Homebrew-managed install detection recognizes the `onlinechefgroep-herdr` Cellar keg name.
+- Headless servers now resume restored agent sessions without waiting for a TUI client to attach. (#2064)
+- Pane applications that query XTWINOPS cell/pixel size now get answers from Herdr panes (upstream #835).
+- Prefix mode ignores bare modifier key events so shifted prefix shortcuts still work (upstream #1870).
+- Passive mouse motion no longer triggers continuous full renders (upstream #1865).
+- Windows panes preserve Shift+Enter (upstream #1909).
+- Pane/agent reads report truncation when older rows were omitted (upstream #1717).
 
 ## [0.7.5] - 2026-07-21
 
@@ -93,7 +101,7 @@
 
 ### Fixed
 - Collapsed Agent sidebar rows now follow the same ordering and click targets as the expanded panel, and their shortcut numbers are assigned by visible list position instead of repeating across workspaces. (#1168, #1344)
-- Shifted indexed bindings such as `prefix+shift+1..9` now match terminals that report the corresponding punctuation characters. (#1184)
+- Shifted indexed bindings such as `prefix+shift+1..9` now match non-US number rows (via shifted codepoints) while retaining legacy US punctuation support. (#1184, #1870)
 - Plugin-driven tab renames now immediately refresh tab-bar geometry and labels. (#1111, #1179, thanks @kovalov)
 - New tabs, splits, layouts, and workspaces configured to follow the foreground directory now start from the focused pane's current working directory. (#1245)
 - Amp, Codex, and Claude Code detection now recognizes current active-turn UI variants, including reordered Codex title spinners and Claude `/btw` turns. (#1208, #1281, #1366)
