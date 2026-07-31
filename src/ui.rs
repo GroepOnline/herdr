@@ -32,7 +32,7 @@ mod status;
 mod tab_surface;
 mod tabs;
 #[allow(dead_code)]
-mod tabs_new;
+pub(crate) mod tabs_new;
 mod text;
 mod widgets;
 
