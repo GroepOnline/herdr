@@ -2,18 +2,31 @@
   "schema_version": 1,
   "channel": "dev",
   "base_version": "0.7.6",
-  "build_id": "2026-07-31-8a631f4d81d9",
-  "commit": "8a631f4d81d93c071c562b0a3485e52923469e76",
-  "built_at": "2026-07-31T04:12:51Z",
+  "build_id": "2026-07-31-79317e435d7e",
+  "commit": "79317e435d7ed61ee6e233b721377d9da7ee8681",
+  "built_at": "2026-07-31T14:48:47Z",
   "protocol": 18,
-  "notes": "Dev build 2026-07-31-8a631f4d81d9\n\nBuilt from `8a631f4d81d9` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/7d3afd3616b03ee1456d32fdc289a6fc9512a907...8a631f4d81d93c071c562b0a3485e52923469e76\n\n### Fixed\n- Upstream keybind/input cherry-pick (wave 2A) (#99)\n- Upgrade astro to 7.1.0 to resolve Dependabot moderate vuln\n\n### Maintenance\n- Add verify-herdr skill for headless CLI proofs (#100)",
+  "notes": "Dev build 2026-07-31-79317e435d7e\n\nBuilt from `79317e435d7e` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/8a631f4d81d93c071c562b0a3485e52923469e76...79317e435d7ed61ee6e233b721377d9da7ee8681\n\n### Fixed\n- Let natural-language Herdr mentions trigger the agent skill\n- Open explicit OSC 8 link schemes\n- Map dead-socket errors on the unchecked cli request path\n- Report a clear cli error when no herdr server is running\n\n### Other\n- Format tests/skill_frontmatter.rs",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-31-8a631f4d81d9/herdr-linux-x86_64",
-      "sha256": "bd605be0c9ff71b3c85daf1aafcd071e4a36704fbe4fcdee04b19044c265b6c3"
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-31-79317e435d7e/herdr-linux-x86_64",
+      "sha256": "cadf6df7b7f12f998640942ede21f909ace76b09bf8ba55b37294baf699cb806"
     }
   },
   "builds": {
+    "2026-07-31-79317e435d7e": {
+      "base_version": "0.7.6",
+      "commit": "79317e435d7ed61ee6e233b721377d9da7ee8681",
+      "built_at": "2026-07-31T14:48:47Z",
+      "protocol": 18,
+      "tag": "dev-2026-07-31-79317e435d7e",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-31-79317e435d7e/herdr-linux-x86_64",
+          "sha256": "cadf6df7b7f12f998640942ede21f909ace76b09bf8ba55b37294baf699cb806"
+        }
+      }
+    },
     "2026-07-31-8a631f4d81d9": {
       "base_version": "0.7.6",
       "commit": "8a631f4d81d93c071c562b0a3485e52923469e76",
