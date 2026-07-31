@@ -32,9 +32,9 @@ jobs:
           git config user.name OnlineChef
           git config user.email chefadmin@chefgroep.online
           git rm .github/workflows/pr79-structural-fixes.yml
-          git rm .github/pr79_structural_fixes.py
-          git rm .github/pr79_structural_adjust.py
-          git rm .github/pr79_fix_script_anchor.py
+          git rm -f .github/pr79_structural_fixes.py
+          git rm -f .github/pr79_structural_adjust.py
+          git rm -f .github/pr79_fix_script_anchor.py
           git rm -f src/ui/pr79_ci_trigger.rs || true
           git add src/app/input/mouse.rs src/ui/motion.rs src/ui/shell/mod.rs src/ui/tabs_new/layout.rs src/ui/tabs_new/render.rs
           git commit -m "fix(ui): align new-shell routing and geometry"
