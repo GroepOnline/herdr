@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-"""Emit CI lane outputs for selective jobs.
+"""Emit CI lane outputs for selective heavy jobs.
 
 Writes GitHub Actions outputs:
   rust, maintenance, release_meta, platform_heavy, docs_only
-
-`platform_heavy` is informational for the nightly `CI heavy` workflow and
-docs/tests only — it does not gate pull requests.
 """
 
 from __future__ import annotations
