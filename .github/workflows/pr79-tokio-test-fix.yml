@@ -1,0 +1,36 @@
+name: PR 79 Tokio integration test fix
+
+on:
+  push:
+    branches:
+      - freebuff/changes-fx8b6gcy
+    paths:
+      - .github/workflows/pr79-tokio-test-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: freebuff/changes-fx8b6gcy
+          fetch-depth: 0
+
+      - name: Run terminal integration test under Tokio
+        run: |
+          python3 .github/pr79_tokio_test_fix.py
+          cargo fmt --all
+
+      - name: Remove temporary files and push
+        run: |
+          git config user.name OnlineChef
+          git config user.email chefadmin@chefgroep.online
+          git rm .github/workflows/pr79-tokio-test-fix.yml
+          git rm .github/pr79_tokio_test_fix.py
+          git rm -f src/ui/pr79_ci_trigger.rs || true
+          git add src/ui/shell/integration_tests.rs
+          git commit -m "test(ui): run terminal integration under Tokio"
+          git push origin HEAD:freebuff/changes-fx8b6gcy
