@@ -4072,7 +4072,6 @@ mod tests {
     use crate::ui::shell::{self, HitTarget, LayoutMode, ScrollState, ShellLayout, SidebarMode};
     use crate::ui::sidebar_new::layout::row_at;
     use crate::ui::sidebar_new::model::SidebarItemId;
-    use ratatui::layout::Rect;
 
     /// Build a realistic `ShellLayout` in Standard mode with sidebar visible.
     fn new_shell_test_layout() -> ShellLayout {
@@ -4146,7 +4145,10 @@ mod tests {
         }];
         app.new_shell_layout = Some(new_layout);
         let result = app.handle_new_shell_click(ws_row.x + 2, ws_row.y);
-        assert_eq!(result, Some(MouseAction::FocusWorkspace { ws_idx: 0 }));
+        assert!(matches!(
+            result,
+            Some(MouseAction::FocusWorkspace { ws_idx: 0 })
+        ));
         assert_eq!(app.mode, Mode::Terminal);
     }
 
@@ -4166,18 +4168,16 @@ mod tests {
             id: SidebarItemId::Agent {
                 ws_idx: 0,
                 tab_idx: 0,
-                pane_id: crate::layout::PaneId(42),
+                pane_id: crate::layout::PaneId::from_raw(42),
             },
         }];
         app.new_shell_layout = Some(new_layout);
         let result = app.handle_new_shell_click(agent_row.x + 2, agent_row.y);
-        assert_eq!(
+        assert!(matches!(
             result,
-            Some(MouseAction::FocusPane {
-                ws_idx: 0,
-                pane_id: crate::layout::PaneId(42)
-            })
-        );
+            Some(MouseAction::FocusPane { ws_idx: 0, pane_id })
+                if pane_id == crate::layout::PaneId::from_raw(42)
+        ));
         assert_eq!(app.mode, Mode::Terminal);
     }
 
@@ -4211,9 +4211,9 @@ mod tests {
         let layout = app.new_shell_layout.clone().unwrap();
         let mut new_layout = layout.clone();
         new_layout.sidebar.rows = vec![];
-        app.new_shell_layout = Some(new_layout);
         let col = new_layout.sidebar.content.x + 2;
         let row = new_layout.sidebar.content.y + 5;
+        app.new_shell_layout = Some(new_layout);
         let result = app.handle_new_shell_click(col, row);
         assert!(result.is_none());
         assert_eq!(app.mode, Mode::Terminal);
@@ -4229,12 +4229,10 @@ mod tests {
         let col = first_tab.rect.x + 2;
         let row = first_tab.rect.y;
         let result = app.handle_new_shell_click(col, row);
-        assert_eq!(
+        assert!(matches!(
             result,
-            Some(MouseAction::FocusTab {
-                tab_idx: first_tab.index
-            })
-        );
+            Some(MouseAction::FocusTab { tab_idx }) if tab_idx == first_tab.index
+        ));
         assert_eq!(app.mode, Mode::Terminal);
     }
 
@@ -4271,10 +4269,10 @@ mod tests {
         let tab_bar = &layout.main.tab_bar;
         let col = tab_bar.scroll_left.x + 1;
         let row = tab_bar.scroll_left.y;
-        let before = app.tab_scroll_offset;
+        let before = app.tab_scroll;
         let result = app.handle_new_shell_click(col, row);
         assert!(result.is_none());
-        assert!(app.tab_scroll_offset <= before);
+        assert!(app.tab_scroll <= before);
     }
 
     #[test]
@@ -4284,10 +4282,10 @@ mod tests {
         let tab_bar = &layout.main.tab_bar;
         let col = tab_bar.scroll_right.x + 1;
         let row = tab_bar.scroll_right.y;
-        let before = app.tab_scroll_offset;
+        let before = app.tab_scroll;
         let result = app.handle_new_shell_click(col, row);
         assert!(result.is_none());
-        assert!(app.tab_scroll_offset >= before);
+        assert!(app.tab_scroll >= before);
     }
 
     #[test]

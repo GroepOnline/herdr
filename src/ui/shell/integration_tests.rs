@@ -16,7 +16,7 @@ mod integration {
     use crate::app::state::AppState;
     use crate::terminal::TerminalRuntimeRegistry;
     use crate::ui::shell::{
-        compute_new_shell_view, render_new_shell, LayoutMode, ScrollState, SidebarMode,
+        compute_new_shell_view, render_new_shell, LayoutMode,
     };
     use crate::workspace::Workspace;
 
@@ -145,7 +145,6 @@ mod integration {
         terminal
             .draw(|frame| render_new_shell(&app, &registry, frame))
             .unwrap();
-        let buffer = terminal.backend().buffer();
 
         // Collapsed sidebar should have zero width.
         assert_eq!(

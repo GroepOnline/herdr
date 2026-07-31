@@ -24,10 +24,10 @@ pub(crate) mod settings;
 #[allow(dead_code)]
 mod settings_new;
 #[allow(dead_code)]
-mod shell;
+pub(crate) mod shell;
 mod sidebar;
 #[allow(dead_code)]
-mod sidebar_new;
+pub(crate) mod sidebar_new;
 mod status;
 mod tab_surface;
 mod tabs;

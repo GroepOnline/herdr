@@ -625,6 +625,8 @@ impl App {
             new_motion_policy: crate::ui::motion::MotionPolicy::default(),
             new_sidebar_prev_mode: 0,
             new_shell_dirty: true,
+            new_shell_layout_hash: 0,
+            new_shell_layout: None,
             sidebar_section_split,
             agent_panel_sort,
             agent_view_override: None,

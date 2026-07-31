@@ -657,7 +657,7 @@ pub fn layout_hash(area: Rect, collapsed: bool, sidebar_mode: u8) -> u64 {
 /// target.  Returns `None` when the click hits dead space or the terminal area
 /// (which is handled by the existing pane input path).
 pub fn hit_test_new_shell(
-    app: &crate::app::AppState,
+    _app: &crate::app::AppState,
     shell_layout: &ShellLayout,
     col: u16,
     row: u16,
