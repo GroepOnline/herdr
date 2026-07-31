@@ -3,20 +3,44 @@
   "protocol": 18,
   "notes": "### Added\n- Added a native `pi.session.ended` event and a built-in `pi_sessions` watcher. When a Pi coding-agent session JSONL stops growing (configurable stale window), Herdr emits a `pi.session.ended` event carrying the session id, cwd, host, stop reason, and event count. Fleet plugins (e.g. `chef-pi-eval`) can subscribe via `on = \"pi.session.ended\"` to ingest and auto-evaluate sessions. (#58)\n- Exposed `pi.session.ended` in `PLUGIN_HOOK_EVENT_KINDS` so plugin `on = \"pi.session.ended\"` hooks fire for any opted-in plugin.",
   "assets": {
-    "linux-x86_64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-linux-x86_64",
-    "linux-aarch64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-linux-aarch64",
-    "macos-x86_64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-macos-x86_64",
-    "macos-aarch64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-macos-aarch64"
+    "linux-x86_64": {
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-linux-x86_64",
+      "sha256": "8f0785c5e9e471e03e7611d6b987b60bf1f9a7db0f25bec95c11f54e156a561a"
+    },
+    "linux-aarch64": {
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-linux-aarch64",
+      "sha256": "ee943dfdf577fe48d5430f6bd4631bbad67019719f6af57422bd345d015eb671"
+    },
+    "macos-x86_64": {
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-macos-x86_64",
+      "sha256": "6347f7bf567d48a7617ff6c6b9f8d5ca13fe9b492ccd30ca4fda4c5a34a41dff"
+    },
+    "macos-aarch64": {
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-macos-aarch64",
+      "sha256": "4abe05e0858758b166e1e08bd57305363e151dfa65b1bd3cd9e1f99e5ca1dfcd"
+    }
   },
   "releases": {
     "0.7.6": {
       "notes": "### Added\n- Added a native `pi.session.ended` event and a built-in `pi_sessions` watcher. When a Pi coding-agent session JSONL stops growing (configurable stale window), Herdr emits a `pi.session.ended` event carrying the session id, cwd, host, stop reason, and event count. Fleet plugins (e.g. `chef-pi-eval`) can subscribe via `on = \"pi.session.ended\"` to ingest and auto-evaluate sessions. (#58)\n- Exposed `pi.session.ended` in `PLUGIN_HOOK_EVENT_KINDS` so plugin `on = \"pi.session.ended\"` hooks fire for any opted-in plugin.",
       "protocol": 18,
       "assets": {
-        "linux-x86_64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-linux-x86_64",
-        "linux-aarch64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-linux-aarch64",
-        "macos-x86_64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-macos-x86_64",
-        "macos-aarch64": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-macos-aarch64"
+        "linux-x86_64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-linux-x86_64",
+          "sha256": "8f0785c5e9e471e03e7611d6b987b60bf1f9a7db0f25bec95c11f54e156a561a"
+        },
+        "linux-aarch64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-linux-aarch64",
+          "sha256": "ee943dfdf577fe48d5430f6bd4631bbad67019719f6af57422bd345d015eb671"
+        },
+        "macos-x86_64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-macos-x86_64",
+          "sha256": "6347f7bf567d48a7617ff6c6b9f8d5ca13fe9b492ccd30ca4fda4c5a34a41dff"
+        },
+        "macos-aarch64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/v0.7.6/herdr-macos-aarch64",
+          "sha256": "4abe05e0858758b166e1e08bd57305363e151dfa65b1bd3cd9e1f99e5ca1dfcd"
+        }
       }
     },
     "0.7.5": {
