@@ -26,8 +26,6 @@ HOMEBREW_INSTALL_HINT: Final = (
 )
 
 DEFAULT_LIVE_MANIFEST_URL: Final = f"{PRODUCT_SITE_URL}/latest.json"
-DEFAULT_PREVIEW_MANIFEST_URL: Final = f"{PRODUCT_SITE_URL}/preview.json"
-DEFAULT_DEV_MANIFEST_URL: Final = f"{PRODUCT_SITE_URL}/dev.json"
 
 # Stable public release matrix. Keep asset names compatible with existing
 # releases and latest.json consumers.
