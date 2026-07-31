@@ -3659,11 +3659,35 @@ mod tests {
                 assets.contains_key(REQUIRED_TARGET),
                 "missing asset URL for {version} {REQUIRED_TARGET}"
             );
-            for (target, url) in assets {
-                let url = url
-                    .as_str()
-                    .unwrap_or_else(|| panic!("asset URL for {version} {target} must be a string"));
+            // Legacy releases store a bare URL string; promoted releases store
+            // the checksummed object form that AssetRef also accepts.
+            for (target, asset) in assets {
+                let url = match asset {
+                    serde_json::Value::String(url) => url.as_str(),
+                    serde_json::Value::Object(object) => object
+                        .get("url")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_else(|| {
+                            panic!("asset object for {version} {target} must have a url string")
+                        }),
+                    _ => panic!(
+                        "asset for {version} {target} must be a URL string or object with url"
+                    ),
+                };
                 assert_asset_url(version, target, url);
+
+                if version == &manifest.version {
+                    let sha256 = asset
+                        .get("sha256")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_else(|| {
+                            panic!("promoted release {version} {target} must carry a sha256")
+                        });
+                    assert!(
+                        sha256.len() == 64 && sha256.chars().all(|c| c.is_ascii_hexdigit()),
+                        "unexpected sha256 for {version} {target}: {sha256}"
+                    );
+                }
             }
         }
     }
