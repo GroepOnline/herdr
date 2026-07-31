@@ -114,9 +114,23 @@ async function downloadFile(url, destination) {
 
 function expectedChecksum(sums, asset) {
   for (const line of sums.split(/\r?\n/)) {
-    const match = line.trim().match(/^([a-fA-F0-9]{64})\s+\*?(.+)$/);
-    if (match && match[2] === asset) {
-      return match[1].toLowerCase();
+    // Split on the first whitespace run instead of one ambiguous pattern, so a
+    // line padded with spaces cannot trigger regex backtracking.
+    const trimmed = line.trim();
+    const separator = trimmed.search(/\s/);
+    if (separator === -1) {
+      continue;
+    }
+    const digest = trimmed.slice(0, separator);
+    if (!/^[a-fA-F0-9]{64}$/.test(digest)) {
+      continue;
+    }
+    let name = trimmed.slice(separator + 1).trimStart();
+    if (name.startsWith("*")) {
+      name = name.slice(1);
+    }
+    if (name === asset) {
+      return digest.toLowerCase();
     }
   }
   throw new Error(`SHA256SUMS does not contain ${asset}`);
