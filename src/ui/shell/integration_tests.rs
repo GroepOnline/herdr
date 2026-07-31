@@ -174,7 +174,7 @@ mod integration {
         // Tab bar should exist and have at least one tab.
         assert!(app.view.tab_bar_rect.width > 0, "tab bar should be visible");
         assert!(
-            app.view.tab_hit_areas.len() >= 1,
+            !app.view.tab_hit_areas.is_empty(),
             "should have at least one tab"
         );
 

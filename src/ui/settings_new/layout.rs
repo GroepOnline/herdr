@@ -14,7 +14,7 @@ pub struct SettingsLayout {
 
 /// Compute settings overlay geometry.
 pub fn layout_settings(area: Rect) -> SettingsLayout {
-    let width = area.width.saturating_sub(4).min(100).max(area.width / 2);
+    let width = area.width.saturating_sub(4).min(100);
     let height = area.height.saturating_sub(4);
     let x = area.x + (area.width.saturating_sub(width)) / 2;
     let y = area.y + 2;
@@ -55,9 +55,9 @@ mod tests {
 
     #[test]
     fn layout_clamps_width_to_100() {
-        let area = Rect::new(0, 0, 200, 60);
+        let area = Rect::new(0, 0, 300, 60);
         let layout = layout_settings(area);
-        assert!(layout.overlay.width <= 100);
+        assert_eq!(layout.overlay.width, 100);
     }
 
     #[test]

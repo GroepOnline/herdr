@@ -1,7 +1,7 @@
 //! Renderer for the global launcher overlay.
 
 use ratatui::{
-    style::{Modifier, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
     Frame,
@@ -50,7 +50,7 @@ pub fn render_launcher_new(
         let bg = if is_selected {
             palette.surface0
         } else {
-            continue;
+            Color::Reset
         };
         let mut spans = vec![
             Span::styled(item.icon, Style::default().fg(palette.accent)),
@@ -168,15 +168,22 @@ mod tests {
         terminal
             .draw(|frame| render_launcher_new(&app, frame, &layout, &items, 1, &palette))
             .unwrap();
-        // item 1 ("beta") should be selected/visible; item 0 ("alpha") unselected and skipped.
         let buffer = terminal.backend().buffer();
-        // Unselected rows use `continue` so they don't render.
+        let line_at_5: String = (0..56)
+            .map(|x| buffer[(12 + x, 5)].symbol().to_string())
+            .collect();
         let line_at_6: String = (0..56)
             .map(|x| buffer[(12 + x, 6)].symbol().to_string())
             .collect();
         assert!(
+            line_at_5.contains("alpha"),
+            "expected unselected item: {line_at_5}"
+        );
+        assert!(
             line_at_6.contains("beta"),
             "expected selected item: {line_at_6}"
         );
+        assert_eq!(buffer[(12, 5)].bg, Color::Reset);
+        assert_eq!(buffer[(12, 6)].bg, palette.surface0);
     }
 }

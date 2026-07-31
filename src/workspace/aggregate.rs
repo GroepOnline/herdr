@@ -103,7 +103,7 @@ impl Tab {
                     .get(&pane.attached_terminal_id)
                     .map(|terminal| (terminal.state, pane.seen))
             })
-            .max_by_key(|(state, seen)| pane_attention_priority(*state, *seen))
+            .max_by_key(|(state, seen)| (pane_attention_priority(*state, *seen), !*seen))
             .unwrap_or((AgentState::Unknown, true))
     }
 }
@@ -121,7 +121,7 @@ impl Workspace {
                     .get(&pane.attached_terminal_id)
                     .map(|terminal| (terminal.state, pane.seen))
             })
-            .max_by_key(|(state, seen)| pane_attention_priority(*state, *seen))
+            .max_by_key(|(state, seen)| (pane_attention_priority(*state, *seen), !*seen))
             .unwrap_or((AgentState::Unknown, true))
     }
 

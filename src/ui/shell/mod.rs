@@ -32,7 +32,8 @@ impl LayoutMode {
             0..=29 => LayoutMode::Tiny,
             30..=49 => LayoutMode::Mobile,
             50..=79 => LayoutMode::Narrow,
-            80..=159 => LayoutMode::Standard,
+            80..=99 => LayoutMode::Medium,
+            100..=159 => LayoutMode::Standard,
             _ => LayoutMode::Wide,
         }
     }
@@ -761,6 +762,10 @@ mod tests {
         assert_eq!(
             LayoutMode::from_area(Rect::new(0, 0, 100, 40)),
             LayoutMode::Standard
+        );
+        assert_eq!(
+            LayoutMode::from_area(Rect::new(0, 0, 90, 30)),
+            LayoutMode::Medium
         );
         assert_eq!(
             LayoutMode::from_area(Rect::new(0, 0, 60, 20)),

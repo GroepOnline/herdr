@@ -24,10 +24,11 @@ pub fn layout_tab_bar(layout: &mut TabBarLayout, tabs: &[TabItem]) -> usize {
     }
 
     let available = area.width.saturating_sub(CLOSE_WIDTH);
+    layout.overflow = false;
     let mut widths = Vec::with_capacity(tabs.len());
     for tab in tabs {
         let label_w = display_width(&tab.label).max(1) as u16;
-        widths.push(label_w.min(available));
+        widths.push(label_w.max(MIN_TAB_WIDTH).min(available));
     }
 
     let mut visible_start = 0usize;

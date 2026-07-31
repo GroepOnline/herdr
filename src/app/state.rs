@@ -1625,20 +1625,20 @@ pub struct AppState {
     pub new_sidebar_mode: u8,
     pub new_sidebar_collapsed: bool,
     pub new_launcher_open: bool,
+    // Reserved for launcher filtering once text input is wired.
     #[allow(dead_code)]
     pub new_launcher_query: String,
     pub new_launcher_selected: usize,
+    // Reserved for Fleet Ops expansion once its input path is wired.
     #[allow(dead_code)]
     pub new_fleet_ops_expanded: bool,
     pub new_settings_open: bool,
     pub new_transitions: crate::ui::motion::TransitionScheduler,
     pub new_motion_policy: crate::ui::motion::MotionPolicy,
     pub new_sidebar_prev_mode: u8,
-    #[allow(dead_code)]
     pub new_shell_dirty: bool,
     /// Phase 8: Layout input hash to detect no-op frames and skip recomputation.
     /// Set to 0 initially; updated by compute_new_shell_view on each dirty frame.
-    #[allow(dead_code)]
     pub new_shell_layout_hash: u64,
     /// Cached shell layout from the last compute_new_shell_view call.
     /// Used by handle_mouse for hit-test routing when new_shell is active.

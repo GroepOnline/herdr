@@ -40,10 +40,14 @@ pub fn render_sidebar_new(
     let sep_x = area.x + area.width.saturating_sub(1);
     {
         let buf = frame.buffer_mut();
+        let buf_area = buf.area;
         let sep_style = Style::default().fg(p.surface_dim);
-        for y in area.y..area.y + area.height {
-            buf[(sep_x, y)].set_symbol("│");
-            buf[(sep_x, y)].set_style(sep_style);
+        for y in area.y..area.y.saturating_add(area.height) {
+            let position = ratatui::layout::Position { x: sep_x, y };
+            if buf_area.contains(position) {
+                buf[(sep_x, y)].set_symbol("│");
+                buf[(sep_x, y)].set_style(sep_style);
+            }
         }
     }
 
