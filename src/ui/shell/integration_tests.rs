@@ -15,9 +15,7 @@ mod integration {
 
     use crate::app::state::AppState;
     use crate::terminal::TerminalRuntimeRegistry;
-    use crate::ui::shell::{
-        compute_new_shell_view, render_new_shell, LayoutMode,
-    };
+    use crate::ui::shell::{compute_new_shell_view, render_new_shell, LayoutMode};
     use crate::workspace::Workspace;
 
     /// Helper: collect visible text from a buffer row.
