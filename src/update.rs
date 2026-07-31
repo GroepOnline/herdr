@@ -48,6 +48,7 @@ const HOMEBREW_FORMULA_API_URL: &str = "https://formulae.brew.sh/api/formula/her
 const HERDR_UPDATE_COMMAND: &str = "herdr update";
 const HOMEBREW_UPDATE_COMMAND: &str =
     "brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr";
+const NPM_UPDATE_COMMAND: &str = "npm install --global onlinechefgroep-herdr@latest";
 const MISE_UPDATE_COMMAND: &str = "mise upgrade herdr";
 const NIX_UPDATE_COMMAND: &str = "update through Nix";
 const MISE_INSTALLS_DIR_ENV: &str = "MISE_INSTALLS_DIR";
@@ -1772,6 +1773,8 @@ fn print_running_session_update_outcomes(
 pub(crate) fn update_install_command() -> &'static str {
     if is_homebrew_managed_install() {
         HOMEBREW_UPDATE_COMMAND
+    } else if is_npm_managed_install() {
+        NPM_UPDATE_COMMAND
     } else if is_mise_managed_install() {
         MISE_UPDATE_COMMAND
     } else if is_nix_managed_install() {
@@ -1788,6 +1791,9 @@ pub(crate) fn update_install_instruction(install_command: &str) -> String {
         }
         HOMEBREW_UPDATE_COMMAND => {
             "detach, run `brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr`, then restart this Herdr session when ready".to_string()
+        }
+        NPM_UPDATE_COMMAND => {
+            "detach, run `npm install --global onlinechefgroep-herdr@latest`, then restart this Herdr session when ready".to_string()
         }
         MISE_UPDATE_COMMAND => {
             "detach, run `mise upgrade herdr`, then restart this Herdr session when ready"
@@ -1806,6 +1812,14 @@ fn is_homebrew_managed_install() -> bool {
     };
 
     is_homebrew_managed_exe_path_following_links(&current_exe)
+}
+
+fn is_npm_managed_install() -> bool {
+    let Ok(current_exe) = env::current_exe() else {
+        return false;
+    };
+
+    is_npm_managed_exe_path_following_links(&current_exe)
 }
 
 fn is_nix_managed_install() -> bool {
@@ -1838,6 +1852,8 @@ pub(crate) fn package_manager_channel_update_guidance_for_current_install() -> O
         Some(
             "Use `brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr` (or `brew upgrade herdr` if you installed the `herdr` formula alias) to update Homebrew installs.",
         )
+    } else if is_npm_managed_install() {
+        Some("Use `npm install --global onlinechefgroep-herdr@latest` to update npm installs.")
     } else if is_mise_managed_install() {
         Some("Use `mise upgrade herdr` to update mise installs.")
     } else if is_nix_managed_install() {
@@ -1851,6 +1867,10 @@ fn preview_channel_rejection_for_exe_path(path: &Path) -> Option<&'static str> {
     if is_homebrew_managed_exe_path_following_links(path) {
         Some(
             "preview and dev channels are only available for direct Herdr installs; Homebrew installs update through `brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr`",
+        )
+    } else if is_npm_managed_exe_path_following_links(path) {
+        Some(
+            "preview and dev channels are only available for direct Herdr installs; npm installs update through `npm install --global onlinechefgroep-herdr@latest`",
         )
     } else if is_mise_managed_exe_path_following_links(path) {
         Some(
@@ -1866,6 +1886,7 @@ fn preview_channel_rejection_for_exe_path(path: &Path) -> Option<&'static str> {
 #[cfg(unix)]
 pub(crate) fn is_package_manager_managed_exe_path(path: &Path) -> bool {
     is_homebrew_managed_exe_path_following_links(path)
+        || is_npm_managed_exe_path_following_links(path)
         || is_mise_managed_exe_path_following_links(path)
         || is_nix_store_exe_path_following_links(path)
 }
@@ -1877,6 +1898,15 @@ fn is_homebrew_managed_exe_path_following_links(path: &Path) -> bool {
 
     path.canonicalize()
         .is_ok_and(|path| is_homebrew_managed_exe_path(&path))
+}
+
+fn is_npm_managed_exe_path_following_links(path: &Path) -> bool {
+    if is_npm_managed_exe_path(path) {
+        return true;
+    }
+
+    path.canonicalize()
+        .is_ok_and(|path| is_npm_managed_exe_path(&path))
 }
 
 fn is_nix_store_exe_path_following_links(path: &Path) -> bool {
@@ -1895,6 +1925,28 @@ fn is_mise_managed_exe_path_following_links(path: &Path) -> bool {
 
     path.canonicalize()
         .is_ok_and(|path| is_mise_managed_exe_path(&path))
+}
+
+fn is_npm_managed_exe_path(path: &Path) -> bool {
+    if path.file_name() != Some(std::ffi::OsStr::new("herdr")) {
+        return false;
+    }
+    let Some(bin_dir) = path.parent() else {
+        return false;
+    };
+    if bin_dir.file_name() != Some(std::ffi::OsStr::new("bin")) {
+        return false;
+    }
+    let Some(package_dir) = bin_dir.parent() else {
+        return false;
+    };
+    if package_dir.file_name() != Some(std::ffi::OsStr::new("onlinechefgroep-herdr")) {
+        return false;
+    }
+    package_dir
+        .parent()
+        .and_then(Path::file_name)
+        .is_some_and(|name| name == "node_modules")
 }
 
 fn is_nix_store_exe_path(path: &Path) -> bool {
@@ -2011,6 +2063,18 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
         }
         return Err(format!(
             "self-update is disabled for Homebrew installs; run `{HOMEBREW_UPDATE_COMMAND}`"
+        ));
+    }
+
+    if is_npm_managed_install() {
+        if channel.is_prerelease() {
+            return Err(format!(
+                "self-update is disabled for npm installs; the {} channel is only available for direct Herdr installs",
+                channel.as_str()
+            ));
+        }
+        return Err(format!(
+            "self-update is disabled for npm installs; run `{NPM_UPDATE_COMMAND}`"
         ));
     }
 
@@ -2464,6 +2528,35 @@ mod tests {
         let path = Path::new("/usr/local/bin/herdr");
 
         assert!(!is_homebrew_managed_exe_path(path));
+    }
+
+    #[test]
+    fn npm_global_install_path_is_detected() {
+        let path = Path::new("/usr/local/lib/node_modules/onlinechefgroep-herdr/bin/herdr");
+
+        assert!(is_npm_managed_exe_path(path));
+        assert!(is_package_manager_managed_exe_path(path));
+        assert_eq!(
+            preview_channel_rejection_for_exe_path(path),
+            Some(
+                "preview and dev channels are only available for direct Herdr installs; npm installs update through `npm install --global onlinechefgroep-herdr@latest`"
+            )
+        );
+        assert_eq!(
+            update_install_instruction(NPM_UPDATE_COMMAND),
+            "detach, run `npm install --global onlinechefgroep-herdr@latest`, then restart this Herdr session when ready"
+        );
+    }
+
+    #[test]
+    fn npm_path_requires_exact_package_and_native_binary_shape() {
+        assert!(!is_npm_managed_exe_path(Path::new(
+            "/usr/local/lib/node_modules/another-package/bin/herdr",
+        )));
+        assert!(!is_npm_managed_exe_path(Path::new(
+            "/usr/local/lib/node_modules/onlinechefgroep-herdr/herdr",
+        )));
+        assert!(!is_npm_managed_exe_path(Path::new("/usr/local/bin/herdr",)));
     }
 
     #[test]
