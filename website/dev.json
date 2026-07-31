@@ -2,18 +2,31 @@
   "schema_version": 1,
   "channel": "dev",
   "base_version": "0.7.6",
-  "build_id": "2026-07-31-79317e435d7e",
-  "commit": "79317e435d7ed61ee6e233b721377d9da7ee8681",
-  "built_at": "2026-07-31T14:48:47Z",
+  "build_id": "2026-07-31-73d5fd0a6799",
+  "commit": "73d5fd0a6799fd06cef73622d1903539a0d1d124",
+  "built_at": "2026-07-31T15:54:52Z",
   "protocol": 18,
-  "notes": "Dev build 2026-07-31-79317e435d7e\n\nBuilt from `79317e435d7e` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/8a631f4d81d93c071c562b0a3485e52923469e76...79317e435d7ed61ee6e233b721377d9da7ee8681\n\n### Fixed\n- Let natural-language Herdr mentions trigger the agent skill\n- Open explicit OSC 8 link schemes\n- Map dead-socket errors on the unchecked cli request path\n- Report a clear cli error when no herdr server is running\n\n### Other\n- Format tests/skill_frontmatter.rs",
+  "notes": "Dev build 2026-07-31-73d5fd0a6799\n\nBuilt from `73d5fd0a6799` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/79317e435d7ed61ee6e233b721377d9da7ee8681...73d5fd0a6799fd06cef73622d1903539a0d1d124\n\n### Fixed\n- Make short-id test robust to shared counter state",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-31-79317e435d7e/herdr-linux-x86_64",
-      "sha256": "cadf6df7b7f12f998640942ede21f909ace76b09bf8ba55b37294baf699cb806"
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-31-73d5fd0a6799/herdr-linux-x86_64",
+      "sha256": "6ebbe45c2c7353902e8e8a4e6302d8d4efe052930186f78099082060388212fc"
     }
   },
   "builds": {
+    "2026-07-31-73d5fd0a6799": {
+      "base_version": "0.7.6",
+      "commit": "73d5fd0a6799fd06cef73622d1903539a0d1d124",
+      "built_at": "2026-07-31T15:54:52Z",
+      "protocol": 18,
+      "tag": "dev-2026-07-31-73d5fd0a6799",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-31-73d5fd0a6799/herdr-linux-x86_64",
+          "sha256": "6ebbe45c2c7353902e8e8a4e6302d8d4efe052930186f78099082060388212fc"
+        }
+      }
+    },
     "2026-07-31-79317e435d7e": {
       "base_version": "0.7.6",
       "commit": "79317e435d7ed61ee6e233b721377d9da7ee8681",
