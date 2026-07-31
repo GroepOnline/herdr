@@ -1452,17 +1452,23 @@ mod tests {
 
     #[test]
     fn generated_workspace_ids_are_short_base32_handles() {
+        let counter = NEXT_WORKSPACE_ID.load(Ordering::Relaxed);
         let first = generate_workspace_id();
         let second = generate_workspace_id();
 
         assert!(first.starts_with('w'));
         assert!(second.starts_with('w'));
         assert_ne!(first, second);
-        assert!(first.len() <= 3, "unexpectedly long workspace id: {first}");
-        assert!(
-            second.len() <= 3,
-            "unexpectedly long workspace id: {second}"
-        );
+        // Ids stay 3 chars until the shared counter exceeds 32^2; parallel
+        // tests share the counter, so only assert the shortness contract
+        // while it is still in range.
+        if counter <= 32 * 32 {
+            assert!(first.len() <= 3, "unexpectedly long workspace id: {first}");
+            assert!(
+                second.len() <= 3,
+                "unexpectedly long workspace id: {second}"
+            );
+        }
     }
 
     #[test]
