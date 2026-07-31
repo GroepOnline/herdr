@@ -65,10 +65,11 @@ pub enum Agent {
     Junie,
     OpenClaude,
     Maki,
+    Aider,
 }
 
 impl Agent {
-    pub const ALL: [Self; 24] = [
+    pub const ALL: [Self; 25] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -93,9 +94,10 @@ impl Agent {
         Self::Junie,
         Self::OpenClaude,
         Self::Maki,
+        Self::Aider,
     ];
 
-    pub const SCREEN_MANIFEST_AGENTS: [Self; 22] = [
+    pub const SCREEN_MANIFEST_AGENTS: [Self; 23] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -118,6 +120,7 @@ impl Agent {
         Self::Junie,
         Self::OpenClaude,
         Self::Maki,
+        Self::Aider,
     ];
 }
 
@@ -147,6 +150,7 @@ pub fn agent_label(agent: Agent) -> &'static str {
         Agent::Junie => "junie",
         Agent::OpenClaude => "openclaude",
         Agent::Maki => "maki",
+        Agent::Aider => "aider",
     }
 }
 
@@ -182,6 +186,7 @@ pub fn interactive_agent_executable(agent: Agent) -> &'static str {
         Agent::Junie => "junie",
         Agent::OpenClaude => "openclaude",
         Agent::Maki => "maki",
+        Agent::Aider => "aider",
     }
 }
 
@@ -221,6 +226,7 @@ fn lookup_agent(name: &str) -> Option<Agent> {
         "junie" | "junie-cli" => Some(Agent::Junie),
         "openclaude" | "open-claude" | "openclaude-cli" => Some(Agent::OpenClaude),
         "maki" => Some(Agent::Maki),
+        "aider" | "aider-ai" | "aider-cli" => Some(Agent::Aider),
         _ => None,
     }
 }
