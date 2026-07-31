@@ -41,7 +41,7 @@ class PreviewNotesTests(unittest.TestCase):
                 base_version="0.6.6",
                 protocol=12,
                 notes=notes,
-                shas={"linux-x86_64": "deadbeef"},
+                shas={"linux-x86_64": "d" * 64},
                 retain=30,
             )
             data = json.loads(content)
@@ -49,7 +49,7 @@ class PreviewNotesTests(unittest.TestCase):
             self.assertEqual(data["build_id"], "2026-06-02-abcdef123456")
             self.assertEqual(
                 data["assets"]["linux-x86_64"]["sha256"],
-                "deadbeef",
+                "d" * 64,
             )
             self.assertEqual(
                 data["assets"]["linux-x86_64"]["url"],
@@ -57,6 +57,27 @@ class PreviewNotesTests(unittest.TestCase):
             )
             self.assertEqual(set(data["assets"]), {"linux-x86_64"})
             self.assertIn("2026-06-02-abcdef123456", data["builds"])
+
+    def test_build_manifest_rejects_missing_or_invalid_checksums(self):
+        urls = preview.default_asset_urls(
+            PRODUCT_GITHUB_REPO,
+            "preview-2026-06-02-abcdef123456",
+        )
+        with self.assertRaisesRegex(SystemExit, "missing linux-x86_64"):
+            preview.asset_objects(urls, {})
+        with self.assertRaisesRegex(SystemExit, "64 hexadecimal"):
+            preview.asset_objects(urls, {"linux-x86_64": "deadbeef"})
+
+    def test_preview_defaults_to_main(self):
+        with mock.patch.object(preview, "commit_subjects", return_value=[]):
+            notes = preview.build_notes(
+                "previous",
+                "abcdef1234567890",
+                "2026-06-02-abcdef123456",
+                "0.7.6",
+                PRODUCT_GITHUB_REPO,
+            )
+        self.assertIn("on `main`", notes)
 
     def test_build_manifest_accepts_dev_channel(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -72,7 +93,7 @@ class PreviewNotesTests(unittest.TestCase):
                 base_version="0.6.6",
                 protocol=12,
                 notes="Dev notes\n",
-                shas={"linux-x86_64": "deadbeef"},
+                shas={"linux-x86_64": "d" * 64},
                 retain=20,
             )
             data = json.loads(content)

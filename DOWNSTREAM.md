@@ -32,6 +32,15 @@ A partial release can exist on GitHub while portable builders finish, but it can
 - `herdr update` detects Homebrew, npm, mise, and Nix paths and refuses to overwrite package-managed files.
 - Homebrew, npm, mise, and Nix installations update through their respective package manager.
 
+## Preview ownership and rollback
+
+- Owner: `@OnlineChef`, enforced for the preview workflow, helper, and manifest through `.github/CODEOWNERS`.
+- Source branch: `main`; requested commits must be reachable from `origin/main`.
+- Artifact namespace: preview prereleases in `OnlineChefGroep/herdr` only. CI rejects references outside the downstream release namespace.
+- Publication requires a complete checksum target matrix. Missing, extra, or malformed SHA-256 values abort before the manifest commit.
+- Rollback: dispatch the Preview workflow with an earlier downstream commit reachable from `main`. If no safe downstream preview exists, keep top-level `assets` empty so clients fail closed; never restore external asset URLs.
+- Website ownership follows the repository-backed `website/preview.json`; no separate `*.pages.dev` binding is a source of truth.
+
 ## Sync policy
 
 - Reconcile upstream on dedicated sync branches; do not combine upstream sync with release closeout.

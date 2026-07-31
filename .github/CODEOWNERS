@@ -1,0 +1,7 @@
+# Distribution and channel ownership
+/.github/workflows/preview.yml @OnlineChef
+/scripts/preview.py @OnlineChef
+/website/preview.json @OnlineChef
+/.github/workflows/release*.yml @OnlineChef
+/.github/workflows/publish-distribution.yml @OnlineChef
+/website/latest.json @OnlineChef

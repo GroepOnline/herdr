@@ -48,6 +48,8 @@ DISTRIBUTION_URL_PATHS = (
     Path("packaging"),
     Path(".github/workflows"),
     Path("website/install.sh"),
+    Path("website/preview.json"),
+    Path("website/dev.json"),
     Path("website/src/content/docs/install.mdx"),
     Path("docs/next/website/src/content/docs/install.mdx"),
     Path("src/remote/unix.rs"),
