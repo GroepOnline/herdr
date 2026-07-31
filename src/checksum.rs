@@ -6,7 +6,7 @@ use std::{
 
 use sha2::{Digest, Sha256};
 
-pub(crate) fn verify_sha256(path: &Path, expected: &str) -> io::Result<()> {
+pub(crate) fn normalize_sha256(expected: &str) -> io::Result<String> {
     let expected = expected.trim().to_ascii_lowercase();
     if expected.len() != 64 || !expected.chars().all(|ch| ch.is_ascii_hexdigit()) {
         return Err(io::Error::new(
@@ -14,7 +14,11 @@ pub(crate) fn verify_sha256(path: &Path, expected: &str) -> io::Result<()> {
             "expected sha256 must be 64 hexadecimal characters",
         ));
     }
+    Ok(expected)
+}
 
+pub(crate) fn verify_sha256(path: &Path, expected: &str) -> io::Result<()> {
+    let expected = normalize_sha256(expected)?;
     let actual = file_sha256(path)?;
     if actual != expected {
         return Err(io::Error::new(
@@ -52,6 +56,20 @@ fn to_lower_hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use std::fs;
+
+    #[test]
+    fn normalizes_valid_sha256_and_rejects_invalid_values() {
+        assert_eq!(
+            super::normalize_sha256(
+                "  78193EF266C1E3C2CE4EA2A86D7FC87E8C52799653FAAAC8536533A1C9300F82  "
+            )
+            .unwrap(),
+            "78193ef266c1e3c2ce4ea2a86d7fc87e8c52799653faaac8536533a1c9300f82"
+        );
+        assert!(super::normalize_sha256("").is_err());
+        assert!(super::normalize_sha256("abc").is_err());
+        assert!(super::normalize_sha256(&"g".repeat(64)).is_err());
+    }
 
     #[test]
     fn verifies_matching_sha256() {
