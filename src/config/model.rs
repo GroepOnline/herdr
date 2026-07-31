@@ -1486,11 +1486,6 @@ pub struct UiConfig {
     pub toast: ToastConfig,
     /// Play sounds when agents change state in background workspaces.
     pub sound: SoundConfig,
-    /// Enable the experimental new terminal shell UI.
-    /// The old UI remains the default until this is explicitly set to true.
-    /// Requires server restart to take effect. Default: false.
-    #[serde(default)]
-    pub new_shell: bool,
 }
 
 /// Cursor shape (DECSCUSR) used for the forced IME anchor.
@@ -1685,7 +1680,6 @@ impl Default for UiConfig {
             accent: "cyan".into(),
             toast: ToastConfig::default(),
             sound: SoundConfig::default(),
-            new_shell: false,
         }
     }
 }

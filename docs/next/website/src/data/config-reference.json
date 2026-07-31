@@ -724,12 +724,6 @@
           "description": "Show the Fleet Ops Bar under pane borders."
         },
         {
-          "key": "ui.new_shell",
-          "type": "boolean",
-          "default": "false",
-          "description": "Enable the experimental new terminal shell UI. Requires server restart."
-        },
-        {
           "key": "ui.spinner_style",
           "type": "enum",
           "default": "\"dots\"",

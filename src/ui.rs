@@ -6,33 +6,19 @@ use ratatui::{
 };
 
 mod dialogs;
-#[allow(dead_code)]
-mod fleet_ops_new;
 mod keybind_help;
-#[allow(dead_code)]
-mod launcher_new;
 mod menus;
 mod mobile;
-#[allow(dead_code)]
-pub(crate) mod motion;
 mod navigator;
 mod onboarding;
 mod panes;
 mod release_notes;
 mod scrollbar;
 pub(crate) mod settings;
-#[allow(dead_code)]
-mod settings_new;
-#[allow(dead_code)]
-pub(crate) mod shell;
 mod sidebar;
-#[allow(dead_code)]
-pub(crate) mod sidebar_new;
 mod status;
 mod tab_surface;
 mod tabs;
-#[allow(dead_code)]
-pub(crate) mod tabs_new;
 mod text;
 mod widgets;
 
@@ -226,10 +212,6 @@ fn compute_view_internal(
     resize_panes: bool,
     cell_size: crate::kitty_graphics::HostCellSize,
 ) {
-    if app.new_shell {
-        shell::compute_new_shell_view(app, terminal_runtimes, area, resize_panes, cell_size);
-        return;
-    }
     if is_mobile_width(area, app.mobile_width_threshold) {
         compute_mobile_view(app, terminal_runtimes, area, resize_panes, cell_size);
         return;
@@ -424,10 +406,6 @@ pub fn render_with_runtime_registry(
     terminal_runtimes: &TerminalRuntimeRegistry,
     frame: &mut Frame,
 ) {
-    if app.new_shell {
-        shell::render_new_shell(app, terminal_runtimes, frame);
-        return;
-    }
     let sidebar_area = app.view.sidebar_rect;
     let tab_bar_area = app.view.tab_bar_rect;
     let terminal_area = app.view.terminal_area;
