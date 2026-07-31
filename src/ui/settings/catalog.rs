@@ -44,10 +44,11 @@ pub(crate) enum SettingsItemId {
     Integration { index: usize },
     IntegrationsEmpty,
     PluginsInstalledHeader,
+    // TODO(plugins-v2): key InstalledPlugin by plugin_id once SettingsItemId can hold owned ids.
     InstalledPlugin { index: usize },
     PluginsEmpty,
     PluginsCatalogHeader,
-    CatalogPlugin { index: usize },
+    CatalogPlugin { plugin_id: &'static str },
     UpdateChannelStable,
     UpdateChannelPreview,
     VersionCheck,
@@ -144,28 +145,16 @@ pub(crate) const PLUGIN_CATALOG: &[PluginCatalogEntry] = &[
         plugin_id: "com.chefgroep.github-status",
     },
     PluginCatalogEntry {
-        name: "Fleet health",
-        blurb: "which hosts are online",
-        source: "OnlineChefGroep/herdr-plugins/chef-fleet-health",
-        plugin_id: "com.chefgroep.fleet-health",
-    },
-    PluginCatalogEntry {
-        name: "Cloudflare tunnels",
-        blurb: "tunnel health at a glance",
-        source: "OnlineChefGroep/herdr-plugins/chef-cloudflare-tunnel",
-        plugin_id: "com.chefgroep.cloudflare-tunnel",
-    },
-    PluginCatalogEntry {
         name: "Kater bridge",
-        blurb: "Utrecht fleet inventory",
-        source: "OnlineChefGroep/herdr-plugins/chef-kater-bridge",
+        blurb: "gateway health, doctor, PR-gate, Utrecht fleet",
+        source: "OnlineChefGroep/herdr-plugins/kater-bridge",
         plugin_id: "com.chefgroep.kater-bridge",
     },
     PluginCatalogEntry {
-        name: "Session park",
-        blurb: "park and resume long-lived sessions",
-        source: "OnlineChefGroep/herdr-plugins/chef-session-park",
-        plugin_id: "com.chefgroep.session-park",
+        name: "Pane reaper",
+        blurb: "ghost-reaper on pane exit for orphaned processes",
+        source: "OnlineChefGroep/herdr-plugins/chef-pane-reaper",
+        plugin_id: "com.chefgroep.pane-reaper",
     },
 ];
 
@@ -413,13 +402,13 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
                 plugin_id: plugin.plugin_id.clone(),
                 enabled: !plugin.enabled,
             }),
-        SettingsItemId::CatalogPlugin { index } => {
-            catalog_entries_available(state).get(index).map(|entry| {
-                SettingsAction::InstallCatalogPlugin {
-                    source: entry.source.to_string(),
-                }
+        SettingsItemId::CatalogPlugin { plugin_id } => PLUGIN_CATALOG
+            .iter()
+            .find(|entry| entry.plugin_id == plugin_id)
+            .filter(|entry| !state.installed_plugins.contains_key(entry.plugin_id))
+            .map(|entry| SettingsAction::InstallCatalogPlugin {
+                source: entry.source.to_string(),
             })
-        }
         SettingsItemId::Theme { .. }
         | SettingsItemId::KeybindHelp
         | SettingsItemId::Integration { .. }
@@ -433,9 +422,9 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
     }
 }
 
-pub(crate) fn catalog_plugin_index(id: SettingsItemId) -> Option<usize> {
-    if let SettingsItemId::CatalogPlugin { index } = id {
-        Some(index)
+pub(crate) fn catalog_plugin_id(id: SettingsItemId) -> Option<&'static str> {
+    if let SettingsItemId::CatalogPlugin { plugin_id } = id {
+        Some(plugin_id)
     } else {
         None
     }

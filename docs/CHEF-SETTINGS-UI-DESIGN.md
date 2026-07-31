@@ -58,6 +58,14 @@ left navigation, search, and scrollable section content.
 | Updates | channel, version check, manifest check |
 | Advanced | experiments, fleet ops bar, kitty/nested/SSH, clipboard history, config path |
 
+### Plugins v2 (next)
+
+PR-A aligns the curated catalog with `OnlineChefGroep/herdr-plugins` paths on main.
+Follow-ups: install progress/toast feedback while `herdr plugin install` runs, load
+available entries from `herdr-plugins/registry.json` instead of a hardcoded list, and
+a searchable marketplace tab once registry metadata (categories, versions) is wired through
+settings actions.
+
 ### Non-goals (v1)
 
 - Full public marketplace browser (curated installs; private pack in `herdr-plugins`)
