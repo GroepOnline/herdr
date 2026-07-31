@@ -210,7 +210,11 @@ release-verify version="":
     #!/usr/bin/env bash
     set -euo pipefail
     cargo_version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
-    version="${1:-$cargo_version}"
+    if [ -n "{{version}}" ]; then
+      version="{{version}}"
+    else
+      version="$cargo_version"
+    fi
     python3 scripts/changelog.py verify-release-state \
       --version "$version" \
       --live-url https://herdr.chefgroep.nl/latest.json

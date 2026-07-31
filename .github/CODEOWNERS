@@ -5,3 +5,11 @@
 /.github/workflows/release*.yml @OnlineChef
 /.github/workflows/publish-distribution.yml @OnlineChef
 /website/latest.json @OnlineChef
+
+# Installer, packaging, and release tooling
+/website/install.sh @OnlineChef
+/npm/install.js @OnlineChef
+/packaging/homebrew/onlinechefgroep-herdr.rb @OnlineChef
+/scripts/homebrew_formula.py @OnlineChef
+/scripts/changelog.py @OnlineChef
+/scripts/ci_quality.py @OnlineChef
