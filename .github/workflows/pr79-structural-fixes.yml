@@ -21,6 +21,7 @@ jobs:
 
       - name: Apply structural fixes
         run: |
+          # Generator anchors are validated before any source file is committed.
           python3 .github/pr79_fix_script_anchor.py
           python3 .github/pr79_structural_fixes.py
           python3 .github/pr79_structural_adjust.py
