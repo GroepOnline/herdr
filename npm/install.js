@@ -36,11 +36,30 @@ function repositorySlug(repository) {
     throw new Error("package.json is missing repository.url");
   }
 
-  const match = raw.match(/github\.com[/:]([^/]+\/[^/#]+?)(?:\.git)?$/);
-  if (!match) {
+  // Split on a fixed host marker instead of matching the whole URL, so the
+  // parse stays linear in the input length.
+  const hostIndex = raw.search(/github\.com[/:]/);
+  if (hostIndex === -1) {
     throw new Error("package.json repository must point to GitHub");
   }
-  return match[1].replace(/\.git$/, "");
+
+  const path = raw
+    .slice(hostIndex + "github.com/".length)
+    .split("#")[0]
+    .split("?")[0];
+  const segments = path.split("/").filter((segment) => segment.length > 0);
+  if (segments.length !== 2) {
+    throw new Error("package.json repository must point to GitHub");
+  }
+
+  const owner = segments[0];
+  const name = segments[1].endsWith(".git")
+    ? segments[1].slice(0, -".git".length)
+    : segments[1];
+  if (!name) {
+    throw new Error("package.json repository must point to GitHub");
+  }
+  return `${owner}/${name}`;
 }
 
 function releaseUrl(asset) {
