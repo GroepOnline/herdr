@@ -302,6 +302,7 @@ pub(crate) fn settings_primary_button_label(section: SettingsSection) -> &'stati
     match section {
         SettingsSection::Agents => "install",
         SettingsSection::Appearance => "apply",
+        SettingsSection::Plugins => "refresh",
         _ => "done",
     }
 }
@@ -312,7 +313,7 @@ pub(crate) fn settings_show_primary_action(app: &AppState) -> bool {
             .integration_recommendations
             .iter()
             .any(crate::integration::IntegrationRecommendation::needs_install),
-        SettingsSection::Appearance => true,
+        SettingsSection::Appearance | SettingsSection::Plugins => true,
         _ => false,
     }
 }
@@ -406,6 +407,18 @@ mod tests {
         assert_eq!(
             layout.spinner_category_index_at(&app, rect.x + 2, rect.y),
             Some(0)
+        );
+    }
+
+    #[test]
+    fn plugins_section_shows_refresh_primary_action() {
+        let mut app = AppState::test_new();
+        app.mode = Mode::Settings;
+        app.settings.section = SettingsSection::Plugins;
+        assert!(settings_show_primary_action(&app));
+        assert_eq!(
+            settings_primary_button_label(SettingsSection::Plugins),
+            "refresh"
         );
     }
 

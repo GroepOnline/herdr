@@ -84,33 +84,86 @@ impl App {
 
     pub(crate) fn settings_install_catalog_plugin(&mut self, source: &str) {
         self.state.plugin_install_messages.clear();
+        let pending = format!("installing {source}…");
+        self.state.settings.plugin_install_job = Some(crate::app::state::PluginInstallJob {
+            source: source.to_string(),
+            status: crate::app::state::PluginInstallJobStatus::Pending,
+            message: pending.clone(),
+        });
+        self.state.plugin_install_messages.push(pending);
+
         let exe = match std::env::current_exe() {
             Ok(exe) => exe,
             Err(err) => {
-                self.state
-                    .plugin_install_messages
-                    .push(format!("failed to locate herdr binary: {err}"));
+                self.finish_plugin_install_job(source, false, &format!("failed to locate herdr binary: {err}"));
                 return;
             }
         };
-        match std::process::Command::new(&exe)
+        let output = match std::process::Command::new(&exe)
             .args(["plugin", "install", source, "--yes"])
             .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn()
+            .output()
         {
-            Ok(_) => {
-                self.state
-                    .plugin_install_messages
-                    .push(format!("installing {source}…"));
-            }
+            Ok(output) => output,
             Err(err) => {
-                self.state
-                    .plugin_install_messages
-                    .push(format!("failed to start install: {err}"));
+                self.finish_plugin_install_job(
+                    source,
+                    false,
+                    &format!("failed to run install: {err}"),
+                );
+                return;
             }
+        };
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let success = output.status.success();
+        let summary = summarize_plugin_install_output(&stdout, &stderr, success);
+        let message = if success {
+            format!("installed {source}: {summary}")
+        } else {
+            format!("install failed: {summary}")
+        };
+        self.finish_plugin_install_job(source, success, &message);
+        if success {
+            self.reload_plugins_for_settings();
+            self.state.mark_session_dirty();
         }
+    }
+
+    pub(crate) fn settings_refresh_installed_plugins(&mut self) {
+        self.state.settings.plugin_install_job = None;
+        self.state.plugin_install_messages.clear();
+        if self.no_session {
+            self.state
+                .plugin_install_messages
+                .push("plugin registry unavailable in no-session mode".to_string());
+            return;
+        }
+        match reload_installed_plugins_state(&mut self.state.installed_plugins) {
+            Ok(()) => self
+                .state
+                .plugin_install_messages
+                .push("plugins refreshed".to_string()),
+            Err(err) => self
+                .state
+                .plugin_install_messages
+                .push(format!("refresh failed: {err}")),
+        }
+    }
+
+    fn finish_plugin_install_job(&mut self, source: &str, success: bool, message: &str) {
+        let status = if success {
+            crate::app::state::PluginInstallJobStatus::Success
+        } else {
+            crate::app::state::PluginInstallJobStatus::Failed
+        };
+        self.state.settings.plugin_install_job = Some(crate::app::state::PluginInstallJob {
+            source: source.to_string(),
+            status,
+            message: message.to_string(),
+        });
+        self.state.plugin_install_messages = vec![message.to_string()];
     }
 
     fn update_installed_plugins<T>(
@@ -708,6 +761,25 @@ impl App {
         } else {
             encode_success(id, ResponseResult::PluginDisabled { plugin })
         }
+    }
+}
+
+fn summarize_plugin_install_output(stdout: &str, stderr: &str, success: bool) -> String {
+    let last_line = |text: &str| {
+        text.lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .last()
+            .map(str::to_string)
+    };
+    if success {
+        last_line(stdout)
+            .or_else(|| last_line(stderr))
+            .unwrap_or_else(|| "done".to_string())
+    } else {
+        last_line(stderr)
+            .or_else(|| last_line(stdout))
+            .unwrap_or_else(|| "install failed".to_string())
     }
 }
 

@@ -1248,6 +1248,20 @@ pub struct ThemeRuntimeConfig {
     pub legacy_accent: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PluginInstallJobStatus {
+    Pending,
+    Success,
+    Failed,
+}
+
+#[derive(Debug, Clone)]
+pub struct PluginInstallJob {
+    pub source: String,
+    pub status: PluginInstallJobStatus,
+    pub message: String,
+}
+
 pub struct SettingsState {
     /// Which left-nav section is active.
     pub section: SettingsSection,
@@ -1269,6 +1283,8 @@ pub struct SettingsState {
     pub preview_tick: u32,
     /// Snapshot of config fields not mirrored on [`AppState`].
     pub config_snapshot: SettingsConfigSnapshot,
+    /// Latest catalog plugin install job for the plugins settings section.
+    pub plugin_install_job: Option<PluginInstallJob>,
 }
 
 pub(crate) enum DragTarget {
@@ -2090,6 +2106,7 @@ impl AppState {
                 original_theme: None,
                 preview_tick: 0,
                 config_snapshot: SettingsConfigSnapshot::load(),
+                plugin_install_job: None,
             },
             integration_recommendations: Vec::new(),
             agent_manifest_summaries: Vec::new(),
