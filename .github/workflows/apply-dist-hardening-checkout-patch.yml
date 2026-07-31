@@ -45,7 +45,7 @@ jobs:
           python3 scripts/ci_quality.py check-latest-json-manifest
 
       - name: Run npm install-method regression tests
-        run: cargo test --locked --lib npm_
+        run: cargo test --locked npm_
 
       - name: Commit checkout patch and remove bootstrap files
         run: |
