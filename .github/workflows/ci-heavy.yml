@@ -1,9 +1,8 @@
 name: CI heavy
 
-# Nightly / post-merge heavy lane. Not a required PR check — Windows lint and
-# musl smoke run here (or on `main` push). PR merge gate is Linux-only in
-# `.github/workflows/ci.yml`. Optional manual dispatch; do not wait on this in
-# agent fix loops.
+# Nightly / post-merge heavy lane. Not a required PR check — keeps free OSS
+# minutes useful without blocking docs PRs. Force on a PR with label `ci-heavy`
+# via the main CI workflow instead.
 
 on:
   workflow_dispatch:
