@@ -7,7 +7,7 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -309,28 +309,79 @@ impl RemoteHerdr {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(untagged)]
-enum RemoteAssetRef {
-    Url(String),
-    Object { url: String, sha256: Option<String> },
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RemoteAssetRef {
+    url: String,
+    sha256: String,
+}
+
+impl<'de> Deserialize<'de> for RemoteAssetRef {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let serde_json::Value::Object(mut object) = value else {
+            return Err(serde::de::Error::custom(
+                "remote asset must be an object with url and sha256",
+            ));
+        };
+        let url = object
+            .remove("url")
+            .and_then(|value| value.as_str().map(str::to_string))
+            .ok_or_else(|| serde::de::Error::custom("remote asset object is missing url"))?;
+        let sha256 = object
+            .remove("sha256")
+            .and_then(|value| value.as_str().map(str::to_string))
+            .ok_or_else(|| serde::de::Error::custom("remote asset object is missing sha256"))?;
+        if url.trim().is_empty() {
+            return Err(serde::de::Error::custom(
+                "remote asset url must not be empty",
+            ));
+        }
+        let sha256 = crate::checksum::normalize_sha256(&sha256)
+            .map_err(|error| serde::de::Error::custom(error.to_string()))?;
+        Ok(Self {
+            url: url.trim().to_string(),
+            sha256,
+        })
+    }
 }
 
 impl RemoteAssetRef {
     fn url(&self) -> &str {
-        match self {
-            Self::Url(url) => url,
-            Self::Object { url, .. } => url,
-        }
+        &self.url
     }
 
-    fn sha256(&self) -> Option<&str> {
-        match self {
-            Self::Url(_) => None,
-            Self::Object { sha256, .. } => {
-                sha256.as_deref().filter(|value| !value.trim().is_empty())
-            }
-        }
+    fn sha256(&self) -> &str {
+        &self.sha256
+    }
+}
+
+#[cfg(test)]
+mod remote_asset_checksum_tests {
+    use super::RemoteAssetRef;
+
+    #[test]
+    fn remote_asset_requires_valid_sha256() {
+        assert!(
+            serde_json::from_str::<RemoteAssetRef>(r#"{"url":"https://example.test/herdr"}"#)
+                .is_err()
+        );
+        assert!(serde_json::from_str::<RemoteAssetRef>(
+            r#"{"url":"https://example.test/herdr","sha256":"abc"}"#
+        )
+        .is_err());
+        let parsed = serde_json::from_str::<RemoteAssetRef>(
+            r#"{"url":"https://example.test/herdr","sha256":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}"#,
+        )
+        .unwrap();
+        assert_eq!(parsed.sha256(), "b".repeat(64));
+    }
+
+    #[test]
+    fn remote_asset_rejects_legacy_url_string() {
+        assert!(serde_json::from_str::<RemoteAssetRef>(r#""https://example.test/herdr""#).is_err());
     }
 }
 
@@ -424,7 +475,7 @@ struct InstallSource {
 
 struct RemoteReleaseAsset {
     url: String,
-    sha256: Option<String>,
+    sha256: String,
 }
 
 struct PreparedRemoteHerdr {
@@ -1471,14 +1522,12 @@ fn download_release_asset(platform: &RemotePlatform) -> io::Result<InstallSource
         let _ = fs::remove_dir_all(&dir);
         return Err(io::Error::other("download failed"));
     }
-    if let Some(expected) = &asset.sha256 {
-        if let Err(err) = crate::checksum::verify_sha256(&path, expected) {
-            let _ = fs::remove_dir_all(&dir);
-            return Err(io::Error::new(
-                err.kind(),
-                format!("downloaded remote asset checksum verification failed: {err}"),
-            ));
-        }
+    if let Err(err) = crate::checksum::verify_sha256(&path, &asset.sha256) {
+        let _ = fs::remove_dir_all(&dir);
+        return Err(io::Error::new(
+            err.kind(),
+            format!("downloaded remote asset checksum verification failed: {err}"),
+        ));
     }
 
     Ok(InstallSource::temporary(path, dir))
@@ -1507,7 +1556,7 @@ fn fetch_remote_manifest(url: &str) -> io::Result<Vec<u8>> {
 fn remote_asset_info(asset: &RemoteAssetRef) -> RemoteReleaseAsset {
     RemoteReleaseAsset {
         url: asset.url().to_string(),
-        sha256: asset.sha256().map(str::to_string),
+        sha256: asset.sha256().to_string(),
     }
 }
 
@@ -2673,12 +2722,12 @@ mod tests {
             r#"{
                 "version": "1.2.3",
                 "assets": {
-                    "linux-x86_64": "https://example.com/latest"
+                    "linux-x86_64": {"url": "https://example.com/latest", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                 },
                 "releases": {
                     "1.2.3": {
                         "assets": {
-                            "linux-x86_64": "https://example.com/archive"
+                            "linux-x86_64": {"url": "https://example.com/archive", "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
                         }
                     }
                 }
@@ -2701,13 +2750,13 @@ mod tests {
             r#"{
                 "version": "1.2.4",
                 "assets": {
-                    "linux-x86_64": "https://example.com/latest"
+                    "linux-x86_64": {"url": "https://example.com/latest", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                 },
                 "releases": {
                     "1.2.3": {
                         "notes": "ignored",
                         "assets": {
-                            "linux-x86_64": "https://example.com/archive"
+                            "linux-x86_64": {"url": "https://example.com/archive", "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
                         }
                     }
                 }
@@ -2731,14 +2780,14 @@ mod tests {
                 "version": "1.2.4",
                 "protocol": 42,
                 "assets": {
-                    "linux-x86_64": "https://example.com/latest"
+                    "linux-x86_64": {"url": "https://example.com/latest", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                 },
                 "releases": {
                     "1.2.3": {
                         "notes": "ignored",
                         "protocol": 41,
                         "assets": {
-                            "linux-x86_64": "https://example.com/archive"
+                            "linux-x86_64": {"url": "https://example.com/archive", "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
                         }
                     }
                 }
@@ -2761,13 +2810,13 @@ mod tests {
                 "version": "1.2.4",
                 "protocol": 42,
                 "assets": {
-                    "linux-x86_64": "https://example.com/latest"
+                    "linux-x86_64": {"url": "https://example.com/latest", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
                 },
                 "releases": {
                     "1.2.3": {
                         "notes": "ignored",
                         "assets": {
-                            "linux-x86_64": "https://example.com/archive"
+                            "linux-x86_64": {"url": "https://example.com/archive", "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
                         }
                     }
                 }
@@ -2792,7 +2841,7 @@ mod tests {
                 "assets": {
                     "linux-x86_64": {
                         "url": "https://example.com/new",
-                        "sha256": "new"
+                        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                     }
                 },
                 "builds": {
@@ -2801,7 +2850,7 @@ mod tests {
                         "assets": {
                             "linux-x86_64": {
                                 "url": "https://example.com/old",
-                                "sha256": "old"
+                                "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                             }
                         }
                     }
@@ -2815,7 +2864,10 @@ mod tests {
         let asset = assets.get("linux-x86_64").expect("asset");
         assert_eq!(protocol, 11);
         assert_eq!(asset.url(), "https://example.com/old");
-        assert_eq!(asset.sha256(), Some("old"));
+        assert_eq!(
+            asset.sha256(),
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        );
     }
 
     #[test]

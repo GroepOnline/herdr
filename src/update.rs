@@ -154,7 +154,7 @@ impl UpdateChannel {
 #[derive(Debug, Clone)]
 struct AssetRef {
     url: String,
-    sha256: Option<String>,
+    sha256: String,
 }
 
 impl<'de> Deserialize<'de> for AssetRef {
@@ -163,31 +163,54 @@ impl<'de> Deserialize<'de> for AssetRef {
         D: Deserializer<'de>,
     {
         let value = serde_json::Value::deserialize(deserializer)?;
-        match value {
-            serde_json::Value::String(url) if !url.trim().is_empty() => Ok(Self {
-                url: url.trim().to_string(),
-                sha256: None,
-            }),
-            serde_json::Value::Object(mut object) => {
-                let url = object
-                    .remove("url")
-                    .and_then(|value| value.as_str().map(str::to_string))
-                    .ok_or_else(|| serde::de::Error::custom("asset object is missing url"))?;
-                let sha256 = object
-                    .remove("sha256")
-                    .and_then(|value| value.as_str().map(str::to_string));
-                if url.trim().is_empty() {
-                    return Err(serde::de::Error::custom("asset url must not be empty"));
-                }
-                Ok(Self {
-                    url: url.trim().to_string(),
-                    sha256: sha256.filter(|value| !value.trim().is_empty()),
-                })
-            }
-            _ => Err(serde::de::Error::custom(
-                "asset must be a URL string or object with url",
-            )),
+        let serde_json::Value::Object(mut object) = value else {
+            return Err(serde::de::Error::custom(
+                "asset must be an object with url and sha256",
+            ));
+        };
+        let url = object
+            .remove("url")
+            .and_then(|value| value.as_str().map(str::to_string))
+            .ok_or_else(|| serde::de::Error::custom("asset object is missing url"))?;
+        let sha256 = object
+            .remove("sha256")
+            .and_then(|value| value.as_str().map(str::to_string))
+            .ok_or_else(|| serde::de::Error::custom("asset object is missing sha256"))?;
+        if url.trim().is_empty() {
+            return Err(serde::de::Error::custom("asset url must not be empty"));
         }
+        let sha256 = crate::checksum::normalize_sha256(&sha256)
+            .map_err(|error| serde::de::Error::custom(error.to_string()))?;
+        Ok(Self {
+            url: url.trim().to_string(),
+            sha256,
+        })
+    }
+}
+
+#[cfg(test)]
+mod asset_checksum_tests {
+    use super::AssetRef;
+
+    #[test]
+    fn update_asset_requires_valid_sha256() {
+        assert!(
+            serde_json::from_str::<AssetRef>(r#"{"url":"https://example.test/herdr"}"#).is_err()
+        );
+        assert!(serde_json::from_str::<AssetRef>(
+            r#"{"url":"https://example.test/herdr","sha256":"abc"}"#
+        )
+        .is_err());
+        let parsed = serde_json::from_str::<AssetRef>(
+            r#"{"url":"https://example.test/herdr","sha256":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
+        )
+        .unwrap();
+        assert_eq!(parsed.sha256, "a".repeat(64));
+    }
+
+    #[test]
+    fn update_asset_rejects_legacy_url_string() {
+        assert!(serde_json::from_str::<AssetRef>(r#""https://example.test/herdr""#).is_err());
     }
 }
 
@@ -302,7 +325,7 @@ struct ReleaseInfo {
     #[cfg(not(windows))]
     target_protocol: Option<u32>,
     download_url: String,
-    sha256: Option<String>,
+    sha256: String,
     notes_body: String,
 }
 
@@ -630,15 +653,13 @@ fn download_update(release: &ReleaseInfo) -> Result<DownloadedUpdate, String> {
         return Err("download failed".into());
     }
 
-    if let Some(expected) = &release.sha256 {
-        if let Err(e) = crate::checksum::verify_sha256(&tmp_path, expected) {
-            let _ = fs::remove_file(&tmp_path);
-            return Err(format!(
-                "downloaded update checksum verification failed: {e}"
-            ));
-        }
-        tracing::info!(sha256 = %expected, "downloaded update checksum verified");
+    if let Err(e) = crate::checksum::verify_sha256(&tmp_path, &release.sha256) {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(format!(
+            "downloaded update checksum verification failed: {e}"
+        ));
     }
+    tracing::info!(sha256 = %release.sha256, "downloaded update checksum verified");
 
     // Make executable
     #[cfg(unix)]
@@ -2133,9 +2154,10 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
             "installing {} with the Windows installer...",
             release.label()
         );
-        if let Some(sha256) = &release.sha256 {
-            tracing::debug!(sha256 = %sha256, "selected Windows update asset has checksum");
-        }
+        tracing::debug!(
+            sha256 = %release.sha256,
+            "selected Windows update asset has checksum"
+        );
         install_windows_update_with_installer(channel)?;
         let updated_exe = windows_installed_herdr_exe_path()?;
         eprintln!("installed {}", release.label());
@@ -2435,7 +2457,7 @@ mod tests {
             commit: None,
             target_protocol,
             download_url: "https://example.com/herdr".to_string(),
-            sha256: None,
+            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             notes_body: "### Changed\n- One".to_string(),
         }
     }
@@ -2736,7 +2758,7 @@ mod tests {
                 "protocol": 10,
                 "notes": "### Fixed\n- Brew notes",
                 "assets": {
-                    "linux-x86_64": "https://example.com/herdr-linux-x86_64"
+                    "linux-x86_64": {"url": "https://example.com/herdr-linux-x86_64", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
                 }
             }"####,
         )
@@ -2852,7 +2874,7 @@ mod tests {
             commit: None,
             target_protocol: Some(2),
             download_url: "https://example.com/herdr".to_string(),
-            sha256: None,
+            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             notes_body: "### Changed\n- One".to_string(),
         };
         let incompatible_release = ReleaseInfo {
@@ -3094,7 +3116,7 @@ mod tests {
             commit: None,
             target_protocol: Some(3),
             download_url: "https://example.com/herdr".to_string(),
-            sha256: None,
+            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             notes_body: "### Changed\n- One".to_string(),
         };
         let plan = RunningServerUpdatePlan {
@@ -3229,7 +3251,7 @@ mod tests {
             commit: None,
             target_protocol: Some(77),
             download_url: "https://example.com/herdr".to_string(),
-            sha256: None,
+            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             notes_body: "### Changed\n- One".to_string(),
         };
 
@@ -3345,8 +3367,8 @@ mod tests {
                 \"body\": \"### Heads up\\n- Defaults changed\"\n\
             },\n\
             \"assets\": {\n\
-                \"linux-x86_64\": \"https://example.com/herdr-linux-x86_64\",\n\
-                \"macos-aarch64\": \"https://example.com/herdr-macos-aarch64\"\n\
+                \"linux-x86_64\": {\"url\": \"https://example.com/herdr-linux-x86_64\", \"sha256\": \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"},\n\
+                \"macos-aarch64\": {\"url\": \"https://example.com/herdr-macos-aarch64\", \"sha256\": \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"}\n\
             }\n\
         }";
         let manifest: UpdateManifest = serde_json::from_str(json).unwrap();
@@ -3381,7 +3403,7 @@ mod tests {
             "protocol": 4,
             "notes": "### Changed\n- Three",
             "assets": {
-                "linux_x86_64": "https://example.com/unused"
+                "linux_x86_64": {"url": "https://example.com/unused", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
             },
             "releases": {
                 "0.2.0": {
@@ -3421,7 +3443,7 @@ mod tests {
                 "body": "### Root"
             },
             "assets": {
-                "linux_x86_64": "https://example.com/unused"
+                "linux_x86_64": {"url": "https://example.com/unused", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
             },
             "releases": {
                 "0.3.0": {
@@ -3456,7 +3478,7 @@ mod tests {
             "protocol": 4,
             "notes": "### Changed\n- Root",
             "assets": {
-                "linux_x86_64": "https://example.com/unused"
+                "linux_x86_64": {"url": "https://example.com/unused", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
             },
             "releases": []
         }"####;
@@ -3477,7 +3499,7 @@ mod tests {
         let json = r#"{
             "version": "0.2.0",
             "assets": {
-                "linux-x86_64": "https://example.com/herdr-linux-x86_64"
+                "linux-x86_64": {"url": "https://example.com/herdr-linux-x86_64", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
             }
         }"#;
 
@@ -3499,7 +3521,7 @@ mod tests {
                     "body": "### Heads up\n- Defaults changed"
                 }},
                 "assets": {{
-                    "{asset_key}": "https://example.com/herdr"
+                    "{asset_key}": {{"url": "https://example.com/herdr", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}}
                 }}
             }}"####
         );
@@ -3546,7 +3568,7 @@ mod tests {
                 "assets": {{
                     "{asset_key}": {{
                         "url": "https://example.com/herdr-linux-x86_64",
-                        "sha256": "deadbeef"
+                        "sha256": "deadbeef00000000000000000000000000000000000000000000000000000000"
                     }}
                 }},
                 "builds": {{
@@ -3558,7 +3580,7 @@ mod tests {
                         "assets": {{
                             "{asset_key}": {{
                                 "url": "https://example.com/herdr-linux_x86_64",
-                                "sha256": "deadbeef"
+                                "sha256": "deadbeef00000000000000000000000000000000000000000000000000000000"
                             }}
                         }}
                     }}
@@ -3574,7 +3596,10 @@ mod tests {
         assert_eq!(release.channel, UpdateChannel::Preview);
         assert_eq!(release.identity, "9.9.9-preview.2026-06-02-abcdef123456");
         assert_eq!(release.target_protocol, Some(77));
-        assert_eq!(release.sha256.as_deref(), Some("deadbeef"));
+        assert_eq!(
+            release.sha256,
+            "deadbeef00000000000000000000000000000000000000000000000000000000"
+        );
     }
 
     #[test]
@@ -3593,7 +3618,7 @@ mod tests {
                 "assets": {{
                     "{asset_key}": {{
                         "url": "https://example.com/herdr-linux-x86_64",
-                        "sha256": "deadbeef"
+                        "sha256": "deadbeef00000000000000000000000000000000000000000000000000000000"
                     }}
                 }}
             }}"####
