@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -190,6 +193,31 @@ Release notes without a categorized bullet.
 
             with self.assertRaisesRegex(QualityError, "must not hardcode VERSION"):
                 read_installer_version(root)
+
+    def test_npm_installer_revalidates_existing_binary(self) -> None:
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("node is not installed")
+
+        installer = Path(__file__).resolve().parents[1] / "npm/install.js"
+        with tempfile.TemporaryDirectory() as tmp:
+            binary = Path(tmp) / "herdr"
+            binary.write_bytes(b"verified native binary\n")
+            expected = hashlib.sha256(binary.read_bytes()).hexdigest()
+            script = r"""
+const fs = require("fs");
+const { binaryMatches } = require(process.argv[1]);
+if (!binaryMatches(process.argv[2], process.argv[3])) process.exit(1);
+fs.writeFileSync(process.argv[2], "corrupt native binary\n");
+if (binaryMatches(process.argv[2], process.argv[3])) process.exit(2);
+"""
+            result = subprocess.run(
+                [node, "-e", script, str(installer), str(binary), expected],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_latest_manifest_requires_all_targets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
