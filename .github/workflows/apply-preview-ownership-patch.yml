@@ -52,7 +52,7 @@ jobs:
       - name: Commit validated preview ownership patch
         run: |
           set -euo pipefail
-          git rm \
+          git rm -f \
             scripts/apply_preview_ownership_patch.py \
             .github/workflows/apply-preview-ownership-patch.yml
           git config user.name "github-actions[bot]"
