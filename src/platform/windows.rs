@@ -43,6 +43,17 @@ use super::{ClipboardImage, ForegroundJob, Signal};
 const STILL_ACTIVE: u32 = 259;
 const FOREGROUND_PROCESS_SNAPSHOT_CACHE_TTL: Duration = Duration::from_millis(250);
 
+pub(crate) fn encode_windows_conpty_shift_enter(key: crate::input::TerminalKey) -> Option<Vec<u8>> {
+    use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
+
+    if key.code != KeyCode::Enter || key.modifiers != KeyModifiers::SHIFT {
+        return None;
+    }
+
+    let key_down = !matches!(key.kind, KeyEventKind::Release);
+    Some(format!("\x1b[13;28;13;{};16;1_", u8::from(key_down)).into_bytes())
+}
+
 #[derive(Debug)]
 struct CachedProcessSnapshot {
     built_at: Instant,
@@ -281,33 +292,16 @@ fn select_pane_foreground_job(
     entries: &[WindowsProcessEntry],
 ) -> Option<ForegroundJob> {
     let shell = entries.iter().find(|entry| entry.pid == shell_pid)?;
-    let shell_job = || ForegroundJob {
-        process_group_id: shell_pid,
-        processes: vec![foreground_process_from_entry(shell)],
-    };
-
     let descendants = descendant_entries(shell_pid, entries);
     let mut candidates = Vec::new();
-    for entry in &descendants {
-        let process = foreground_process_from_entry(entry);
-        let job = ForegroundJob {
-            process_group_id: entry.pid,
-            processes: vec![process],
-        };
-        if let Some((agent, _)) = crate::detect::identify_agent_in_job(&job) {
-            candidates.push((*entry, agent));
+    for entry in std::iter::once(shell).chain(descendants) {
+        if crate::detect::identify_agent_in_job(&foreground_job_from_entry(entry)).is_some() {
+            candidates.push(entry);
         }
     }
 
-    match candidates.len() {
-        1 => candidates
-            .pop()
-            .map(|(entry, _)| foreground_job_from_entry(entry)),
-        _ => select_single_agent_chain_candidate(&candidates, entries).map_or_else(
-            || Some(shell_job()),
-            |entry| Some(foreground_job_from_entry(entry)),
-        ),
-    }
+    let selected = select_topmost_agent_chain_candidate(&candidates, entries).unwrap_or(shell);
+    Some(foreground_job_from_entry(selected))
 }
 
 fn foreground_job_from_entry(entry: &WindowsProcessEntry) -> ForegroundJob {
@@ -317,22 +311,17 @@ fn foreground_job_from_entry(entry: &WindowsProcessEntry) -> ForegroundJob {
     }
 }
 
-fn select_single_agent_chain_candidate<'a>(
-    candidates: &[(&'a WindowsProcessEntry, crate::detect::Agent)],
+fn select_topmost_agent_chain_candidate<'a>(
+    candidates: &[&'a WindowsProcessEntry],
     entries: &[WindowsProcessEntry],
 ) -> Option<&'a WindowsProcessEntry> {
-    let (_, first_agent) = candidates.first()?;
-    if !candidates.iter().all(|(_, agent)| agent == first_agent) {
-        return None;
-    }
-
     let parent_by_pid: HashMap<u32, u32> = entries
         .iter()
         .map(|entry| (entry.pid, entry.parent_pid))
         .collect();
 
-    candidates.iter().map(|(entry, _)| *entry).find(|entry| {
-        candidates.iter().all(|(other, _)| {
+    candidates.iter().copied().find(|entry| {
+        candidates.iter().all(|other| {
             entry.pid == other.pid || process_is_ancestor(entry.pid, other.pid, &parent_by_pid)
         })
     })
@@ -1203,16 +1192,39 @@ mod tests {
     }
 
     #[test]
-    fn windows_process_tree_selects_topmost_claude_process_in_single_agent_chain() {
+    fn windows_process_tree_keeps_topmost_agent_over_different_agent_descendant() {
         let entries = vec![
             test_entry(10, 1, "powershell.exe", &["powershell.exe"]),
             test_entry(20, 10, "claude.exe", &["claude.exe"]),
-            test_entry(30, 20, "claude.exe", &["claude.exe", "mcp-server"]),
+            test_entry(
+                30,
+                20,
+                "cmd.exe",
+                &["cmd.exe", "/D", "/S", "/C", "codex mcp-server"],
+            ),
         ];
 
         let job = super::select_pane_foreground_job(10, &entries).unwrap();
 
         assert_eq!(job.process_group_id, 20);
+        assert_eq!(job.processes[0].name, "claude.exe");
+    }
+
+    #[test]
+    fn windows_process_tree_keeps_root_agent_over_agent_descendant() {
+        let entries = vec![
+            test_entry(10, 1, "claude.exe", &["claude.exe"]),
+            test_entry(
+                20,
+                10,
+                "cmd.exe",
+                &["cmd.exe", "/D", "/S", "/C", "codex mcp-server"],
+            ),
+        ];
+
+        let job = super::select_pane_foreground_job(10, &entries).unwrap();
+
+        assert_eq!(job.process_group_id, 10);
         assert_eq!(job.processes[0].name, "claude.exe");
     }
 

@@ -44,6 +44,7 @@ rustPlatform.buildRustPackage {
         ../build.rs
         ../Cargo.lock
         ../Cargo.toml
+        ../SKILL.md
       ]
     );
   };

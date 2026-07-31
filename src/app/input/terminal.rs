@@ -725,6 +725,50 @@ mod tests {
 
     #[cfg(unix)]
     #[tokio::test]
+    async fn ctrl_click_url_does_not_forward_release_to_mouse_reporting_pane() {
+        let line = "see https://github.com/ogulcancelik/herdr/issues/1761";
+        let col = line.find("github").expect("url host") as u16;
+        let mut app = app_for_mouse_test();
+        let mut ws = Workspace::test_new("test");
+        let pane_id = ws.tabs[0].root_pane;
+        let pane_infos = ws.tabs[0].layout.panes(Rect::new(26, 2, 80, 18));
+        let info = pane_infos[0].clone();
+        let screen = format!("\x1b[?1049h\x1b[?1000h\x1b[?1006h{line}");
+        let (runtime, mut input_rx) =
+            crate::terminal::TerminalRuntime::test_with_channel_and_scrollback_bytes(
+                info.inner_rect.width,
+                info.inner_rect.height,
+                0,
+                screen.as_bytes(),
+                4,
+            );
+        ws.insert_test_runtime(pane_id, runtime);
+        app.state.workspaces = vec![ws];
+        app.state.active = Some(0);
+        app.state.selected = 0;
+        app.state.mode = Mode::Terminal;
+        app.state.view.pane_infos = pane_infos;
+        install_test_link_handler(&mut app);
+        let url_x = info.inner_rect.x + col;
+        let url_y = info.inner_rect.y;
+
+        app.handle_mouse(modified_mouse(
+            MouseEventKind::Down(MouseButton::Left),
+            url_x,
+            url_y,
+            KeyModifiers::CONTROL,
+        ));
+        app.handle_mouse(mouse(MouseEventKind::Up(MouseButton::Left), url_x, url_y));
+
+        assert_eq!(app.state.plugin_command_logs.len(), 1);
+        assert!(
+            input_rx.try_recv().is_err(),
+            "handled URL click must not leave an unmatched release for the pane"
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
     async fn ctrl_click_url_invokes_plugin_link_handler_but_super_click_does_not() {
         let line = "see https://github.com/ogulcancelik/herdr/issues/398";
         let col = line.find("github").expect("url host") as u16;

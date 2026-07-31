@@ -3008,11 +3008,13 @@ impl HeadlessServer {
             &events,
             self.app.state.redraw_on_focus_gained,
         );
+        let render_neutral_mouse_motion =
+            events_are_render_neutral_mouse_motion(&events, self.app.state.mode);
         if let Some(client) = self.clients.get_mut(&client_id) {
             if host_surface_redraw {
                 client.request_full_redraw();
                 client.defer_full_render();
-            } else {
+            } else if !render_neutral_mouse_motion {
                 // Ensure semantic clients receive one post-input frame even if the
                 // semantic buffer compares equal. Terminal-ANSI clients must keep their
                 // server-side blit baseline; resetting it here forces a full redraw on
@@ -3060,7 +3062,7 @@ impl HeadlessServer {
 
             false
         } else {
-            foreground_changed || theme_changed || interaction
+            foreground_changed || theme_changed || (interaction && !render_neutral_mouse_motion)
         }
     }
 
@@ -4459,7 +4461,7 @@ impl HeadlessServer {
             changed = true;
         }
 
-        if geometry_dirty || self.foreground_client_id.is_none() {
+        if geometry_dirty {
             self.app.pending_agent_resume_deadline = None;
         } else {
             self.app.sync_pending_agent_resume_deadline(now);
@@ -4546,6 +4548,25 @@ impl HeadlessServer {
         }
         Ok(())
     }
+}
+
+// Pane applications render their own motion responses through PTY output. Only Herdr modes with
+// hover selection mutate the current frame directly from a plain mouse-move event.
+fn events_are_render_neutral_mouse_motion(
+    events: &[crate::raw_input::RawInputEvent],
+    mode: crate::app::Mode,
+) -> bool {
+    !events.is_empty()
+        && !mode.mouse_motion_changes_view()
+        && events.iter().all(|event| {
+            matches!(
+                event,
+                crate::raw_input::RawInputEvent::Mouse(crossterm::event::MouseEvent {
+                    kind: MouseEventKind::Moved,
+                    ..
+                })
+            )
+        })
 }
 
 fn events_for_app_routing(
@@ -6497,33 +6518,16 @@ next_tab = ""
         assert!(server.app.pending_agent_resume_deadline.is_none());
     }
 
+    #[cfg(unix)]
     #[tokio::test]
-    async fn headless_scheduled_tasks_do_not_start_pending_agent_resume_without_foreground_client()
-    {
+    async fn headless_scheduled_tasks_start_pending_agent_resume_without_foreground_client() {
         let mut server = test_headless_server();
         let workspace = crate::workspace::Workspace::test_new("restored");
         let pane_id = workspace.tabs[0].root_pane;
         let terminal_id = workspace.terminal_id(pane_id).cloned().unwrap();
-        server.app.state.view.pane_infos = workspace.tabs[0]
-            .layout
-            .panes(ratatui::layout::Rect::new(0, 0, 80, 24));
         server.app.state.workspaces = vec![workspace];
         server.app.state.active = Some(0);
         server.app.state.ensure_test_terminals();
-        server.foreground_client_id = None;
-        server.effective_size = (80, 24);
-        server.app.state.host_terminal_theme = crate::terminal_theme::TerminalTheme {
-            foreground: Some(crate::terminal_theme::RgbColor {
-                r: 220,
-                g: 220,
-                b: 220,
-            }),
-            background: Some(crate::terminal_theme::RgbColor {
-                r: 20,
-                g: 20,
-                b: 20,
-            }),
-        };
         server
             .app
             .state
@@ -6535,10 +6539,20 @@ next_tab = ""
             argv: vec!["/bin/sh".into(), "-c".into(), "sleep 5".into()],
             dedupe_key: "herdr:codex\0codex\0Id\0codex-session".into(),
         });
-        server.app.pending_agent_resume_deadline = Some(Instant::now() - Duration::from_millis(1));
 
-        assert!(!server.handle_scheduled_tasks_headless(Instant::now(), false));
+        server.render_and_stream();
+        assert_ne!(server.app.state.view.terminal_area, Rect::default());
+
+        let now = Instant::now();
+        assert!(!server.handle_scheduled_tasks_headless(now, false));
         assert!(server.app.terminal_runtimes.get(&terminal_id).is_none());
+        let deadline = server
+            .app
+            .pending_agent_resume_deadline
+            .expect("clientless resume should wait briefly for a host theme");
+
+        assert!(server.handle_scheduled_tasks_headless(deadline, false));
+        assert!(server.app.terminal_runtimes.get(&terminal_id).is_some());
         assert!(server
             .app
             .state
@@ -6546,8 +6560,8 @@ next_tab = ""
             .get(&terminal_id)
             .expect("test terminal should still exist")
             .pending_agent_resume_plan
-            .is_some());
-        assert!(server.app.pending_agent_resume_deadline.is_none());
+            .is_none());
+        shutdown_test_runtimes(&mut server);
     }
 
     #[tokio::test]
@@ -7467,6 +7481,94 @@ next_tab = ""
             }],
         }));
         assert_eq!(server.foreground_client_id, Some(3));
+    }
+
+    #[tokio::test]
+    async fn passive_mouse_motion_forwards_without_requesting_render() {
+        let mut server = test_headless_server();
+        let mut input_rx = install_focused_test_runtime(&mut server, b"\x1b[?1003h\x1b[?1006h");
+        server.clients.insert(1, test_app_client(Some(true), 1));
+        server.foreground_client_id = Some(1);
+        server.sync_foreground_client_state();
+        server.resize_shared_runtime_to_effective_size();
+        let baseline = FrameData {
+            cells: Vec::new(),
+            width: 0,
+            height: 0,
+            cursor: None,
+            hyperlinks: Vec::new(),
+            graphics: Vec::new(),
+        };
+        let client = server.clients.get_mut(&1).unwrap();
+        let prepared = client
+            .render_state
+            .prepare_frame(baseline.clone())
+            .expect("new semantic baseline");
+        client.render_state.commit_sent_frame(prepared);
+        let pane = server.app.state.view.pane_infos[0].clone();
+        let column = pane.inner_rect.x + 2;
+        let row = pane.inner_rect.y + 3;
+        let input = format!("\x1b[<35;{};{}M", column + 1, row + 1).into_bytes();
+
+        assert!(!server.handle_server_event(ServerEvent::ClientInput {
+            client_id: 1,
+            data: input,
+        }));
+        assert_eq!(
+            input_rx.try_recv().expect("forwarded mouse motion"),
+            Bytes::from_static(b"\x1b[<35;3;4M")
+        );
+        assert_eq!(
+            server.clients[&1].render_state.last_frame(),
+            Some(&baseline)
+        );
+    }
+
+    #[test]
+    fn background_mouse_motion_promotes_once_then_becomes_render_neutral() {
+        let mut server = test_headless_server();
+        server.app.state.mode = crate::app::Mode::Terminal;
+        server.clients.insert(1, test_app_client(Some(true), 1));
+        server.clients.insert(2, test_app_client(Some(true), 2));
+        server.foreground_client_id = Some(1);
+        server.sync_foreground_client_state();
+        let motion = || ServerEvent::ClientInputEvents {
+            client_id: 2,
+            events: vec![crate::protocol::ClientInputEvent::Mouse {
+                kind: crate::protocol::ClientMouseKind::Moved,
+                column: 10,
+                row: 5,
+                modifiers: 0,
+            }],
+        };
+
+        assert!(server.handle_server_event(motion()));
+        assert_eq!(server.foreground_client_id, Some(2));
+        assert!(!server.handle_server_event(motion()));
+    }
+
+    #[test]
+    fn mouse_motion_in_hover_modes_requires_render() {
+        let events = [crate::raw_input::RawInputEvent::Mouse(
+            crossterm::event::MouseEvent {
+                kind: MouseEventKind::Moved,
+                column: 10,
+                row: 5,
+                modifiers: KeyModifiers::empty(),
+            },
+        )];
+
+        assert!(events_are_render_neutral_mouse_motion(
+            &events,
+            crate::app::Mode::Terminal
+        ));
+        for mode in [
+            crate::app::Mode::GlobalMenu,
+            crate::app::Mode::ContextMenu,
+            crate::app::Mode::Navigator,
+        ] {
+            assert!(!events_are_render_neutral_mouse_motion(&events, mode));
+        }
     }
 
     fn install_focused_test_runtime(

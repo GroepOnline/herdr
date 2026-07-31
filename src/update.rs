@@ -3531,34 +3531,14 @@ mod tests {
         // current unreleased checkout. Its protocol is updated by the release
         // flow together with the release assets.
         assert!(manifest.protocol.is_some());
-        assert_eq!(manifest.assets.len(), 1);
         assert!(manifest.releases.contains_key(&manifest.version));
 
-        let target = "linux-x86_64";
-        let url = &manifest
-            .assets
-            .get(target)
-            .unwrap_or_else(|| panic!("missing asset URL for {target}"))
-            .url;
-        assert!(
-            url.contains(&format!("/releases/download/v{}/", manifest.version)),
-            "unexpected release URL for {target}: {url}"
-        );
-        assert!(
-            url.ends_with(&format!("herdr-{target}")),
-            "unexpected asset name for {target}: {url}"
-        );
+        // The published target set grew over time, so assert the invariant
+        // (linux-x86_64 is always published, every listed asset points at its
+        // own release tag) instead of a fixed asset count.
+        const REQUIRED_TARGET: &str = "linux-x86_64";
 
-        for (version, release) in &manifest.releases {
-            let assets = release
-                .get("assets")
-                .and_then(serde_json::Value::as_object)
-                .unwrap_or_else(|| panic!("missing assets for release {version}"));
-            let target = "linux-x86_64";
-            let url = assets
-                .get(target)
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or_else(|| panic!("missing asset URL for {version} {target}"));
+        let assert_asset_url = |version: &str, target: &str, url: &str| {
             assert!(
                 url.contains(&format!("/releases/download/v{version}/")),
                 "unexpected release URL for {version} {target}: {url}"
@@ -3567,6 +3547,31 @@ mod tests {
                 url.ends_with(&format!("herdr-{target}")),
                 "unexpected asset name for {version} {target}: {url}"
             );
+        };
+
+        assert!(
+            manifest.assets.contains_key(REQUIRED_TARGET),
+            "missing asset URL for {REQUIRED_TARGET}"
+        );
+        for (target, asset) in &manifest.assets {
+            assert_asset_url(&manifest.version, target, &asset.url);
+        }
+
+        for (version, release) in &manifest.releases {
+            let assets = release
+                .get("assets")
+                .and_then(serde_json::Value::as_object)
+                .unwrap_or_else(|| panic!("missing assets for release {version}"));
+            assert!(
+                assets.contains_key(REQUIRED_TARGET),
+                "missing asset URL for {version} {REQUIRED_TARGET}"
+            );
+            for (target, url) in assets {
+                let url = url
+                    .as_str()
+                    .unwrap_or_else(|| panic!("asset URL for {version} {target} must be a string"));
+                assert_asset_url(version, target, url);
+            }
         }
     }
 }
