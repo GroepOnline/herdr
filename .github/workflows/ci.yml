@@ -237,8 +237,8 @@ jobs:
       - name: Prefer official Ubuntu mirrors over Azure
         if: runner.os == 'Linux'
         run: |
-          if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
-            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
+          if [ -f /etc/apt-mirrors.txt ]; then
+            sudo sed -i '/azure.archive.ubuntu.com/d' /etc/apt-mirrors.txt
           fi
 
       - name: Install Linux build tools
