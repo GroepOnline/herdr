@@ -69,6 +69,13 @@ main() {
     need curl
     need awk
     need tr
+    # sha256_file always runs in a command substitution, so its own failure
+    # cannot stop the script. Fail here, before anything is downloaded.
+    if ! command -v sha256sum >/dev/null 2>&1 \
+        && ! command -v shasum >/dev/null 2>&1 \
+        && ! command -v openssl >/dev/null 2>&1; then
+        err "requires 'sha256sum', 'shasum', or 'openssl' to verify the downloaded binary"
+    fi
 
     TARGET="${os}-${arch}"
     log "fetching ${CHANNEL} release manifest..."
@@ -177,10 +184,8 @@ sha256_file() {
         sha256sum "$path" | awk '{ print tolower($1) }'
     elif command -v shasum >/dev/null 2>&1; then
         shasum -a 256 "$path" | awk '{ print tolower($1) }'
-    elif command -v openssl >/dev/null 2>&1; then
-        openssl dgst -sha256 "$path" | awk '{ print tolower($NF) }'
     else
-        err "requires 'sha256sum', 'shasum', or 'openssl' to verify the downloaded binary"
+        openssl dgst -sha256 "$path" | awk '{ print tolower($NF) }'
     fi
 }
 

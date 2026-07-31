@@ -72,8 +72,12 @@ jobs:
           NPM_VERSION="$(node -p 'require("./npm/package.json").version')"
           test "$VERSION" = "$CARGO_VERSION"
           test "$VERSION" = "$NPM_VERSION"
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease \
-            --jq 'select(.isDraft == false and .isPrerelease == false)' >/dev/null
+          RELEASE_STATE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')"
+          if [ "$RELEASE_STATE" != "false false" ]; then
+            echo "error: $TAG must be a published, non-prerelease release (isDraft isPrerelease = $RELEASE_STATE)" >&2
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6 # v4
@@ -106,7 +110,7 @@ jobs:
             test -s "release-assets/$asset"
             grep -Eq "^[a-fA-F0-9]{64}[[:space:]]+\\*?${asset}$" release-assets/SHA256SUMS
           done
-          test "$(grep -Ec '^[a-fA-F0-9]{64}[[:space:]]+\\*?herdr-' release-assets/SHA256SUMS)" -eq 4
+          test "$(grep -Ec '^[a-fA-F0-9]{64}[[:space:]]+\*?herdr-' release-assets/SHA256SUMS)" -eq 4
           (cd release-assets && sha256sum --check --strict SHA256SUMS)
 
       - name: Generate and validate Homebrew formula
