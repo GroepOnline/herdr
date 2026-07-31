@@ -187,8 +187,8 @@ mod integration {
         );
     }
 
-    #[test]
-    fn full_pipeline_renders_real_terminal_surface() {
+    #[tokio::test]
+    async fn full_pipeline_renders_real_terminal_surface() {
         let mut app = app_with_workspace("tmpl");
         let pane_id = app.workspaces[0].tabs[0].root_pane;
         app.workspaces[0].insert_test_runtime(
