@@ -8,98 +8,108 @@ use crate::ui::text::{display_width, truncate_end};
 
 /// Minimum width reserved for a tab, in cells.
 const MIN_TAB_WIDTH: u16 = 4;
-/// Width of the close affordance, in cells.
-const CLOSE_WIDTH: u16 = 2;
+const TAB_GAP: u16 = 1;
+const NEW_TAB_WIDTH: u16 = 3;
+const SCROLL_WIDTH: u16 = 2;
 
 /// Compute tab rectangles and write them into `layout`.
-///
-/// The layout uses a sliding viewport when tabs do not fit.  It returns the
-/// start index of the visible tab range so rendering and hit testing agree.
 pub fn layout_tab_bar(layout: &mut TabBarLayout, tabs: &[TabItem]) -> usize {
     let area = layout.rect;
-    if area.width == 0 || area.height == 0 || tabs.is_empty() {
-        layout.tabs = Vec::new();
-        layout.overflow = false;
+    layout.tabs.clear();
+    layout.scroll_left = Rect::default();
+    layout.scroll_right = Rect::default();
+    layout.new_tab = Rect::default();
+    layout.overflow = false;
+
+    if area.width == 0 || area.height == 0 {
         return 0;
     }
 
-    let available = area.width.saturating_sub(CLOSE_WIDTH);
-    layout.overflow = false;
-    let mut widths = Vec::with_capacity(tabs.len());
-    for tab in tabs {
-        let label_w = display_width(&tab.label).max(1) as u16;
-        widths.push(label_w.max(MIN_TAB_WIDTH).min(available));
+    let new_tab_width = area.width.min(NEW_TAB_WIDTH);
+    layout.new_tab = Rect::new(
+        area.x + area.width.saturating_sub(new_tab_width),
+        area.y,
+        new_tab_width,
+        area.height,
+    );
+    if tabs.is_empty() {
+        return 0;
     }
 
-    let mut visible_start = 0usize;
-    let mut visible_end = 0usize;
-    let mut used: u16 = 0;
-    let mut found_active = false;
-
-    for (idx, w) in widths.iter().enumerate() {
-        let needed = w.saturating_add(1); // one-cell separator/rail
-        if used.saturating_add(needed) > available {
-            layout.overflow = true;
-            break;
-        }
-        visible_end = idx + 1;
-        used = used.saturating_add(needed);
-        if tabs[idx].active {
-            found_active = true;
-        }
+    let base_available = layout.new_tab.x.saturating_sub(area.x);
+    if base_available == 0 {
+        layout.overflow = true;
+        return 0;
     }
 
-    // If the active tab is not in the initial visible range, slide the window
-    // so the active tab is included.
-    if !found_active {
-        if let Some(active_idx) = tabs.iter().position(|t| t.active) {
-            let mut best_start = 0usize;
-            let mut best_used: u16 = 0;
-            let mut best_end = 0usize;
-            for start in 0..=active_idx.min(tabs.len().saturating_sub(1)) {
-                let mut used: u16 = 0;
-                let mut end = start;
-                for (idx, w) in widths.iter().enumerate().skip(start) {
-                    let needed = w.saturating_add(1);
-                    if used.saturating_add(needed) > available {
-                        break;
-                    }
-                    used += needed;
-                    end = idx + 1;
-                    if idx >= active_idx {
-                        break;
-                    }
-                }
-                if end > active_idx || (end == active_idx + 1 && used > best_used) {
-                    best_start = start;
-                    best_end = end;
-                    break;
-                }
-                if end > best_end || (end == best_end && used > best_used) {
-                    best_start = start;
-                    best_used = used;
-                    best_end = end;
-                }
-            }
-            visible_start = best_start;
-            visible_end = best_end;
-            layout.overflow = visible_end < tabs.len() || visible_start > 0;
-        }
-    }
-
-    let visible_tabs = &tabs[visible_start..visible_end];
-    let mut x = area.x;
-    layout.tabs = visible_tabs
+    let widths: Vec<u16> = tabs
         .iter()
-        .enumerate()
-        .map(|(local_idx, _tab)| {
-            let global_idx = visible_start + local_idx;
-            let w = widths[global_idx].min(available);
-            let rect = Rect::new(x, area.y, w, area.height);
-            x = x.saturating_add(w.saturating_add(1));
+        .map(|tab| {
+            let label_width = display_width(&tab.label).max(1) as u16;
+            label_width.max(MIN_TAB_WIDTH).min(base_available)
+        })
+        .collect();
+    let total_width = widths.iter().fold(0u16, |total, width| {
+        total.saturating_add(width.saturating_add(TAB_GAP))
+    });
+    let needs_overflow = total_width > base_available;
+
+    let (tab_start_x, available) =
+        if needs_overflow && base_available > SCROLL_WIDTH.saturating_mul(2) {
+            layout.scroll_left = Rect::new(area.x, area.y, SCROLL_WIDTH, area.height);
+            layout.scroll_right = Rect::new(
+                layout.new_tab.x.saturating_sub(SCROLL_WIDTH),
+                area.y,
+                SCROLL_WIDTH,
+                area.height,
+            );
+            let start = area.x.saturating_add(SCROLL_WIDTH);
+            (start, layout.scroll_right.x.saturating_sub(start))
+        } else {
+            (area.x, base_available)
+        };
+
+    let fit_end = |start: usize| -> usize {
+        let mut used = 0u16;
+        let mut end = start;
+        for (index, width) in widths.iter().enumerate().skip(start) {
+            let needed = width.saturating_add(TAB_GAP);
+            if used.saturating_add(needed) > available {
+                break;
+            }
+            used = used.saturating_add(needed);
+            end = index + 1;
+        }
+        end
+    };
+
+    let active_index = tabs.iter().position(|tab| tab.active).unwrap_or(0);
+    let mut visible_start = 0usize;
+    let mut visible_end = fit_end(visible_start);
+    if active_index >= visible_end {
+        visible_start = active_index;
+        let mut used = widths[active_index].saturating_add(TAB_GAP);
+        while visible_start > 0 {
+            let previous = widths[visible_start - 1].saturating_add(TAB_GAP);
+            if used.saturating_add(previous) > available {
+                break;
+            }
+            visible_start -= 1;
+            used = used.saturating_add(previous);
+        }
+        visible_end = fit_end(visible_start);
+    }
+
+    layout.overflow = visible_start > 0 || visible_end < tabs.len();
+    let mut x = tab_start_x;
+    layout.tabs = (visible_start..visible_end)
+        .map(|index| {
+            let width = widths[index].min(available);
+            let rect = Rect::new(x, area.y, width, area.height);
+            x = x.saturating_add(width.saturating_add(TAB_GAP));
             crate::ui::shell::TabHitRect {
                 rect,
-                index: global_idx,
+                index,
                 visible: true,
             }
         })
@@ -198,6 +208,10 @@ mod tests {
         layout_tab_bar(&mut layout, &tabs);
         assert!(layout.overflow);
         assert!(layout.tabs.len() < 10);
+        assert!(layout.scroll_left.width > 0);
+        assert!(layout.scroll_right.width > 0);
+        assert!(layout.new_tab.width > 0);
+        assert!(layout.scroll_left.x < layout.scroll_right.x);
     }
 
     #[test]

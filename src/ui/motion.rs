@@ -273,6 +273,11 @@ impl TransitionScheduler {
         self.scalar.get(&region).map(|t| t.sample(now).0)
     }
 
+    /// Return the currently registered target for a scalar region.
+    pub fn scalar_target(&self, region: UiRegion) -> Option<f32> {
+        self.scalar.get(&region).map(Transition::target)
+    }
+
     /// Sample a rectangular transition at the given time.
     #[allow(dead_code)] // reserved for Phase 7 rect interpolation
     pub fn sample_rect(&self, region: UiRegion, now: Instant) -> Option<Rect> {

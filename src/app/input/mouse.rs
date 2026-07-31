@@ -66,6 +66,12 @@ enum MobileMouseResult {
     Action(MouseAction),
 }
 
+enum NewShellClickOutcome {
+    Unhandled,
+    Handled,
+    Action(MouseAction),
+}
+
 impl AppState {
     pub(crate) fn handle_pane_mouse_only(
         &mut self,
@@ -95,41 +101,41 @@ impl AppState {
         }
     }
 
-    /// Map a new-shell hit-test result to a legacy `MouseAction`.
-    /// Called from `handle_mouse` when `self.new_shell` is true.
-    fn handle_new_shell_click(&mut self, col: u16, row: u16) -> Option<MouseAction> {
+    /// Route a new-shell click without allowing handled shell controls to
+    /// fall through to the legacy mouse handler.
+    fn route_new_shell_click(&mut self, col: u16, row: u16) -> NewShellClickOutcome {
         use crate::ui::shell::{hit_test_new_shell, HitTarget};
 
-        let layout = self.new_shell_layout.as_ref()?;
-        let target = hit_test_new_shell(self, layout, col, row)?;
+        let Some(layout) = self.new_shell_layout.as_ref() else {
+            return NewShellClickOutcome::Unhandled;
+        };
+        let Some(target) = hit_test_new_shell(self, layout, col, row) else {
+            return NewShellClickOutcome::Unhandled;
+        };
 
         match target {
             HitTarget::SidebarModeToggle => {
                 self.new_sidebar_mode = (self.new_sidebar_mode + 1) % 3;
                 self.new_shell_dirty = true;
-                None
+                NewShellClickOutcome::Handled
             }
             HitTarget::SidebarWorkspace { ws_idx } => {
                 self.mode = Mode::Terminal;
-                Some(MouseAction::FocusWorkspace { ws_idx })
+                NewShellClickOutcome::Action(MouseAction::FocusWorkspace { ws_idx })
             }
             HitTarget::SidebarAgent {
-                ws_idx,
-                pane_id,
-                tab_idx: _,
+                ws_idx, pane_id, ..
             } => {
                 self.mode = Mode::Terminal;
-                Some(MouseAction::FocusPane { ws_idx, pane_id })
+                NewShellClickOutcome::Action(MouseAction::FocusPane { ws_idx, pane_id })
             }
-            HitTarget::SidebarAttention { source_id: _ } => {
-                // For attention items, just leave terminal mode.
-                // Full attention routing is a Phase 8+ feature.
+            HitTarget::SidebarAttention { .. } => {
                 self.mode = Mode::Terminal;
-                None
+                NewShellClickOutcome::Handled
             }
             HitTarget::Tab { index } => {
                 self.mode = Mode::Terminal;
-                Some(MouseAction::FocusTab { tab_idx: index })
+                NewShellClickOutcome::Action(MouseAction::FocusTab { tab_idx: index })
             }
             HitTarget::NewTab => {
                 if self.prompt_new_tab_name {
@@ -138,16 +144,24 @@ impl AppState {
                     self.request_new_tab = true;
                     self.mode = Mode::Terminal;
                 }
-                None
+                NewShellClickOutcome::Handled
             }
             HitTarget::TabScrollLeft => {
                 self.scroll_tabs_left();
-                None
+                NewShellClickOutcome::Handled
             }
             HitTarget::TabScrollRight => {
                 self.scroll_tabs_right();
-                None
+                NewShellClickOutcome::Handled
             }
+        }
+    }
+
+    #[cfg(test)]
+    fn handle_new_shell_click(&mut self, col: u16, row: u16) -> Option<MouseAction> {
+        match self.route_new_shell_click(col, row) {
+            NewShellClickOutcome::Action(action) => Some(action),
+            NewShellClickOutcome::Handled | NewShellClickOutcome::Unhandled => None,
         }
     }
 
@@ -169,8 +183,10 @@ impl AppState {
             && matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
             && matches!(self.mode, Mode::Terminal | Mode::Navigate)
         {
-            if let Some(action) = self.handle_new_shell_click(mouse.column, mouse.row) {
-                return Some(action);
+            match self.route_new_shell_click(mouse.column, mouse.row) {
+                NewShellClickOutcome::Action(action) => return Some(action),
+                NewShellClickOutcome::Handled => return None,
+                NewShellClickOutcome::Unhandled => {}
             }
         }
 
@@ -4069,13 +4085,13 @@ mod tests {
 
     // ── New-shell hit-test routing tests ─────────────────────────────
 
-    use crate::ui::shell::{self, HitTarget, LayoutMode, ScrollState, ShellLayout, SidebarMode};
-    use crate::ui::sidebar_new::layout::row_at;
+    use crate::ui::shell::{self, LayoutMode, ScrollState, ShellLayout, SidebarMode};
     use crate::ui::sidebar_new::model::SidebarItemId;
 
-    /// Build a realistic `ShellLayout` in Standard mode with sidebar visible.
+    /// Build a realistic `ShellLayout` in Standard mode with sidebar and
+    /// overflow controls populated.
     fn new_shell_test_layout() -> ShellLayout {
-        shell::compute_shell_layout(
+        let mut layout = shell::compute_shell_layout(
             Rect::new(0, 0, 120, 40),
             LayoutMode::Standard,
             false,
@@ -4096,7 +4112,21 @@ mod tests {
                 visible: 20,
                 total: 5,
             },
-        )
+        );
+        let tabs: Vec<crate::ui::tabs_new::model::TabItem> = (0..24)
+            .map(|index| crate::ui::tabs_new::model::TabItem {
+                index,
+                label: format!("tab-{index}"),
+                state: crate::detect::AgentState::Idle,
+                seen: true,
+                active: index == 0,
+                working: false,
+                blocked: false,
+                unseen_done: false,
+            })
+            .collect();
+        crate::ui::tabs_new::layout::layout_tab_bar(&mut layout.main.tab_bar, &tabs);
+        layout
     }
 
     fn app_for_new_shell_test() -> crate::app::AppState {

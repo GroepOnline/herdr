@@ -211,27 +211,28 @@ pub fn compute_shell_layout_with_anim(
     sidebar_anim_progress: f32,
 ) -> ShellLayout {
     let progress = sidebar_anim_progress.clamp(0.0, 1.0);
-    let (sidebar_rect, main_rect) = if mode.sidebar_visible() && !sidebar_collapsed {
-        let w = sidebar_width.clamp(22, 40);
-        let animated_w = ((w as f32) * progress) as u16;
-        let w_final = if animated_w < 2 && progress < 0.5 {
-            0
+    let (sidebar_rect, main_rect) =
+        if mode.sidebar_visible() && (!sidebar_collapsed || progress > 0.0) {
+            let w = sidebar_width.min(area.width.saturating_sub(1));
+            let animated_w = ((w as f32) * progress) as u16;
+            let w_final = if animated_w < 2 && progress < 0.5 {
+                0
+            } else {
+                animated_w.max(2)
+            };
+            let [s, m] =
+                Layout::horizontal([Constraint::Length(w_final), Constraint::Min(1)]).areas(area);
+            (s, m)
+        } else if mode == LayoutMode::Narrow && sidebar_collapsed {
+            // In narrow mode a collapsed rail may still be visible.
+            let w = 4u16;
+            let animated_w = ((w as f32) * progress) as u16;
+            let [s, m] = Layout::horizontal([Constraint::Length(animated_w), Constraint::Min(1)])
+                .areas(area);
+            (s, m)
         } else {
-            animated_w.max(2)
+            (Rect::default(), area)
         };
-        let [s, m] =
-            Layout::horizontal([Constraint::Length(w_final), Constraint::Min(1)]).areas(area);
-        (s, m)
-    } else if mode == LayoutMode::Narrow && sidebar_collapsed {
-        // In narrow mode a collapsed rail may still be visible.
-        let w = 4u16;
-        let animated_w = ((w as f32) * progress) as u16;
-        let [s, m] =
-            Layout::horizontal([Constraint::Length(animated_w), Constraint::Min(1)]).areas(area);
-        (s, m)
-    } else {
-        (Rect::default(), area)
-    };
 
     let sidebar = SidebarLayout {
         rect: sidebar_rect,
@@ -330,20 +331,25 @@ pub fn compute_new_shell_view(
     }
 
     // ── Phase 7: Sidebar expand/collapse transition ─────────────────
-    // When the sidebar is toggled, animate the width from 0→1 or 1→0.
-    // We use a stored prev-collapsed field to detect edges.  (For now
-    // we infer the transition purely from the collapsed flag changing
-    // between frames; a dedicated field will be added in Phase 9.)
     {
-        let target_progress: f32 = if app.new_sidebar_collapsed { 0.0 } else { 1.0 };
+        let region = crate::ui::motion::UiRegion::Sidebar;
+        let target_progress = if app.new_sidebar_collapsed { 0.0 } else { 1.0 };
+        let previous_progress = app
+            .new_shell_layout
+            .as_ref()
+            .map(|layout| if layout.sidebar.collapsed { 0.0 } else { 1.0 })
+            .unwrap_or(target_progress);
         let current = app
             .new_transitions
-            .sample_scalar(crate::ui::motion::UiRegion::Sidebar, now)
-            .unwrap_or(target_progress);
-        // If the target differs from current, start (or retarget) a transition.
-        if (target_progress - current).abs() > 0.01 {
+            .sample_scalar(region, now)
+            .unwrap_or(previous_progress);
+        let should_retarget = app.new_transitions.scalar_target(region).map_or(
+            (previous_progress - target_progress).abs() > 0.01,
+            |target| (target - target_progress).abs() > 0.01,
+        );
+        if should_retarget {
             app.new_transitions.set(crate::ui::motion::Transition::new(
-                crate::ui::motion::UiRegion::Sidebar,
+                region,
                 now,
                 app.new_motion_policy
                     .resolve_duration(std::time::Duration::from_millis(180)),
@@ -412,17 +418,10 @@ pub fn compute_new_shell_view(
         _ => SidebarMode::Attention,
     };
 
-    // ── Phase 8: Skip rebuild when nothing changed ─────────────────
-    // When the shell is not dirty and the area hasn't changed, reuse the
-    // cached layout.  State changes (agent state, workspace changes, resize)
-    // set new_shell_dirty = true so this gate is bypassed.
-    let hash = crate::ui::shell::layout_hash(area, app.new_sidebar_collapsed, app.new_sidebar_mode);
-    if !app.new_shell_dirty && app.new_shell_layout_hash == hash && app.new_shell_layout_hash != 0 {
-        // Cache hit — skip rebuild, just advance transitions for motion.
-        app.new_transitions.advance(std::time::Instant::now());
-        return;
-    }
-    app.new_shell_layout_hash = hash;
+    // Record the latest layout inputs. The model is rebuilt every pass so
+    // state and animation changes cannot leave cached geometry stale.
+    app.new_shell_layout_hash =
+        crate::ui::shell::layout_hash(area, app.new_sidebar_collapsed, app.new_sidebar_mode);
     app.new_shell_dirty = false;
 
     // Build sidebar model and compute shell layout.
@@ -444,7 +443,8 @@ pub fn compute_new_shell_view(
         area,
         mode,
         app.new_sidebar_collapsed,
-        app.sidebar_width,
+        app.sidebar_width
+            .clamp(app.sidebar_min_width, app.sidebar_max_width),
         sidebar_mode,
         workspace_scroll,
         agent_scroll,
@@ -504,68 +504,23 @@ pub fn render_new_shell(
     frame: &mut ratatui::Frame,
 ) {
     let area = frame.area();
-    let mode = LayoutMode::from_area(area);
-    let sidebar_mode = match app.new_sidebar_mode {
-        0 => SidebarMode::Workspaces,
-        1 => SidebarMode::Agents,
-        _ => SidebarMode::Attention,
+    let Some(shell_layout) = app.new_shell_layout.as_ref() else {
+        return;
     };
+    let sidebar_mode = shell_layout.sidebar.mode;
 
-    // Build sidebar model.
     let mut sidebar_model = crate::ui::sidebar_new::model::SidebarModel::new();
     sidebar_model.rebuild(app, terminal_runtimes);
-
-    let workspace_scroll = ScrollState {
-        offset: app.workspace_scroll,
-        visible: 20,
-        total: sidebar_model.items_for_mode(sidebar_mode).len(),
-    };
-    let agent_scroll = ScrollState {
-        offset: app.agent_panel_scroll,
-        visible: 20,
-        total: sidebar_model.items_for_mode(SidebarMode::Agents).len(),
-    };
-
-    // Compute shell layout with animation progress sampled from transitions.
-    let now = std::time::Instant::now();
-    let sidebar_anim = app
-        .new_transitions
-        .sample_scalar(crate::ui::motion::UiRegion::Sidebar, now)
-        .unwrap_or(if app.new_sidebar_collapsed { 0.0 } else { 1.0 });
-    let mut shell_layout = compute_shell_layout_with_anim(
-        area,
-        mode,
-        app.new_sidebar_collapsed,
-        app.sidebar_width,
-        sidebar_mode,
-        workspace_scroll,
-        agent_scroll,
-        ScrollState {
-            offset: 0,
-            visible: 20,
-            total: 0,
-        },
-        sidebar_anim,
-    );
-
-    // Layout sidebar rows from the model.
-    crate::ui::sidebar_new::layout::layout_sidebar(&mut shell_layout, &sidebar_model);
-
-    // Build and layout tab bar.
     let tab_items = crate::ui::tabs_new::model::build_tabs(app);
-    crate::ui::tabs_new::layout::layout_tab_bar(&mut shell_layout.main.tab_bar, &tab_items);
 
-    // Render sidebar.
     let items = sidebar_model.items_for_mode(sidebar_mode).to_vec();
     crate::ui::sidebar_new::render::render_sidebar_new(
         app,
         terminal_runtimes,
         frame,
-        &shell_layout,
+        shell_layout,
         &items,
     );
-
-    // Render compact tab bar.
     crate::ui::tabs_new::render::render_tab_bar_new(
         app,
         frame,
@@ -574,7 +529,6 @@ pub fn render_new_shell(
         &app.palette,
     );
 
-    // Render Fleet Ops compact status line.
     let fleet_ctx = crate::ui::fleet_ops_new::model::build_fleet_ops_context(app);
     if shell_layout.fleet_ops.rect.width > 0 && shell_layout.fleet_ops.rect.height > 0 {
         crate::ui::fleet_ops_new::render::render_fleet_ops_new(
@@ -586,18 +540,15 @@ pub fn render_new_shell(
         );
     }
 
-    // Render terminal area — placeholder for now; full terminal rendering
-    // integration comes in later phases.
     let terminal_area = shell_layout.main.terminal;
     if terminal_area.width > 0 && terminal_area.height > 0 {
         use ratatui::widgets::Paragraph;
         frame.render_widget(
-            Paragraph::new("[new shell terminal area — Phase 3]"),
+            Paragraph::new("[new shell terminal area — integration pending]"),
             terminal_area,
         );
     }
 
-    // Render launcher overlay if open.
     if app.new_launcher_open {
         let mut launcher_layout = crate::ui::launcher_new::layout::layout_launcher(area);
         let launcher_items = crate::ui::launcher_new::model::build_launcher_items(app);
@@ -615,7 +566,6 @@ pub fn render_new_shell(
         );
     }
 
-    // Render settings overlay if open.
     if app.new_settings_open {
         let settings_layout = crate::ui::settings_new::layout::layout_settings(area);
         crate::ui::settings_new::render::render_settings_new(

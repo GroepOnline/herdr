@@ -27,6 +27,25 @@ pub fn render_tab_bar_new(
         return;
     }
 
+    if layout.scroll_left.width > 0 {
+        frame.render_widget(
+            Paragraph::new("‹").style(Style::default().fg(palette.overlay0)),
+            layout.scroll_left,
+        );
+    }
+    if layout.scroll_right.width > 0 {
+        frame.render_widget(
+            Paragraph::new("›").style(Style::default().fg(palette.overlay0)),
+            layout.scroll_right,
+        );
+    }
+    if layout.new_tab.width > 0 {
+        frame.render_widget(
+            Paragraph::new(" +").style(Style::default().fg(palette.overlay0)),
+            layout.new_tab,
+        );
+    }
+
     for hit in &layout.tabs {
         let Some(tab) = tabs.get(hit.index) else {
             continue;
