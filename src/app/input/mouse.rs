@@ -4269,6 +4269,7 @@ mod tests {
     #[test]
     fn new_shell_new_tab_click_requests_new_tab() {
         let mut app = app_for_new_shell_test();
+        app.prompt_new_tab_name = false;
         let layout = app.new_shell_layout.clone().unwrap();
         let tab_bar = &layout.main.tab_bar;
         let col = tab_bar.new_tab.x + 1;
@@ -4341,6 +4342,6 @@ mod tests {
         let mut app = app_for_new_shell_test();
         let result = app.handle_new_shell_click(200, 200);
         assert!(result.is_none());
-        assert_eq!(app.mode, Mode::Terminal);
+        assert_eq!(app.mode, Mode::Navigate);
     }
 }
