@@ -123,7 +123,19 @@ impl Config {
             }
         };
 
-        match deserialize_with_ignored::<Config, _>(toml::Deserializer::new(&content)) {
+        let deserializer = match toml::Deserializer::parse(&content) {
+            Ok(deserializer) => deserializer,
+            Err(err) => {
+                warn!(err = %err, "config parse error, using defaults");
+                return LoadedConfig {
+                    config: Self::default(),
+                    diagnostics: vec![format!("config parse error: {err}; using defaults")],
+                    invalid_sections: Vec::new(),
+                };
+            }
+        };
+
+        match deserialize_with_ignored::<Config, _>(deserializer) {
             Ok((config, ignored_keys)) => {
                 let (unknown_sections, mut diagnostics) =
                     unknown_top_level_sections_from_str(&content);
