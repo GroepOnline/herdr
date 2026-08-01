@@ -114,7 +114,7 @@ Search stays global across all sections. Badges stay on Agents (integration upda
 
 ### Architecture (rewrite target)
 
-```
+```text
 src/ui/settings/
   catalog.rs      # SettingsItemId + SettingsAction (stable IDs)
   ia.rs           # NEW: section order, labels, descriptions, search synonyms
