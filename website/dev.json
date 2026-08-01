@@ -2,18 +2,31 @@
   "schema_version": 1,
   "channel": "dev",
   "base_version": "0.7.6",
-  "build_id": "2026-08-01-7462fcfae603",
-  "commit": "7462fcfae6030bcd70ec0c20d0bba796d305d3d9",
-  "built_at": "2026-08-01T00:33:59Z",
+  "build_id": "2026-08-01-f2f18084b97c",
+  "commit": "f2f18084b97c4814152fc449366208cabf3975d3",
+  "built_at": "2026-08-01T00:51:31Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-01-7462fcfae603\n\nBuilt from `7462fcfae603` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/9ff3f027c1ef73fea947d7f117c84cff1459aa49...7462fcfae6030bcd70ec0c20d0bba796d305d3d9\n\n### Performance\n- Optimize Drop for EnvVar guards to avoid clone\n\n### Maintenance\n- Use unique socket path for missing runtime status test\n- Recover poisoned config env lock in plugin registry tests\n- Autofix mechanical quality\n\n### Other\n- Merge pull request #94 from OnlineChefGroep/perf-env-var-drop-17150002715190517398\n- Merge pull request #91 from OnlineChefGroep/jules-10490039771465024883-1c4960d2\n- Merge pull request #89 from OnlineChefGroep/optimize-plugin-platform-clone-4153861321290310149\n- Merge pull request #96 from OnlineChefGroep/refactor-patch-key-8316976835536766990\n- Merge pull request #95 from OnlineChefGroep/test-read-runtime-status-at-missing-file-9064937956824035969\n- Merge pull request #92 from OnlineChefGroep/test-capture-session-snapshot-10408201848865626879\n- Merge pull request #90 from OnlineChefGroep/test/plugin-registry-load-2716014838368794768\n- Refactor: Extract patch logic into patch_key method\n- \ud83e\uddea Add test for missing socket file in read_runtime_status_at\n- \ud83e\uddea Add test for capturing session snapshot\n- \u26a1 Optimize plugin startup and event hook allocations\n- \ud83e\uddea Add tests for plugin registry load and try_load\n- \u26a1 Optimize plugin platform checking by removing redundant clone",
+  "notes": "Dev build 2026-08-01-f2f18084b97c\n\nBuilt from `f2f18084b97c` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/7462fcfae6030bcd70ec0c20d0bba796d305d3d9...f2f18084b97c4814152fc449366208cabf3975d3\n\n### Added\n- Improve plugins catalog install UX\n\n### Fixed\n- Summarize install output with rev().find()\n- Use rfind for install output summary\n- Use next_back for install output summary\n- Drop unused plugin install job source field\n- Run catalog plugin install off the event loop\n\n### Maintenance\n- Retrigger CI after rebasing plugins install UX onto main\n- Autofix mechanical quality\n\n### Other\n- Merge pull request #103 from OnlineChefGroep/settings/plugins-install-ux-prb",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-7462fcfae603/herdr-linux-x86_64",
-      "sha256": "0fe3dc93763d32b6369833573bc595a4fb9bd79a5232c99ef3489f8dbff9bb29"
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-f2f18084b97c/herdr-linux-x86_64",
+      "sha256": "70a805c6bfa275e02738e76595277c75a6bd0fc466b0775461a62d398a9a01fd"
     }
   },
   "builds": {
+    "2026-08-01-f2f18084b97c": {
+      "base_version": "0.7.6",
+      "commit": "f2f18084b97c4814152fc449366208cabf3975d3",
+      "built_at": "2026-08-01T00:51:31Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-01-f2f18084b97c",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-f2f18084b97c/herdr-linux-x86_64",
+          "sha256": "70a805c6bfa275e02738e76595277c75a6bd0fc466b0775461a62d398a9a01fd"
+        }
+      }
+    },
     "2026-08-01-7462fcfae603": {
       "base_version": "0.7.6",
       "commit": "7462fcfae6030bcd70ec0c20d0bba796d305d3d9",
