@@ -16,6 +16,7 @@ from scripts.ci_quality import (
     check_release_metadata,
     detect_autofix,
     needs_rustfmt,
+    parse_semver,
     read_installer_version,
     sync_release_metadata,
 )
@@ -176,6 +177,12 @@ class CiQualityTests(unittest.TestCase):
 
             with self.assertRaisesRegex(QualityError, "is newer than Cargo.toml"):
                 check_release_metadata(root)
+
+    def test_parse_semver_rejects_non_ascii_digits(self) -> None:
+        self.assertEqual(parse_semver("1.2.3", "Cargo.toml version"), (1, 2, 3))
+        for candidate in ("1.2.3\u0662", "\u0661.2.3", "1.\u0662.3"):
+            with self.assertRaisesRegex(QualityError, "stable X.Y.Z semantic version"):
+                parse_semver(candidate, "Cargo.toml version")
 
     def test_check_release_metadata_rejects_license_drift(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

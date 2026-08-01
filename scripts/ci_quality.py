@@ -32,7 +32,7 @@ HARDCODED_INSTALLER_VERSION_RE = re.compile(
     r'(?m)^const VERSION = ["\'][^"\']+["\'];$'
 )
 SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
-SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 CHANGELOG_SECTION_RE = re.compile(
     r"^##\s+(?:\[(?P<bracketed>[^\]]+)\]|(?P<plain>.+?))"
     r"(?:\s+-\s+\d{4}-\d{2}-\d{2})?\s*$",
