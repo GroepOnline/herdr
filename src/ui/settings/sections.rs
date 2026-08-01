@@ -277,12 +277,14 @@ fn render_plugins_footer(app: &AppState, frame: &mut Frame, layout: &SettingsLay
     if y <= layout.content.y {
         return;
     }
-    let hint = if !app.plugin_install_messages.is_empty() {
+    let hint = if let Some(job) = &app.settings.plugin_install_job {
+        job.message.clone()
+    } else if !app.plugin_install_messages.is_empty() {
         app.plugin_install_messages.join(" · ")
     } else if super::catalog::catalog_entries_available(app).is_empty() {
         "you're caught up — every listed plugin is installed".to_string()
     } else {
-        "enter installs · space toggles on/off".to_string()
+        "enter installs · space toggles on/off · ↵ refresh".to_string()
     };
     frame.render_widget(
         Paragraph::new(Span::styled(hint, Style::default().fg(p.overlay1))),

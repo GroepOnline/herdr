@@ -214,6 +214,18 @@ impl App {
             return;
         }
 
+        if let AppEvent::PluginInstallFinished {
+            source,
+            success,
+            summary,
+        } = ev
+        {
+            self.finish_catalog_plugin_install(&source, success, &summary);
+            self.render_dirty.store(true, Ordering::Release);
+            self.render_notify.notify_one();
+            return;
+        }
+
         if let AppEvent::WorktreeAddFinished(result) = ev {
             self.handle_worktree_add_finished(*result);
             return;

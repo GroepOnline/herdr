@@ -673,6 +673,7 @@ impl App {
                 original_theme: None,
                 preview_tick: 0,
                 config_snapshot: state::SettingsConfigSnapshot::load(),
+                plugin_install_job: None,
             },
             integration_recommendations: crate::integration::integration_recommendations(),
             agent_manifest_summaries,
