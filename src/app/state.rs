@@ -1257,7 +1257,6 @@ pub enum PluginInstallJobStatus {
 
 #[derive(Debug, Clone)]
 pub struct PluginInstallJob {
-    pub source: String,
     pub status: PluginInstallJobStatus,
     pub message: String,
 }
