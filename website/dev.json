@@ -2,18 +2,31 @@
   "schema_version": 1,
   "channel": "dev",
   "base_version": "0.7.7",
-  "build_id": "2026-08-01-7ae5f08b673b",
-  "commit": "7ae5f08b673bd35673ae374aca666060fada6bde",
-  "built_at": "2026-08-01T20:54:02Z",
+  "build_id": "2026-08-01-e7717fd97d5d",
+  "commit": "e7717fd97d5df48a7dcfe7f8049c51f3e659676b",
+  "built_at": "2026-08-01T21:42:06Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-01-7ae5f08b673b\n\nBuilt from `7ae5f08b673b` on `main`.\nBase stable: v0.7.7\nCompare: https://github.com/OnlineChefGroep/herdr/compare/88367852d101060d496dc96073580f8cf9ffeb77...7ae5f08b673bd35673ae374aca666060fada6bde\n\n### Fixed\n- Erase TerminalAnsi overhang on shrink without CSI 2J\n- Erase removed rows and columns on terminal-ansi shrink repaint\n- Preserve kitty graphics during host repaints\n\n### Maintenance\n- Add language to settings architecture code fence\n- Correct miss = misschien (not Moshi)\n\n### Other\n- Merge pull request #108 from OnlineChefGroep/fix/kitty-graphics-host-repaints",
+  "notes": "Dev build 2026-08-01-e7717fd97d5d\n\nBuilt from `e7717fd97d5d` on `main`.\nBase stable: v0.7.7\nCompare: https://github.com/OnlineChefGroep/herdr/compare/7ae5f08b673bd35673ae374aca666060fada6bde...e7717fd97d5df48a7dcfe7f8049c51f3e659676b\n\n### Maintenance\n- Bump the github-actions group with 8 updates (#104)\n\n### Other\n- Add setup script for interactive testing (#88)",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-7ae5f08b673b/herdr-linux-x86_64",
-      "sha256": "e5b358c05e0fdd097ece23c8ec52099a51f25898702c65bf73ddafb821f224f8"
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-e7717fd97d5d/herdr-linux-x86_64",
+      "sha256": "60dbeed2efd7f9c8b015fe17f78a06ee0a074710844e920d70fe1bd7c04cfca4"
     }
   },
   "builds": {
+    "2026-08-01-e7717fd97d5d": {
+      "base_version": "0.7.7",
+      "commit": "e7717fd97d5df48a7dcfe7f8049c51f3e659676b",
+      "built_at": "2026-08-01T21:42:06Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-01-e7717fd97d5d",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-e7717fd97d5d/herdr-linux-x86_64",
+          "sha256": "60dbeed2efd7f9c8b015fe17f78a06ee0a074710844e920d70fe1bd7c04cfca4"
+        }
+      }
+    },
     "2026-08-01-7ae5f08b673b": {
       "base_version": "0.7.7",
       "commit": "7ae5f08b673bd35673ae374aca666060fada6bde",
