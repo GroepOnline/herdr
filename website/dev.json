@@ -1,19 +1,32 @@
 {
   "schema_version": 1,
   "channel": "dev",
-  "base_version": "0.7.6",
-  "build_id": "2026-08-01-f2f18084b97c",
-  "commit": "f2f18084b97c4814152fc449366208cabf3975d3",
-  "built_at": "2026-08-01T00:51:31Z",
+  "base_version": "0.7.7",
+  "build_id": "2026-08-01-b0d5272626d8",
+  "commit": "b0d5272626d8ed578ecc3c07d80111be08eb9fce",
+  "built_at": "2026-08-01T15:22:42Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-01-f2f18084b97c\n\nBuilt from `f2f18084b97c` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/7462fcfae6030bcd70ec0c20d0bba796d305d3d9...f2f18084b97c4814152fc449366208cabf3975d3\n\n### Added\n- Improve plugins catalog install UX\n\n### Fixed\n- Summarize install output with rev().find()\n- Use rfind for install output summary\n- Use next_back for install output summary\n- Drop unused plugin install job source field\n- Run catalog plugin install off the event loop\n\n### Maintenance\n- Retrigger CI after rebasing plugins install UX onto main\n- Autofix mechanical quality\n\n### Other\n- Merge pull request #103 from OnlineChefGroep/settings/plugins-install-ux-prb",
+  "notes": "Dev build 2026-08-01-b0d5272626d8\n\nBuilt from `b0d5272626d8` on `main`.\nBase stable: v0.7.7\nCompare: https://github.com/OnlineChefGroep/herdr/compare/v0.7.7...b0d5272626d8ed578ecc3c07d80111be08eb9fce\n\n### Changed\n- Rebuilt dev from the current main branch.",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-f2f18084b97c/herdr-linux-x86_64",
-      "sha256": "70a805c6bfa275e02738e76595277c75a6bd0fc466b0775461a62d398a9a01fd"
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-b0d5272626d8/herdr-linux-x86_64",
+      "sha256": "e0880c8eaa06d527559eaedfb49e9c634b11375c7da882dd9f7f89fd9299b231"
     }
   },
   "builds": {
+    "2026-08-01-b0d5272626d8": {
+      "base_version": "0.7.7",
+      "commit": "b0d5272626d8ed578ecc3c07d80111be08eb9fce",
+      "built_at": "2026-08-01T15:22:42Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-01-b0d5272626d8",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-b0d5272626d8/herdr-linux-x86_64",
+          "sha256": "e0880c8eaa06d527559eaedfb49e9c634b11375c7da882dd9f7f89fd9299b231"
+        }
+      }
+    },
     "2026-08-01-f2f18084b97c": {
       "base_version": "0.7.6",
       "commit": "f2f18084b97c4814152fc449366208cabf3975d3",
