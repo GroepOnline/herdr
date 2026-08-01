@@ -50,20 +50,29 @@ impl MetadataTokens {
         let expires_at = ttl.and_then(|ttl| now.checked_add(ttl));
         let mut changed = false;
         for (key, value) in patch {
-            match value {
-                Some(value) => {
-                    let token = MetadataToken { value, expires_at };
-                    if self.entries.get(&key) != Some(&token) {
-                        self.entries.insert(key, token);
-                        changed = true;
-                    }
-                }
-                None => {
-                    changed |= self.entries.remove(&key).is_some();
-                }
-            }
+            changed |= self.patch_key(key, value, expires_at);
         }
         changed
+    }
+
+    fn patch_key(
+        &mut self,
+        key: String,
+        value: Option<String>,
+        expires_at: Option<Instant>,
+    ) -> bool {
+        match value {
+            Some(value) => {
+                let token = MetadataToken { value, expires_at };
+                if self.entries.get(&key) != Some(&token) {
+                    self.entries.insert(key, token);
+                    true
+                } else {
+                    false
+                }
+            }
+            None => self.entries.remove(&key).is_some(),
+        }
     }
 
     pub(crate) fn key_count_after_patch(&self, patch: &HashMap<String, Option<String>>) -> usize {
