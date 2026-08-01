@@ -9,7 +9,7 @@ use ratatui::{
 use crate::app::{state::SettingsSection, AppState};
 
 use super::{
-    catalog::{catalog_plugin_index, integration_index, spinner_index},
+    catalog::{catalog_plugin_id, integration_index, spinner_index},
     layout::{
         active_spinner_styles, spinner_category_labels, SettingsLayout, SETTINGS_SECTION_DESC_ROWS,
     },
@@ -102,7 +102,7 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
                 }
             }
             SettingsRowKind::Integration => {
-                if catalog_plugin_index(row.id).is_some() {
+                if catalog_plugin_id(row.id).is_some() {
                     "+"
                 } else {
                     integration_marker(app, integration_index(row.id).unwrap_or_default())
