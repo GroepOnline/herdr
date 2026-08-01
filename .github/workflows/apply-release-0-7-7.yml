@@ -75,7 +75,14 @@ jobs:
             .github/workflows/apply-release-0-7-7.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md docs/next/CHANGELOG.md Cargo.toml Cargo.lock npm/package.json
+          git add \
+            CHANGELOG.md \
+            docs/next/CHANGELOG.md \
+            Cargo.toml \
+            Cargo.lock \
+            npm/package.json \
+            scripts/ci_quality.py \
+            scripts/test_ci_quality.py
           git diff --cached --check
           git commit -m "release: v0.7.7"
           git push origin HEAD:release/v0.7.7
