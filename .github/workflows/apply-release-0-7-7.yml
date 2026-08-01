@@ -46,7 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/apply_release_0_7_7.py
-          cargo update -p herdr --offline
+          cargo update -p herdr
           python3 scripts/ci_quality.py sync-release-metadata
 
       - name: Validate release candidate
