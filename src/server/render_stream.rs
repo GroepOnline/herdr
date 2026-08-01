@@ -162,16 +162,15 @@ fn insert_graphics_before_sync_end(encoded: &mut Vec<u8>, graphics: &[u8]) {
 
     // Keep DECSC/DECRC around Kitty APC so TerminalAnsi frames do not move the
     // host cursor (CHEF), while sharing the sync-end helper from upstream
-    // `36de78dd` (preserve graphics across host repaints).
-    if let Some(sync_end) = crate::protocol::render_ansi::final_sync_output_end(encoded) {
-        let mut gfx: Vec<u8> = Vec::with_capacity(graphics.len() + 6);
-        gfx.extend_from_slice(b"\x1b7");
-        gfx.extend_from_slice(graphics);
-        gfx.extend_from_slice(b"\x1b8");
-        encoded.splice(sync_end..sync_end, gfx);
-    } else {
-        encoded.extend_from_slice(graphics);
-    }
+    // `36de78dd` (preserve graphics across host repaints). Missing sync-end
+    // still wraps and appends at the end — same as the client blit path.
+    let sync_end =
+        crate::protocol::render_ansi::final_sync_output_end(encoded).unwrap_or(encoded.len());
+    let mut gfx: Vec<u8> = Vec::with_capacity(graphics.len() + 6);
+    gfx.extend_from_slice(b"\x1b7");
+    gfx.extend_from_slice(graphics);
+    gfx.extend_from_slice(b"\x1b8");
+    encoded.splice(sync_end..sync_end, gfx);
 }
 
 /// A prepared client render message plus any baseline state needed after send.
