@@ -252,9 +252,15 @@ mod tests {
 
     fn frame_digest(frame: &crate::protocol::FrameData) -> String {
         use sha2::{Digest, Sha256};
+        use std::fmt::Write as _;
 
         let encoded = bincode::serde::encode_to_vec(frame, bincode::config::standard()).unwrap();
-        format!("{:x}", Sha256::digest(encoded))
+        let digest = Sha256::digest(encoded);
+        let mut out = String::with_capacity(64);
+        for byte in digest.as_ref() {
+            let _ = write!(out, "{byte:02x}");
+        }
+        out
     }
 
     fn full_app_characterization_state(uri: &str) -> AppState {
