@@ -76,6 +76,12 @@ pub(crate) fn encode_windows_conpty_fallback(key: &crate::input::TerminalKey) ->
                 record.unicode,
                 record.control_key_state,
             )
+        } else if key.code == KeyCode::Esc
+            && key.modifiers.is_empty()
+            && key.kind == KeyEventKind::Press
+            && key.vt_bytes().is_none()
+        {
+            return Some(b"\x1b[27;1;27;1;0;1_\x1b[27;1;27;0;0;1_".to_vec());
         } else if key.code == KeyCode::Enter && key.modifiers == KeyModifiers::SHIFT {
             (13, 28, 13, 16)
         } else {
@@ -1431,6 +1437,46 @@ mod tests {
         assert_eq!(
             super::encode_windows_conpty_fallback(&release),
             Some(b"\x1b[27;1;27;0;0;1_".to_vec())
+        );
+    }
+
+    #[test]
+    fn windows_conpty_native_encoder_preserves_semantic_escape_fallback() {
+        let escape = crate::input::TerminalKey::new(
+            crossterm::event::KeyCode::Esc,
+            crossterm::event::KeyModifiers::empty(),
+        );
+
+        assert_eq!(
+            super::encode_windows_conpty_fallback(&escape),
+            Some(b"\x1b[27;1;27;1;0;1_\x1b[27;1;27;0;0;1_".to_vec())
+        );
+        assert_eq!(
+            super::encode_windows_conpty_fallback(
+                &escape
+                    .clone()
+                    .with_kind(crossterm::event::KeyEventKind::Repeat),
+            ),
+            None
+        );
+        assert_eq!(
+            super::encode_windows_conpty_fallback(
+                &escape
+                    .clone()
+                    .with_kind(crossterm::event::KeyEventKind::Release),
+            ),
+            None
+        );
+        assert_eq!(
+            super::encode_windows_conpty_fallback(&escape.clone().with_vt_bytes(vec![27])),
+            None
+        );
+        assert_eq!(
+            super::encode_windows_conpty_fallback(&crate::input::TerminalKey::new(
+                crossterm::event::KeyCode::Esc,
+                crossterm::event::KeyModifiers::ALT,
+            ),),
+            None
         );
     }
 
