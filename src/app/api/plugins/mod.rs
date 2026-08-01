@@ -809,7 +809,7 @@ fn summarize_plugin_install_output(stdout: &str, stderr: &str, success: bool) ->
         text.lines()
             .map(str::trim)
             .filter(|line| !line.is_empty())
-            .last()
+            .next_back()
             .map(str::to_string)
     };
     if success {
