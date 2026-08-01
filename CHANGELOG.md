@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## [0.7.7] - 2026-08-01
+
+### Added
+- Added a checksum-backed four-platform distribution contract for Linux and macOS on x86_64 and ARM64, including npm and Homebrew publication.
+- Added plugin catalog settings and install UX for managing Herdr plugins from the settings surface.
+
+### Changed
+- Stable release metadata is now promoted atomically only after all four native assets and `SHA256SUMS` have been downloaded and verified.
+- Homebrew, npm, mise, and Nix installs are detected as package-managed and update through their owning package manager.
+- Preview builds now publish from `main` under the OnlineChefGroep release namespace with mandatory checksums and explicit ownership.
+
+### Fixed
+- Direct, npm, self-update, and remote-bootstrap downloads now fail closed when SHA-256 metadata is missing, malformed, or mismatched.
+- npm reinstalls now verify an existing native binary instead of trusting stale or corrupted package contents.
+- The Windows lint lane now avoids restoring fragile Zig build caches and removes generated Zig outputs before clippy.
+- Corrected release metadata, documentation, product URLs, and the four-target Homebrew formula generation path.
+
 ## [0.7.6] - 2026-07-23
 
 ### Added

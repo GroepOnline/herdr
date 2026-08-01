@@ -2,39 +2,28 @@
 
 ## Unreleased
 
-### Added
+## [0.7.7] - 2026-08-01
 
-- Preview docs cover CHEF fleet plugins, Fleet Ops Bar, `herdr-gateway` `/v1/ops/context`, Moshi iPhone attach (with mobile screenshots), Homebrew tap install, and release-manifest alignment (`just release-status`).
-- Added the opt-in `dev` update channel for direct installs, using the same preview-manifest schema at `/dev.json`.
-- Added gateway `GET /v1/ops/context` (host + socket + agents/session) so operators can see what runs where before attaching; scaffold plugin `com.chefgroep.ops` points production inventory to `OnlineChefGroep/herdr-ops`.
-- Added Moshi (iPhone mobile terminal) preview docs for SSH/mosh attach into Herdr hosts without Hermes.
-- Added `just release-status` and `scripts/homebrew_formula.py` so stable curl (`latest.json`) and the Homebrew tap stay easy to align after tags.
+### Added
+- Added a checksum-backed four-platform distribution contract for Linux and macOS on x86_64 and ARM64, including npm and Homebrew publication.
+- Added plugin catalog settings and install UX for managing Herdr plugins from the settings surface.
 
 ### Changed
-
-- Rebuilt PR quality CI as a parallel gate (`Lint`, `Test`, `Maintenance`, `Windows lint`, `Release metadata`, smoke, aggregated `Quality gate`) with mechanical autofix commits, one sticky remediation brief, and `herdr-quality-remediation` dispatch for autonomous fix loops instead of comment-only review bots.
-- Added Cursor/Codex skill `herdr-quality-ci-remediation` plus `herdr-quality-ci-remediator` / `herdr-quality-ci-diagnoser` subagents for autonomous Quality gate fix loops.
-- CI now publishes a dev prerelease after successful `main` merges, updates `website/dev.json`, and lets direct installer smoke tests use `HERDR_CHANNEL=dev` / `--channel dev`.
-- CI skips Windows lint and musl smoke on docs-only / non-platform PRs (force with label `ci-heavy`); nightly canary heavy lane lives in `CI heavy`.
-- Release tooling and docs now target `main` (not `master`); Homebrew install guidance uses `OnlineChefGroep/tap/onlinechefgroep-herdr`.
-- Backfilled `website/latest.json` to stable `v0.7.6` so `curl | sh` installs the current release.
+- Stable release metadata is now promoted atomically only after all four native assets and `SHA256SUMS` have been downloaded and verified.
+- Homebrew, npm, mise, and Nix installs are detected as package-managed and update through their owning package manager.
+- Preview builds now publish from `main` under the OnlineChefGroep release namespace with mandatory checksums and explicit ownership.
 
 ### Fixed
+- Direct, npm, self-update, and remote-bootstrap downloads now fail closed when SHA-256 metadata is missing, malformed, or mismatched.
+- npm reinstalls now verify an existing native binary instead of trusting stale or corrupted package contents.
+- The Windows lint lane now avoids restoring fragile Zig build caches and removes generated Zig outputs before clippy.
+- Corrected release metadata, documentation, product URLs, and the four-target Homebrew formula generation path.
 
-- Vibe and other Kitty-keyboard pane applications now receive shifted letters and punctuation when they request associated text. (#2020)
-- Ctrl-clicking a pane URL no longer forwards an unmatched mouse release to alternate-screen applications, preventing duplicate browser tabs. (#1761)
-- Linux clipboard copy/paste now prefers Wayland clipboard tools and skips xclip/xsel entirely on Wayland sessions by default, and every clipboard helper process is now bounded by a timeout instead of blocking indefinitely, preventing paste/copy from hanging when Xwayland's X11 connection is unreachable.
-- Pane applications that query OSC 4 palette colors now inherit the controlling host terminal's palette while preserving child-defined palette overrides.
-- Remote path discovery falls back to `/bin/sh` when the login shell rejects `command -v` (upstream #1201).
-- OMP install respects `PI_CONFIG_DIR` and refuses to share Pi's extension directory (upstream #1696).
-- Pi worktree extension no longer forces workspace focus when starting in the background.
-- Homebrew-managed install detection recognizes the `onlinechefgroep-herdr` Cellar keg name.
-- Headless servers now resume restored agent sessions without waiting for a TUI client to attach. (#2064)
-- Pane applications that query XTWINOPS cell/pixel size now get answers from Herdr panes (upstream #835).
-- Prefix mode ignores bare modifier key events so shifted prefix shortcuts still work (upstream #1870).
-- Passive mouse motion no longer triggers continuous full renders (upstream #1865).
-- Windows panes preserve Shift+Enter (upstream #1909).
-- Pane/agent reads report truncation when older rows were omitted (upstream #1717).
+## [0.7.6] - 2026-07-23
+
+### Added
+- Added a native `pi.session.ended` event and a built-in `pi_sessions` watcher. When a Pi coding-agent session JSONL stops growing (configurable stale window), Herdr emits a `pi.session.ended` event carrying the session id, cwd, host, stop reason, and event count. Fleet plugins (e.g. `chef-pi-eval`) can subscribe via `on = "pi.session.ended"` to ingest and auto-evaluate sessions. (#58)
+- Exposed `pi.session.ended` in `PLUGIN_HOOK_EVENT_KINDS` so plugin `on = "pi.session.ended"` hooks fire for any opted-in plugin.
 
 ## [0.7.5] - 2026-07-21
 
@@ -85,23 +74,33 @@
 
 ## [0.7.4] - 2026-07-15
 
+OnlineChefGroep fork release with upstream herdr 0.7.4 merged in. First OnlineChefGroep build shipped from `OnlineChefGroep/herdr` CI (not upstream binaries).
+
 ### Added
+
+- Agent detection for `freebuff`, `junie`, `openclaude`, and upstream `maki`.
+- `herdr-gateway` HTTP API with SSE event streaming (`:7777`).
+- Fleet Ops Bar, Fleet/Plugins settings tabs, and workspace templates (`dev`, `incident`).
+- Spinner appearance settings with live preview (76 styles).
+- GitHub Actions CI (check, test, cross-build).
+- npm package `onlinechefgroep-herdr` and Homebrew tap `OnlineChefGroep/tap`.
 - Added session-modal popup floating terminal panes for `type = "popup"` custom command keybindings and plugin panes, with optional cell or percentage sizing and no changes to the tiled tab layout. (#1125)
 - Added `ui.copy_on_select` to disable automatic clipboard copying after mouse selection while keeping the selection visible.
 - Added configurable row layouts for expanded Space and Agent sidebar entries, including built-in display tokens, per-agent overrides, custom metadata tokens, and pane/workspace metadata reporting through the CLI and socket API.
 - Added independent `row_gap` settings for expanded Space and Agent sidebar entries.
 - Copy mode now supports literal smart-case search with `/` and `?`, repeating with `n` and `N`, match highlighting, and tmux-style cross-line `w`/`b`/`e` word motions. (#1230)
-- Added Maki agent support. (#1301, #1302, thanks @tontinton)
 - Added a searchable, version-matched configuration reference and a troubleshooting guide covering duplicate terminal key events, modified-arrow shell bindings, updates, remote access, and logs. (#1116, #1370)
 
-### Changed
-- Expanded Space and Agent sidebar entries now use a packed layout by default; set the corresponding `row_gap` to `1` to restore the previous spacing.
-- Refreshed the bundled Herdr agent skill for current public workspace, tab, and pane ids and the current CLI/API workflow. (#1297)
-- Expanded Japanese and Simplified Chinese CLI documentation with shell completion setup and API schema usage. (#1151)
-
 ### Fixed
+
+- Direct attach (`herdr terminal attach`) now uses configured `keys.prefix` for detach and literal-prefix forwarding (default `ctrl+a`).
+- Prefix routing test updated for `ctrl+a` default.
+- Direct attach preserves single- and multi-byte configured prefixes without silently falling back to `ctrl+a`.
+- Gateway health reports the Cargo package version and actual process uptime.
+- Release manifest generation now reads releases from `OnlineChefGroep/herdr`.
+- npm no longer advertises an unsupported Windows prebuilt and its packaged README is clean.
 - Collapsed Agent sidebar rows now follow the same ordering and click targets as the expanded panel, and their shortcut numbers are assigned by visible list position instead of repeating across workspaces. (#1168, #1344)
-- Shifted indexed bindings such as `prefix+shift+1..9` now match non-US number rows (via shifted codepoints) while retaining legacy US punctuation support. (#1184, #1870)
+- Shifted indexed bindings such as `prefix+shift+1..9` now match terminals that report the corresponding punctuation characters. (#1184)
 - Plugin-driven tab renames now immediately refresh tab-bar geometry and labels. (#1111, #1179, thanks @kovalov)
 - New tabs, splits, layouts, and workspaces configured to follow the foreground directory now start from the focused pane's current working directory. (#1245)
 - Amp, Codex, and Claude Code detection now recognizes current active-turn UI variants, including reordered Codex title spinners and Claude `/btw` turns. (#1208, #1281, #1366)
@@ -123,6 +122,15 @@
 - Native Windows servers now detach from the terminal console that launched them, so closing WezTerm, Windows Terminal, or another host terminal no longer stops persistent pane processes. (#1329)
 - Windows API clients now remain connected while waiting for initial named-pipe request bytes, so `status server`, `api snapshot`, and other socket commands no longer intermittently fail with BrokenPipe. (#1279)
 - `herdr --remote` now installs remote helper binaries without routing the binary stream through a multiline `/bin/sh -c` command, fixing installs for non-POSIX login shells such as xonsh. (#1203, thanks @nhumrich)
+
+### Changed
+
+- Distribution binaries publish from `OnlineChefGroep/herdr` releases (replacing upstream-seeded v0.7.3 assets).
+- CI uses the same patched Zig path as release builds on macOS and gates only supported release platforms.
+- Expanded Space and Agent sidebar entries now use a packed layout by default; set the corresponding `row_gap` to `1` to restore the previous spacing.
+- Refreshed the bundled Herdr agent skill for current public workspace, tab, and pane ids and the current CLI/API workflow. (#1297)
+- Expanded Japanese and Simplified Chinese CLI documentation with shell completion setup and API schema usage. (#1151)
+
 
 ## [0.7.3] - 2026-07-08
 
