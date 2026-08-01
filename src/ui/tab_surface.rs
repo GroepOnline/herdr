@@ -254,7 +254,15 @@ mod tests {
         use sha2::{Digest, Sha256};
 
         let encoded = bincode::serde::encode_to_vec(frame, bincode::config::standard()).unwrap();
-        format!("{:x}", Sha256::digest(encoded))
+        let digest = Sha256::digest(encoded);
+        const HEX: &[u8; 16] = b"0123456789abcdef";
+        let bytes: &[u8] = digest.as_ref();
+        let mut out = String::with_capacity(bytes.len() * 2);
+        for &byte in bytes {
+            out.push(HEX[(byte >> 4) as usize] as char);
+            out.push(HEX[(byte & 0x0f) as usize] as char);
+        }
+        out
     }
 
     fn full_app_characterization_state(uri: &str) -> AppState {
