@@ -58,3 +58,28 @@ pub fn read_runtime_status_at(
         ))),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_read_runtime_status_at_missing_file() {
+        // Generate a unique path instead of reusing a shared one, so the test
+        // never unlinks a socket owned by a concurrent run or another process.
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let socket_path = std::env::temp_dir().join(format!(
+            "herdr-missing-runtime-status-{}-{nanos}.sock",
+            std::process::id()
+        ));
+        assert!(!socket_path.exists());
+
+        let result = read_runtime_status_at(&socket_path, Duration::from_millis(100));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), None);
+    }
+}
