@@ -30,7 +30,16 @@ Clone locally at `~/herdr`. Rebase on `fork/main`, never `origin/main`.
 
 ## Rebase playbook (full clone)
 
-Always work from a full clone (`git clone https://github.com/OnlineChefGroep/herdr.git`).
+Always work from a full clone. A fresh clone only has `origin`, so rename it and
+re-add the remotes to match the layout above before anything references `fork/*`:
+
+```bash
+git clone https://github.com/OnlineChefGroep/herdr.git ~/herdr && cd ~/herdr
+git remote rename origin fork
+git remote add origin https://github.com/ogulcancelik/herdr.git   # read-only upstream
+git fetch fork && git fetch origin
+```
+
 Shallow/partial clones break `git checkout <pr-branch>` and stale rebase state
 (`.git/rebase-merge` leftover) must be aborted before new work:
 
