@@ -73,3 +73,89 @@ settings actions.
 - Sidebar token DSL composer
 - Workspace TOML templates
 - ASCII wireframe template cards (removed — plain apply rows)
+
+---
+
+## Settings rewrite + reorganization plan (2026-08)
+
+Goal: full rewrite of the customize-herdr shell and a cleaner information architecture.
+Do **not** land as one megapr; ship phased slices behind the existing left-nav shell until
+the new IA is complete.
+
+### Current IA (shipping)
+
+`appearance → layout → input → terminal → notifications → agents → plugins → updates → advanced`
+
+Pain (from live TUI + code):
+
+- Appearance packs spinner hero + full theme list; section blurb clipped mid-word
+  (`SettingsSection::description` + single-line header in `sections.rs`).
+- Advanced is a junk drawer (SSH, Kitty graphics, nested, clipboard history, fleet ops, path).
+- Plugins/Agents/Updates compete for “ops” attention; search is global but nav is flat.
+- Typed catalog (`SettingsItemId` / `SettingsAction`) is good — keep it; rewrite is layout/IA,
+  not a return to opaque `usize` payloads.
+
+### Proposed IA
+
+| Nav | Contents | Notes |
+|---|---|---|
+| **Look** | theme auto-switch, themes, spinner packs + hero | rename of Appearance; keep live preview |
+| **Chrome** | pane borders/gaps, tab bar, sidebar collapse/sort, templates | rename of Layout |
+| **Keys & pointer** | mouse, copy-on-select, focus redraw, confirms, host cursor, keybind help CTA | rename of Input |
+| **Shell** | default shell, shell mode, cwd, scrollback | rename of Terminal |
+| **Alerts** | sound, toast delivery/delay/position, clipboard toasts | rename of Notifications |
+| **Agents** | resume-on-restore, integrations | unchanged role |
+| **Plugins** | installed + curated catalog | keep install-off-event-loop from #103 |
+| **Updates** | channel, version/manifest checks | unchanged |
+| **Remote & graphics** | Kitty graphics, nested, manage SSH, clipboard history | **split out of Advanced** |
+| **System** | experiments, fleet ops bar, worktrees path, reload/config path | remainder of Advanced |
+
+Search stays global across all sections. Badges stay on Agents (integration updates).
+
+### Architecture (rewrite target)
+
+```text
+src/ui/settings/
+  catalog.rs      # SettingsItemId + SettingsAction (stable IDs)
+  ia.rs           # NEW: section order, labels, descriptions, search synonyms
+  layout.rs       # geometry; content header wraps or truncates by display width
+  sections/*.rs   # NEW: one renderer module per section (Appearance today is special-cased)
+  rows.rs         # row builders keyed by SettingsItemId
+  spinner.rs      # hero + packs
+src/app/input/settings.rs
+src/app/config_io.rs
+```
+
+Keep `SettingsLayout` as the single hit-test/render contract. Move Appearance special-casing
+(`spinner_hero_rect` / category tabs) behind a `SectionChrome` trait or enum so Look/Chrome/…
+can opt into hero bands without growing `sections.rs`.
+
+### Phased DAG
+
+```mermaid
+flowchart TD
+  P0[P0 image + blurb clip] --> P1[P1 IA labels + Advanced split]
+  P1 --> P2[P2 section modules + ia.rs]
+  P2 --> P3[P3 Look hero polish]
+  P2 --> P4[P4 Remote and graphics section]
+  P3 --> P5[P5 search synonyms + empty states]
+  P4 --> P5
+  P5 --> P6[P6 optional registry-driven plugins]
+```
+
+| Phase | Scope | Exit |
+|---|---|---|
+| **P0** (this PR) | Port Kitty host-repaint fix; truncate section blurbs; shorten descriptions | CI green; images survive focus/repaint |
+| **P1** | Rename nav labels (Look/Chrome/…); split Advanced → Remote & graphics + System; no row moves yet beyond grouping | Screenshot IA matches table |
+| **P2** | Extract `ia.rs` + `sections/*.rs`; delete god-file growth in `sections.rs` | File size under house limit; same IDs |
+| **P3** | Look: spinner/theme preview layout polish (no kitchen metaphors; warm Dutch copy) | Evaluator gate if Signaal tokens apply |
+| **P4** | Wire Kitty/SSH/nested into Remote & graphics; docs for Moshi attach | Moshi doc link from blurb |
+| **P5** | Search synonyms (`kitty`→Remote, `moshi`→mobile threshold in Chrome/System) | Search hits sensible |
+| **P6** | Plugins registry.json (already noted under Plugins v2) | Catalog not hardcoded |
+
+### Non-goals for the rewrite
+
+- Replacing ratatui or the modal overlay model
+- Full keybind editor
+- Hermes / UDO coupling
+- Implementing mosh inside Herdr (see `CHEF-GHOSTTY-OPTS-VS-MOSH.md`; mosh is optional transport only)
