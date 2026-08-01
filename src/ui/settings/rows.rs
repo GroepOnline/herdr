@@ -311,12 +311,14 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     kind: SettingsRowKind::Note,
                     id: SettingsItemId::PluginsCatalogHeader,
                 });
-                for (index, entry) in catalog.iter().enumerate() {
+                for entry in catalog {
                     rows.push(SettingsRow {
                         label: entry.name.to_string(),
                         detail: Some(entry.blurb.to_string()),
                         kind: SettingsRowKind::Integration,
-                        id: SettingsItemId::CatalogPlugin { index },
+                        id: SettingsItemId::CatalogPlugin {
+                            plugin_id: entry.plugin_id,
+                        },
                     });
                 }
             }
