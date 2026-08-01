@@ -108,6 +108,7 @@ pub(crate) enum SettingsAction {
     SaveFleetOpsBar(bool),
     TogglePluginEnabled { plugin_id: String, enabled: bool },
     InstallCatalogPlugin { source: String },
+    RefreshInstalledPlugins,
 }
 
 const TOAST_DELAY_PRESETS: &[u64] = &[0, 1, 2, 5];
