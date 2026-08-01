@@ -94,11 +94,7 @@ impl App {
         }
         self.state.plugin_install_messages.clear();
         if self.no_session {
-            self.finish_plugin_install_job(
-                source,
-                false,
-                "plugin registry unavailable in no-session mode",
-            );
+            self.finish_plugin_install_job(false, "plugin registry unavailable in no-session mode");
             return;
         }
 
@@ -106,7 +102,6 @@ impl App {
             Ok(exe) => exe,
             Err(err) => {
                 self.finish_plugin_install_job(
-                    source,
                     false,
                     &format!("failed to locate herdr binary: {err}"),
                 );
@@ -116,7 +111,6 @@ impl App {
 
         let pending = format!("installing {source}…");
         self.state.settings.plugin_install_job = Some(crate::app::state::PluginInstallJob {
-            source: source.to_string(),
             status: crate::app::state::PluginInstallJobStatus::Pending,
             message: pending.clone(),
         });
@@ -158,24 +152,19 @@ impl App {
         summary: &str,
     ) {
         if !success {
-            self.finish_plugin_install_job(source, false, &format!("install failed: {summary}"));
+            self.finish_plugin_install_job(false, &format!("install failed: {summary}"));
             return;
         }
         // A successful CLI install is only visible once the registry reloads; a failed
         // reload leaves the settings list stale, so report it instead of claiming success.
         match reload_installed_plugins_state(&mut self.state.installed_plugins) {
             Ok(()) => {
-                self.finish_plugin_install_job(
-                    source,
-                    true,
-                    &format!("installed {source}: {summary}"),
-                );
+                self.finish_plugin_install_job(true, &format!("installed {source}: {summary}"));
                 self.state.mark_session_dirty();
             }
             Err(err) => {
                 tracing::warn!(error = %err, "failed to reload installed plugins after install");
                 self.finish_plugin_install_job(
-                    source,
                     false,
                     &format!("installed {source} but reloading plugins failed: {err}"),
                 );
@@ -204,14 +193,13 @@ impl App {
         }
     }
 
-    fn finish_plugin_install_job(&mut self, source: &str, success: bool, message: &str) {
+    fn finish_plugin_install_job(&mut self, success: bool, message: &str) {
         let status = if success {
             crate::app::state::PluginInstallJobStatus::Success
         } else {
             crate::app::state::PluginInstallJobStatus::Failed
         };
         self.state.settings.plugin_install_job = Some(crate::app::state::PluginInstallJob {
-            source: source.to_string(),
             status,
             message: message.to_string(),
         });
