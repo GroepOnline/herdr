@@ -1,152 +1,123 @@
 ---
 name: verify-herdr
-description: "Drive the Herdr terminal agent runtime (headless server + socket CLI, optional TUI) the way a user would. Use when proving pane/workspace/CLI behavior, smoke-testing a binary, or capturing transcripts without cargo builds on Cloud VMs."
+description: "Drive Herdr like a user — headless CLI e2e, mouse-first TUI (settings/modals/pane splits), optional future sandbox. Use when proving pane/workspace/settings behavior, smoke-testing a binary, or capturing desktop evidence without cargo builds on Cloud VMs."
 ---
 
 # Verify Herdr
 
-Herdr is a terminal workspace manager: a **headless server** owns panes/PTY state; the **CLI** talks over a Unix socket; the **TUI** is one client. Primary verification surface here is **headless server + CLI**. Interactive TUI is optional (needs a real TTY / desktop).
+Herdr is a terminal workspace manager: a **headless server** owns panes/PTY state; the **CLI** talks over a Unix socket; the **TUI** is one mouse-first client.
 
-On Cursor Cloud VMs, local `cargo` / `just check|test|lint` are blocked. Use a CI smoke binary (see Launch). Never drive the user's installed stable server — always isolate with a dedicated `HOME`.
+Two proof tracks:
+
+| Track | When | Entry |
+| --- | --- | --- |
+| **CLI / headless** | CI, Cloud without desktop, fast gates | `scripts/e2e.sh` |
+| **Mouse-first TUI** | Settings, modals, layout UX, demos | `features/settings-and-modals.md` + `scripts/tui-mouse-checklist.sh` |
+| **Sandbox** (later) | Disposable display/fs policy | `features/sandbox.md` (`HERDR_VERIFY_SANDBOX` stub) |
+
+On Cursor Cloud VMs, local `cargo` / `just check|test|lint` are blocked. Use a release or CI smoke binary. Never drive the user’s installed stable server — always isolate with a dedicated `HOME`.
 
 ## Launch
 
 ### Binary
 
-Prefer an explicit binary:
-
 ```bash
-export HERDR_BIN=/tmp/herdr-bin-fresh/herdr-linux-x86_64
-```
-
-If missing, download from a green CI run (artifact `ci-smoke-herdr-linux-x86_64`):
-
-```bash
-gh run list -R OnlineChefGroep/herdr --workflow=ci.yml --limit 5 \
-  --json databaseId,conclusion,headBranch
-# pick a success run-id that includes release-build / smoke artifact
-gh run download <run-id> -R OnlineChefGroep/herdr \
-  -n ci-smoke-herdr-linux-x86_64 -D /tmp/herdr-bin-fresh
-chmod +x /tmp/herdr-bin-fresh/herdr-linux-x86_64
-export HERDR_BIN=/tmp/herdr-bin-fresh/herdr-linux-x86_64
-```
-
-Helper (resolves `HERDR_BIN`, creates isolated home, prints env):
-
-```bash
+export HERDR_BIN=/opt/herdr/herdr-linux-x86_64
+# or:
+.cursor/skills/verify-herdr/scripts/download-binary.sh
 source .cursor/skills/verify-herdr/scripts/env.sh
 ```
 
-### Start isolated headless server
+Refresh Cloud env + Cursor standards:
 
 ```bash
-source .cursor/skills/verify-herdr/scripts/env.sh
-.cursor/skills/verify-herdr/scripts/launch-server.sh
+bash .cursor/scripts/cloud-install.sh
 ```
 
-Ready when `$HERDR_HOME/.config/herdr/herdr.sock` accepts connects and
-`HOME=$HERDR_HOME "$HERDR_BIN" status --json` shows `"running": true`.
-
-Teardown: `.cursor/skills/verify-herdr/scripts/cleanup.sh` (kills the PID recorded at launch; does not delete evidence).
-
-### Optional interactive TUI
-
-Needs a real TTY (Cloud: xfce4 on `:1`). Symlink the smoke binary and run `herdr` in a desktop terminal, or use the tmux harness in **Drive → TUI**. Do not attach a verification TUI to a non-isolated `HOME`.
-
-## Doctor
-
-Read-only health check for the isolated instance:
-
-```bash
-source .cursor/skills/verify-herdr/scripts/env.sh
-.cursor/skills/verify-herdr/scripts/doctor.sh
-```
-
-Pass criteria:
-
-- `HERDR_BIN` exists and `--version` prints `herdr …`
-- socket path under `$HERDR_HOME/.config/herdr/herdr.sock`
-- `status --json` → `server.running == true`, `server.compatible != false`
-- recorded server PID is still alive
-
-If doctor fails, stop and relaunch — do not drive a half-dead shared instance.
-
-## Drive
-
-Always wrap CLI calls:
-
-```bash
-herdr_cli() { HOME="$HERDR_HOME" env -u HERDR_SOCKET_PATH -u HERDR_CLIENT_SOCKET_PATH "$HERDR_BIN" "$@"; }
-```
-
-Or use the helper: `.cursor/skills/verify-herdr/scripts/cli.sh <args…>`
-
-### Headless CLI recipe (preferred)
-
-Stable handles are pane/workspace IDs from `workspace list` / `pane list` (often `w1:p1` after first create), plus JSON from `status --json` / `pane read … --format text`.
-
-Minimal happy path (also scripted in `scripts/smoke-pane-run-read.sh`):
+### Headless server
 
 ```bash
 source .cursor/skills/verify-herdr/scripts/env.sh
 .cursor/skills/verify-herdr/scripts/launch-server.sh
 .cursor/skills/verify-herdr/scripts/doctor.sh
-create_json="$(.cursor/skills/verify-herdr/scripts/cli.sh workspace create --cwd "$HERDR_HOME" --focus)"
-PANE="$(printf '%s' "$create_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["root_pane"]["pane_id"])')"
-.cursor/skills/verify-herdr/scripts/cli.sh pane list
-.cursor/skills/verify-herdr/scripts/cli.sh pane run "$PANE" echo 'verify-herdr-ok'
-.cursor/skills/verify-herdr/scripts/cli.sh pane wait-output "$PANE" --match 'verify-herdr-ok' --timeout 5000
-.cursor/skills/verify-herdr/scripts/cli.sh pane read "$PANE" --source recent --format text
 ```
 
-Send keys / text when proving input paths (check `pane send-text --help` / `pane send-keys --help` for exact flags on the binary under test):
+Teardown: `scripts/cleanup.sh` (keeps evidence).
+
+### Interactive TUI
+
+Needs a real TTY (Cloud: xfce4 on `:1`). Dark terminal preferred.
 
 ```bash
-.cursor/skills/verify-herdr/scripts/cli.sh pane send-text "$PANE" 'echo hi'
-.cursor/skills/verify-herdr/scripts/cli.sh pane send-keys "$PANE" Enter
+env -u HERDR_SOCKET_PATH -u HERDR_CLIENT_SOCKET_PATH \
+  HOME="$HERDR_HOME" "$HERDR_BIN"
 ```
 
-### TUI tmux harness (optional)
+## CLI drive
+
+Wrapper:
 
 ```bash
-SESSION="herdr-cli-verify-$$"
-tmux -f /exec-daemon/tmux.portal.conf new-session -d -s "$SESSION" -c "$HERDR_HOME" -- bash -lc \
-  'env -u HERDR_SOCKET_PATH -u HERDR_CLIENT_SOCKET_PATH HOME="'"$HERDR_HOME"'" "'"$HERDR_BIN"'" status --json; sleep 2'
-sleep 1
-tmux -f /exec-daemon/tmux.portal.conf capture-pane -pt "$SESSION" | tee "$HERDR_VERIFY_EVIDENCE/tmux-status-capture.txt"
-tmux -f /exec-daemon/tmux.portal.conf kill-session -t "$SESSION"
+.cursor/skills/verify-herdr/scripts/cli.sh <args…>
 ```
 
-For a long-lived interactive TUI, omit `status --json; sleep` and run `"$HERDR_BIN"` alone (needs a real TTY/desktop). Prefix is ctrl+b by default — prefer CLI for functional proofs.
+### Full e2e (preferred CLI)
 
-Prefer CLI proofs for pane content; use TUI only when verifying layout/keybind UX.
+```bash
+.cursor/skills/verify-herdr/scripts/e2e.sh
+```
 
-Feature-specific steps live under `features/`. Prefer those entry points over inventing a one-off path.
+Covers: server lifecycle → doctor → workspace create → pane run/read → send-text/keys/wait → split → tab → **config check / api snapshot** → final status.
+
+### Minimal smoke
+
+```bash
+.cursor/skills/verify-herdr/scripts/smoke-pane-run-read.sh
+```
+
+## Mouse-first TUI drive
+
+Herdr is mouse-first. Prove settings and layout with clicks, not only prefix keys.
+
+### Settings + modals
+
+1. Click sidebar **menu** → **settings** (proven path on 0.7.7). Fallback: `Ctrl+b` then `s`.
+2. Click through sections: appearance, layout, input, terminal, notifications, agents, plugins, updates, advanced.
+3. Dismiss: close / Esc / outside (body chrome = no-op).
+4. Details: `features/settings-and-modals.md`.
+
+### Extra panes + commands
+
+1. Right-click pane → **Split right** / **Split down**.
+2. Click panes to focus (active border).
+3. Run markers per pane (`echo …`, `herdr --version`, `pwd`).
+4. Details: `features/pane-layout-mouse.md`.
+
+### Checklist / artifact gate
+
+```bash
+.cursor/skills/verify-herdr/scripts/tui-mouse-checklist.sh
+.cursor/skills/verify-herdr/scripts/tui-mouse-checklist.sh --verify
+```
+
+`--verify` expects demo artifacts under `/opt/cursor/artifacts/` (mp4 + key screenshots).
+
+## Sandbox (planned)
+
+Isolated `HOME` is required today. Nested display / policy sandbox is **not** wired yet — see `features/sandbox.md`. When implemented, `HERDR_VERIFY_SANDBOX=1` should wrap both CLI e2e and mouse checklists.
 
 ## Evidence
 
-Proof directory (survives cleanup):
-
-```text
-/opt/cursor/artifacts/herdr-verify/<run-id>/
-```
-
-`scripts/env.sh` sets `HERDR_VERIFY_EVIDENCE` to a fresh run dir. Capture:
-
-| Artifact | How |
+| Kind | Path |
 | --- | --- |
-| `doctor.json` | `status --json` at doctor time |
-| `pane-list.json` / text | `pane list` (+ `--json` when available) |
-| `pane-read.txt` | `pane read <id> --source recent --format text` after the action |
-| `cli-transcript.log` | stdout/stderr of the drive script |
-| `server.log` | copy of `$HERDR_HOME/.config/herdr/herdr-server.log` if present |
+| CLI runs | `/opt/cursor/artifacts/herdr-verify/<run-id>/` |
+| Mouse demos | `/opt/cursor/artifacts/herdr-mouse-*.mp4`, `screenshots/herdr-mouse-*.webp` |
 
 Proof standards:
 
-- Exercise the real CLI/user path (`workspace create`, `pane run`, `pane read`), not internal setters.
-- Capture **action + resulting pane text**, not only exit codes.
-- Side effects: pane output contains the expected marker; workspace appears in `workspace list`.
-- No mocks for the PTY path — the smoke binary runs real panes.
+- Real CLI/user paths (`workspace create`, `pane run`, menu → settings), not internal setters.
+- Capture **action + result** (pane text, settings screenshot), not only exit codes.
+- No mocks for the PTY path.
 
 ## Cleanup
 
@@ -154,24 +125,20 @@ Proof standards:
 .cursor/skills/verify-herdr/scripts/cleanup.sh
 ```
 
-- Stops the server via `herdr server stop` when the socket still answers, else kills the **recorded PID** only.
-- Removes `$HERDR_HOME` scratch tree.
-- **Never** deletes `$HERDR_VERIFY_EVIDENCE`.
-- Does not `pkill herdr` / kill by process name.
+Never deletes evidence; never `pkill herdr` by name.
 
 ## Helpers
 
-All under `.cursor/skills/verify-herdr/scripts/` (executable):
-
 | Script | Role |
 | --- | --- |
-| `env.sh` | Resolve binary, allocate `HERDR_HOME` + evidence dir, export vars |
-| `launch-server.sh` | Start headless server; write PID/socket metadata |
-| `doctor.sh` | Read-only instance health |
-| `cli.sh` | Isolated CLI wrapper |
-| `smoke-pane-run-read.sh` | End-to-end proof of `pane-run-and-read` feature |
-| `cleanup.sh` | Tear down instance; keep evidence |
+| `download-binary.sh` | Release → CI smoke |
+| `env.sh` | Binary + isolated `HOME` + evidence dir |
+| `launch-server.sh` / `doctor.sh` / `cli.sh` | Headless lifecycle |
+| `e2e.sh` | Full CLI feature-map proof |
+| `smoke-pane-run-read.sh` | Narrow smoke |
+| `tui-mouse-checklist.sh` | Mouse drive checklist + `--verify` |
+| `cleanup.sh` | Tear down instance |
 
 ## Feature map
 
-See `features/README.md`. Start with `pane-run-and-read` for a single proof run.
+See `features/README.md`.

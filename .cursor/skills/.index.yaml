@@ -1,0 +1,39 @@
+version: 1
+generated_by: scripts/generate_cursor_index.py
+items:
+- name: chef-fleet
+  path: .cursor/skills/chef-fleet/SKILL.md
+  kind: skill
+  summary: CHEF fleet operations for herdr — Linear/GitHub/UDO/Kater SSOT rules, Fleet
+    Ops Bar, plugin state-dir contracts, and when to touch core vs com.chefgroep.*
+    plugins.
+  when: CHEF fleet operations for herdr — Linear/GitHub/UDO/Kater S…
+- name: herdr-quality-ci-remediation
+  path: .cursor/skills/herdr-quality-ci-remediation/SKILL.md
+  kind: skill
+  summary: Remediate Herdr PR Quality CI failures end-to-end.
+  when: Remediate Herdr PR Quality CI failures end-to-end. Use when…
+- name: herdr-settings-ui-redesign
+  path: .cursor/skills/herdr-settings-ui-redesign/SKILL.md
+  kind: skill
+  summary: Plan and execute the bold Herdr settings modal redesign (section IA, config
+    surfacing, animations, CI-only validation).
+  when: Plan and execute the bold Herdr settings modal redesign (se…
+- name: herdr-ui
+  path: .cursor/skills/herdr-ui/SKILL.md
+  kind: skill
+  summary: Polish and harden the herdr mouse-first TUI — premium consistent overlays,
+    sidebar/tabs/dialogs, pure render, and fix memory leaks or UI errors.
+  when: Polish and harden the herdr mouse-first TUI — premium consi…
+- name: herdr
+  path: .cursor/skills/herdr/SKILL.md
+  kind: skill
+  summary: Develop and change the herdr terminal agent runtime (Rust TUI, session
+    server, socket API, detection manifests, integrations).
+  when: Develop and change the herdr terminal agent runtime (Rust T…
+- name: verify-herdr
+  path: .cursor/skills/verify-herdr/SKILL.md
+  kind: skill
+  summary: Drive Herdr like a user — headless CLI e2e, mouse-first TUI (settings/modals/pane
+    splits), optional future sandbox.
+  when: Drive Herdr like a user — headless CLI e2e, mouse-first TUI…

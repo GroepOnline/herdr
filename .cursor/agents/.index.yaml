@@ -1,0 +1,51 @@
+version: 1
+generated_by: scripts/generate_cursor_index.py
+items:
+- name: chef-fleet
+  path: .cursor/agents/chef-fleet.md
+  kind: agent
+  summary: CHEF fleet specialist for Linear/GitHub/UDO/Kater contracts, Fleet Ops
+    Bar, plugin state dirs, and core-vs-plugin boundaries.
+  when: CHEF fleet specialist for Linear/GitHub/UDO/Kater contracts…
+- name: herdr-quality-ci-diagnoser
+  path: .cursor/agents/herdr-quality-ci-diagnoser.md
+  kind: agent
+  summary: Read-only Herdr Quality CI diagnoser.
+  when: Read-only Herdr Quality CI diagnoser. Use when checks are r…
+- name: herdr-quality-ci-remediator
+  path: .cursor/agents/herdr-quality-ci-remediator.md
+  kind: agent
+  summary: Herdr Quality CI remediation specialist.
+  when: Herdr Quality CI remediation specialist. Use proactively wh…
+- name: herdr-ui
+  path: .cursor/agents/herdr-ui.md
+  kind: agent
+  summary: Herdr TUI specialist for premium mouse-first UI polish, visual consistency,
+    modal/sidebar/overlay UX, render purity, and hunting memory leaks or UI bugs.
+  when: Herdr TUI specialist for premium mouse-first UI polish, vis…
+- name: herdr
+  path: .cursor/agents/herdr.md
+  kind: agent
+  summary: Herdr codebase specialist for the terminal agent runtime.
+  when: Herdr codebase specialist for the terminal agent runtime. U…
+- name: settings-diagnose
+  path: .cursor/agents/settings-diagnose.md
+  kind: agent
+  summary: Diagnose failing GitHub Actions for settings UI work without local builds.
+  when: Diagnose failing GitHub Actions for settings UI work withou…
+- name: settings-explorer
+  path: .cursor/agents/settings-explorer.md
+  kind: agent
+  summary: Map Herdr settings UI codepaths and design-spec gaps before implementation.
+  when: Map Herdr settings UI codepaths and design-spec gaps before…
+- name: settings-implementer
+  path: .cursor/agents/settings-implementer.md
+  kind: agent
+  summary: Implement one settings UI redesign task with TDD-style tests and minimal
+    diff.
+  when: Implement one settings UI redesign task with TDD-style test…
+- name: settings-reviewer
+  path: .cursor/agents/settings-reviewer.md
+  kind: agent
+  summary: Spec + quality review for settings UI diffs.
+  when: Spec + quality review for settings UI diffs. Find UX regres…

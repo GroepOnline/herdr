@@ -1,0 +1,5 @@
+{
+  "snapshot": "snapshot-20260724-12d43606-6ba8-4e3c-b075-708af185cc1c",
+  "install": "bash .cursor/scripts/cloud-install.sh",
+  "agentCanUpdateSnapshot": true
+}
