@@ -25,6 +25,8 @@ workspaces, tabs, panes. mouse-native: click, drag, split. every agent at a glan
 curl -fsSL https://herdr.chefgroep.nl/install.sh | sh
 ```
 
+The Linux/macOS installer verifies the selected manifest SHA-256 before atomically replacing the binary.
+
 on windows preview beta:
 
 ```powershell
@@ -38,7 +40,16 @@ brew tap OnlineChefGroep/tap
 brew install OnlineChefGroep/tap/onlinechefgroep-herdr
 ```
 
-update later with `brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr`. the upstream `brew install herdr` formula can lag behind [herdr.chefgroep.nl/latest.json](https://herdr.chefgroep.nl/latest.json).
+update later with `brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr`. the upstream `brew install herdr` formula can lag behind [herdr.chefgroep.nl/latest.json](https://herdr.chefgroep.nl/latest.json).
+
+or install with npm/bun (Linux/macOS, Intel/ARM):
+
+```bash
+npm install --global onlinechefgroep-herdr
+# or: bun add --global onlinechefgroep-herdr
+```
+
+The npm postinstall verifies the release `SHA256SUMS` before installing the native binary.
 
 or install with mise:
 
@@ -84,7 +95,7 @@ Herdr notifies you when a new version is available. Run manually:
 herdr update
 ```
 
-`herdr update` is for installs managed by Herdr's own installer. Homebrew, mise, and Nix installs update through `brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr`, `mise upgrade herdr`, or your Nix workflow, then use the same stop-and-run-again flow if a session is still running the old server. Direct installs can opt into preview builds with `herdr channel set preview`, dev builds with `herdr channel set dev`, and return to stable with `herdr channel set stable` on Linux and macOS. See [install docs](https://herdr.chefgroep.nl/docs/install/) and [session state docs](https://herdr.chefgroep.nl/docs/session-state/) for the full update, restart, restore, and handoff matrix.
+`herdr update` is for installs managed by Herdr's own installer. Homebrew, npm, mise, and Nix installs update through `brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr`, `npm install --global onlinechefgroep-herdr@latest`, `mise upgrade herdr`, or your Nix workflow, then use the same stop-and-run-again flow if a session is still running the old server. Direct installs can opt into preview builds with `herdr channel set preview`, dev builds with `herdr channel set dev`, and return to stable with `herdr channel set stable` on Linux and macOS. See [install docs](https://herdr.chefgroep.nl/docs/install/) and [session state docs](https://herdr.chefgroep.nl/docs/session-state/) for the full update, restart, restore, and handoff matrix.
 
 Linux and macOS direct installs use the stable update channel by default. Windows beta installs default to preview. To test preview builds from `main` before the next stable release:
 

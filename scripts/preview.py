@@ -14,6 +14,7 @@ except ModuleNotFoundError:
     from product_config import PRODUCT_GITHUB_REPO as DEFAULT_RELEASE_REPO
 
 ASSET_TARGETS = ("linux-x86_64",)
+SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 EXPECTED_ASSET_NAMES = {target: f"herdr-{target}" for target in ASSET_TARGETS}
 HIDDEN_SUBJECTS = (
     "docs: update website manifest",
@@ -135,7 +136,7 @@ def build_notes(
     base_version: str,
     repo: str,
     channel_label: str = "Preview",
-    branch: str = "master",
+    branch: str = "main",
 ) -> str:
     short = commit[:12]
     compare = f"https://github.com/{repo}/compare/{previous}...{commit}"
@@ -182,25 +183,44 @@ def default_asset_urls(repo: str, tag: str) -> dict[str, str]:
     }
 
 
+def normalize_sha256(value: str, label: str) -> str:
+    checksum = value.strip().lower()
+    if SHA256_RE.fullmatch(checksum) is None:
+        raise SystemExit(f"{label} must be 64 hexadecimal characters")
+    return checksum
+
+
 def read_sha_file(path: Path | None) -> dict[str, str]:
     if path is None:
-        return {}
+        raise SystemExit("sha file is required for preview publication")
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise SystemExit("sha file must be a JSON object")
-    return {str(key): str(value) for key, value in data.items()}
+    return {
+        str(key): normalize_sha256(str(value), f"checksum for {key}")
+        for key, value in data.items()
+    }
 
 
 def asset_objects(urls: dict[str, str], shas: dict[str, str]) -> dict[str, dict[str, str]]:
-    assets: dict[str, dict[str, str]] = {}
-    for target in ASSET_TARGETS:
-        url = urls[target]
-        entry = {"url": url}
-        sha = shas.get(target)
-        if sha:
-            entry["sha256"] = sha
-        assets[target] = entry
-    return assets
+    expected = set(ASSET_TARGETS)
+    actual = set(shas)
+    if actual != expected:
+        missing = sorted(expected - actual)
+        extra = sorted(actual - expected)
+        details = []
+        if missing:
+            details.append(f"missing {', '.join(missing)}")
+        if extra:
+            details.append(f"unexpected {', '.join(extra)}")
+        raise SystemExit(f"preview checksum target matrix mismatch: {'; '.join(details)}")
+    return {
+        target: {
+            "url": urls[target],
+            "sha256": normalize_sha256(shas[target], f"checksum for {target}"),
+        }
+        for target in ASSET_TARGETS
+    }
 
 
 def build_manifest(
@@ -330,7 +350,7 @@ def main() -> int:
     current.set_defaults(func=cmd_current_commit)
 
     select = sub.add_parser("select-commit")
-    select.add_argument("--ref", default="origin/master")
+    select.add_argument("--ref", default="origin/main")
     select.set_defaults(func=cmd_select_commit)
 
     range_base = sub.add_parser("range-base")

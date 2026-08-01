@@ -128,7 +128,7 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
 
       - name: Python maintenance unittests
-        run: python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_ci_changed_paths scripts.test_ci_quality scripts.test_config_reference_check scripts.test_dev scripts.test_docs_translation_parity scripts.test_preview scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
+        run: python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_ci_changed_paths scripts.test_ci_quality scripts.test_config_reference_check scripts.test_dev scripts.test_docs_translation_parity scripts.test_homebrew_formula scripts.test_install_sh scripts.test_preview scripts.test_release_manifest_hardening scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
 
       - name: Integration asset tests
         run: |
@@ -168,6 +168,13 @@ jobs:
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
           version: ${{ env.ZIG_VERSION }}
+          # Restored Windows Zig caches have produced missing generated files.
+          # Keep this lane deterministic; Rust's Cargo cache remains enabled.
+          use-cache: false
+
+      - name: Remove Zig build outputs
+        shell: bash
+        run: rm -rf .zig-cache vendor/libghostty-vt/.zig-cache vendor/libghostty-vt/zig-out
 
       - name: Cargo clippy on Windows
         shell: bash
@@ -189,6 +196,8 @@ jobs:
           python3 scripts/changelog.py validate-product-announcement
           node --check npm/install.js
           node --check npm/bin/herdr.js
+          sh -n website/install.sh
+          python3 -m unittest scripts.test_install_sh
           (cd npm && npm pack --dry-run --ignore-scripts)
           python3 scripts/ci_quality.py check-release-metadata
 
