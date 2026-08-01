@@ -11,6 +11,7 @@ from scripts.product_config import PRODUCT_GITHUB_REPO
 
 class DevManifestTests(unittest.TestCase):
     def test_build_manifest_uses_dev_channel(self):
+        checksum = "d" * 64
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "dev.json"
             content = preview.build_manifest(
@@ -23,14 +24,14 @@ class DevManifestTests(unittest.TestCase):
                 base_version="0.7.6",
                 protocol=17,
                 notes="Dev notes\n",
-                shas={"linux-x86_64": "deadbeef"},
+                shas={"linux-x86_64": checksum},
                 retain=30,
                 channel="dev",
             )
             data = json.loads(content)
             self.assertEqual(data["channel"], "dev")
             self.assertEqual(data["build_id"], "2026-06-02-abcdef123456")
-            self.assertEqual(data["assets"]["linux-x86_64"]["sha256"], "deadbeef")
+            self.assertEqual(data["assets"]["linux-x86_64"]["sha256"], checksum)
             self.assertEqual(
                 data["assets"]["linux-x86_64"]["url"],
                 f"https://github.com/{PRODUCT_GITHUB_REPO}/releases/download/"

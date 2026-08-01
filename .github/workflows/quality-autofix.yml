@@ -139,14 +139,15 @@ jobs:
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
         run: |
           python3 <<'PY'
-          import json
           import os
-          import re
           import subprocess
-          import tomllib
           from pathlib import Path
 
-          INSTALLER_VERSION_RE = re.compile(r'(?m)^const VERSION = "(?P<version>[^"]+)";$')
+          from scripts.ci_quality import (
+              read_cargo_version,
+              read_installer_version,
+              read_npm_package_version,
+          )
 
           def output(name, value):
               with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
@@ -168,19 +169,12 @@ jobs:
               output("skip_reason", f"already autofixed {head_sha}")
               raise SystemExit(0)
 
-          cargo = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))
-          cargo_version = cargo["package"]["version"]
+          root = Path(".")
+          cargo_version = read_cargo_version(root)
+          package_version = read_npm_package_version(root)
+          installer_version = read_installer_version(root)
+          needs_sync = package_version != cargo_version
 
-          package = json.loads(Path("npm/package.json").read_text(encoding="utf-8"))
-          package_version = package["version"]
-
-          installer = Path("npm/install.js").read_text(encoding="utf-8")
-          match = INSTALLER_VERSION_RE.search(installer)
-          if match is None:
-              raise SystemExit("npm/install.js is missing const VERSION")
-          installer_version = match.group("version")
-
-          needs_sync = package_version != cargo_version or installer_version != cargo_version
           output("skip", "false")
           output("skip_reason", "")
           output("needs_sync", str(needs_sync).lower())
@@ -205,7 +199,7 @@ jobs:
         run: |
           echo "Cargo.toml version: $CARGO_VERSION"
           echo "npm/package.json version: $PACKAGE_VERSION"
-          echo "npm/install.js VERSION: $INSTALLER_VERSION"
+          echo "npm/install.js package-derived version: $INSTALLER_VERSION"
           echo "Needs release metadata sync: $NEEDS_SYNC"
 
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
@@ -216,49 +210,11 @@ jobs:
 
       - name: Sync npm release metadata
         if: steps.pr.outputs.skip != 'true' && steps.current.outputs.skip != 'true' && steps.inspect.outputs.skip != 'true'
-        run: |
-          python3 <<'PY'
-          import json
-          import re
-          import tomllib
-          from pathlib import Path
-
-          INSTALLER_VERSION_RE = re.compile(r'(?m)^const VERSION = "(?P<version>[^"]+)";$')
-
-          cargo = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))
-          version = cargo["package"]["version"]
-          changed = False
-
-          package_path = Path("npm/package.json")
-          package = json.loads(package_path.read_text(encoding="utf-8"))
-          if package.get("version") != version:
-              package["version"] = version
-              package_path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
-              changed = True
-
-          installer_path = Path("npm/install.js")
-          installer = installer_path.read_text(encoding="utf-8")
-          updated_installer, count = INSTALLER_VERSION_RE.subn(
-              f'const VERSION = "{version}";',
-              installer,
-              count=1,
-          )
-          if count != 1:
-              raise SystemExit("npm/install.js is missing const VERSION")
-          if updated_installer != installer:
-              installer_path.write_text(updated_installer, encoding="utf-8")
-              changed = True
-
-          if changed:
-              print(f"Synced npm release metadata to {version}.")
-          else:
-              print(f"npm release metadata already matches {version}.")
-          PY
+        run: python3 scripts/ci_quality.py sync-release-metadata
 
       - name: Format Rust sources
         if: steps.pr.outputs.skip != 'true' && steps.current.outputs.skip != 'true' && steps.inspect.outputs.skip != 'true'
-        run: |
-          cargo fmt --all
+        run: cargo fmt --all
 
       - name: Commit and push changes
         if: steps.pr.outputs.skip != 'true' && steps.current.outputs.skip != 'true' && steps.inspect.outputs.skip != 'true'

@@ -2,7 +2,7 @@
   "name": "onlinechefgroep-herdr",
   "version": "0.7.6",
   "description": "Herdr - fast terminal multiplexer with AI agent detection (OnlineChefGroep distribution)",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
     "url": "https://github.com/OnlineChefGroep/herdr.git"
@@ -31,6 +31,7 @@
     "node": ">=18"
   },
   "os": [
-    "linux"
+    "linux",
+    "darwin"
   ]
 }

@@ -23,11 +23,11 @@
 
 Herdr gives you persistent workspaces, tabs and real terminal panes, with agent-aware states such as blocked, working, done and idle. Detach and reattach without killing the running agents. There is no Electron shell, wrapped agent UI or macOS-only native application.
 
-The OnlineChefGroep distribution tracks upstream Herdr and adds the CHEF release, integration and deployment layer. The current stable line is **v0.7.5**; `main` can contain validated post-release fixes before the next tag.
+The OnlineChefGroep distribution tracks upstream Herdr and adds the CHEF release, integration and deployment layer. The current stable line is **v0.7.6**; `main` can contain validated post-release fixes before the next tag.
 
 ## Install
 
-Linux and macOS direct install:
+Linux and macOS direct install (the manifest SHA-256 is verified before replacement):
 
 ```bash
 curl -fsSL https://herdr.chefgroep.nl/install.sh | sh
@@ -39,11 +39,18 @@ Windows preview beta:
 powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps1 | iex"
 ```
 
-Homebrew (OnlineChefGroep tap — Linux x86_64 currently):
+Homebrew (OnlineChefGroep tap — Linux/macOS, Intel/ARM):
 
 ```bash
 brew tap OnlineChefGroep/tap
 brew install OnlineChefGroep/tap/onlinechefgroep-herdr
+```
+
+npm or Bun (Linux/macOS, Intel/ARM; postinstall verifies SHA256SUMS):
+
+```bash
+npm install --global onlinechefgroep-herdr
+# or: bun add --global onlinechefgroep-herdr
 ```
 
 mise:
@@ -120,7 +127,8 @@ herdr session attach <name>
 Package-manager installs update through their package manager:
 
 ```bash
-brew upgrade herdr
+brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr
+npm install --global onlinechefgroep-herdr@latest
 mise upgrade herdr
 ```
 

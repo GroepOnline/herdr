@@ -48,6 +48,7 @@ const HOMEBREW_FORMULA_API_URL: &str = "https://formulae.brew.sh/api/formula/her
 const HERDR_UPDATE_COMMAND: &str = "herdr update";
 const HOMEBREW_UPDATE_COMMAND: &str =
     "brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr";
+const NPM_UPDATE_COMMAND: &str = "npm install --global onlinechefgroep-herdr@latest";
 const MISE_UPDATE_COMMAND: &str = "mise upgrade herdr";
 const NIX_UPDATE_COMMAND: &str = "update through Nix";
 const MISE_INSTALLS_DIR_ENV: &str = "MISE_INSTALLS_DIR";
@@ -153,7 +154,7 @@ impl UpdateChannel {
 #[derive(Debug, Clone)]
 struct AssetRef {
     url: String,
-    sha256: Option<String>,
+    sha256: String,
 }
 
 impl<'de> Deserialize<'de> for AssetRef {
@@ -162,31 +163,66 @@ impl<'de> Deserialize<'de> for AssetRef {
         D: Deserializer<'de>,
     {
         let value = serde_json::Value::deserialize(deserializer)?;
-        match value {
-            serde_json::Value::String(url) if !url.trim().is_empty() => Ok(Self {
-                url: url.trim().to_string(),
-                sha256: None,
-            }),
-            serde_json::Value::Object(mut object) => {
-                let url = object
-                    .remove("url")
-                    .and_then(|value| value.as_str().map(str::to_string))
-                    .ok_or_else(|| serde::de::Error::custom("asset object is missing url"))?;
-                let sha256 = object
-                    .remove("sha256")
-                    .and_then(|value| value.as_str().map(str::to_string));
-                if url.trim().is_empty() {
-                    return Err(serde::de::Error::custom("asset url must not be empty"));
-                }
-                Ok(Self {
-                    url: url.trim().to_string(),
-                    sha256: sha256.filter(|value| !value.trim().is_empty()),
-                })
-            }
-            _ => Err(serde::de::Error::custom(
-                "asset must be a URL string or object with url",
-            )),
+        let serde_json::Value::Object(mut object) = value else {
+            return Err(serde::de::Error::custom(
+                "asset must be an object with url and sha256",
+            ));
+        };
+        let url = object
+            .remove("url")
+            .and_then(|value| value.as_str().map(str::to_string))
+            .ok_or_else(|| serde::de::Error::custom("asset object is missing url"))?;
+        let sha256 = object
+            .remove("sha256")
+            .and_then(|value| value.as_str().map(str::to_string))
+            .ok_or_else(|| serde::de::Error::custom("asset object is missing sha256"))?;
+        if url.trim().is_empty() {
+            return Err(serde::de::Error::custom("asset url must not be empty"));
         }
+        let sha256 = crate::checksum::normalize_sha256(&sha256)
+            .map_err(|error| serde::de::Error::custom(error.to_string()))?;
+        Ok(Self {
+            url: url.trim().to_string(),
+            sha256,
+        })
+    }
+}
+
+#[cfg(test)]
+mod asset_checksum_tests {
+    use super::AssetRef;
+
+    #[test]
+    fn update_asset_requires_valid_sha256() {
+        assert!(
+            serde_json::from_str::<AssetRef>(r#"{"url":"https://example.test/herdr"}"#).is_err()
+        );
+        assert!(serde_json::from_str::<AssetRef>(
+            r#"{"url":"https://example.test/herdr","sha256":"abc"}"#
+        )
+        .is_err());
+        let parsed = serde_json::from_str::<AssetRef>(
+            r#"{"url":"https://example.test/herdr","sha256":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
+        )
+        .unwrap();
+        assert_eq!(parsed.sha256, "a".repeat(64));
+    }
+
+    #[test]
+    fn update_asset_rejects_empty_sha256() {
+        assert!(serde_json::from_str::<AssetRef>(
+            r#"{"url":"https://example.test/herdr","sha256":""}"#
+        )
+        .is_err());
+        assert!(serde_json::from_str::<AssetRef>(
+            r#"{"url":"https://example.test/herdr","sha256":"   "}"#
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn update_asset_rejects_legacy_url_string() {
+        assert!(serde_json::from_str::<AssetRef>(r#""https://example.test/herdr""#).is_err());
     }
 }
 
@@ -301,7 +337,7 @@ struct ReleaseInfo {
     #[cfg(not(windows))]
     target_protocol: Option<u32>,
     download_url: String,
-    sha256: Option<String>,
+    sha256: String,
     notes_body: String,
 }
 
@@ -629,15 +665,13 @@ fn download_update(release: &ReleaseInfo) -> Result<DownloadedUpdate, String> {
         return Err("download failed".into());
     }
 
-    if let Some(expected) = &release.sha256 {
-        if let Err(e) = crate::checksum::verify_sha256(&tmp_path, expected) {
-            let _ = fs::remove_file(&tmp_path);
-            return Err(format!(
-                "downloaded update checksum verification failed: {e}"
-            ));
-        }
-        tracing::info!(sha256 = %expected, "downloaded update checksum verified");
+    if let Err(e) = crate::checksum::verify_sha256(&tmp_path, &release.sha256) {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(format!(
+            "downloaded update checksum verification failed: {e}"
+        ));
     }
+    tracing::info!(sha256 = %release.sha256, "downloaded update checksum verified");
 
     // Make executable
     #[cfg(unix)]
@@ -1772,6 +1806,8 @@ fn print_running_session_update_outcomes(
 pub(crate) fn update_install_command() -> &'static str {
     if is_homebrew_managed_install() {
         HOMEBREW_UPDATE_COMMAND
+    } else if is_npm_managed_install() {
+        NPM_UPDATE_COMMAND
     } else if is_mise_managed_install() {
         MISE_UPDATE_COMMAND
     } else if is_nix_managed_install() {
@@ -1788,6 +1824,9 @@ pub(crate) fn update_install_instruction(install_command: &str) -> String {
         }
         HOMEBREW_UPDATE_COMMAND => {
             "detach, run `brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr`, then restart this Herdr session when ready".to_string()
+        }
+        NPM_UPDATE_COMMAND => {
+            "detach, run `npm install --global onlinechefgroep-herdr@latest`, then restart this Herdr session when ready".to_string()
         }
         MISE_UPDATE_COMMAND => {
             "detach, run `mise upgrade herdr`, then restart this Herdr session when ready"
@@ -1806,6 +1845,14 @@ fn is_homebrew_managed_install() -> bool {
     };
 
     is_homebrew_managed_exe_path_following_links(&current_exe)
+}
+
+fn is_npm_managed_install() -> bool {
+    let Ok(current_exe) = env::current_exe() else {
+        return false;
+    };
+
+    is_npm_managed_exe_path_following_links(&current_exe)
 }
 
 fn is_nix_managed_install() -> bool {
@@ -1838,6 +1885,8 @@ pub(crate) fn package_manager_channel_update_guidance_for_current_install() -> O
         Some(
             "Use `brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr` (or `brew upgrade herdr` if you installed the `herdr` formula alias) to update Homebrew installs.",
         )
+    } else if is_npm_managed_install() {
+        Some("Use `npm install --global onlinechefgroep-herdr@latest` to update npm installs.")
     } else if is_mise_managed_install() {
         Some("Use `mise upgrade herdr` to update mise installs.")
     } else if is_nix_managed_install() {
@@ -1851,6 +1900,10 @@ fn preview_channel_rejection_for_exe_path(path: &Path) -> Option<&'static str> {
     if is_homebrew_managed_exe_path_following_links(path) {
         Some(
             "preview and dev channels are only available for direct Herdr installs; Homebrew installs update through `brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr`",
+        )
+    } else if is_npm_managed_exe_path_following_links(path) {
+        Some(
+            "preview and dev channels are only available for direct Herdr installs; npm installs update through `npm install --global onlinechefgroep-herdr@latest`",
         )
     } else if is_mise_managed_exe_path_following_links(path) {
         Some(
@@ -1866,6 +1919,7 @@ fn preview_channel_rejection_for_exe_path(path: &Path) -> Option<&'static str> {
 #[cfg(unix)]
 pub(crate) fn is_package_manager_managed_exe_path(path: &Path) -> bool {
     is_homebrew_managed_exe_path_following_links(path)
+        || is_npm_managed_exe_path_following_links(path)
         || is_mise_managed_exe_path_following_links(path)
         || is_nix_store_exe_path_following_links(path)
 }
@@ -1877,6 +1931,15 @@ fn is_homebrew_managed_exe_path_following_links(path: &Path) -> bool {
 
     path.canonicalize()
         .is_ok_and(|path| is_homebrew_managed_exe_path(&path))
+}
+
+fn is_npm_managed_exe_path_following_links(path: &Path) -> bool {
+    if is_npm_managed_exe_path(path) {
+        return true;
+    }
+
+    path.canonicalize()
+        .is_ok_and(|path| is_npm_managed_exe_path(&path))
 }
 
 fn is_nix_store_exe_path_following_links(path: &Path) -> bool {
@@ -1895,6 +1958,28 @@ fn is_mise_managed_exe_path_following_links(path: &Path) -> bool {
 
     path.canonicalize()
         .is_ok_and(|path| is_mise_managed_exe_path(&path))
+}
+
+fn is_npm_managed_exe_path(path: &Path) -> bool {
+    if path.file_name() != Some(std::ffi::OsStr::new("herdr")) {
+        return false;
+    }
+    let Some(bin_dir) = path.parent() else {
+        return false;
+    };
+    if bin_dir.file_name() != Some(std::ffi::OsStr::new("bin")) {
+        return false;
+    }
+    let Some(package_dir) = bin_dir.parent() else {
+        return false;
+    };
+    if package_dir.file_name() != Some(std::ffi::OsStr::new("onlinechefgroep-herdr")) {
+        return false;
+    }
+    package_dir
+        .parent()
+        .and_then(Path::file_name)
+        .is_some_and(|name| name == "node_modules")
 }
 
 fn is_nix_store_exe_path(path: &Path) -> bool {
@@ -2014,6 +2099,18 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
         ));
     }
 
+    if is_npm_managed_install() {
+        if channel.is_prerelease() {
+            return Err(format!(
+                "self-update is disabled for npm installs; the {} channel is only available for direct Herdr installs",
+                channel.as_str()
+            ));
+        }
+        return Err(format!(
+            "self-update is disabled for npm installs; run `{NPM_UPDATE_COMMAND}`"
+        ));
+    }
+
     if is_mise_managed_install() {
         if channel.is_prerelease() {
             return Err(format!(
@@ -2069,9 +2166,10 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
             "installing {} with the Windows installer...",
             release.label()
         );
-        if let Some(sha256) = &release.sha256 {
-            tracing::debug!(sha256 = %sha256, "selected Windows update asset has checksum");
-        }
+        tracing::debug!(
+            sha256 = %release.sha256,
+            "selected Windows update asset has checksum"
+        );
         install_windows_update_with_installer(channel)?;
         let updated_exe = windows_installed_herdr_exe_path()?;
         eprintln!("installed {}", release.label());
@@ -2371,7 +2469,7 @@ mod tests {
             commit: None,
             target_protocol,
             download_url: "https://example.com/herdr".to_string(),
-            sha256: None,
+            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             notes_body: "### Changed\n- One".to_string(),
         }
     }
@@ -2464,6 +2562,35 @@ mod tests {
         let path = Path::new("/usr/local/bin/herdr");
 
         assert!(!is_homebrew_managed_exe_path(path));
+    }
+
+    #[test]
+    fn npm_global_install_path_is_detected() {
+        let path = Path::new("/usr/local/lib/node_modules/onlinechefgroep-herdr/bin/herdr");
+
+        assert!(is_npm_managed_exe_path(path));
+        assert!(is_package_manager_managed_exe_path(path));
+        assert_eq!(
+            preview_channel_rejection_for_exe_path(path),
+            Some(
+                "preview and dev channels are only available for direct Herdr installs; npm installs update through `npm install --global onlinechefgroep-herdr@latest`"
+            )
+        );
+        assert_eq!(
+            update_install_instruction(NPM_UPDATE_COMMAND),
+            "detach, run `npm install --global onlinechefgroep-herdr@latest`, then restart this Herdr session when ready"
+        );
+    }
+
+    #[test]
+    fn npm_path_requires_exact_package_and_native_binary_shape() {
+        assert!(!is_npm_managed_exe_path(Path::new(
+            "/usr/local/lib/node_modules/another-package/bin/herdr",
+        )));
+        assert!(!is_npm_managed_exe_path(Path::new(
+            "/usr/local/lib/node_modules/onlinechefgroep-herdr/herdr",
+        )));
+        assert!(!is_npm_managed_exe_path(Path::new("/usr/local/bin/herdr",)));
     }
 
     #[test]
@@ -2643,7 +2770,7 @@ mod tests {
                 "protocol": 10,
                 "notes": "### Fixed\n- Brew notes",
                 "assets": {
-                    "linux-x86_64": "https://example.com/herdr-linux-x86_64"
+                    "linux-x86_64": {"url": "https://example.com/herdr-linux-x86_64", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
                 }
             }"####,
         )
@@ -2759,7 +2886,7 @@ mod tests {
             commit: None,
             target_protocol: Some(2),
             download_url: "https://example.com/herdr".to_string(),
-            sha256: None,
+            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             notes_body: "### Changed\n- One".to_string(),
         };
         let incompatible_release = ReleaseInfo {
@@ -3001,7 +3128,7 @@ mod tests {
             commit: None,
             target_protocol: Some(3),
             download_url: "https://example.com/herdr".to_string(),
-            sha256: None,
+            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             notes_body: "### Changed\n- One".to_string(),
         };
         let plan = RunningServerUpdatePlan {
@@ -3136,7 +3263,7 @@ mod tests {
             commit: None,
             target_protocol: Some(77),
             download_url: "https://example.com/herdr".to_string(),
-            sha256: None,
+            sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             notes_body: "### Changed\n- One".to_string(),
         };
 
@@ -3252,8 +3379,8 @@ mod tests {
                 \"body\": \"### Heads up\\n- Defaults changed\"\n\
             },\n\
             \"assets\": {\n\
-                \"linux-x86_64\": \"https://example.com/herdr-linux-x86_64\",\n\
-                \"macos-aarch64\": \"https://example.com/herdr-macos-aarch64\"\n\
+                \"linux-x86_64\": {\"url\": \"https://example.com/herdr-linux-x86_64\", \"sha256\": \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"},\n\
+                \"macos-aarch64\": {\"url\": \"https://example.com/herdr-macos-aarch64\", \"sha256\": \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"}\n\
             }\n\
         }";
         let manifest: UpdateManifest = serde_json::from_str(json).unwrap();
@@ -3282,13 +3409,25 @@ mod tests {
     }
 
     #[test]
+    fn update_manifest_rejects_asset_without_checksum() {
+        let json = r####"{
+            "version": "1.0.0",
+            "notes": "### Test",
+            "assets": {
+                "linux-x86_64": {"url": "https://example.com/herdr"}
+            }
+        }"####;
+        assert!(serde_json::from_str::<UpdateManifest>(json).is_err());
+    }
+
+    #[test]
     fn update_manifest_reads_archived_release_metadata() {
         let json = r####"{
             "version": "0.3.0",
             "protocol": 4,
             "notes": "### Changed\n- Three",
             "assets": {
-                "linux_x86_64": "https://example.com/unused"
+                "linux_x86_64": {"url": "https://example.com/unused", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
             },
             "releases": {
                 "0.2.0": {
@@ -3328,7 +3467,7 @@ mod tests {
                 "body": "### Root"
             },
             "assets": {
-                "linux_x86_64": "https://example.com/unused"
+                "linux_x86_64": {"url": "https://example.com/unused", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
             },
             "releases": {
                 "0.3.0": {
@@ -3363,7 +3502,7 @@ mod tests {
             "protocol": 4,
             "notes": "### Changed\n- Root",
             "assets": {
-                "linux_x86_64": "https://example.com/unused"
+                "linux_x86_64": {"url": "https://example.com/unused", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
             },
             "releases": []
         }"####;
@@ -3384,7 +3523,7 @@ mod tests {
         let json = r#"{
             "version": "0.2.0",
             "assets": {
-                "linux-x86_64": "https://example.com/herdr-linux-x86_64"
+                "linux-x86_64": {"url": "https://example.com/herdr-linux-x86_64", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
             }
         }"#;
 
@@ -3406,7 +3545,7 @@ mod tests {
                     "body": "### Heads up\n- Defaults changed"
                 }},
                 "assets": {{
-                    "{asset_key}": "https://example.com/herdr"
+                    "{asset_key}": {{"url": "https://example.com/herdr", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}}
                 }}
             }}"####
         );
@@ -3453,7 +3592,7 @@ mod tests {
                 "assets": {{
                     "{asset_key}": {{
                         "url": "https://example.com/herdr-linux-x86_64",
-                        "sha256": "deadbeef"
+                        "sha256": "deadbeef00000000000000000000000000000000000000000000000000000000"
                     }}
                 }},
                 "builds": {{
@@ -3465,7 +3604,7 @@ mod tests {
                         "assets": {{
                             "{asset_key}": {{
                                 "url": "https://example.com/herdr-linux_x86_64",
-                                "sha256": "deadbeef"
+                                "sha256": "deadbeef00000000000000000000000000000000000000000000000000000000"
                             }}
                         }}
                     }}
@@ -3481,7 +3620,10 @@ mod tests {
         assert_eq!(release.channel, UpdateChannel::Preview);
         assert_eq!(release.identity, "9.9.9-preview.2026-06-02-abcdef123456");
         assert_eq!(release.target_protocol, Some(77));
-        assert_eq!(release.sha256.as_deref(), Some("deadbeef"));
+        assert_eq!(
+            release.sha256,
+            "deadbeef00000000000000000000000000000000000000000000000000000000"
+        );
     }
 
     #[test]
@@ -3500,7 +3642,7 @@ mod tests {
                 "assets": {{
                     "{asset_key}": {{
                         "url": "https://example.com/herdr-linux-x86_64",
-                        "sha256": "deadbeef"
+                        "sha256": "deadbeef00000000000000000000000000000000000000000000000000000000"
                     }}
                 }}
             }}"####
@@ -3566,11 +3708,35 @@ mod tests {
                 assets.contains_key(REQUIRED_TARGET),
                 "missing asset URL for {version} {REQUIRED_TARGET}"
             );
-            for (target, url) in assets {
-                let url = url
-                    .as_str()
-                    .unwrap_or_else(|| panic!("asset URL for {version} {target} must be a string"));
+            // Legacy releases store a bare URL string; promoted releases store
+            // the checksummed object form that AssetRef also accepts.
+            for (target, asset) in assets {
+                let url = match asset {
+                    serde_json::Value::String(url) => url.as_str(),
+                    serde_json::Value::Object(object) => object
+                        .get("url")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_else(|| {
+                            panic!("asset object for {version} {target} must have a url string")
+                        }),
+                    _ => panic!(
+                        "asset for {version} {target} must be a URL string or object with url"
+                    ),
+                };
                 assert_asset_url(version, target, url);
+
+                if version == &manifest.version {
+                    let sha256 = asset
+                        .get("sha256")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_else(|| {
+                            panic!("promoted release {version} {target} must carry a sha256")
+                        });
+                    assert!(
+                        sha256.len() == 64 && sha256.chars().all(|c| c.is_ascii_hexdigit()),
+                        "unexpected sha256 for {version} {target}: {sha256}"
+                    );
+                }
             }
         }
     }

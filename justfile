@@ -7,7 +7,7 @@ test:
 
 # Run maintenance script and Bun tests
 maintenance:
-    python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_ci_changed_paths scripts.test_ci_quality scripts.test_config_reference_check scripts.test_dev scripts.test_docs_translation_parity scripts.test_preview scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
+    python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_ci_changed_paths scripts.test_ci_quality scripts.test_config_reference_check scripts.test_dev scripts.test_docs_translation_parity scripts.test_homebrew_formula scripts.test_install_sh scripts.test_preview scripts.test_release_manifest_hardening scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
     just integration-assets-test
     just plugin-marketplace-test
 
@@ -25,6 +25,8 @@ release-metadata:
     python3 scripts/changelog.py validate-product-announcement
     node --check npm/install.js
     node --check npm/bin/herdr.js
+    sh -n website/install.sh
+    python3 -m unittest scripts.test_install_sh
     (cd npm && npm pack --dry-run --ignore-scripts)
     python3 scripts/ci_quality.py check-release-metadata
 
@@ -149,8 +151,9 @@ release-prepare version:
     cp CHANGELOG.md docs/next/CHANGELOG.md
     sed -i.bak 's/^version = ".*"/version = "{{version}}"/' Cargo.toml && rm -f Cargo.toml.bak
     cargo update -p herdr --offline
+    python3 scripts/ci_quality.py sync-release-metadata
     just check
-    git add CHANGELOG.md docs/next/CHANGELOG.md Cargo.toml Cargo.lock
+    git add CHANGELOG.md docs/next/CHANGELOG.md Cargo.toml Cargo.lock npm/package.json
     git diff --cached --quiet || git commit -m "release: v{{version}}"
     @echo "v{{version}} release commit prepared. Review it, then run: just release-publish {{version}}"
 
@@ -194,14 +197,27 @@ release-publish version:
     fi
     git tag -a v{{version}} -m "v{{version}}"
     git push origin v{{version}}
-    @echo "v{{version}} released — GitHub Actions building binaries and updating website/latest.json"
-    @echo "After assets publish: python3 scripts/homebrew_formula.py --version {{version}}"
-    @echo "Then update OnlineChefGroep/homebrew-tap Formula/onlinechefgroep-herdr.rb"
+    @echo "v{{version}} tagged — Release builds Linux x86_64 first"
+    @echo "Portable assets then verify all four binaries plus SHA256SUMS, atomically promote latest.json, and publish npm + Homebrew"
 
 # Prepare, verify, tag, push, and trigger the GitHub Release workflow (usage: just release 0.1.1)
 release version:
     just release-prepare {{version}}
     just release-publish {{version}}
+
+# Strictly verify GitHub release, checksums, local manifest, live manifest, and asset URLs
+release-verify version="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo_version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+    if [ -n "{{version}}" ]; then
+      version="{{version}}"
+    else
+      version="$cargo_version"
+    fi
+    python3 scripts/changelog.py verify-release-state \
+      --version "$version" \
+      --live-url https://herdr.chefgroep.nl/latest.json
 
 # Show Cargo / tag / GitHub release / local+live latest.json alignment
 # usage: just release-status        (uses Cargo.toml version)

@@ -27,6 +27,23 @@ class CiChangedPathsTests(unittest.TestCase):
             self.assertIn("rust=false", text)
             self.assertIn("platform_heavy=false", text)
 
+    def test_installer_runs_maintenance_and_release_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "out"
+            with (
+                patch.object(
+                    ci_changed_paths,
+                    "changed_files",
+                    return_value=["website/install.sh"],
+                ),
+                patch.dict(os.environ, {"GITHUB_OUTPUT": str(out)}, clear=False),
+            ):
+                self.assertEqual(ci_changed_paths.main(), 0)
+            text = out.read_text(encoding="utf-8")
+            self.assertIn("maintenance=true", text)
+            self.assertIn("release_meta=true", text)
+            self.assertIn("docs_only=false", text)
+
     def test_platform_heavy_classification(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "out"
