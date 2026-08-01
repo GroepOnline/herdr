@@ -2,7 +2,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 use super::command::{hook_command, shell_single_quote};
 use super::config_edit::{
@@ -13,32 +13,33 @@ use super::config_edit::{
     remove_hook_commands, remove_kimi_config_block, remove_simple_command_hook,
 };
 use super::env::{
-    claude_dir, codex_dir, copilot_dir, cursor_dir, devin_dir, droid_dir, grok_dir, hermes_dir,
-    hermes_plugin_dir, kilo_dir, kimi_dir, mastracode_dir, omp_extension_dir, opencode_dir,
-    pi_extension_dir, qodercli_dir,
+    antigravity_cli_dir, claude_dir, codex_dir, copilot_dir, cursor_dir, devin_dir, droid_dir,
+    grok_dir, hermes_dir, hermes_plugin_dir, kilo_dir, kimi_dir, mastracode_dir, omp_extension_dir,
+    opencode_dir, pi_extension_dir, qodercli_dir,
 };
 use super::file_ops::{
     make_executable, remove_dir_all_if_exists, remove_file_if_exists, remove_legacy_bash_hook_file,
 };
 use super::types::{
-    ClaudeInstallPaths, ClaudeUninstallResult, CodexInstallPaths, CodexUninstallResult,
-    CopilotInstallPaths, CopilotUninstallResult, CursorInstallPaths, CursorUninstallResult,
-    DevinInstallPaths, DevinUninstallResult, DroidInstallPaths, DroidUninstallResult,
-    GrokInstallPaths, GrokUninstallResult, HermesInstallPaths, HermesUninstallResult,
-    KiloInstallPaths, KiloUninstallResult, KimiInstallPaths, KimiUninstallResult,
-    MastracodeInstallPaths, MastracodeUninstallResult, OmpInstallPaths, OmpUninstallResult,
-    OpenCodeInstallPaths, OpenCodeUninstallResult, PiUninstallResult, QodercliInstallPaths,
-    QodercliUninstallResult,
+    AntigravityCliInstallPaths, AntigravityCliUninstallResult, ClaudeInstallPaths,
+    ClaudeUninstallResult, CodexInstallPaths, CodexUninstallResult, CopilotInstallPaths,
+    CopilotUninstallResult, CursorInstallPaths, CursorUninstallResult, DevinInstallPaths,
+    DevinUninstallResult, DroidInstallPaths, DroidUninstallResult, GrokInstallPaths,
+    GrokUninstallResult, HermesInstallPaths, HermesUninstallResult, KiloInstallPaths,
+    KiloUninstallResult, KimiInstallPaths, KimiUninstallResult, MastracodeInstallPaths,
+    MastracodeUninstallResult, OmpInstallPaths, OmpUninstallResult, OpenCodeInstallPaths,
+    OpenCodeUninstallResult, PiUninstallResult, QodercliInstallPaths, QodercliUninstallResult,
 };
 use super::{
-    CLAUDE_HOOK_ASSET, CLAUDE_HOOK_INSTALL_NAME, CODEX_HOOK_ASSET, CODEX_HOOK_INSTALL_NAME,
-    COPILOT_HOOK_ASSET, COPILOT_HOOK_EVENTS, COPILOT_HOOK_INSTALL_NAME,
-    COPILOT_REMOVED_LIFECYCLE_HOOK_EVENTS, CURSOR_HOOK_ASSET, CURSOR_HOOK_INSTALL_NAME,
-    DEVIN_HOOK_ASSET, DEVIN_HOOK_EVENTS, DEVIN_HOOK_INSTALL_NAME,
-    DEVIN_REMOVED_LIFECYCLE_HOOK_EVENTS, DROID_HOOK_ASSET, DROID_HOOK_EVENTS,
-    DROID_HOOK_INSTALL_NAME, DROID_REMOVED_LIFECYCLE_HOOK_EVENTS, GROK_HOOK_ASSET,
-    GROK_HOOK_CONFIG_INSTALL_NAME, GROK_HOOK_INSTALL_NAME, HERMES_PLUGIN_INIT_ASSET,
-    HERMES_PLUGIN_INIT_INSTALL_NAME, HERMES_PLUGIN_MANIFEST_ASSET,
+    ANTIGRAVITY_CLI_HOOK_ASSET, ANTIGRAVITY_CLI_HOOK_BLOCK_NAME, ANTIGRAVITY_CLI_HOOK_EVENTS,
+    ANTIGRAVITY_CLI_HOOK_INSTALL_NAME, ANTIGRAVITY_CLI_HOOK_TIMEOUT_SEC, CLAUDE_HOOK_ASSET,
+    CLAUDE_HOOK_INSTALL_NAME, CODEX_HOOK_ASSET, CODEX_HOOK_INSTALL_NAME, COPILOT_HOOK_ASSET,
+    COPILOT_HOOK_EVENTS, COPILOT_HOOK_INSTALL_NAME, COPILOT_REMOVED_LIFECYCLE_HOOK_EVENTS,
+    CURSOR_HOOK_ASSET, CURSOR_HOOK_INSTALL_NAME, DEVIN_HOOK_ASSET, DEVIN_HOOK_EVENTS,
+    DEVIN_HOOK_INSTALL_NAME, DEVIN_REMOVED_LIFECYCLE_HOOK_EVENTS, DROID_HOOK_ASSET,
+    DROID_HOOK_EVENTS, DROID_HOOK_INSTALL_NAME, DROID_REMOVED_LIFECYCLE_HOOK_EVENTS,
+    GROK_HOOK_ASSET, GROK_HOOK_CONFIG_INSTALL_NAME, GROK_HOOK_INSTALL_NAME,
+    HERMES_PLUGIN_INIT_ASSET, HERMES_PLUGIN_INIT_INSTALL_NAME, HERMES_PLUGIN_MANIFEST_ASSET,
     HERMES_PLUGIN_MANIFEST_INSTALL_NAME, KILO_PLUGIN_ASSET, KILO_PLUGIN_INSTALL_NAME,
     KIMI_HOOK_ASSET, KIMI_HOOK_INSTALL_NAME, MASTRACODE_HOOK_ASSET, MASTRACODE_HOOK_EVENTS,
     MASTRACODE_HOOK_INSTALL_NAME, MASTRACODE_HOOK_TIMEOUT_MS, MASTRACODE_REMOVED_HOOK_EVENTS,
@@ -1196,6 +1197,106 @@ pub(crate) fn uninstall_mastracode() -> io::Result<MastracodeUninstallResult> {
     let removed_hook_file = remove_file_if_exists(&hook_path)?;
 
     Ok(MastracodeUninstallResult {
+        hook_path,
+        hooks_path,
+        removed_hook_file,
+        updated_hooks,
+    })
+}
+
+pub(crate) fn install_antigravity_cli() -> io::Result<AntigravityCliInstallPaths> {
+    let dir = antigravity_cli_dir()?;
+    if !dir.is_dir() {
+        return Err(io::Error::other(format!(
+            "antigravity cli config directory not found at {}. install antigravity cli first",
+            dir.display()
+        )));
+    }
+
+    let hooks_dir = dir.join("hooks");
+    fs::create_dir_all(&hooks_dir)?;
+
+    let hook_path = hooks_dir.join(ANTIGRAVITY_CLI_HOOK_INSTALL_NAME);
+    fs::write(&hook_path, ANTIGRAVITY_CLI_HOOK_ASSET)?;
+    make_executable(&hook_path)?;
+
+    let hooks_path = dir.join("hooks.json");
+    let mut hooks_file = if hooks_path.is_file() {
+        serde_json::from_str::<Value>(&fs::read_to_string(&hooks_path)?).map_err(|err| {
+            io::Error::other(format!("failed to parse {}: {err}", hooks_path.display()))
+        })?
+    } else {
+        json!({})
+    };
+
+    let hooks = hooks_file.as_object_mut().ok_or_else(|| {
+        io::Error::other(format!(
+            "antigravity cli hooks file at {} must be a JSON object",
+            hooks_path.display()
+        ))
+    })?;
+
+    // The Herdr block is Herdr-owned, so rewrite it wholesale and leave every
+    // other named hook untouched.
+    hooks.insert(
+        ANTIGRAVITY_CLI_HOOK_BLOCK_NAME.to_string(),
+        antigravity_cli_hook_block(&hook_path),
+    );
+
+    fs::write(&hooks_path, serde_json::to_string_pretty(&hooks_file)?)?;
+
+    Ok(AntigravityCliInstallPaths {
+        hook_path,
+        hooks_path,
+    })
+}
+
+/// Builds the Herdr-owned `hooks.json` block for Antigravity CLI.
+///
+/// Every event Herdr registers takes a flat handler list; the `matcher`/`hooks`
+/// group is only valid for the tool events, which Herdr does not use.
+fn antigravity_cli_hook_block(hook_path: &Path) -> Value {
+    let mut block = Map::new();
+    for (event, action) in ANTIGRAVITY_CLI_HOOK_EVENTS {
+        let handler = json!({
+            "type": "command",
+            "command": hook_command(hook_path, Some(action)),
+            "timeout": ANTIGRAVITY_CLI_HOOK_TIMEOUT_SEC,
+        });
+        block.insert(event.to_string(), json!([handler]));
+    }
+    Value::Object(block)
+}
+
+pub(crate) fn uninstall_antigravity_cli() -> io::Result<AntigravityCliUninstallResult> {
+    let dir = antigravity_cli_dir()?;
+    let hook_path = dir.join("hooks").join(ANTIGRAVITY_CLI_HOOK_INSTALL_NAME);
+    let hooks_path = dir.join("hooks.json");
+    let mut updated_hooks = false;
+
+    if hooks_path.is_file() {
+        let mut hooks_file = serde_json::from_str::<Value>(&fs::read_to_string(&hooks_path)?)
+            .map_err(|err| {
+                io::Error::other(format!("failed to parse {}: {err}", hooks_path.display()))
+            })?;
+
+        let hooks = hooks_file.as_object_mut().ok_or_else(|| {
+            io::Error::other(format!(
+                "antigravity cli hooks file at {} must be a JSON object",
+                hooks_path.display()
+            ))
+        })?;
+
+        updated_hooks = hooks.remove(ANTIGRAVITY_CLI_HOOK_BLOCK_NAME).is_some();
+
+        if updated_hooks {
+            fs::write(&hooks_path, serde_json::to_string_pretty(&hooks_file)?)?;
+        }
+    }
+
+    let removed_hook_file = remove_file_if_exists(&hook_path)?;
+
+    Ok(AntigravityCliUninstallResult {
         hook_path,
         hooks_path,
         removed_hook_file,
