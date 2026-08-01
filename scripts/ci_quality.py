@@ -32,6 +32,7 @@ HARDCODED_INSTALLER_VERSION_RE = re.compile(
     r'(?m)^const VERSION = ["\'][^"\']+["\'];$'
 )
 SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
+SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 CHANGELOG_SECTION_RE = re.compile(
     r"^##\s+(?:\[(?P<bracketed>[^\]]+)\]|(?P<plain>.+?))"
     r"(?:\s+-\s+\d{4}-\d{2}-\d{2})?\s*$",
@@ -179,6 +180,13 @@ def check_release_note_bullets(changelog: str, version: str) -> None:
         )
 
 
+def parse_semver(version: str, label: str) -> tuple[int, int, int]:
+    match = SEMVER_RE.fullmatch(version)
+    if match is None:
+        raise QualityError(f"{label} must be a stable X.Y.Z semantic version, got {version!r}")
+    return tuple(int(part) for part in match.groups())
+
+
 def expected_manifest_assets(version: str) -> dict[str, str]:
     return {
         f"{target['platform']}-{target['arch']}": release_asset_url(
@@ -218,12 +226,17 @@ def validate_manifest_assets(assets: Any, version: str, location: str) -> None:
             raise QualityError(f"{location}.{target_key}.sha256 must be 64 lowercase hex chars")
 
 
-def check_latest_json_manifest(root: Path) -> None:
-    version = read_cargo_version(root)
+def check_latest_json_manifest(
+    root: Path, *, expected_version: str | None = None
+) -> str:
     manifest = load_json_object(root, LATEST_JSON_PATH)
-    if manifest.get("version") != version:
+    version = manifest.get("version")
+    if not isinstance(version, str):
+        raise QualityError(f"{LATEST_JSON_PATH} version must be a string")
+    parse_semver(version, f"{LATEST_JSON_PATH} version")
+    if expected_version is not None and version != expected_version:
         raise QualityError(
-            f"{LATEST_JSON_PATH} version {manifest.get('version')!r} does not match Cargo.toml {version}"
+            f"{LATEST_JSON_PATH} version {version!r} does not match expected {expected_version}"
         )
 
     validate_manifest_assets(manifest.get("assets"), version, "latest.json.assets")
@@ -237,6 +250,7 @@ def check_latest_json_manifest(root: Path) -> None:
     validate_manifest_assets(
         release.get("assets"), version, f"latest.json.releases.{version}.assets"
     )
+    return version
 
 
 def iter_distribution_files(root: Path) -> Iterable[Path]:
@@ -313,7 +327,13 @@ def check_release_metadata(root: Path) -> None:
         raise QualityError(f"{NPM_README_PATH} contains RMEOF")
 
     check_release_note_bullets(changelog, version)
-    check_latest_json_manifest(root)
+    published_version = check_latest_json_manifest(root)
+    if parse_semver(published_version, f"{LATEST_JSON_PATH} version") > parse_semver(
+        version, f"{CARGO_TOML_PATH} version"
+    ):
+        raise QualityError(
+            f"{LATEST_JSON_PATH} version {published_version} is newer than Cargo.toml {version}"
+        )
     check_product_urls(root)
 
 
@@ -362,7 +382,8 @@ def cmd_check_release_metadata(args: argparse.Namespace) -> int:
 
 
 def cmd_check_latest_json_manifest(args: argparse.Namespace) -> int:
-    check_latest_json_manifest(Path(args.root))
+    root = Path(args.root)
+    check_latest_json_manifest(root, expected_version=read_cargo_version(root))
     print("latest.json manifest: OK")
     return 0
 
