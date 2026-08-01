@@ -89,6 +89,10 @@ impl BlitEncoder {
             || prev.is_none()
             || prev.is_some_and(|p| p.width != frame.width || p.height != frame.height);
         let clear_before_full_redraw = previous_frame.is_none();
+        // When a full redraw skips the graphics-destroying `CSI 2J`, the
+        // previously committed extent tells the blitter which removed rows and
+        // columns need targeted erasure on shrink.
+        let committed_extent = previous_frame.map(|p| (p.width, p.height));
         let prof_stats =
             crate::render_prof::enabled().then(|| compute_prof_blit_stats(frame, prev, full));
         let prof_started = crate::render_prof::timer();
@@ -103,6 +107,7 @@ impl BlitEncoder {
             &mut next_last_cursor_shape,
             repeat_ime_anchor_after_sync(),
             clear_before_full_redraw,
+            committed_extent,
             suppress_visible_cursor,
         );
         if let Some(stats) = prof_stats {
@@ -445,6 +450,7 @@ fn blit_frame_to_with_cursor_memory_and_policy(
         last_cursor_shape,
         repeat_ime_anchor,
         true,
+        None,
         suppress_visible_cursor,
     );
 }
@@ -457,6 +463,7 @@ fn blit_frame_to_with_cursor_memory_and_clear_policy(
     last_cursor_shape: &mut u8,
     repeat_ime_anchor: bool,
     clear_before_full_redraw: bool,
+    committed_extent: Option<(u16, u16)>,
     suppress_visible_cursor: bool,
 ) {
     // On first frame or size change, do a full redraw.
@@ -480,6 +487,8 @@ fn blit_frame_to_with_cursor_memory_and_clear_policy(
     if full_redraw {
         if clear_before_full_redraw {
             let _ = writer.write_all(b"\x1b[2J");
+        } else if let Some((committed_width, committed_height)) = committed_extent {
+            erase_removed_extent(&mut writer, frame, committed_width, committed_height);
         }
         write_all_cells(&mut writer, frame);
     } else {
@@ -517,6 +526,45 @@ fn blit_frame_to_with_cursor_memory_and_clear_policy(
 
 fn repeat_ime_anchor_after_sync() -> bool {
     false
+}
+
+/// Erases cells that were painted by the previously committed frame but fall
+/// outside the new frame bounds after a shrink.
+///
+/// A full-screen `CSI 2J` would also delete Kitty graphics placements on the
+/// host terminal, so shrink repaints erase only the removed region instead:
+/// `EL 0` per surviving row for removed trailing columns and `ED 0` from the
+/// first removed row for removed rows. Both start outside the new frame
+/// bounds, so graphics inside the new frame stay intact.
+fn erase_removed_extent(
+    writer: &mut impl Write,
+    frame: &FrameData,
+    committed_width: u16,
+    committed_height: u16,
+) {
+    let shrunk_width = committed_width > frame.width;
+    let shrunk_height = committed_height > frame.height;
+    if !shrunk_width && !shrunk_height {
+        return;
+    }
+
+    // Reset SGR first so erased cells take the default background instead of
+    // whatever style the previous frame stream left active.
+    let _ = writer.write_all(b"\x1b[0m");
+    if shrunk_width {
+        let erase_rows = frame.height.min(committed_height);
+        for row in 0..erase_rows {
+            let _ = write!(
+                writer,
+                "\x1b[{};{}H\x1b[K",
+                u32::from(row) + 1,
+                u32::from(frame.width) + 1
+            );
+        }
+    }
+    if shrunk_height {
+        let _ = write!(writer, "\x1b[{};1H\x1b[J", u32::from(frame.height) + 1);
+    }
 }
 
 /// Writes all cells in the frame (full redraw).
@@ -1511,6 +1559,38 @@ mod tests {
 
         assert!(!output.contains("\x1b[2J"));
         assert!(output.bytes().filter(|byte| *byte == b'B').count() >= 6);
+    }
+
+    #[test]
+    fn encoder_shrink_repaint_erases_removed_rows_and_columns() {
+        let prev = make_frame(4, 3, vec![make_cell("X", 0, 0, 0); 12]);
+        let curr = make_frame(2, 1, vec![make_cell(" ", 0, 0, 0); 2]);
+        let mut terminal = crate::ghostty::Terminal::new(4, 3, 0).unwrap();
+
+        let mut encoder = BlitEncoder::new();
+        let initial = encoder.encode(&prev, false);
+        terminal.write(&initial.bytes);
+        encoder.commit(prev, initial);
+
+        let encoded = encoder.encode(&curr, false);
+        assert!(encoded.full);
+        let output = std::str::from_utf8(&encoded.bytes).unwrap();
+        assert!(
+            !output.contains("\x1b[2J"),
+            "shrink repaint must stay graphics-safe (no full-screen clear)"
+        );
+        terminal.write(&encoded.bytes);
+
+        for row in 0..3 {
+            for col in 0..4 {
+                let (_, graphemes) = terminal.screen_cell(col, row).unwrap();
+                assert_ne!(
+                    graphemes,
+                    vec![u32::from('X')],
+                    "cell ({col},{row}) kept stale content after shrink repaint"
+                );
+            }
+        }
     }
 
     #[test]
