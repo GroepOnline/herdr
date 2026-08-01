@@ -1,0 +1,15 @@
+version: 1
+generated_by: scripts/generate_cursor_index.py
+items:
+- name: herdr-ci-only-validation
+  path: .cursor/rules/herdr-ci-only-validation.mdc
+  kind: rule
+  summary: Forbid local Rust/Zig builds; validate only via GitHub Actions on this
+    machine.
+  when: Forbid local Rust/Zig builds; validate only via GitHub Acti…
+- name: settings-ui-redesign
+  path: .cursor/rules/settings-ui-redesign.mdc
+  kind: rule
+  summary: Bold Herdr settings modal redesign — render/input/state boundaries, section
+    IA, shared layout hit-tests.
+  when: Bold Herdr settings modal redesign — render/input/state bou…

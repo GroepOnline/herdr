@@ -1,10 +1,29 @@
-# Cursor MCP servers
+# Cursor project control plane
 
-`mcp.json` configures project-scoped MCP servers. Commands are resolved through
-`PATH` so the config stays machine-independent; the Stitch API key never enters
-git.
+Committed under `.cursor/`:
 
-## `stitch` (Google Stitch)
+| Path | Role |
+| --- | --- |
+| `skills/` | Agent skills (`herdr`, `verify-herdr`, …) |
+| `agents/` | Focused subagents |
+| `rules/` | Always-on / requestable rules |
+| `commands/` | Slash commands |
+| `hooks/` | Shell + catalog hooks (`deny-rust-builds`, `fetch-cursor-artifacts`) |
+| `scripts/cloud-install.sh` | Cloud env update: herdr binary + npm + Cursor standards |
+| `environment.json` | Snapshot + install hook for Cloud Agents |
+| `INDEX.md` | Auto-generated catalog (regenerate; do not hand-edit) |
+| `mcp.json` | Project MCP servers |
+
+## Refresh standards + binary
+
+```bash
+bash .cursor/scripts/cloud-install.sh
+# or just the catalog:
+.cursor/hooks/fetch-cursor-artifacts.sh --write-cache
+python3 scripts/generate_cursor_index.py --allow-org-leak
+```
+
+## MCP: `stitch` (Google Stitch)
 
 Requires the `chefgroep-stitch-mcp` launcher on your `PATH` (for example in
 `~/.local/bin`). The launcher is the only place the Stitch API key lives; it is

@@ -7,6 +7,30 @@
         "matcher": "cargo|rustc|rustup|zig|just|rustfmt|clippy|cargo-nextest",
         "failClosed": true
       }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": ".cursor/hooks/fetch-cursor-artifacts.sh",
+        "timeout": 5
+      }
+    ],
+    "sessionStart": [
+      {
+        "command": ".cursor/hooks/fetch-cursor-artifacts.sh",
+        "timeout": 15
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": ".cursor/hooks/fetch-cursor-artifacts.sh",
+        "timeout": 15
+      }
+    ],
+    "workspaceOpen": [
+      {
+        "command": ".cursor/hooks/fetch-cursor-artifacts.sh",
+        "timeout": 15
+      }
     ]
   }
 }

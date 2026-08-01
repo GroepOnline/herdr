@@ -11,6 +11,7 @@ _resolve_bin() {
     return 0
   fi
   for candidate in \
+    /opt/herdr/herdr-linux-x86_64 \
     /tmp/herdr-bin-fresh/herdr-linux-x86_64 \
     /tmp/herdr-bin/herdr-linux-x86_64 \
     "$(command -v herdr 2>/dev/null || true)"; do
@@ -19,7 +20,14 @@ _resolve_bin() {
       return 0
     fi
   done
-  echo "error: no herdr binary found. Set HERDR_BIN or download ci-smoke-herdr-linux-x86_64." >&2
+  # Last resort: download helper (release → CI smoke).
+  if [[ -x "$_verify_herdr_root/scripts/download-binary.sh" ]]; then
+    HERDR_BIN="$("$_verify_herdr_root/scripts/download-binary.sh" | tail -n1)"
+    if [[ -n "$HERDR_BIN" && -x "$HERDR_BIN" ]]; then
+      return 0
+    fi
+  fi
+  echo "error: no herdr binary found. Set HERDR_BIN or run scripts/download-binary.sh." >&2
   return 1
 }
 
@@ -56,7 +64,12 @@ HERDR_VERIFY_EVIDENCE=$HERDR_VERIFY_EVIDENCE
 version=$("$HERDR_BIN" --version 2>/dev/null || echo unknown)
 EOF
 
-echo "verify-herdr env ready"
-echo "  HERDR_BIN=$HERDR_BIN"
-echo "  HERDR_HOME=$HERDR_HOME"
-echo "  HERDR_VERIFY_EVIDENCE=$HERDR_VERIFY_EVIDENCE"
+# Child helpers (launch/doctor/cli) re-source this file; keep the drive log quiet.
+if [[ "${HERDR_VERIFY_QUIET:-0}" != "1" && "${HERDR_VERIFY_ENV_ANNOUNCED:-0}" != "1" ]]; then
+  echo "verify-herdr env ready"
+  echo "  HERDR_BIN=$HERDR_BIN"
+  echo "  HERDR_HOME=$HERDR_HOME"
+  echo "  HERDR_VERIFY_EVIDENCE=$HERDR_VERIFY_EVIDENCE"
+fi
+export HERDR_VERIFY_ENV_ANNOUNCED=1
+export HERDR_VERIFY_QUIET=1
