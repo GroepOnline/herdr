@@ -2,18 +2,31 @@
   "schema_version": 1,
   "channel": "dev",
   "base_version": "0.7.7",
-  "build_id": "2026-08-01-b0d5272626d8",
-  "commit": "b0d5272626d8ed578ecc3c07d80111be08eb9fce",
-  "built_at": "2026-08-01T15:22:42Z",
+  "build_id": "2026-08-01-88367852d101",
+  "commit": "88367852d101060d496dc96073580f8cf9ffeb77",
+  "built_at": "2026-08-01T20:42:41Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-01-b0d5272626d8\n\nBuilt from `b0d5272626d8` on `main`.\nBase stable: v0.7.7\nCompare: https://github.com/OnlineChefGroep/herdr/compare/v0.7.7...b0d5272626d8ed578ecc3c07d80111be08eb9fce\n\n### Changed\n- Rebuilt dev from the current main branch.",
+  "notes": "Dev build 2026-08-01-88367852d101\n\nBuilt from `88367852d101` on `main`.\nBase stable: v0.7.7\nCompare: https://github.com/OnlineChefGroep/herdr/compare/v0.7.7...88367852d101060d496dc96073580f8cf9ffeb77\n\n### Fixed\n- Parse TOML documents as Table under toml 1.x\n- Disambiguate sha2 digest AsRef for hex encoding\n- Adapt call sites for toml/png/ratatui/sha2 bumps\n\n### Maintenance\n- Bump the cargo-dependencies group across 1 directory with 16 updates\n\n### Other\n- Merge pull request #105 from OnlineChefGroep/dependabot/cargo/cargo-dependencies-076b6e020f",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-b0d5272626d8/herdr-linux-x86_64",
-      "sha256": "e0880c8eaa06d527559eaedfb49e9c634b11375c7da882dd9f7f89fd9299b231"
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-88367852d101/herdr-linux-x86_64",
+      "sha256": "76f982f7e96b4aab96d1f8f5a7e17b01e00d493c90d042fc5d6ba91de128a5b2"
     }
   },
   "builds": {
+    "2026-08-01-88367852d101": {
+      "base_version": "0.7.7",
+      "commit": "88367852d101060d496dc96073580f8cf9ffeb77",
+      "built_at": "2026-08-01T20:42:41Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-01-88367852d101",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-88367852d101/herdr-linux-x86_64",
+          "sha256": "76f982f7e96b4aab96d1f8f5a7e17b01e00d493c90d042fc5d6ba91de128a5b2"
+        }
+      }
+    },
     "2026-08-01-b0d5272626d8": {
       "base_version": "0.7.7",
       "commit": "b0d5272626d8ed578ecc3c07d80111be08eb9fce",
