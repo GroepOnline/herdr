@@ -2,18 +2,31 @@
   "schema_version": 1,
   "channel": "dev",
   "base_version": "0.7.6",
-  "build_id": "2026-08-01-9ff3f027c1ef",
-  "commit": "9ff3f027c1ef73fea947d7f117c84cff1459aa49",
-  "built_at": "2026-08-01T00:24:37Z",
+  "build_id": "2026-08-01-7462fcfae603",
+  "commit": "7462fcfae6030bcd70ec0c20d0bba796d305d3d9",
+  "built_at": "2026-08-01T00:33:59Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-01-9ff3f027c1ef\n\nBuilt from `9ff3f027c1ef` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/73d5fd0a6799fd06cef73622d1903539a0d1d124...9ff3f027c1ef73fea947d7f117c84cff1459aa49\n\n### Fixed\n- Escape raw string delimiter in checksum-rejection test\n- Add missing match-arm comma in plugin catalog\n- Align plugin catalog with herdr-plugins main\n- Compile checksum grammar on Windows\n- Parse SHA256SUMS lines without regex backtracking\n- Parse the repository slug without regex backtracking\n- Reverify existing native binary on reinstall\n- Align package license with Cargo metadata\n- Align Linux release targets with musl builds\n\n### Maintenance\n- Harden preview input handling and release tooling gaps\n- Lock fail-closed checksum rejection at manifest parse\n- Disable fragile Windows Zig cache reuse\n- Execute and retire Windows Zig cache fix\n- Stage deterministic Windows Zig cache fix\n- Use valid SHA-256 fixture\n- Force-remove modified preview bootstrap\n- Remove forbidden literals from preview ownership patch\n- Execute and retire preview ownership patch\n- Stage downstream preview ownership patch\n- Complete the required Rust checksum patch\n- Accept checksummed assets in the live manifest schema\n- Execute and retire required Rust checksum patch\n- Stage required Rust checksum patch\n- Reject stale existing native binary\n- Import the live manifest URL without aliasing\n- Make quality autofix use release metadata SSOT\n- Drop unused manifest URL constants\n- Align autofix metadata sync with derived npm version\n- Execute and retire final distribution patch\n- Stage final distribution hardening patch\n- Cover checksum and atomic replacement\n- Provision pinned Zig for hardening gate\n- Run npm path tests on binary targets\n- Run and retire checkout hardening patch\n- Stage one-shot release-chain checkout patch\n- Publish only after complete portable release\n- Cover four-target formula generation\n- Cover atomic checksummed manifest promotion\n- Cover distribution metadata invariants\n- Enforce complete checksummed distribution metadata\n\n### Other\n- Merge pull request #102 from OnlineChefGroep/settings/plugins-catalog-pra\n- Merge pull request #101 from OnlineChefGroep/dist/harden-release-chain\n- Scope release token, fix checksum matrix count, and restore stable docs\n- Move preview under downstream ownership\n- Require checksums for Rust-managed downloads\n- Finish verified multi-channel release hardening\n- Verify checksums before atomic replacement\n- Atomically harden release promotion and managed updates\n- Ship v0.7.6 on four targets\n- Generate verified four-target formula\n- Make stable manifest promotion complete and checksummed\n- Allow Linux and macOS installs\n- Verify checksums and support four targets\n- Centralize release target metadata",
+  "notes": "Dev build 2026-08-01-7462fcfae603\n\nBuilt from `7462fcfae603` on `main`.\nBase stable: v0.7.6\nCompare: https://github.com/OnlineChefGroep/herdr/compare/9ff3f027c1ef73fea947d7f117c84cff1459aa49...7462fcfae6030bcd70ec0c20d0bba796d305d3d9\n\n### Performance\n- Optimize Drop for EnvVar guards to avoid clone\n\n### Maintenance\n- Use unique socket path for missing runtime status test\n- Recover poisoned config env lock in plugin registry tests\n- Autofix mechanical quality\n\n### Other\n- Merge pull request #94 from OnlineChefGroep/perf-env-var-drop-17150002715190517398\n- Merge pull request #91 from OnlineChefGroep/jules-10490039771465024883-1c4960d2\n- Merge pull request #89 from OnlineChefGroep/optimize-plugin-platform-clone-4153861321290310149\n- Merge pull request #96 from OnlineChefGroep/refactor-patch-key-8316976835536766990\n- Merge pull request #95 from OnlineChefGroep/test-read-runtime-status-at-missing-file-9064937956824035969\n- Merge pull request #92 from OnlineChefGroep/test-capture-session-snapshot-10408201848865626879\n- Merge pull request #90 from OnlineChefGroep/test/plugin-registry-load-2716014838368794768\n- Refactor: Extract patch logic into patch_key method\n- \ud83e\uddea Add test for missing socket file in read_runtime_status_at\n- \ud83e\uddea Add test for capturing session snapshot\n- \u26a1 Optimize plugin startup and event hook allocations\n- \ud83e\uddea Add tests for plugin registry load and try_load\n- \u26a1 Optimize plugin platform checking by removing redundant clone",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-9ff3f027c1ef/herdr-linux-x86_64",
-      "sha256": "ab7318d844cc8eaba9a2166829395d6e289afeaf1f8dd885c8659bbf7a34a036"
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-7462fcfae603/herdr-linux-x86_64",
+      "sha256": "0fe3dc93763d32b6369833573bc595a4fb9bd79a5232c99ef3489f8dbff9bb29"
     }
   },
   "builds": {
+    "2026-08-01-7462fcfae603": {
+      "base_version": "0.7.6",
+      "commit": "7462fcfae6030bcd70ec0c20d0bba796d305d3d9",
+      "built_at": "2026-08-01T00:33:59Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-01-7462fcfae603",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-7462fcfae603/herdr-linux-x86_64",
+          "sha256": "0fe3dc93763d32b6369833573bc595a4fb9bd79a5232c99ef3489f8dbff9bb29"
+        }
+      }
+    },
     "2026-08-01-9ff3f027c1ef": {
       "base_version": "0.7.6",
       "commit": "9ff3f027c1ef73fea947d7f117c84cff1459aa49",
