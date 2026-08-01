@@ -249,19 +249,14 @@ pub fn load_live_config() -> Result<LoadedConfig, Vec<String>> {
 }
 
 fn load_live_config_from_str(content: &str) -> Result<LoadedConfig, Vec<String>> {
-    let value = content
-        .parse::<toml::Value>()
+    // toml 1.x: documents parse as Table; Value::FromStr only accepts single values.
+    let table = content
+        .parse::<toml::Table>()
         .map_err(|err| vec![format!("config parse error: {err}; keeping current config")])?;
-    let table = value.as_table().ok_or_else(|| {
-        vec![
-            "config parse error: top-level config must be a table; keeping current config"
-                .to_string(),
-        ]
-    })?;
 
     let mut config = Config::default();
-    let mut diagnostics = unknown_top_level_section_diagnostics(table);
-    diagnostics.extend(unknown_top_level_config_key_diagnostics(table));
+    let mut diagnostics = unknown_top_level_section_diagnostics(&table);
+    diagnostics.extend(unknown_top_level_config_key_diagnostics(&table));
     let mut invalid_sections = Vec::new();
 
     if let Some(value) = table.get("onboarding") {
@@ -274,7 +269,7 @@ fn load_live_config_from_str(content: &str) -> Result<LoadedConfig, Vec<String>>
     }
 
     load_live_section(
-        table,
+        &table,
         "theme",
         "theme config",
         &mut diagnostics,
@@ -282,7 +277,7 @@ fn load_live_config_from_str(content: &str) -> Result<LoadedConfig, Vec<String>>
         |section| config.theme = section,
     );
     load_live_section(
-        table,
+        &table,
         "keys",
         "keybinding config",
         &mut diagnostics,
@@ -290,7 +285,7 @@ fn load_live_config_from_str(content: &str) -> Result<LoadedConfig, Vec<String>>
         |section| config.keys = section,
     );
     load_live_section(
-        table,
+        &table,
         "terminal",
         "terminal config",
         &mut diagnostics,
@@ -298,7 +293,7 @@ fn load_live_config_from_str(content: &str) -> Result<LoadedConfig, Vec<String>>
         |section| config.terminal = section,
     );
     load_live_section(
-        table,
+        &table,
         "session",
         "session config",
         &mut diagnostics,
@@ -306,7 +301,7 @@ fn load_live_config_from_str(content: &str) -> Result<LoadedConfig, Vec<String>>
         |section| config.session = section,
     );
     load_live_section(
-        table,
+        &table,
         "update",
         "update config",
         &mut diagnostics,
@@ -314,7 +309,7 @@ fn load_live_config_from_str(content: &str) -> Result<LoadedConfig, Vec<String>>
         |section| config.update = section,
     );
     load_live_section(
-        table,
+        &table,
         "ui",
         "ui config",
         &mut diagnostics,
@@ -322,7 +317,7 @@ fn load_live_config_from_str(content: &str) -> Result<LoadedConfig, Vec<String>>
         |section| config.ui = section,
     );
     load_live_section(
-        table,
+        &table,
         "advanced",
         "advanced config",
         &mut diagnostics,
@@ -330,7 +325,7 @@ fn load_live_config_from_str(content: &str) -> Result<LoadedConfig, Vec<String>>
         |section| config.advanced = section,
     );
     load_live_section(
-        table,
+        &table,
         "worktrees",
         "worktree config",
         &mut diagnostics,
@@ -338,7 +333,7 @@ fn load_live_config_from_str(content: &str) -> Result<LoadedConfig, Vec<String>>
         |section| config.worktrees = section,
     );
     load_live_section(
-        table,
+        &table,
         "experimental",
         "experimental config",
         &mut diagnostics,
@@ -346,7 +341,7 @@ fn load_live_config_from_str(content: &str) -> Result<LoadedConfig, Vec<String>>
         |section| config.experimental = section,
     );
     load_live_section(
-        table,
+        &table,
         "remote",
         "remote config",
         &mut diagnostics,
@@ -362,16 +357,13 @@ fn load_live_config_from_str(content: &str) -> Result<LoadedConfig, Vec<String>>
 }
 
 fn unknown_top_level_sections_from_str(content: &str) -> (Vec<String>, Vec<String>) {
-    let Ok(value) = content.parse::<toml::Value>() else {
-        return (Vec::new(), Vec::new());
-    };
-    let Some(table) = value.as_table() else {
+    let Ok(table) = content.parse::<toml::Table>() else {
         return (Vec::new(), Vec::new());
     };
 
     let mut keys = Vec::new();
     let mut diagnostics = Vec::new();
-    for (key, value) in table {
+    for (key, value) in &table {
         if let Some(diagnostic) = unknown_top_level_section_diagnostic(key, value) {
             keys.push(key.clone());
             diagnostics.push(diagnostic);
