@@ -808,8 +808,7 @@ fn summarize_plugin_install_output(stdout: &str, stderr: &str, success: bool) ->
     let last_line = |text: &str| {
         text.lines()
             .map(str::trim)
-            .filter(|line| !line.is_empty())
-            .next_back()
+            .rfind(|line| !line.is_empty())
             .map(str::to_string)
     };
     if success {
