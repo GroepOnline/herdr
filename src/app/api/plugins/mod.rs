@@ -807,8 +807,9 @@ impl App {
 fn summarize_plugin_install_output(stdout: &str, stderr: &str, success: bool) -> String {
     let last_line = |text: &str| {
         text.lines()
+            .rev()
             .map(str::trim)
-            .rfind(|line| !line.is_empty())
+            .find(|line| !line.is_empty())
             .map(str::to_string)
     };
     if success {
