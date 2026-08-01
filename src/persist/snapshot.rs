@@ -596,6 +596,33 @@ mod tests {
     }
 
     #[test]
+    fn test_capture() {
+        let state = state_with_workspaces(&["test_workspace"]);
+        let terminal_runtimes = TerminalRuntimeRegistry::new();
+        let mut collapsed_space_keys = std::collections::HashSet::new();
+        collapsed_space_keys.insert("my-key".into());
+
+        let snapshot = capture(
+            &state.workspaces,
+            &state.terminals,
+            &terminal_runtimes,
+            Some(2),
+            3,
+            120,
+            0.75,
+            collapsed_space_keys.clone(),
+        );
+
+        assert_eq!(snapshot.version, SNAPSHOT_VERSION);
+        assert_eq!(snapshot.workspaces.len(), 1);
+        assert_eq!(snapshot.active, Some(2));
+        assert_eq!(snapshot.selected, 3);
+        assert_eq!(snapshot.sidebar_width, Some(120));
+        assert_eq!(snapshot.sidebar_section_split, Some(0.75));
+        assert!(snapshot.collapsed_space_keys.contains("my-key"));
+    }
+
+    #[test]
     fn round_trip_empty_session() {
         let snap = SessionSnapshot {
             version: SNAPSHOT_VERSION,
