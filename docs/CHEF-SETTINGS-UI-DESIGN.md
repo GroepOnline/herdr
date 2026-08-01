@@ -158,4 +158,4 @@ flowchart TD
 - Replacing ratatui or the modal overlay model
 - Full keybind editor
 - Hermes / UDO coupling
-- Implementing mosh inside Herdr (see `CHEF-GHOSTTY-MOSHI-VS-MOSH.md`)
+- Implementing mosh inside Herdr (see `CHEF-GHOSTTY-OPTS-VS-MOSH.md`; mosh is optional transport only)
