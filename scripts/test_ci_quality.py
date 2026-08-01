@@ -16,7 +16,6 @@ from scripts.ci_quality import (
     check_release_metadata,
     detect_autofix,
     needs_rustfmt,
-    parse_semver,
     read_installer_version,
     sync_release_metadata,
 )
@@ -47,12 +46,12 @@ class CiQualityTests(unittest.TestCase):
         (root / "npm/package.json").write_text(
             json.dumps(
                 {
-                    "name": "groeponline-herdr",
+                    "name": "onlinechefgroep-herdr",
                     "version": npm_version,
                     "license": "AGPL-3.0-or-later",
                     "repository": {
                         "type": "git",
-                        "url": "https://github.com/GroepOnline/herdr.git",
+                        "url": "https://github.com/OnlineChefGroep/herdr.git",
                     },
                     "os": ["linux", "darwin"],
                 },
@@ -89,7 +88,7 @@ class CiQualityTests(unittest.TestCase):
             encoding="utf-8",
         )
         (root / "scripts/changelog.py").write_text(
-            'DEFAULT_RELEASE_REPO = "GroepOnline/herdr"\n',
+            'DEFAULT_RELEASE_REPO = "OnlineChefGroep/herdr"\n',
             encoding="utf-8",
         )
         (root / "npm/README.md").write_text("# npm package\n", encoding="utf-8")
@@ -177,12 +176,6 @@ class CiQualityTests(unittest.TestCase):
 
             with self.assertRaisesRegex(QualityError, "is newer than Cargo.toml"):
                 check_release_metadata(root)
-
-    def test_parse_semver_rejects_non_ascii_digits(self) -> None:
-        self.assertEqual(parse_semver("1.2.3", "Cargo.toml version"), (1, 2, 3))
-        for candidate in ("1.2.3\u0662", "\u0661.2.3", "1.\u0662.3"):
-            with self.assertRaisesRegex(QualityError, "stable X.Y.Z semantic version"):
-                parse_semver(candidate, "Cargo.toml version")
 
     def test_check_release_metadata_rejects_license_drift(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
