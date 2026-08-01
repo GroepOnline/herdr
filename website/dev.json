@@ -2,18 +2,31 @@
   "schema_version": 1,
   "channel": "dev",
   "base_version": "0.7.7",
-  "build_id": "2026-08-01-e7717fd97d5d",
-  "commit": "e7717fd97d5df48a7dcfe7f8049c51f3e659676b",
-  "built_at": "2026-08-01T21:42:06Z",
+  "build_id": "2026-08-01-c940c3369f9b",
+  "commit": "c940c3369f9bfd36329d20ce71fcf4a17b658639",
+  "built_at": "2026-08-01T21:50:42Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-01-e7717fd97d5d\n\nBuilt from `e7717fd97d5d` on `main`.\nBase stable: v0.7.7\nCompare: https://github.com/OnlineChefGroep/herdr/compare/7ae5f08b673bd35673ae374aca666060fada6bde...e7717fd97d5df48a7dcfe7f8049c51f3e659676b\n\n### Maintenance\n- Bump the github-actions group with 8 updates (#104)\n\n### Other\n- Add setup script for interactive testing (#88)",
+  "notes": "Dev build 2026-08-01-c940c3369f9b\n\nBuilt from `c940c3369f9b` on `main`.\nBase stable: v0.7.7\nCompare: https://github.com/OnlineChefGroep/herdr/compare/e7717fd97d5df48a7dcfe7f8049c51f3e659676b...c940c3369f9bfd36329d20ce71fcf4a17b658639\n\n### Maintenance\n- Cloud env standards + full verify-herdr e2e (#107)",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-e7717fd97d5d/herdr-linux-x86_64",
-      "sha256": "60dbeed2efd7f9c8b015fe17f78a06ee0a074710844e920d70fe1bd7c04cfca4"
+      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-c940c3369f9b/herdr-linux-x86_64",
+      "sha256": "a94733132a46a3f453eb4a473c4fd32c2d01c81f89c4e34ab157fa5a79b311be"
     }
   },
   "builds": {
+    "2026-08-01-c940c3369f9b": {
+      "base_version": "0.7.7",
+      "commit": "c940c3369f9bfd36329d20ce71fcf4a17b658639",
+      "built_at": "2026-08-01T21:50:42Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-01-c940c3369f9b",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-c940c3369f9b/herdr-linux-x86_64",
+          "sha256": "a94733132a46a3f453eb4a473c4fd32c2d01c81f89c4e34ab157fa5a79b311be"
+        }
+      }
+    },
     "2026-08-01-e7717fd97d5d": {
       "base_version": "0.7.7",
       "commit": "e7717fd97d5df48a7dcfe7f8049c51f3e659676b",
