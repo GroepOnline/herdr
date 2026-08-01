@@ -2551,7 +2551,7 @@ mod tests {
 
     impl Drop for EnvVarGuard {
         fn drop(&mut self) {
-            restore_env_var(self.key, self.previous.clone());
+            restore_env_var(self.key, self.previous.take());
         }
     }
 
@@ -2580,7 +2580,7 @@ mod tests {
 
     impl Drop for EnvVarsRemovedGuard {
         fn drop(&mut self) {
-            for (key, value) in self.previous.clone() {
+            for (key, value) in self.previous.drain(..) {
                 restore_env_var(key, value);
             }
         }
