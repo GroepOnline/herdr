@@ -12,6 +12,7 @@
 - Relicensed Herdr from AGPL-3.0-or-later to Apache-2.0.
 
 ### Fixed
+- OpenCode 2 preview panes now appear as OpenCode agents and use the existing OpenCode status detection. (#2169)
 - Pane text copied through VS Code Remote Tunnels now reaches the viewing machine's clipboard instead of overwriting the remote host clipboard. (#2015)
 - Windows agent detection now follows Git Bash-launched agents across emulated `exec` process boundaries. (#2107)
 - Detached Windows servers and pane processes now survive logout from the OpenSSH session that started them. (#2008)
