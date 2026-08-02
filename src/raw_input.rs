@@ -1209,7 +1209,9 @@ fn parse_mouse_cb(cb: u8) -> Option<(MouseEventKind, KeyModifiers)> {
         (1, true) => MouseEventKind::Drag(MouseButton::Middle),
         (2, true) => MouseEventKind::Drag(MouseButton::Right),
         (3, false) => MouseEventKind::Up(MouseButton::Left),
-        (3, true) | (4, true) | (5, true) => MouseEventKind::Moved,
+        // Crossterm cannot represent extended-button drags. Preserve their
+        // position as motion so a stuck host button cannot suppress hover.
+        (3, true) | (4, true) | (5, true) | (8, true) | (9, true) => MouseEventKind::Moved,
         (4, false) => MouseEventKind::ScrollUp,
         (5, false) => MouseEventKind::ScrollDown,
         (6, false) => MouseEventKind::ScrollLeft,
@@ -1357,6 +1359,20 @@ mod tests {
         assert_eq!(mouse.column, 19);
         assert_eq!(mouse.row, 9);
         assert_eq!(mouse.modifiers, KeyModifiers::empty());
+    }
+
+    #[test]
+    fn parses_extended_button_drag_as_mouse_motion() {
+        for input in [
+            b"\x1b[<160;20;10M".as_slice(),
+            b"\x1b[<161;20;10M".as_slice(),
+        ] {
+            let (RawInputEvent::Mouse(mouse), _) = extract_one_event(input).unwrap() else {
+                panic!("expected mouse");
+            };
+            assert_eq!(mouse.kind, MouseEventKind::Moved);
+            assert_eq!((mouse.column, mouse.row), (19, 9));
+        }
     }
 
     #[test]
