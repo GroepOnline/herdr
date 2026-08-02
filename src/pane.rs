@@ -1127,6 +1127,18 @@ impl PaneRuntimeIo {
         }
     }
 
+    fn write_terminal_response(&self, response: impl FnOnce() -> Option<Bytes>) {
+        match self {
+            PaneRuntimeIo::Actor(actor) => actor.write_terminal_response(response),
+            #[cfg(test)]
+            PaneRuntimeIo::TestChannel { sender, .. } => {
+                if let Some(bytes) = response() {
+                    let _ = sender.try_send(bytes);
+                }
+            }
+        }
+    }
+
     fn send_bytes_after(&self, bytes: Bytes, delay: std::time::Duration) {
         match self {
             PaneRuntimeIo::Actor(actor) => {
@@ -1610,6 +1622,16 @@ impl PaneRuntime {
         self.terminal.apply_host_terminal_theme(theme);
     }
 
+    pub fn apply_host_terminal_appearance(
+        &self,
+        appearance: Option<crate::terminal_theme::HostAppearance>,
+    ) {
+        self.io
+            .write_terminal_response(|| self.terminal.apply_host_terminal_appearance(appearance));
+    }
+
+    // Runtime construction threads PTY geometry, host context, launch policy, and render hooks.
+    #[allow(clippy::too_many_arguments)]
     pub fn spawn(
         pane_id: PaneId,
         rows: u16,
@@ -1617,6 +1639,7 @@ impl PaneRuntime {
         cwd: std::path::PathBuf,
         scrollback_limit_bytes: usize,
         host_terminal_theme: crate::terminal_theme::TerminalTheme,
+        host_terminal_appearance: Option<crate::terminal_theme::HostAppearance>,
         shell_config: PaneShellConfig<'_>,
         launch_env: &PaneLaunchEnv,
         events: mpsc::Sender<AppEvent>,
@@ -1630,6 +1653,7 @@ impl PaneRuntime {
             cwd,
             scrollback_limit_bytes,
             host_terminal_theme,
+            host_terminal_appearance,
             shell_config,
             launch_env,
             None,
@@ -1648,6 +1672,7 @@ impl PaneRuntime {
         cwd: std::path::PathBuf,
         scrollback_limit_bytes: usize,
         host_terminal_theme: crate::terminal_theme::TerminalTheme,
+        host_terminal_appearance: Option<crate::terminal_theme::HostAppearance>,
         shell_config: PaneShellConfig<'_>,
         launch_env: &PaneLaunchEnv,
         initial_history_ansi: Option<&str>,
@@ -1667,6 +1692,7 @@ impl PaneRuntime {
             cols,
             scrollback_limit_bytes,
             host_terminal_theme,
+            host_terminal_appearance,
             events,
             render_notify,
             render_dirty,
@@ -1693,6 +1719,7 @@ impl PaneRuntime {
         agent_detection: AgentDetection,
         scrollback_limit_bytes: usize,
         host_terminal_theme: crate::terminal_theme::TerminalTheme,
+        host_terminal_appearance: Option<crate::terminal_theme::HostAppearance>,
         events: mpsc::Sender<AppEvent>,
         render_notify: Arc<Notify>,
         render_dirty: Arc<RenderSignal>,
@@ -1707,6 +1734,7 @@ impl PaneRuntime {
             cols,
             scrollback_limit_bytes,
             host_terminal_theme,
+            host_terminal_appearance,
             events,
             render_notify,
             render_dirty,
@@ -1729,6 +1757,7 @@ impl PaneRuntime {
         agent_detection: AgentDetection,
         scrollback_limit_bytes: usize,
         host_terminal_theme: crate::terminal_theme::TerminalTheme,
+        host_terminal_appearance: Option<crate::terminal_theme::HostAppearance>,
         events: mpsc::Sender<AppEvent>,
         render_notify: Arc<Notify>,
         render_dirty: Arc<RenderSignal>,
@@ -1752,6 +1781,7 @@ impl PaneRuntime {
             cols,
             scrollback_limit_bytes,
             host_terminal_theme,
+            host_terminal_appearance,
             events,
             render_notify,
             render_dirty,
@@ -1767,6 +1797,7 @@ impl PaneRuntime {
         import: crate::handoff_runtime::ImportedHandoffRuntime,
         scrollback_limit_bytes: usize,
         host_terminal_theme: crate::terminal_theme::TerminalTheme,
+        host_terminal_appearance: Option<crate::terminal_theme::HostAppearance>,
         events: mpsc::Sender<AppEvent>,
         render_notify: Arc<Notify>,
         render_dirty: Arc<RenderSignal>,
@@ -1803,6 +1834,7 @@ impl PaneRuntime {
         }
         let pane_terminal = GhosttyPaneTerminal::new(terminal, response_tx.clone())?;
         pane_terminal.apply_host_terminal_theme(host_terminal_theme);
+        let _ = pane_terminal.apply_host_terminal_appearance(host_terminal_appearance);
         pane_terminal.seed_terminal_title(terminal_title);
         if let Some(input_state) = input_state {
             pane_terminal.seed_handoff_input_state(input_state);
@@ -1916,6 +1948,7 @@ impl PaneRuntime {
         cols: u16,
         scrollback_limit_bytes: usize,
         host_terminal_theme: crate::terminal_theme::TerminalTheme,
+        host_terminal_appearance: Option<crate::terminal_theme::HostAppearance>,
         events: mpsc::Sender<AppEvent>,
         render_notify: Arc<Notify>,
         render_dirty: Arc<RenderSignal>,
@@ -1936,6 +1969,7 @@ impl PaneRuntime {
         }
         let pane_terminal = GhosttyPaneTerminal::new(terminal, response_tx.clone())?;
         pane_terminal.apply_host_terminal_theme(host_terminal_theme);
+        let _ = pane_terminal.apply_host_terminal_appearance(host_terminal_appearance);
         pane_terminal.set_windows_powershell_prompt_cwd_reporting(
             initial_state.windows_powershell_prompt_cwd_reporting,
         );
@@ -3393,7 +3427,7 @@ mod tests {
         let runtime = PaneRuntime::test_with_screen_bytes(
             80,
             24,
-            b"\x1b[>5u\x1b[>4;2m\x1b[?1h\x1b[?2004h\x1b[?1004h\x1b[?1002h\x1b[?1006h",
+            b"\x1b[>5u\x1b[>4;2m\x1b[?1h\x1b[?2004h\x1b[?1004h\x1b[?1002h\x1b[?1006h\x1b[?2031h",
         );
 
         runtime.test_process_pty_bytes("\x1b]2;✳ 修复🙂标题\x1b\\".as_bytes());
@@ -3414,6 +3448,7 @@ mod tests {
                 mouse_protocol_encoding: crate::input::MouseProtocolEncoding::Sgr,
                 mouse_alternate_scroll: true,
                 modify_other_keys: true,
+                color_scheme_reporting: true,
             })
         );
     }
@@ -3506,6 +3541,17 @@ mod tests {
                 .await
                 .is_err()
         );
+    }
+
+    #[tokio::test]
+    async fn subscribed_idle_child_receives_color_scheme_transition() {
+        let (runtime, mut rx) = PaneRuntime::test_with_channel(80, 24);
+        runtime.apply_host_terminal_appearance(Some(crate::terminal_theme::HostAppearance::Dark));
+        runtime.test_process_pty_bytes(b"\x1b[?2031h");
+
+        runtime.apply_host_terminal_appearance(Some(crate::terminal_theme::HostAppearance::Light));
+
+        assert_eq!(rx.recv().await, Some(Bytes::from_static(b"\x1b[?997;2n")));
     }
 
     #[test]
