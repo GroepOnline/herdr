@@ -265,8 +265,13 @@ struct AgentDetectionPresence {
 }
 
 #[cfg(unix)]
+fn absolute_process_cwd(pid: u32) -> Option<std::path::PathBuf> {
+    crate::platform::process_cwd(pid).filter(|cwd| cwd.is_absolute())
+}
+
+#[cfg(unix)]
 fn usable_process_cwd(pid: u32) -> Option<std::path::PathBuf> {
-    crate::platform::process_cwd(pid).filter(|cwd| cwd.is_absolute() && cwd.is_dir())
+    absolute_process_cwd(pid).filter(|cwd| cwd.is_dir())
 }
 
 #[cfg(unix)]
@@ -279,7 +284,7 @@ fn foreground_member_cwd_different_from_shell(
         if process.pid == shell_pid {
             continue;
         }
-        let Some(cwd) = usable_process_cwd(process.pid) else {
+        let Some(cwd) = absolute_process_cwd(process.pid) else {
             continue;
         };
         if shell_cwd != Some(&cwd) {
@@ -2821,12 +2826,12 @@ impl PaneRuntime {
         #[cfg(unix)]
         {
             let pid = self.child_pid.load(Ordering::Acquire);
-            let shell_cwd = usable_process_cwd(pid);
+            let shell_cwd = absolute_process_cwd(pid);
             let foreground_pgid = self
                 .io
                 .foreground_process_group_id()
                 .or_else(|| crate::platform::foreground_process_group_id(pid));
-            let leader_cwd = foreground_pgid.and_then(usable_process_cwd);
+            let leader_cwd = foreground_pgid.and_then(absolute_process_cwd);
 
             if leader_cwd.as_ref() == shell_cwd.as_ref() {
                 foreground_member_cwd_different_from_shell(pid, shell_cwd.as_ref()).or(leader_cwd)
@@ -2953,6 +2958,51 @@ mod tests {
         std::fs::remove_dir(&cwd).expect("remove reported cwd after admission");
 
         assert_eq!(runtime.cwd(), Some(cwd));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn process_cwd_does_not_require_traversing_the_directory_path() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock should be after unix epoch")
+            .as_nanos();
+        let base = std::env::temp_dir().join(format!(
+            "herdr-process-cwd-no-stat-{}-{stamp}",
+            std::process::id()
+        ));
+        let private = base.join("private");
+        let cwd = private.join("cwd");
+        std::fs::create_dir_all(&cwd).expect("create process cwd");
+
+        let mut child = std::process::Command::new("/bin/sh")
+            .args(["-c", "sleep 30"])
+            .current_dir(&cwd)
+            .spawn()
+            .expect("spawn process in cwd");
+        let expected_cwd = crate::platform::process_cwd(child.id())
+            .expect("resolve process cwd before restricting traversal");
+        std::fs::set_permissions(&private, std::fs::Permissions::from_mode(0o000))
+            .expect("make cwd path untraversable");
+
+        let path_is_traversable = cwd.is_dir();
+        let observed = (!path_is_traversable)
+            .then(|| absolute_process_cwd(child.id()))
+            .flatten();
+
+        std::fs::set_permissions(&private, std::fs::Permissions::from_mode(0o755))
+            .expect("restore cwd path permissions");
+        let _ = child.kill();
+        let _ = child.wait();
+        std::fs::remove_dir_all(&base).expect("remove process cwd");
+
+        if path_is_traversable {
+            eprintln!("skipping untraversable cwd assertion for privileged test process");
+            return;
+        }
+        assert_eq!(observed, Some(expected_cwd));
     }
 
     #[cfg(unix)]
