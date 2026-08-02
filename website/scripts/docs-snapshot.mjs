@@ -36,15 +36,7 @@ export function gitTreesEqual(git, ref, left, right) {
 }
 
 export function listGitEntries(git, ref, root) {
-  const output = git([
-    'ls-tree',
-    '-r',
-    '-z',
-    '--format=%(objectmode) %(objecttype) %(objectname)%x09%(path)',
-    ref,
-    '--',
-    root,
-  ]);
+  const output = git(['ls-tree', '-r', '-z', ref, '--', root]);
   return output
     .split('\0')
     .filter(Boolean)
