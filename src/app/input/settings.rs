@@ -2,7 +2,9 @@ use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKin
 
 use crate::{
     app::{
-        state::{AppState, SettingsConfigSnapshot, SettingsFocus, SettingsSection, THEME_NAMES},
+        state::{
+            AppState, Palette, SettingsConfigSnapshot, SettingsFocus, SettingsSection, THEME_NAMES,
+        },
         App, Mode,
     },
     ui::settings::{
@@ -329,8 +331,6 @@ fn current_theme_index(theme_name: &str) -> usize {
 }
 
 fn preview_selected_theme(state: &mut AppState) {
-    use crate::app::state::Palette;
-
     let rows = section_rows(state, SettingsSection::Appearance);
     let Some(row) = rows.get(state.settings.list.selected) else {
         return;
@@ -761,6 +761,8 @@ mod tests {
     use super::super::{app_for_mouse_test, mouse, state_with_workspaces};
     use super::*;
     use crate::ui::settings::catalog::SettingsItemId;
+    use crate::ui::settings::rows::appearance_theme_labels;
+    use crate::ui::settings::widgets::{chip_wrap_rects, CHIP_HORIZONTAL_GAP};
 
     #[test]
     fn settings_cancel_restores_previewed_theme_from_other_sections() {
@@ -1114,9 +1116,6 @@ mod tests {
 
     #[test]
     fn settings_mouse_theme_chip_selects_theme_row() {
-        use crate::ui::settings::rows::appearance_theme_labels;
-        use crate::ui::settings::widgets::{chip_wrap_rects, CHIP_HORIZONTAL_GAP};
-
         let mut app = app_for_mouse_test();
         open_settings_at(&mut app.state, SettingsSection::Appearance);
         let layout = app.state.settings_layout().expect("layout");

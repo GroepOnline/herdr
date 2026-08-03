@@ -10,6 +10,7 @@ use crate::{
 };
 
 use super::spinner::active_spinner_category;
+use self::SettingsAction::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SettingsItemId {
@@ -445,7 +446,6 @@ pub(crate) fn coalesce_pending_action(pending: &mut Vec<SettingsAction>, action:
 }
 
 fn pending_actions_same_slot(existing: &SettingsAction, incoming: &SettingsAction) -> bool {
-    use SettingsAction::*;
     match (existing, incoming) {
         (TogglePluginEnabled { plugin_id: a, .. }, TogglePluginEnabled { plugin_id: b, .. }) => {
             a == b

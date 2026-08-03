@@ -44,6 +44,10 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
 mod tests {
     use super::*;
     use crate::app::{state::SettingsSection, Mode};
+    use crate::ui::settings::catalog::SettingsItemId;
+    use crate::ui::settings::rows::{
+        scroll_list_row_indices, section_rows, SettingsRowKind,
+    };
     use ratatui::{backend::TestBackend, Terminal};
 
     #[test]
@@ -192,9 +196,6 @@ mod tests {
 
     #[test]
     fn appearance_scroll_list_excludes_theme_showcase_rows() {
-        use crate::ui::settings::catalog::SettingsItemId;
-        use crate::ui::settings::rows::{scroll_list_row_indices, section_rows, SettingsRowKind};
-
         let app = AppState::test_new();
         let indices = scroll_list_row_indices(&app, SettingsSection::Appearance);
         let rows = section_rows(&app, SettingsSection::Appearance);

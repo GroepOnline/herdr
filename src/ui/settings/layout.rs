@@ -9,7 +9,7 @@ use super::{
     spinner::{active_spinner_category, SPINNER_CATEGORIES},
     widgets::{
         chip_row_index_at, chip_row_rects, chip_wrap_index_at, chip_wrap_row_count,
-        CHIP_HORIZONTAL_GAP, SETTING_BLOCK_HEADER_ROWS,
+        right_aligned_button_row, CHIP_HORIZONTAL_GAP, SETTING_BLOCK_HEADER_ROWS,
     },
 };
 
@@ -445,8 +445,6 @@ pub(crate) fn settings_button_rects(
     section: SettingsSection,
     show_tertiary: bool,
 ) -> SettingsFooterButtons {
-    use super::widgets::right_aligned_button_row;
-
     let mut specs: Vec<(&str, &str)> = Vec::new();
     if show_tertiary {
         let tertiary_hint = match section {
@@ -512,6 +510,7 @@ pub(crate) fn active_spinner_styles(app: &AppState) -> &'static [crate::config::
 mod tests {
     use super::*;
     use crate::app::{state::SettingsSection, AppState, Mode};
+    use crate::ui::settings::catalog::SettingsItemId;
 
     fn layout_for_section(section: SettingsSection) -> SettingsLayout {
         let mut app = AppState::test_new();
@@ -705,8 +704,6 @@ mod tests {
 
     #[test]
     fn host_cursor_chips_all_have_distinct_hit_geometry() {
-        use crate::ui::settings::catalog::SettingsItemId;
-
         let mut app = AppState::test_new();
         app.mode = Mode::Settings;
         app.settings.section = SettingsSection::Input;
@@ -761,8 +758,6 @@ mod tests {
 
     #[test]
     fn multi_chip_content_index_at_honors_chip_bounds() {
-        use crate::ui::settings::catalog::SettingsItemId;
-
         let mut app = AppState::test_new();
         app.mode = Mode::Settings;
         app.settings.section = SettingsSection::Notifications;
