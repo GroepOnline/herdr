@@ -24,10 +24,6 @@ WRAPPER_SHEBANG = "#!/usr/bin/env bash\n"
 WRAPPER_STRICT_MODE = "set -euo pipefail"
 WRAPPER_SUBPROCESS_TIMEOUT_S = 10
 
-# PATH entries that commonly contain Bash but must not include Zig for the
-# missing-tool regression. Zig may live under ~/.local/bin or other user paths.
-BASH_ONLY_PATH = "/usr/bin:/bin"
-
 
 def resolve_bash() -> str:
     """Return a deterministic absolute Bash path for wrapper execution."""
@@ -133,7 +129,6 @@ class ReleasePortableAssetsWorkflowTests(unittest.TestCase):
             'printf \'%s\\n\' "$@" > "$HERDR_ZIG_LOG"\n'
             "exit 0\n"
         ),
-        path: str | None = None,
     ) -> tuple[list[str], int]:
         """Run an extracted wrapper via absolute Bash against an optional fake Zig.
 
@@ -149,14 +144,16 @@ class ReleasePortableAssetsWorkflowTests(unittest.TestCase):
 
             env = dict(os.environ)
             log_path = tmp_path / "zig-invocation.log"
+            fake_bin = tmp_path / "bin"
+            fake_bin.mkdir()
             if zig_script is None:
-                env["PATH"] = path if path is not None else BASH_ONLY_PATH
+                # Keep Bash discoverable for the wrapper contract while proving
+                # that no Zig executable is available anywhere on PATH.
+                (fake_bin / "bash").symlink_to(BASH)
             else:
-                fake_bin = tmp_path / "bin"
-                fake_bin.mkdir()
                 self._write_executable(fake_bin / "zig", zig_script)
-                env["PATH"] = f"{fake_bin}:{BASH_ONLY_PATH}"
                 env["HERDR_ZIG_LOG"] = str(log_path)
+            env["PATH"] = str(fake_bin)
 
             result = subprocess.run(
                 [BASH, str(wrapper_path), *args],
@@ -268,7 +265,6 @@ class ReleasePortableAssetsWorkflowTests(unittest.TestCase):
             "cc",
             ["-c", "foo.c"],
             zig_script=None,
-            path=BASH_ONLY_PATH,
         )
         self.assertNotEqual(code, 0)
 
