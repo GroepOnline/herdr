@@ -93,10 +93,19 @@ class ReleasePortableAssetsWorkflowTests(unittest.TestCase):
         mode = path.stat().st_mode
         path.chmod(mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
 
-    def _run_wrapper(self, wrapper_name: str, args: list[str]) -> tuple[list[str], int]:
-        """Runs the extracted wrapper script with the given args, against a
-        fake `zig` on PATH that records its own argv to a log file. Returns
-        the recorded argv (one entry per line) and the wrapper's exit code.
+    def _run_wrapper(
+        self,
+        wrapper_name: str,
+        args: list[str],
+        *,
+        fake_zig_exit: int | None = None,
+        path_override: str | None = None,
+    ) -> tuple[list[str], int]:
+        """Runs the extracted wrapper script with the given args in a temp
+        dir, against a fake `zig` that records its argv to a log file (or
+        exits with a fixed code). Returns the recorded argv (one entry per
+        line) and the wrapper's exit code. `path_override` replaces PATH
+        entirely, e.g. to drop `zig` while keeping bash resolvable.
         """
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -104,27 +113,35 @@ class ReleasePortableAssetsWorkflowTests(unittest.TestCase):
             wrapper_path = tmp_path / wrapper_name
             self._write_executable(wrapper_path, self.wrappers[wrapper_name])
 
-            fake_bin = tmp_path / "bin"
-            fake_bin.mkdir()
-            log_path = tmp_path / "zig-invocation.log"
-            self._write_executable(
-                fake_bin / "zig",
-                "#!/usr/bin/env bash\n"
-                f'printf \'%s\\n\' "$@" > "{log_path}"\n'
-                "exit 0\n",
-            )
-
+            log_path: Path | None = None
             env = dict(os.environ)
-            env["PATH"] = f"{fake_bin}:{env['PATH']}"
+            if path_override is not None:
+                env["PATH"] = path_override
+            else:
+                fake_bin = tmp_path / "bin"
+                fake_bin.mkdir()
+                log_path = tmp_path / "zig-invocation.log"
+                if fake_zig_exit is None:
+                    fake_zig = (
+                        "#!/usr/bin/env bash\n"
+                        f'printf \'%s\\n\' "$@" > "{log_path}"\n'
+                        "exit 0\n"
+                    )
+                else:
+                    fake_zig = f"#!/usr/bin/env bash\nexit {fake_zig_exit}\n"
+                self._write_executable(fake_bin / "zig", fake_zig)
+                env["PATH"] = f"{fake_bin}:{env['PATH']}"
+
             result = subprocess.run(
                 [str(wrapper_path), *args],
                 env=env,
                 capture_output=True,
                 text=True,
+                timeout=10,
             )
             recorded = (
                 log_path.read_text(encoding="utf-8").splitlines()
-                if log_path.exists()
+                if log_path is not None and log_path.exists()
                 else []
             )
             return recorded, result.returncode
@@ -211,44 +228,20 @@ class ReleasePortableAssetsWorkflowTests(unittest.TestCase):
         )
 
     def test_cc_wrapper_propagates_zig_failure_exit_code(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = Path(tmp)
-
-            wrapper_path = tmp_path / "cc"
-            self._write_executable(wrapper_path, self.wrappers["cc"])
-
-            fake_bin = tmp_path / "bin"
-            fake_bin.mkdir()
-            self._write_executable(fake_bin / "zig", "#!/usr/bin/env bash\nexit 7\n")
-
-            env = dict(os.environ)
-            env["PATH"] = f"{fake_bin}:{env['PATH']}"
-            result = subprocess.run(
-                [str(wrapper_path), "-c", "foo.c"],
-                env=env,
-                capture_output=True,
-                text=True,
-            )
-            self.assertEqual(result.returncode, 7)
+        recorded, code = self._run_wrapper("cc", ["-c", "foo.c"], fake_zig_exit=7)
+        self.assertEqual(recorded, [])
+        self.assertEqual(code, 7)
 
     def test_cc_wrapper_fails_closed_when_zig_is_missing(self) -> None:
         # `set -euo pipefail` plus the unresolved `exec zig` must produce a
-        # non-zero exit rather than silently doing nothing.
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = Path(tmp)
-
-            wrapper_path = tmp_path / "cc"
-            self._write_executable(wrapper_path, self.wrappers["cc"])
-
-            env = dict(os.environ)
-            env["PATH"] = "/nonexistent"
-            result = subprocess.run(
-                [str(wrapper_path), "-c", "foo.c"],
-                env=env,
-                capture_output=True,
-                text=True,
-            )
-            self.assertNotEqual(result.returncode, 0)
+        # non-zero exit rather than silently doing nothing. PATH keeps bash
+        # resolvable so the wrapper body actually reaches the missing-zig
+        # failure path instead of failing in the interpreter lookup.
+        recorded, code = self._run_wrapper(
+            "cc", ["-c", "foo.c"], path_override="/usr/bin:/bin"
+        )
+        self.assertEqual(recorded, [])
+        self.assertNotEqual(code, 0)
 
     def test_rustflags_disable_self_contained_linking_for_aarch64_musl_target(self) -> None:
         self.assertIn(
