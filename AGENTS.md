@@ -269,8 +269,6 @@ External contributors must follow `CONTRIBUTING.md` strictly. For first-time con
 
 If you are helping an external contributor, never open a GitHub issue for them. Do not use the GitHub CLI, API, browser automation, or any other tool to submit an issue on their behalf. Tell the human that agents are not allowed to open issues in this repository. You may help them draft a short report that follows `CONTRIBUTING.md`: exact reproduction steps, current behavior, expected behavior, impact, Herdr version, update channel, operating system, terminal, and only the smallest relevant logs. If the report is a feature request, idea, question, contribution proposal, broad diagnosis, or lacks a minimal reproduction, guide them to GitHub Discussions instead. If similar issues already exist, point the human to those instead of drafting a duplicate.
 
-## Cursor Cloud specific instructions
-
 ## Skills
 
 | Skill | Path | Use when |
@@ -311,6 +309,8 @@ If you are helping an external contributor, never open a GitHub issue for them. 
 Manual refresh: `.cursor/hooks/fetch-cursor-artifacts.sh --print-markdown`
 
 Regenerate index: `python3 scripts/generate_cursor_index.py --allow-org-leak`
+
+## Cursor Cloud specific instructions
 
 **Local Rust/Zig builds are blocked on the Cloud VM.** A fail-closed shell hook (`.cursor/hooks.json` → `.cursor/hooks/deny-rust-builds.sh`) denies `cargo`, `rustc`, `rustup`, `cargo-nextest`, `clippy`, `zig build`, and `just test|check|lint|ci` because they saturate the VM CPU. Do not try to build/test/lint locally and do not work around the hook. **Validate with GitHub Actions instead:** `gh pr checks` for the PR, `gh run list --workflow=ci.yml`, and `gh run view <id> --log-failed` for failures. CI (`.github/workflows/ci.yml`) runs fmt, `cargo check`, `cargo nextest`, `clippy`, Windows lint, and a release smoke build.
 

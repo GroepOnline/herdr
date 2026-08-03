@@ -46,8 +46,9 @@ for p in panes:
     pane_lab = (p.get("label") or "").strip().lower()
     tab = tab_by_id.get(p.get("tab_id") or "", {})
     tab_lab = (tab.get("label") or "").strip().lower()
-    # Pane rename wins (where-live); tab create --label covers map/findings/connections.
-    lab = pane_lab or tab_lab
+    # A recognized pane rename wins (where-live). Otherwise fall back to the
+    # tab label even when the pane has an unrelated shell/process label.
+    lab = pane_lab if pane_lab in want else tab_lab
     if lab in want and want[lab] is None:
         want[lab] = p["pane_id"]
 
