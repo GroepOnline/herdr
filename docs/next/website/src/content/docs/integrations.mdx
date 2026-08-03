@@ -5,7 +5,7 @@ description: Install Herdr integrations for Pi, OMP, Claude Code, Codex, GitHub 
 
 Herdr detects supported agents automatically. Official integrations can add native session identity for restore, lifecycle state reports, or both.
 
-Use integrations when you want native agent session restore from Claude Code/Codex/Copilot/Devin-style hooks, direct lifecycle reports from Pi/OMP/Kimi/OpenCode/Kilo/Hermes-style hooks or plugins, or both. See [Agents](/docs/agents/) for the full status authority model.
+Use integrations when you want native agent session restore, direct lifecycle reports, or both. See [Agents](/docs/agents/) for the full status authority model.
 
 ## Install integrations
 
@@ -57,8 +57,8 @@ Herdr uses integrations in two different ways:
 
 | Integration type | Agents | Effect |
 | --- | --- | --- |
-| Lifecycle authority | Pi, OMP, Kimi Code CLI, OpenCode, Kilo Code CLI, Hermes Agent, MastraCode | When installed and actively reporting for the pane, hook or plugin events author `idle`, `working`, and `blocked`. Herdr does not also use screen manifest fallback for that same lifecycle authority. |
-| Session identity | Claude Code, Codex, GitHub Copilot CLI, Devin CLI, Droid, Qoder CLI, Cursor Agent CLI, Antigravity CLI, Grok CLI | The integration reports native session references for restore. State still comes from Herdr's screen manifest detection. |
+| Lifecycle authority | Pi, OMP, Kimi Code CLI, OpenCode, Kilo Code CLI, MastraCode | When installed and actively reporting for the pane, hook or plugin events author `idle`, `working`, and `blocked`. Herdr does not also use screen manifest fallback for that same lifecycle authority. |
+| Session identity | Claude Code, Codex, GitHub Copilot CLI, Devin CLI, Droid, Qoder CLI, Cursor Agent CLI, Hermes Agent, Antigravity CLI, Grok CLI | The integration reports native session references for restore. State still comes from Herdr's screen manifest detection. |
 
 Custom socket integrations can also report state when they define state that is not visible in the native terminal UI.
 
@@ -214,7 +214,7 @@ herdr integration install hermes
 
 Herdr writes `~/.hermes/plugins/herdr-agent-state/` and enables `herdr-agent-state` in `~/.hermes/config.yaml`. The Hermes config directory must already exist. Restart Hermes after installing so the plugin loads. Uninstall removes the plugin directory and removes `herdr-agent-state` from `plugins.enabled`.
 
-The plugin reports lifecycle, tool, approval state, and session id while Hermes runs inside a Herdr pane. Herdr can use the reported session id to resume the pane with `hermes --resume <id>`. Native screen manifest detection remains available when the plugin is not installed.
+The plugin reports the resumable session id while Hermes runs inside a Herdr pane. Herdr uses screen manifest detection for `working`, `idle`, and `blocked`, and can use the reported session id to resume the pane with `hermes --resume <id>`.
 
 ## Qoder CLI
 

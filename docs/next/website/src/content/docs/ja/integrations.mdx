@@ -5,7 +5,7 @@ description: Pi、OMP、Claude Code、Codex、GitHub Copilot CLI、Devin CLI、D
 
 Herdr は対応エージェントを自動的に検出します。公式インテグレーションは、復元のためのネイティブセッション識別、ライフサイクル状態の報告、またはその両方を追加できます。
 
-Claude Code/Codex/Copilot/Devin 系のフックによるエージェントネイティブのセッション復元、Pi/OMP/Kimi/OpenCode/Kilo/Hermes/MastraCode 系のフックまたはプラグインによる直接のライフサイクル報告、あるいはその両方が欲しいときにインテグレーションを使ってください。状態権威モデルの全体像は[エージェント](/ja/docs/agents/)を参照してください。
+エージェントネイティブのセッション復元、直接のライフサイクル報告、またはその両方が欲しいときにインテグレーションを使ってください。状態権威モデルの全体像は[エージェント](/ja/docs/agents/)を参照してください。
 
 ## インテグレーションをインストールする
 
@@ -57,8 +57,8 @@ Herdr はインテグレーションを 2 つの異なる方法で使います:
 
 | インテグレーションの種類 | エージェント | 効果 |
 | --- | --- | --- |
-| ライフサイクル権威 | Pi、OMP、Kimi Code CLI、OpenCode、Kilo Code CLI、Hermes Agent、MastraCode | インストールされ、そのペインについて能動的に報告している間は、フックまたはプラグインのイベントが `idle`、`working`、`blocked` を決定します。同じライフサイクル権威に対して、Herdr はスクリーンマニフェストのフォールバックを併用しません。 |
-| セッション識別 | Claude Code、Codex、GitHub Copilot CLI、Devin CLI、Droid、Qoder CLI、Cursor Agent CLI、Antigravity CLI、Grok CLI | インテグレーションは復元用のネイティブセッション参照を報告します。状態は引き続き Herdr のスクリーンマニフェスト検出から得られます。 |
+| ライフサイクル権威 | Pi、OMP、Kimi Code CLI、OpenCode、Kilo Code CLI、MastraCode | インストールされ、そのペインについて能動的に報告している間は、フックまたはプラグインのイベントが `idle`、`working`、`blocked` を決定します。同じライフサイクル権威に対して、Herdr はスクリーンマニフェストのフォールバックを併用しません。 |
+| セッション識別 | Claude Code、Codex、GitHub Copilot CLI、Devin CLI、Droid、Qoder CLI、Cursor Agent CLI、Hermes Agent、Antigravity CLI、Grok CLI | インテグレーションは復元用のネイティブセッション参照を報告します。状態は引き続き Herdr のスクリーンマニフェスト検出から得られます。 |
 
 カスタムソケットインテグレーションも、ネイティブのターミナル UI では見えない状態を定義する場合に状態を報告できます。
 
@@ -214,7 +214,7 @@ herdr integration install hermes
 
 Herdr は `~/.hermes/plugins/herdr-agent-state/` を書き込み、`~/.hermes/config.yaml` で `herdr-agent-state` を有効にします。Hermes の設定ディレクトリはあらかじめ存在している必要があります。プラグインを読み込ませるため、インストール後に Hermes を再起動してください。アンインストールはプラグインディレクトリを削除し、`plugins.enabled` から `herdr-agent-state` を削除します。
 
-このプラグインは、Hermes が Herdr のペイン内で動いている間、ライフサイクル、ツール、承認状態、セッション id を報告します。Herdr は報告されたセッション id を使って `hermes --resume <id>` でペインを resume できます。プラグインがインストールされていないときは、スクリーンマニフェスト検出が引き続き利用できます。
+このプラグインは、Hermes が Herdr のペイン内で動いている間、resume 可能なセッション id を報告します。Herdr は `working`、`idle`、`blocked` にスクリーンマニフェスト検出を使い、報告されたセッション id で `hermes --resume <id>` としてペインを resume できます。
 
 ## Qoder CLI
 

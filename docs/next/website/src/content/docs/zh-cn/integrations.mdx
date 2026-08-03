@@ -5,7 +5,7 @@ description: 为 Pi、OMP、Claude Code、Codex、GitHub Copilot CLI、Devin CLI
 
 Herdr 自动检测受支持的智能体。官方集成可以额外提供用于恢复的原生会话身份、生命周期状态上报,或两者兼有。
 
-当你想要 Claude Code/Codex/Copilot/Devin 式钩子的智能体原生会话恢复、Pi/OMP/Kimi/OpenCode/Kilo/Hermes/MastraCode 式钩子或插件的直接生命周期上报,或两者都要时,使用集成。完整的状态权威模型见[智能体](/zh-cn/docs/agents/)。
+当你想要智能体原生会话恢复、直接生命周期上报,或两者都要时,使用集成。完整的状态权威模型见[智能体](/zh-cn/docs/agents/)。
 
 ## 安装集成
 
@@ -57,8 +57,8 @@ Herdr 以两种不同方式使用集成:
 
 | 集成类型 | 智能体 | 效果 |
 | --- | --- | --- |
-| 生命周期权威 | Pi、OMP、Kimi Code CLI、OpenCode、Kilo Code CLI、Hermes Agent、MastraCode | 已安装且在为该窗格主动上报时,由钩子或插件事件决定 `idle`、`working` 和 `blocked`。对同一个生命周期权威,Herdr 不再使用屏幕清单兜底。 |
-| 会话身份 | Claude Code、Codex、GitHub Copilot CLI、Devin CLI、Droid、Qoder CLI、Cursor Agent CLI、Antigravity CLI、Grok CLI | 集成上报用于恢复的原生会话引用。状态仍来自 Herdr 的屏幕清单检测。 |
+| 生命周期权威 | Pi、OMP、Kimi Code CLI、OpenCode、Kilo Code CLI、MastraCode | 已安装且在为该窗格主动上报时,由钩子或插件事件决定 `idle`、`working` 和 `blocked`。对同一个生命周期权威,Herdr 不再使用屏幕清单兜底。 |
+| 会话身份 | Claude Code、Codex、GitHub Copilot CLI、Devin CLI、Droid、Qoder CLI、Cursor Agent CLI、Hermes Agent、Antigravity CLI、Grok CLI | 集成上报用于恢复的原生会话引用。状态仍来自 Herdr 的屏幕清单检测。 |
 
 自定义 socket 集成在定义了原生终端 UI 中不可见的状态时,也可以上报状态。
 
@@ -214,7 +214,7 @@ herdr integration install hermes
 
 Herdr 写入 `~/.hermes/plugins/herdr-agent-state/`,并在 `~/.hermes/config.yaml` 中启用 `herdr-agent-state`。Hermes 配置目录必须已经存在。安装后请重启 Hermes 以加载插件。卸载会删除插件目录,并从 `plugins.enabled` 中移除 `herdr-agent-state`。
 
-该插件在 Hermes 运行于 Herdr 窗格内时上报生命周期、工具、审批状态和会话 id。Herdr 可以用上报的会话 id 通过 `hermes --resume <id>` 恢复该窗格。插件未安装时,屏幕清单检测仍然可用。
+该插件在 Hermes 运行于 Herdr 窗格内时上报可恢复的会话 id。Herdr 使用屏幕清单检测 `working`、`idle` 和 `blocked`,并可用上报的会话 id 通过 `hermes --resume <id>` 恢复该窗格。
 
 ## Qoder CLI
 
