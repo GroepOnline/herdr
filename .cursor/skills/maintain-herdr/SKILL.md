@@ -130,11 +130,8 @@ Never run:
 ## Rebase playbook (full clone / worktree)
 
 Always use a full history clone or worktree. Shallow/partial clones break
-`git checkout <pr-branch>`. Clear stale rebase state first:
-
-```bash
-git rebase --abort 2>/dev/null || true
-```
+`git checkout <pr-branch>`. Do not abort or reset rebase state in a shared
+checkout; create a fresh task worktree instead.
 
 Discover `FORK_REMOTE` / `UPSTREAM_REMOTE` by URL (above), then:
 
@@ -142,13 +139,13 @@ Discover `FORK_REMOTE` / `UPSTREAM_REMOTE` by URL (above), then:
 git fetch "$FORK_REMOTE" main
 git fetch "$FORK_REMOTE" "<pr-branch>"
 
-# Prefer a dedicated worktree; do not hard-reset a dirty shared tree.
-git worktree add -B "<pr-branch>" /tmp/herdr-pr-<n> "${FORK_REMOTE}/<pr-branch>"
+# Use a unique local repair branch; never reset an existing local PR branch.
+git worktree add -b "repair/pr-<n>" /tmp/herdr-pr-<n> "${FORK_REMOTE}/<pr-branch>"
 cd /tmp/herdr-pr-<n>
 git rebase "${FORK_REMOTE}/main"
 # resolve conflicts, commit as needed, then STOP.
 # With Joep approval only:
-#   git push --force-with-lease "$FORK_REMOTE" "<pr-branch>"
+#   git push --force-with-lease "$FORK_REMOTE" "HEAD:<pr-branch>"
 # Then one-shot re-check on the new head SHA; report merge-ready or blockers.
 ```
 
