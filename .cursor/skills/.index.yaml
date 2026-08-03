@@ -31,6 +31,12 @@ items:
   summary: Develop and change the herdr terminal agent runtime (Rust TUI, session
     server, socket API, detection manifests, integrations).
   when: Develop and change the herdr terminal agent runtime (Rust T…
+- name: maintain-herdr
+  path: .cursor/skills/maintain-herdr/SKILL.md
+  kind: skill
+  summary: Maintain the OnlineChefGroep/herdr fork — PR autopilot, rebase and conflict
+    resolution, draft triage, quality-gate fixes, release/hygiene.
+  when: Maintain the OnlineChefGroep/herdr fork — PR autopilot, reb…
 - name: verify-herdr
   path: .cursor/skills/verify-herdr/SKILL.md
   kind: skill
