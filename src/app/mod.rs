@@ -136,6 +136,8 @@ pub struct App {
     pub(crate) update_version_check_enabled: bool,
     pub(crate) update_manifest_check_enabled: bool,
     pub(crate) loaded_host_cursor: crate::config::HostCursorModeConfig,
+    /// Queued config mutations while Settings is open. Flushed once on Save.
+    pub(crate) settings_draft_pending: Vec<crate::ui::settings::SettingsAction>,
     pub(crate) agent_metadata_deadline: Option<Instant>,
     pub(crate) pending_agent_resume_deadline: Option<Instant>,
     pub(crate) selection_autoscroll_deadline: Option<Instant>,
@@ -672,6 +674,7 @@ impl App {
                 content_scroll: 0,
                 original_palette: None,
                 original_theme: None,
+                runtime_baseline: None,
                 preview_tick: 0,
                 config_snapshot: state::SettingsConfigSnapshot::load(),
                 plugin_install_job: None,
@@ -764,6 +767,7 @@ impl App {
             update_version_check_enabled: config.update.version_check,
             update_manifest_check_enabled: config.update.manifest_check,
             loaded_host_cursor: config.ui.host_cursor,
+            settings_draft_pending: Vec::new(),
             agent_metadata_deadline: None,
             pending_agent_resume_deadline: None,
             session_save_deadline: None,
@@ -1290,7 +1294,7 @@ impl App {
     pub(crate) fn open_settings_from_onboarding(&mut self) {
         self.mark_onboarding_complete();
         self.refresh_integration_recommendations();
-        crate::app::input::open_settings_at(&mut self.state, state::SettingsSection::Agents);
+        self.open_settings_menu_at(state::SettingsSection::Agents);
     }
 
     pub(crate) fn refresh_integration_recommendations(&mut self) {

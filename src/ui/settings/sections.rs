@@ -10,15 +10,17 @@ use crate::app::{state::SettingsSection, AppState};
 use crate::ui::text::{display_width_u16, truncate_end};
 
 use super::{
-    catalog::{catalog_plugin_id, integration_index, spinner_index},
+    catalog::{catalog_plugin_id, integration_index, spinner_index, theme_index},
     layout::{
-        active_spinner_styles, spinner_category_labels, SettingsLayout, SETTINGS_SECTION_DESC_ROWS,
+        active_spinner_styles, spinner_category_labels, SettingsLayout, SETTINGS_NAV_ACCENT_COLS,
+        SETTINGS_SECTION_DESC_ROWS,
     },
     rows::{
-        row_choice_selected, row_spinner_current, row_theme_current, row_toggle_checked,
-        section_rows, SettingsRowKind,
+        appearance_theme_labels, row_choice_selected, row_spinner_current, row_theme_current,
+        row_toggle_checked, scroll_list_row_indices, section_rows, SettingsRowKind,
     },
     spinner::{active_spinner_category, spinner_frame_at, spinner_hero_strip},
+    widgets::{render_chip_row, render_setting_block_header, ChipSpec, CHIP_HORIZONTAL_GAP},
 };
 
 pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout: &SettingsLayout) {
@@ -56,16 +58,34 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
     );
 
     if section == SettingsSection::Appearance {
-        render_spinner_categories(app, frame, layout);
-        render_spinner_hero(app, frame, layout);
+        render_appearance_showcase(app, frame, layout);
+    }
+
+    if super::content::uses_block_layout(section) {
+        super::content::render_block_section(app, frame, layout);
+        if section == SettingsSection::Agents {
+            render_agents_footer(app, frame, layout);
+        }
+        if section == SettingsSection::Plugins {
+            render_plugins_footer(app, frame, layout);
+        }
+        return;
     }
 
     let rows = section_rows(app, section);
+    let list_indices = if section == SettingsSection::Appearance {
+        scroll_list_row_indices(app, section)
+    } else {
+        (0..rows.len()).collect()
+    };
     let (scroll, visible) = layout.visible_row_range(app);
     let selected = app.settings.list.selected.min(rows.len().saturating_sub(1));
 
     for visible_idx in 0..visible {
-        let row_index = scroll + visible_idx;
+        let list_pos = scroll + visible_idx;
+        let Some(&row_index) = list_indices.get(list_pos) else {
+            break;
+        };
         let Some(row) = rows.get(row_index) else {
             break;
         };
@@ -161,28 +181,119 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
     }
 }
 
-fn render_spinner_categories(app: &AppState, frame: &mut Frame, layout: &SettingsLayout) {
+fn render_appearance_showcase(app: &AppState, frame: &mut Frame, layout: &SettingsLayout) {
+    let p = &app.palette;
+    let rows = section_rows(app, SettingsSection::Appearance);
+    let selected = app.settings.list.selected;
+
+    render_setting_block_header(
+        frame,
+        layout.setting_block_header_rect(layout.appearance_block_header_y(app)),
+        "appearance",
+        p,
+    );
+
+    if let Some(row) = rows
+        .iter()
+        .find(|row| row.id == super::catalog::SettingsItemId::ThemeAutoSwitch)
+    {
+        let y = layout.appearance_auto_switch_y(app);
+        let is_sel = rows
+            .iter()
+            .position(|r| r.id == row.id)
+            .is_some_and(|idx| idx == selected);
+        render_toggle_row(
+            app,
+            frame,
+            row,
+            is_sel,
+            Rect::new(layout.content.x, y, layout.content.width, 1),
+        );
+    }
+
+    let theme_rect = layout.appearance_theme_chips_rect(app);
+    let theme_labels = appearance_theme_labels(app);
+    if !theme_labels.is_empty() {
+        let chips: Vec<ChipSpec<'_>> = theme_labels
+            .iter()
+            .enumerate()
+            .map(|(label_idx, label)| {
+                let theme_idx = super::rows::appearance_theme_index_at_label_index(app, label_idx)
+                    .unwrap_or(label_idx);
+                let row_selected = rows
+                    .iter()
+                    .position(|row| theme_index(row.id) == Some(theme_idx))
+                    .is_some_and(|idx| idx == selected);
+                let row = rows
+                    .iter()
+                    .find(|row| theme_index(row.id) == Some(theme_idx));
+                ChipSpec {
+                    label,
+                    selected: row.is_some_and(|row| row_theme_current(app, row)) || row_selected,
+                }
+            })
+            .collect();
+        render_chip_row(frame, theme_rect, &chips, CHIP_HORIZONTAL_GAP, p);
+    }
+
+    render_setting_block_header(
+        frame,
+        layout.setting_block_header_rect(layout.appearance_spinner_header_y(app)),
+        "spinner",
+        p,
+    );
+    render_spinner_category_chips(app, frame, layout);
+    render_spinner_hero(app, frame, layout);
+}
+
+fn render_toggle_row(
+    app: &AppState,
+    frame: &mut Frame,
+    row: &super::rows::SettingsRow,
+    is_sel: bool,
+    rect: Rect,
+) {
+    let p = &app.palette;
+    let section = SettingsSection::Appearance;
+    let row_style = if is_sel {
+        Style::default()
+            .bg(p.surface0)
+            .fg(p.text)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(p.subtext0)
+    };
+    let marker = if row_toggle_checked(app, section, row) {
+        "[✓]"
+    } else {
+        "[ ]"
+    };
+    let mut spans = vec![
+        Span::styled(format!(" {marker} "), row_style),
+        Span::styled(row.label.clone(), row_style),
+    ];
+    if let Some(detail) = &row.detail {
+        spans.push(Span::styled(
+            format!("  ·  {detail}"),
+            Style::default().fg(p.overlay1),
+        ));
+    }
+    frame.render_widget(Paragraph::new(Line::from(spans)), rect);
+}
+
+fn render_spinner_category_chips(app: &AppState, frame: &mut Frame, layout: &SettingsLayout) {
     let p = &app.palette;
     let Some(rect) = layout.spinner_category_rect(app) else {
         return;
     };
-    let mut spans = Vec::new();
-    for (idx, label) in spinner_category_labels().enumerate() {
-        let active = idx == app.settings.spinner_category;
-        let style = if active {
-            Style::default()
-                .fg(super::super::widgets::panel_contrast_fg(p))
-                .bg(p.accent)
-                .add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(p.overlay1)
-        };
-        if idx > 0 {
-            spans.push(Span::raw(" "));
-        }
-        spans.push(Span::styled(format!(" {label} "), style));
-    }
-    frame.render_widget(Paragraph::new(Line::from(spans)), rect);
+    let chips: Vec<ChipSpec<'_>> = spinner_category_labels()
+        .enumerate()
+        .map(|(idx, label)| ChipSpec {
+            label,
+            selected: idx == app.settings.spinner_category,
+        })
+        .collect();
+    render_chip_row(frame, rect, &chips, CHIP_HORIZONTAL_GAP, p);
 }
 
 fn render_spinner_hero(app: &AppState, frame: &mut Frame, layout: &SettingsLayout) {
@@ -311,26 +422,49 @@ pub(crate) fn render_settings_nav(app: &AppState, frame: &mut Frame, layout: &Se
             continue;
         };
         let active = *section == app.settings.section;
-        let style = if active {
-            Style::default()
-                .fg(super::super::widgets::panel_contrast_fg(p))
-                .bg(p.accent)
-                .add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(p.overlay1)
-        };
         let badge = if app.settings_section_has_badge(*section) {
             " ●"
         } else {
             ""
         };
-        frame.render_widget(
-            Paragraph::new(Line::from(vec![Span::styled(
-                format!(" {}{}", section.label(), badge),
-                style,
-            )])),
-            rect,
-        );
+
+        if active {
+            let accent_rect = Rect::new(rect.x, rect.y, SETTINGS_NAV_ACCENT_COLS, 1);
+            frame.render_widget(
+                Paragraph::new(Span::styled(
+                    "▌",
+                    Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
+                )),
+                accent_rect,
+            );
+            let label_rect = Rect::new(
+                rect.x + SETTINGS_NAV_ACCENT_COLS,
+                rect.y,
+                rect.width.saturating_sub(SETTINGS_NAV_ACCENT_COLS),
+                1,
+            );
+            frame.render_widget(
+                Paragraph::new(Line::from(Span::styled(
+                    format!(" {}{}", section.label(), badge),
+                    Style::default()
+                        .fg(p.text)
+                        .bg(p.surface0)
+                        .add_modifier(Modifier::BOLD),
+                ))),
+                label_rect,
+            );
+        } else {
+            frame.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::raw(" "),
+                    Span::styled(
+                        format!("{}{}", section.label(), badge),
+                        Style::default().fg(p.overlay0),
+                    ),
+                ])),
+                rect,
+            );
+        }
     }
 
     let sep_x = layout.nav.x + layout.nav.width;
@@ -345,17 +479,27 @@ pub(crate) fn render_settings_nav(app: &AppState, frame: &mut Frame, layout: &Se
 
 pub(crate) fn render_settings_header(app: &AppState, frame: &mut Frame, layout: &SettingsLayout) {
     let p = &app.palette;
+    let section = app.settings.section;
+
     frame.render_widget(
         Paragraph::new(Line::from(vec![Span::styled(
-            " customize herdr",
+            " CONFIG MENU",
             Style::default().fg(p.text).add_modifier(Modifier::BOLD),
         )])),
         layout.title,
     );
 
+    frame.render_widget(
+        Paragraph::new(Line::from(vec![Span::styled(
+            format!(" {} settings", section.label()),
+            Style::default().fg(p.overlay1),
+        )])),
+        layout.subtitle,
+    );
+
     let filter = &app.settings.search;
     let placeholder = if filter.is_empty() {
-        " search settings…"
+        " / search settings…"
     } else {
         filter.as_str()
     };
@@ -389,36 +533,51 @@ pub(crate) fn render_settings_footer(app: &AppState, frame: &mut Frame, layout: 
         Paragraph::new(Line::from(vec![
             Span::styled(" ↑↓", Style::default().fg(p.overlay0)),
             Span::styled(" select  ", Style::default().fg(p.overlay1)),
+            Span::styled("space", Style::default().fg(p.overlay0)),
+            Span::styled(" toggle  ", Style::default().fg(p.overlay1)),
             Span::styled("tab", Style::default().fg(p.overlay0)),
             Span::styled(" section  ", Style::default().fg(p.overlay1)),
-            Span::styled("[", Style::default().fg(p.overlay0)),
             Span::styled("/", Style::default().fg(p.overlay0)),
-            Span::styled("]", Style::default().fg(p.overlay0)),
             Span::styled(" search", Style::default().fg(p.overlay1)),
         ])),
         layout.footer_hints,
     );
 
-    let show_primary = super::layout::settings_show_primary_action(app);
-    let (apply_rect, close_rect) =
-        super::layout::settings_button_rects(layout, app.settings.section, show_primary);
-    if let Some(apply_rect) = apply_rect {
+    let show_tertiary = super::layout::settings_show_tertiary_action(app);
+    let buttons = super::layout::settings_button_rects(layout, app.settings.section, show_tertiary);
+
+    if let Some(tertiary_rect) = buttons.tertiary {
+        let tertiary_hint = match app.settings.section {
+            SettingsSection::Agents => Some("i"),
+            _ => None,
+        };
         super::super::widgets::render_action_button(
             frame,
-            apply_rect,
-            Some("↵"),
-            super::layout::settings_primary_button_label(app.settings.section),
+            tertiary_rect,
+            tertiary_hint,
+            super::layout::settings_tertiary_button_label(app.settings.section),
             Style::default()
-                .fg(super::super::widgets::panel_contrast_fg(p))
-                .bg(p.accent)
+                .fg(p.text)
+                .bg(p.surface0)
                 .add_modifier(Modifier::BOLD),
         );
     }
+
     super::super::widgets::render_action_button(
         frame,
-        close_rect,
+        buttons.save,
+        Some("↵"),
+        "save",
+        Style::default()
+            .fg(super::super::widgets::panel_contrast_fg(p))
+            .bg(p.accent)
+            .add_modifier(Modifier::BOLD),
+    );
+    super::super::widgets::render_action_button(
+        frame,
+        buttons.cancel,
         Some("esc"),
-        "close",
+        "cancel",
         Style::default()
             .fg(p.text)
             .bg(p.surface0)

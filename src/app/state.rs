@@ -1223,16 +1223,6 @@ impl SelectionListState {
         Self { selected }
     }
 
-    pub fn move_prev(&mut self) {
-        self.selected = self.selected.saturating_sub(1);
-    }
-
-    pub fn move_next(&mut self, item_count: usize) {
-        if item_count > 0 {
-            self.selected = (self.selected + 1).min(item_count - 1);
-        }
-    }
-
     pub fn select(&mut self, idx: usize) {
         self.selected = idx;
     }
@@ -1261,6 +1251,106 @@ pub struct PluginInstallJob {
     pub message: String,
 }
 
+/// Runtime fields mutated by the settings draft. Captured on open so Cancel can
+/// restore without reading disk (tests and live sessions may have dirty memory).
+#[derive(Debug, Clone)]
+pub struct SettingsRuntimeBaseline {
+    pub config_snapshot: SettingsConfigSnapshot,
+    pub theme_name: String,
+    pub palette: Palette,
+    pub theme_runtime: ThemeRuntimeConfig,
+    pub mouse_capture: bool,
+    pub copy_on_select: bool,
+    pub redraw_on_focus_gained: bool,
+    pub confirm_close: bool,
+    pub prompt_new_tab_name: bool,
+    pub prompt_new_workspace_name: bool,
+    pub pane_borders: bool,
+    pub pane_gaps: bool,
+    pub show_agent_labels_on_pane_borders: bool,
+    pub fleet_ops_bar: bool,
+    pub hide_tab_bar_when_single_tab: bool,
+    pub agent_panel_sort: AgentPanelSort,
+    pub sidebar_collapsed_mode: crate::config::SidebarCollapsedModeConfig,
+    pub sound: SoundConfig,
+    pub toast_config: ToastConfig,
+    pub spinner_style: crate::config::SpinnerStyle,
+    pub shell_mode: crate::config::ShellModeConfig,
+    pub default_shell: String,
+    pub new_terminal_cwd: NewTerminalCwdConfig,
+    pub pane_scrollback_limit_bytes: usize,
+    pub pane_history_persistence: bool,
+    pub switch_ascii_input_source_in_prefix: bool,
+    pub kitty_graphics_enabled: bool,
+    pub reveal_hidden_cursor_for_cjk_ime: bool,
+}
+
+impl SettingsRuntimeBaseline {
+    pub fn capture(state: &AppState) -> Self {
+        Self {
+            config_snapshot: state.settings.config_snapshot.clone(),
+            theme_name: state.theme_name.clone(),
+            palette: state.palette.clone(),
+            theme_runtime: state.theme_runtime.clone(),
+            mouse_capture: state.mouse_capture,
+            copy_on_select: state.copy_on_select,
+            redraw_on_focus_gained: state.redraw_on_focus_gained,
+            confirm_close: state.confirm_close,
+            prompt_new_tab_name: state.prompt_new_tab_name,
+            prompt_new_workspace_name: state.prompt_new_workspace_name,
+            pane_borders: state.pane_borders,
+            pane_gaps: state.pane_gaps,
+            show_agent_labels_on_pane_borders: state.show_agent_labels_on_pane_borders,
+            fleet_ops_bar: state.fleet_ops_bar,
+            hide_tab_bar_when_single_tab: state.hide_tab_bar_when_single_tab,
+            agent_panel_sort: state.agent_panel_sort,
+            sidebar_collapsed_mode: state.sidebar_collapsed_mode,
+            sound: state.sound.clone(),
+            toast_config: state.toast_config.clone(),
+            spinner_style: state.spinner_style,
+            shell_mode: state.shell_mode,
+            default_shell: state.default_shell.clone(),
+            new_terminal_cwd: state.new_terminal_cwd.clone(),
+            pane_scrollback_limit_bytes: state.pane_scrollback_limit_bytes,
+            pane_history_persistence: state.pane_history_persistence,
+            switch_ascii_input_source_in_prefix: state.switch_ascii_input_source_in_prefix,
+            kitty_graphics_enabled: state.kitty_graphics_enabled,
+            reveal_hidden_cursor_for_cjk_ime: state.reveal_hidden_cursor_for_cjk_ime,
+        }
+    }
+
+    pub fn restore_into(self, state: &mut AppState) {
+        state.settings.config_snapshot = self.config_snapshot;
+        state.theme_name = self.theme_name;
+        state.palette = self.palette;
+        state.theme_runtime = self.theme_runtime;
+        state.mouse_capture = self.mouse_capture;
+        state.copy_on_select = self.copy_on_select;
+        state.redraw_on_focus_gained = self.redraw_on_focus_gained;
+        state.confirm_close = self.confirm_close;
+        state.prompt_new_tab_name = self.prompt_new_tab_name;
+        state.prompt_new_workspace_name = self.prompt_new_workspace_name;
+        state.pane_borders = self.pane_borders;
+        state.pane_gaps = self.pane_gaps;
+        state.show_agent_labels_on_pane_borders = self.show_agent_labels_on_pane_borders;
+        state.fleet_ops_bar = self.fleet_ops_bar;
+        state.hide_tab_bar_when_single_tab = self.hide_tab_bar_when_single_tab;
+        state.agent_panel_sort = self.agent_panel_sort;
+        state.sidebar_collapsed_mode = self.sidebar_collapsed_mode;
+        state.sound = self.sound;
+        state.toast_config = self.toast_config;
+        state.spinner_style = self.spinner_style;
+        state.shell_mode = self.shell_mode;
+        state.default_shell = self.default_shell;
+        state.new_terminal_cwd = self.new_terminal_cwd;
+        state.pane_scrollback_limit_bytes = self.pane_scrollback_limit_bytes;
+        state.pane_history_persistence = self.pane_history_persistence;
+        state.switch_ascii_input_source_in_prefix = self.switch_ascii_input_source_in_prefix;
+        state.kitty_graphics_enabled = self.kitty_graphics_enabled;
+        state.reveal_hidden_cursor_for_cjk_ime = self.reveal_hidden_cursor_for_cjk_ime;
+    }
+}
+
 pub struct SettingsState {
     /// Which left-nav section is active.
     pub section: SettingsSection,
@@ -1278,6 +1368,8 @@ pub struct SettingsState {
     pub original_palette: Option<Palette>,
     /// The theme name before opening settings.
     pub original_theme: Option<String>,
+    /// Full runtime baseline captured when the menu opened.
+    pub runtime_baseline: Option<SettingsRuntimeBaseline>,
     /// Independent tick for animated settings previews.
     pub preview_tick: u32,
     /// Snapshot of config fields not mirrored on [`AppState`].
@@ -2103,6 +2195,7 @@ impl AppState {
                 content_scroll: 0,
                 original_palette: None,
                 original_theme: None,
+                runtime_baseline: None,
                 preview_tick: 0,
                 config_snapshot: SettingsConfigSnapshot::load(),
                 plugin_install_job: None,

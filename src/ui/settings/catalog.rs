@@ -29,11 +29,13 @@ pub(crate) enum SettingsItemId {
     ConfirmClose,
     PromptNewTabName,
     PromptNewWorkspaceName,
-    HostCursor,
+    HostCursor { mode: HostCursorModeConfig },
     KeybindHelp,
     DefaultShell,
-    ShellMode,
-    NewTerminalCwd,
+    ShellMode { mode: ShellModeConfig },
+    /// Chip choice for new-pane cwd presets (follow/home/current). Path values
+    /// stay outside the settings chip row and are not represented here.
+    NewTerminalCwd { choice: NewTerminalCwdChoice },
     ScrollbackPreset { index: usize },
     SoundAlerts,
     ToastDelivery { delivery: ToastDelivery },
@@ -60,6 +62,33 @@ pub(crate) enum SettingsItemId {
     WorktreesPath,
     ReloadConfig,
     ConfigFile,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NewTerminalCwdChoice {
+    Follow,
+    Home,
+    Current,
+}
+
+impl NewTerminalCwdChoice {
+    pub(crate) const ALL: [Self; 3] = [Self::Follow, Self::Home, Self::Current];
+
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::Follow => "follow",
+            Self::Home => "home",
+            Self::Current => "current",
+        }
+    }
+
+    pub(crate) fn to_config(self) -> NewTerminalCwdConfig {
+        match self {
+            Self::Follow => NewTerminalCwdConfig::Follow,
+            Self::Home => NewTerminalCwdConfig::Home,
+            Self::Current => NewTerminalCwdConfig::Current,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,6 +138,10 @@ pub(crate) enum SettingsAction {
     TogglePluginEnabled { plugin_id: String, enabled: bool },
     InstallCatalogPlugin { source: String },
     RefreshInstalledPlugins,
+    /// Persist all draft settings changes exactly once and close the menu.
+    CommitPending,
+    /// Discard draft settings changes, restore runtime from disk, and close.
+    DiscardPending,
 }
 
 const TOAST_DELAY_PRESETS: &[u64] = &[0, 1, 2, 5];
@@ -172,14 +205,6 @@ pub(crate) fn catalog_entries_available(app: &AppState) -> Vec<&PluginCatalogEnt
         .collect()
 }
 
-fn cycle_host_cursor(current: HostCursorModeConfig) -> HostCursorModeConfig {
-    match current {
-        HostCursorModeConfig::Auto => HostCursorModeConfig::Native,
-        HostCursorModeConfig::Native => HostCursorModeConfig::Drawn,
-        HostCursorModeConfig::Drawn => HostCursorModeConfig::Auto,
-    }
-}
-
 fn cycle_sidebar_collapsed_mode(current: SidebarCollapsedModeConfig) -> SidebarCollapsedModeConfig {
     match current {
         SidebarCollapsedModeConfig::Compact => SidebarCollapsedModeConfig::Hidden,
@@ -191,24 +216,6 @@ fn cycle_agent_panel_sort(current: AgentPanelSort) -> AgentPanelSort {
     match current {
         AgentPanelSort::Spaces => AgentPanelSort::Priority,
         AgentPanelSort::Priority => AgentPanelSort::Spaces,
-    }
-}
-
-fn cycle_shell_mode(current: ShellModeConfig) -> ShellModeConfig {
-    match current {
-        ShellModeConfig::Auto => ShellModeConfig::Login,
-        ShellModeConfig::Login => ShellModeConfig::NonLogin,
-        ShellModeConfig::NonLogin => ShellModeConfig::Auto,
-    }
-}
-
-fn cycle_new_terminal_cwd(current: &NewTerminalCwdConfig) -> NewTerminalCwdConfig {
-    match current {
-        NewTerminalCwdConfig::Follow => NewTerminalCwdConfig::Home,
-        NewTerminalCwdConfig::Home => NewTerminalCwdConfig::Current,
-        NewTerminalCwdConfig::Current | NewTerminalCwdConfig::Path(_) => {
-            NewTerminalCwdConfig::Follow
-        }
     }
 }
 
@@ -332,18 +339,14 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
         SettingsItemId::PromptNewWorkspaceName => Some(SettingsAction::SavePromptNewWorkspaceName(
             !state.prompt_new_workspace_name,
         )),
-        SettingsItemId::HostCursor => Some(SettingsAction::SaveHostCursor(cycle_host_cursor(
-            state.settings.config_snapshot.host_cursor,
-        ))),
+        SettingsItemId::HostCursor { mode } => Some(SettingsAction::SaveHostCursor(mode)),
         SettingsItemId::DefaultShell => Some(SettingsAction::SaveDefaultShell(
             cycle_default_shell(&state.default_shell),
         )),
-        SettingsItemId::ShellMode => Some(SettingsAction::SaveShellMode(cycle_shell_mode(
-            state.shell_mode,
-        ))),
-        SettingsItemId::NewTerminalCwd => Some(SettingsAction::SaveNewTerminalCwd(
-            cycle_new_terminal_cwd(&state.new_terminal_cwd),
-        )),
+        SettingsItemId::ShellMode { mode } => Some(SettingsAction::SaveShellMode(mode)),
+        SettingsItemId::NewTerminalCwd { choice } => {
+            Some(SettingsAction::SaveNewTerminalCwd(choice.to_config()))
+        }
         SettingsItemId::ScrollbackPreset { index } => scrollback_presets()
             .get(index)
             .map(|(bytes, _)| SettingsAction::SaveScrollbackLimitBytes(*bytes)),
@@ -420,6 +423,35 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
         | SettingsItemId::WorktreesPath
         | SettingsItemId::ReloadConfig
         | SettingsItemId::ConfigFile => None,
+    }
+}
+
+pub(crate) fn settings_action_is_immediate(action: &SettingsAction) -> bool {
+    matches!(
+        action,
+        SettingsAction::ApplyPaneTemplate(_)
+            | SettingsAction::InstallRecommendedIntegrations
+            | SettingsAction::TogglePluginEnabled { .. }
+            | SettingsAction::InstallCatalogPlugin { .. }
+            | SettingsAction::RefreshInstalledPlugins
+            | SettingsAction::CommitPending
+            | SettingsAction::DiscardPending
+    )
+}
+
+pub(crate) fn coalesce_pending_action(pending: &mut Vec<SettingsAction>, action: SettingsAction) {
+    pending.retain(|existing| !pending_actions_same_slot(existing, &action));
+    pending.push(action);
+}
+
+fn pending_actions_same_slot(existing: &SettingsAction, incoming: &SettingsAction) -> bool {
+    use SettingsAction::*;
+    match (existing, incoming) {
+        (TogglePluginEnabled { plugin_id: a, .. }, TogglePluginEnabled { plugin_id: b, .. }) => {
+            a == b
+        }
+        (InstallCatalogPlugin { source: a }, InstallCatalogPlugin { source: b }) => a == b,
+        _ => std::mem::discriminant(existing) == std::mem::discriminant(incoming),
     }
 }
 

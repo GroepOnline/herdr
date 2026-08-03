@@ -174,13 +174,24 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     search_extra: None,
                 });
             }
-            rows.push(SettingsRow {
-                label: "host cursor".to_string(),
-                detail: Some(app.host_cursor_label()),
-                kind: SettingsRowKind::Choice,
-                id: SettingsItemId::HostCursor,
-                search_extra: None,
-            });
+            for mode in [
+                crate::config::HostCursorModeConfig::Auto,
+                crate::config::HostCursorModeConfig::Native,
+                crate::config::HostCursorModeConfig::Drawn,
+            ] {
+                let label = match mode {
+                    crate::config::HostCursorModeConfig::Auto => "auto",
+                    crate::config::HostCursorModeConfig::Native => "native",
+                    crate::config::HostCursorModeConfig::Drawn => "drawn",
+                };
+                rows.push(SettingsRow {
+                    label: label.to_string(),
+                    detail: Some("host cursor".to_string()),
+                    kind: SettingsRowKind::Choice,
+                    id: SettingsItemId::HostCursor { mode },
+                    search_extra: Some("host cursor".to_string()),
+                });
+            }
             let prefix = crate::config::format_key_combo((app.prefix_code, app.prefix_mods));
             rows.push(SettingsRow {
                 label: "keybind help".to_string(),
@@ -198,20 +209,33 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 id: SettingsItemId::DefaultShell,
                 search_extra: None,
             });
-            rows.push(SettingsRow {
-                label: "shell mode".to_string(),
-                detail: Some(app.shell_mode_label()),
-                kind: SettingsRowKind::Choice,
-                id: SettingsItemId::ShellMode,
-                search_extra: None,
-            });
-            rows.push(SettingsRow {
-                label: "new pane cwd".to_string(),
-                detail: Some(app.new_terminal_cwd_label()),
-                kind: SettingsRowKind::Choice,
-                id: SettingsItemId::NewTerminalCwd,
-                search_extra: None,
-            });
+            for mode in [
+                crate::config::ShellModeConfig::Auto,
+                crate::config::ShellModeConfig::Login,
+                crate::config::ShellModeConfig::NonLogin,
+            ] {
+                let label = match mode {
+                    crate::config::ShellModeConfig::Auto => "auto",
+                    crate::config::ShellModeConfig::Login => "login",
+                    crate::config::ShellModeConfig::NonLogin => "non_login",
+                };
+                rows.push(SettingsRow {
+                    label: label.to_string(),
+                    detail: Some("shell mode".to_string()),
+                    kind: SettingsRowKind::Choice,
+                    id: SettingsItemId::ShellMode { mode },
+                    search_extra: Some("shell mode".to_string()),
+                });
+            }
+            for choice in super::catalog::NewTerminalCwdChoice::ALL {
+                rows.push(SettingsRow {
+                    label: choice.label().to_string(),
+                    detail: Some("new pane cwd".to_string()),
+                    kind: SettingsRowKind::Choice,
+                    id: SettingsItemId::NewTerminalCwd { choice },
+                    search_extra: Some("new pane cwd".to_string()),
+                });
+            }
             for (idx, (_bytes, label)) in scrollback_presets().iter().enumerate() {
                 rows.push(SettingsRow {
                     label: format!("scrollback {label}"),
@@ -459,6 +483,116 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
     rows
 }
 
+pub(crate) fn row_navigable(_section: SettingsSection, row: &SettingsRow) -> bool {
+    if matches!(row.kind, SettingsRowKind::Note) {
+        return false;
+    }
+    !matches!(
+        row.id,
+        SettingsItemId::KeybindHelp
+            | SettingsItemId::IntegrationsEmpty
+            | SettingsItemId::PluginsInstalledHeader
+            | SettingsItemId::PluginsEmpty
+            | SettingsItemId::PluginsCatalogHeader
+            | SettingsItemId::WorktreesPath
+            | SettingsItemId::ReloadConfig
+            | SettingsItemId::ConfigFile
+    )
+}
+
+pub(crate) fn navigable_row_indices(app: &AppState, section: SettingsSection) -> Vec<usize> {
+    section_rows(app, section)
+        .iter()
+        .enumerate()
+        .filter(|(_, row)| row_navigable(section, row))
+        .map(|(idx, _)| idx)
+        .collect()
+}
+
+pub(crate) fn row_shown_in_scroll_list(section: SettingsSection, row: &SettingsRow) -> bool {
+    match section {
+        SettingsSection::Appearance => {
+            row.kind != SettingsRowKind::Theme && row.id != SettingsItemId::ThemeAutoSwitch
+        }
+        SettingsSection::Layout => !matches!(
+            row.id,
+            SettingsItemId::PaneBorders
+                | SettingsItemId::PaneGaps
+                | SettingsItemId::AgentLabels
+                | SettingsItemId::HideTabBar
+        ),
+        SettingsSection::Notifications => !matches!(
+            row.id,
+            SettingsItemId::SoundAlerts | SettingsItemId::ToastDelivery { .. }
+        ),
+        SettingsSection::Input => !matches!(
+            row.id,
+            SettingsItemId::MouseCapture
+                | SettingsItemId::CopyOnSelect
+                | SettingsItemId::RedrawOnFocusGained
+                | SettingsItemId::ConfirmClose
+                | SettingsItemId::PromptNewTabName
+                | SettingsItemId::PromptNewWorkspaceName
+                | SettingsItemId::HostCursor { .. }
+                | SettingsItemId::KeybindHelp
+        ),
+        SettingsSection::Terminal => !matches!(
+            row.id,
+            SettingsItemId::ShellMode { .. }
+                | SettingsItemId::NewTerminalCwd { .. }
+                | SettingsItemId::ScrollbackPreset { .. }
+        ),
+        _ => true,
+    }
+}
+
+pub(crate) fn scroll_list_row_indices(app: &AppState, section: SettingsSection) -> Vec<usize> {
+    section_rows(app, section)
+        .iter()
+        .enumerate()
+        .filter(|(_, row)| row_shown_in_scroll_list(section, row))
+        .map(|(idx, _)| idx)
+        .collect()
+}
+
+pub(crate) fn appearance_theme_labels(app: &AppState) -> Vec<&'static str> {
+    section_rows(app, SettingsSection::Appearance)
+        .iter()
+        .filter_map(|row| {
+            if let SettingsItemId::Theme { index } = row.id {
+                THEME_NAMES.get(index).copied()
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+pub(crate) fn appearance_theme_index_at_label_index(
+    app: &AppState,
+    label_index: usize,
+) -> Option<usize> {
+    section_rows(app, SettingsSection::Appearance)
+        .iter()
+        .filter_map(|row| {
+            if let SettingsItemId::Theme { index } = row.id {
+                Some(index)
+            } else {
+                None
+            }
+        })
+        .nth(label_index)
+}
+
+pub(crate) fn notifications_toast_delivery_labels() -> &'static [(&'static str, ToastDelivery)] {
+    &[
+        ("off", ToastDelivery::Off),
+        ("herdr", ToastDelivery::Herdr),
+        ("terminal", ToastDelivery::Terminal),
+        ("system", ToastDelivery::System),
+    ]
+}
+
 fn plugin_source_search_label(plugin: &crate::api::schema::InstalledPluginInfo) -> String {
     let source = &plugin.source;
     match (&source.owner, &source.repo) {
@@ -516,13 +650,13 @@ pub(crate) fn row_choice_selected(
     match row.id {
         SettingsItemId::SidebarCollapsedMode
         | SettingsItemId::AgentPanelSort
-        | SettingsItemId::HostCursor
         | SettingsItemId::DefaultShell
-        | SettingsItemId::ShellMode
-        | SettingsItemId::NewTerminalCwd
         | SettingsItemId::ToastDelay
         | SettingsItemId::ToastHerdrPosition
         | SettingsItemId::ClipboardToast => true,
+        SettingsItemId::HostCursor { mode } => app.settings.config_snapshot.host_cursor == mode,
+        SettingsItemId::ShellMode { mode } => app.shell_mode == mode,
+        SettingsItemId::NewTerminalCwd { choice } => app.new_terminal_cwd == choice.to_config(),
         SettingsItemId::ScrollbackPreset { index } => scrollback_presets()
             .get(index)
             .is_some_and(|(bytes, _)| app.pane_scrollback_limit_bytes == *bytes),

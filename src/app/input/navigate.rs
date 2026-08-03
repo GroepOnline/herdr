@@ -401,7 +401,7 @@ impl App {
                 leave_navigate_mode(&mut self.state);
             }
             NavigateAction::Help => super::modal::open_keybind_help(&mut self.state),
-            NavigateAction::Settings => super::settings::open_settings(&mut self.state),
+            NavigateAction::Settings => self.open_settings_menu(),
             NavigateAction::ReloadConfig => {
                 self.runtime_server_reload_config("tui.server.reload_config");
                 leave_navigate_mode(&mut self.state);
