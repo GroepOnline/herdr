@@ -1,6 +1,16 @@
 version: 1
 generated_by: scripts/generate_cursor_index.py
 items:
+- name: audit-canvas
+  path: .cursor/agents/audit-canvas.md
+  kind: agent
+  summary: Herdr canvas painter for report-only thermos/audit runs.
+  when: Herdr canvas painter for report-only thermos/audit runs. Wr…
+- name: audit-scope-mapper
+  path: .cursor/agents/audit-scope-mapper.md
+  kind: agent
+  summary: Report-only connections mapper for thermos/audit waves.
+  when: Report-only connections mapper for thermos/audit waves. Map…
 - name: chef-fleet
   path: .cursor/agents/chef-fleet.md
   kind: agent

@@ -1,6 +1,29 @@
 version: 1
 generated_by: scripts/generate_cursor_index.py
 items:
+- name: audit
+  path: .cursor/commands/audit.md
+  kind: command
+  summary: Report-only parallel thermos audit with Herdr canvas (no fixes).
+  when: Report-only parallel thermos audit with Herdr canvas (no fi…
+- name: create-skill
+  path: .cursor/commands/create-skill.md
+  kind: command
+  summary: Scaffold a Cursor Agent Skill under .cursor/skills/<name>/SKILL.md with
+    valid frontmatter, twin-chain hookup to a subagent when needed, and a short verify
+    pass.
+  when: Scaffold a Cursor Agent Skill under .cursor/skills/<name>/S…
+- name: create-subagent
+  path: .cursor/commands/create-subagent.md
+  kind: command
+  summary: Scaffold a focused Cursor subagent at .cursor/agents/<name>.md with YAML
+    frontmatter and a strict return contract.
+  when: Scaffold a focused Cursor subagent at .cursor/agents/<name>…
+- name: herdr-local-verify
+  path: .cursor/commands/herdr-local-verify.md
+  kind: command
+  summary: CI-only Herdr validation — gh pr checks instead of local cargo/just.
+  when: CI-only Herdr validation — gh pr checks instead of local ca…
 - name: settings-redesign
   path: .cursor/commands/settings-redesign.md
   kind: command

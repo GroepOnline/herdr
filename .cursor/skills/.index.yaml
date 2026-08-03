@@ -8,6 +8,21 @@ items:
     Ops Bar, plugin state-dir contracts, and when to touch core vs com.chefgroep.*
     plugins.
   when: CHEF fleet operations for herdr — Linear/GitHub/UDO/Kater S…
+- name: create-skill
+  path: .cursor/skills/create-skill/SKILL.md
+  kind: skill
+  summary: Project endpoint for /create-skill.
+  when: Project endpoint for /create-skill. Scaffold a Cursor Agent…
+- name: create-subagent
+  path: .cursor/skills/create-subagent/SKILL.md
+  kind: skill
+  summary: Project endpoint for /create-subagent.
+  when: Project endpoint for /create-subagent. Scaffold a focused C…
+- name: herdr-local-verify
+  path: .cursor/skills/herdr-local-verify/SKILL.md
+  kind: skill
+  summary: CI-only validation for Herdr — no local cargo/rust/zig/just on Cloud VM.
+  when: CI-only validation for Herdr — no local cargo/rust/zig/just…
 - name: herdr-quality-ci-remediation
   path: .cursor/skills/herdr-quality-ci-remediation/SKILL.md
   kind: skill
@@ -19,6 +34,12 @@ items:
   summary: Plan and execute the bold Herdr settings modal redesign (section IA, config
     surfacing, animations, CI-only validation).
   when: Plan and execute the bold Herdr settings modal redesign (se…
+- name: herdr-thermos-audit
+  path: .cursor/skills/herdr-thermos-audit/SKILL.md
+  kind: skill
+  summary: Report-only parallel thermos audit with a live Herdr pane/tab canvas (map,
+    findings, connections, where-live).
+  when: Report-only parallel thermos audit with a live Herdr pane/t…
 - name: herdr-ui
   path: .cursor/skills/herdr-ui/SKILL.md
   kind: skill

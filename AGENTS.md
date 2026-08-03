@@ -102,6 +102,7 @@ Agent entrypoints:
 - Skill: `.cursor/skills/herdr-quality-ci-remediation/` (Codex mirror: `.codex/skills/herdr-quality-ci-remediation/`)
 - Subagent (fix): `.cursor/agents/herdr-quality-ci-remediator.md`
 - Subagent (read-only triage): `.cursor/agents/herdr-quality-ci-diagnoser.md`
+- Report-only thermos + Herdr canvas: `.cursor/skills/herdr-thermos-audit/` + `/audit` (global install via `herdr-ops`; agents `audit-canvas` / `audit-scope-mapper`)
 
 Unit tests live next to the code (`#[cfg(test)] mod tests`). New `AppState` or `Workspace` behavior should be testable with `AppState::test_new()` and `Workspace::test_new()` without PTYs.
 
@@ -270,23 +271,65 @@ If you are helping an external contributor, never open a GitHub issue for them. 
 
 ## Cursor Cloud specific instructions
 
+## Skills
+
+| Skill | Path | Use when |
+| --- | --- | --- |
+| `herdr` | `.cursor/skills/herdr/` | Core runtime development |
+| `herdr-ui` | `.cursor/skills/herdr-ui/` | TUI polish and overlays |
+| `herdr-quality-ci-remediation` | `.cursor/skills/herdr-quality-ci-remediation/` | Quality CI failure loop |
+| `herdr-local-verify` | `.cursor/skills/herdr-local-verify/` | CI-only validation (no local cargo) |
+| `herdr-thermos-audit` | `.cursor/skills/herdr-thermos-audit/` | Report-only thermos audit + Herdr canvas (`/audit`) |
+| `chef-fleet` | `.cursor/skills/chef-fleet/` | Fleet ops / plugins context |
+| `create-skill` | `.cursor/skills/create-skill/` | `/create-skill` scaffold |
+| `create-subagent` | `.cursor/skills/create-subagent/` | `/create-subagent` scaffold |
+| `verify-herdr` | `.cursor/skills/verify-herdr/` | Headless CLI e2e + mouse-first TUI verify |
+
+`.cursor/` is the SSOT for Cursor artifacts (skills, agents, commands, hooks, indexes): edit them there, never in a mirror. Do not add `.agents/` or `.claude/` copies. A small set of deliberate Codex mirrors under `.codex/skills/` is tracked for the Codex CLI (for example `.codex/skills/herdr-quality-ci-remediation/`); when you change a mirrored skill, update the `.cursor/` copy first and keep the mirror in sync.
+
+## Subagents
+
+| Agent | Path | Use when |
+| --- | --- | --- |
+| `herdr-quality-ci-remediator` | `.cursor/agents/herdr-quality-ci-remediator.md` | Fix Quality CI failures |
+| `herdr-quality-ci-diagnoser` | `.cursor/agents/herdr-quality-ci-diagnoser.md` | Read-only CI triage |
+| `audit-canvas` | `.cursor/agents/audit-canvas.md` | Herdr canvas painter for report-only audit runs |
+| `audit-scope-mapper` | `.cursor/agents/audit-scope-mapper.md` | Connections mapper for report-only audit waves |
+| `herdr-ui` | `.cursor/agents/herdr-ui.md` | UI implementation lane |
+| `settings-*` | `.cursor/agents/settings-*.md` | Settings UI redesign lanes |
+
+## Hooks
+
+| Event | Cloud | Role |
+| --- | --- | --- |
+| `beforeShellExecution` | yes | Deny local cargo/rust/zig/just (fail-closed); soft Herdr canvas tips |
+| `sessionStart` | no | Inject artifact catalog (IDE) |
+| `postToolUse` | yes | Inject catalog once per conversation |
+| `beforeSubmitPrompt` | yes | Audit report-only + review-means-fix policy; allow prompt, no catalog inject |
+| `workspaceOpen` | no | Register `.cursor/plugins/*` |
+
+Manual refresh: `.cursor/hooks/fetch-cursor-artifacts.sh --print-markdown`
+
+Regenerate index: `python3 scripts/generate_cursor_index.py --allow-org-leak`
+
 **Local Rust/Zig builds are blocked on the Cloud VM.** A fail-closed shell hook (`.cursor/hooks.json` → `.cursor/hooks/deny-rust-builds.sh`) denies `cargo`, `rustc`, `rustup`, `cargo-nextest`, `clippy`, `zig build`, and `just test|check|lint|ci` because they saturate the VM CPU. Do not try to build/test/lint locally and do not work around the hook. **Validate with GitHub Actions instead:** `gh pr checks` for the PR, `gh run list --workflow=ci.yml`, and `gh run view <id> --log-failed` for failures. CI (`.github/workflows/ci.yml`) runs fmt, `cargo check`, `cargo nextest`, `clippy`, Windows lint, and a release smoke build.
 
 Because of the hook, the "Testing" section commands above (`just test`, `just check`, `cargo build`, `./target/debug/herdr ...`) are for a normal dev machine, not this VM. Treat them as the CI contract, run on GitHub Actions.
 
-**Run the real binary without building.** The CI `release-build` job uploads a runnable static binary artifact (`ci-smoke-herdr-linux-x86_64`). To exercise herdr on the VM, download it from a green run and run it headlessly — this does not trip the build hook:
+**Cloud environment config** lives in `.cursor/environment.json`. The `install` update script (`.cursor/scripts/cloud-install.sh`) refreshes the durable CI smoke binary at `/opt/herdr/herdr-linux-x86_64` (symlinked to `/usr/local/bin/herdr`), runs `npm ci` for `website/`, and refreshes Cursor artifact indexes. It must not install Zig, `just`, `cargo-nextest`, or `bun`, and must not run local Rust builds.
+
+**Run the real binary without building.** Prefer the PATH `herdr` installed by the update script. To refresh manually from a green CI run:
 
 ```bash
-gh run download <run-id> -n ci-smoke-herdr-linux-x86_64 -D /tmp/herdr-bin
-chmod +x /tmp/herdr-bin/herdr-linux-x86_64
+bash .cursor/scripts/cloud-install.sh
 # isolate config, then start the headless server and drive it via the socket API/CLI
-HOME=/tmp/herdr-home /tmp/herdr-bin/herdr-linux-x86_64 server &      # api socket under $HOME/.config/herdr/
-HOME=/tmp/herdr-home /tmp/herdr-bin/herdr-linux-x86_64 workspace create --cwd /tmp/herdr-home --focus
-HOME=/tmp/herdr-home /tmp/herdr-bin/herdr-linux-x86_64 pane run w1:p1 echo hello
-HOME=/tmp/herdr-home /tmp/herdr-bin/herdr-linux-x86_64 pane read w1:p1 --source recent --format text
+HOME=/tmp/herdr-home herdr server &      # api socket under $HOME/.config/herdr/
+HOME=/tmp/herdr-home herdr workspace create --cwd /tmp/herdr-home --focus
+HOME=/tmp/herdr-home herdr pane run w1:p1 echo hello
+HOME=/tmp/herdr-home herdr pane read w1:p1 --source recent --format text
 ```
 
-Toolchain state on the VM: Rust `1.96.1` is pre-baked at `/usr/local/cargo/bin` (matches `rust-toolchain.toml`). Zig `0.15.2`, `just`, `cargo-nextest`, and `bun` are NOT installed locally — they exist only in CI, and their names themselves trip the deny hook, so do not install them here.
+Toolchain state on the VM: Rust `1.96.1` is pre-baked at `/usr/local/cargo/bin` (matches `rust-toolchain.toml`). Zig `0.15.2`, `just`, `cargo-nextest`, and `bun` are NOT installed locally — they exist only in CI, and their names themselves trip the deny hook, so do not install them here. Website work uses Node/npm (`website/package-lock.json`); do not add Bun for that path.
 
 Other non-obvious caveats:
 
@@ -296,10 +339,10 @@ Other non-obvious caveats:
 
 ### GUI desktop (VNC)
 
-An xfce4 desktop runs at boot via TigerVNC on display `:1` (noVNC/websockify front it); nothing extra is needed to start it. To demo the *interactive* herdr TUI (not just the headless server) on that desktop, symlink the downloaded CI binary onto `PATH` and launch it in the xfce4 terminal:
+An xfce4 desktop runs at boot via TigerVNC on display `:1` (noVNC/websockify front it); nothing extra is needed to start it. To demo the *interactive* herdr TUI (not just the headless server) on that desktop, use the PATH `herdr` from the update script and launch it in the xfce4 terminal:
 
 ```bash
-sudo ln -sf /tmp/herdr-bin/herdr-linux-x86_64 /usr/local/bin/herdr
+# herdr is already on PATH via /usr/local/bin/herdr -> /opt/herdr/herdr-linux-x86_64
 # then, in the desktop terminal: `herdr`  (prefix key is ctrl+b; ctrl+b then o splits)
 ```
 

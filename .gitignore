@@ -24,6 +24,11 @@ __pycache__/
 bun.lock
 node_modules/
 
+# Cursor hook runtime (not SSOT)
+.cursor/hooks/.state/
+.cursor/mcp.json
+.cursor/.env.runtime
+
 /.zig-cache/
 /vendor/libghostty-vt/.zig-cache/
 /vendor/libghostty-vt/zig-out/

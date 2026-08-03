@@ -7,8 +7,12 @@
 | Name | Path | Summary |
 | --- | --- | --- |
 | `chef-fleet` | `.cursor/skills/chef-fleet/SKILL.md` | CHEF fleet operations for herdr — Linear/GitHub/UDO/Kater SSOT rules, Fleet Ops Bar, plugin state-dir contracts, and when to touch core vs com.chefgroep.* plugins. |
+| `create-skill` | `.cursor/skills/create-skill/SKILL.md` | Project endpoint for /create-skill. |
+| `create-subagent` | `.cursor/skills/create-subagent/SKILL.md` | Project endpoint for /create-subagent. |
+| `herdr-local-verify` | `.cursor/skills/herdr-local-verify/SKILL.md` | CI-only validation for Herdr — no local cargo/rust/zig/just on Cloud VM. |
 | `herdr-quality-ci-remediation` | `.cursor/skills/herdr-quality-ci-remediation/SKILL.md` | Remediate Herdr PR Quality CI failures end-to-end. |
 | `herdr-settings-ui-redesign` | `.cursor/skills/herdr-settings-ui-redesign/SKILL.md` | Plan and execute the bold Herdr settings modal redesign (section IA, config surfacing, animations, CI-only validation). |
+| `herdr-thermos-audit` | `.cursor/skills/herdr-thermos-audit/SKILL.md` | Report-only parallel thermos audit with a live Herdr pane/tab canvas (map, findings, connections, where-live). |
 | `herdr-ui` | `.cursor/skills/herdr-ui/SKILL.md` | Polish and harden the herdr mouse-first TUI — premium consistent overlays, sidebar/tabs/dialogs, pure render, and fix memory leaks or UI errors. |
 | `herdr` | `.cursor/skills/herdr/SKILL.md` | Develop and change the herdr terminal agent runtime (Rust TUI, session server, socket API, detection manifests, integrations). |
 | `verify-herdr` | `.cursor/skills/verify-herdr/SKILL.md` | Drive Herdr like a user — headless CLI e2e, mouse-first TUI (settings/modals/pane splits), optional future sandbox. |
@@ -17,6 +21,8 @@
 
 | Name | Path | Summary |
 | --- | --- | --- |
+| `audit-canvas` | `.cursor/agents/audit-canvas.md` | Herdr canvas painter for report-only thermos/audit runs. |
+| `audit-scope-mapper` | `.cursor/agents/audit-scope-mapper.md` | Report-only connections mapper for thermos/audit waves. |
 | `chef-fleet` | `.cursor/agents/chef-fleet.md` | CHEF fleet specialist for Linear/GitHub/UDO/Kater contracts, Fleet Ops Bar, plugin state dirs, and core-vs-plugin boundaries. |
 | `herdr-quality-ci-diagnoser` | `.cursor/agents/herdr-quality-ci-diagnoser.md` | Read-only Herdr Quality CI diagnoser. |
 | `herdr-quality-ci-remediator` | `.cursor/agents/herdr-quality-ci-remediator.md` | Herdr Quality CI remediation specialist. |
@@ -38,6 +44,10 @@
 
 | Slash | Path | Summary |
 | --- | --- | --- |
+| `/audit` | `.cursor/commands/audit.md` | Report-only parallel thermos audit with Herdr canvas (no fixes). |
+| `/create-skill` | `.cursor/commands/create-skill.md` | Scaffold a Cursor Agent Skill under .cursor/skills/<name>/SKILL.md with valid frontmatter, twin-chain hookup to a subagent when needed, and a short verify pass. |
+| `/create-subagent` | `.cursor/commands/create-subagent.md` | Scaffold a focused Cursor subagent at .cursor/agents/<name>.md with YAML frontmatter and a strict return contract. |
+| `/herdr-local-verify` | `.cursor/commands/herdr-local-verify.md` | CI-only Herdr validation — gh pr checks instead of local cargo/just. |
 | `/settings-redesign` | `.cursor/commands/settings-redesign.md` | Start or continue the bold Herdr settings UI redesign with parallel workers and CI-only validation. |
 
 ## Hooks
