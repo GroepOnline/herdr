@@ -11,6 +11,7 @@
 | `herdr-settings-ui-redesign` | `.cursor/skills/herdr-settings-ui-redesign/SKILL.md` | Plan and execute the bold Herdr settings modal redesign (section IA, config surfacing, animations, CI-only validation). |
 | `herdr-ui` | `.cursor/skills/herdr-ui/SKILL.md` | Polish and harden the herdr mouse-first TUI — premium consistent overlays, sidebar/tabs/dialogs, pure render, and fix memory leaks or UI errors. |
 | `herdr` | `.cursor/skills/herdr/SKILL.md` | Develop and change the herdr terminal agent runtime (Rust TUI, session server, socket API, detection manifests, integrations). |
+| `maintain-herdr` | `.cursor/skills/maintain-herdr/SKILL.md` | Maintain the OnlineChefGroep/herdr fork — PR autopilot, rebase and conflict resolution, draft triage, quality-gate fixes, release/hygiene. |
 | `verify-herdr` | `.cursor/skills/verify-herdr/SKILL.md` | Drive Herdr like a user — headless CLI e2e, mouse-first TUI (settings/modals/pane splits), optional future sandbox. |
 
 ## Agents
