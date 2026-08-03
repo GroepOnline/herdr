@@ -5,7 +5,6 @@ mod layout;
 pub(crate) mod rows;
 mod sections;
 pub(crate) mod spinner;
-#[allow(dead_code)]
 pub(crate) mod widgets;
 
 pub(crate) use catalog::SettingsAction;

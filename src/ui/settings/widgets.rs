@@ -25,6 +25,7 @@ pub(crate) fn chip_width(label: &str) -> u16 {
     (label.len().saturating_add(2)) as u16
 }
 
+#[cfg(test)]
 pub(crate) fn chip_row_rects(area: Rect, labels: &[&str], gap: u16) -> Vec<Rect> {
     let mut rects = Vec::with_capacity(labels.len());
     let mut x = area.x;

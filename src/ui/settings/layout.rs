@@ -8,8 +8,8 @@ use super::{
     },
     spinner::{active_spinner_category, SPINNER_CATEGORIES},
     widgets::{
-        chip_row_index_at, chip_row_rects, chip_wrap_index_at, chip_wrap_row_count,
-        right_aligned_button_row, CHIP_HORIZONTAL_GAP, SETTING_BLOCK_HEADER_ROWS,
+        chip_row_index_at, chip_wrap_index_at, chip_wrap_row_count, right_aligned_button_row,
+        CHIP_HORIZONTAL_GAP, SETTING_BLOCK_HEADER_ROWS,
     },
 };
 
@@ -225,16 +225,16 @@ impl SettingsLayout {
         ))
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn chip_row_rect(&self, y: u16, labels: &[&str]) -> Vec<Rect> {
-        chip_row_rects(
+        super::widgets::chip_row_rects(
             Rect::new(self.content.x, y, self.content.width, 1),
             labels,
             CHIP_HORIZONTAL_GAP,
         )
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn chip_row_index_at(
         &self,
         y: u16,
@@ -251,7 +251,7 @@ impl SettingsLayout {
         )
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn checklist_group_areas(&self, y: u16, item_count: usize) -> (Rect, Rect) {
         let area = Rect::new(
             self.content.x,
@@ -262,7 +262,7 @@ impl SettingsLayout {
         super::widgets::checklist_group_areas(area, item_count)
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(crate) fn checklist_item_index_at(
         &self,
         items_area: Rect,
@@ -284,11 +284,6 @@ impl SettingsLayout {
 
     pub(crate) fn search_rect(&self) -> Rect {
         self.search
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn subtitle_rect(&self) -> Rect {
-        self.subtitle
     }
 
     pub(crate) fn search_index_at(&self, col: u16, row: u16) -> bool {
@@ -477,11 +472,6 @@ pub(crate) fn settings_tertiary_button_label(section: SettingsSection) -> &'stat
     }
 }
 
-#[allow(dead_code)]
-pub(crate) fn settings_primary_button_label(section: SettingsSection) -> &'static str {
-    settings_tertiary_button_label(section)
-}
-
 pub(crate) fn settings_show_tertiary_action(app: &AppState) -> bool {
     match app.settings.section {
         SettingsSection::Agents => app
@@ -491,11 +481,6 @@ pub(crate) fn settings_show_tertiary_action(app: &AppState) -> bool {
         SettingsSection::Plugins => true,
         _ => false,
     }
-}
-
-#[allow(dead_code)]
-pub(crate) fn settings_show_primary_action(app: &AppState) -> bool {
-    settings_show_tertiary_action(app) || app.settings.section == SettingsSection::Appearance
 }
 
 pub(crate) fn spinner_category_labels() -> impl Iterator<Item = &'static str> {
