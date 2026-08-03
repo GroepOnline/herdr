@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.8.0] - 2026-08-03
+
 ### Added
 - Added `herdr --skill` to print the agent skill bundled with the running Herdr binary.
 - Added `ui.pane_scrollbars = false` to hide terminal pane scrollbars and reclaim their reserved column. (#2167)
