@@ -808,8 +808,7 @@ pub(super) fn render_sidebar_collapsed(app: &AppState, frame: &mut Frame, area: 
 
         frame.render_widget(
             Paragraph::new(Line::from(vec![
-                Span::styled(format!("{}", visible_idx + 1), num_style),
-                Span::styled(" ", row_style),
+                Span::styled(format!("{:<2}", visible_idx + 1), num_style),
                 Span::styled(icon, icon_style),
             ])),
             Rect::new(ws_area.x, y, ws_area.width, 1),
@@ -2123,6 +2122,47 @@ rows = [[{ token = "git_status", fg = "#123456" }]]
         let buffer = terminal.backend().buffer();
         assert_eq!(buffer[(detail_area.x, detail_area.y)].symbol(), "1");
         assert_eq!(buffer[(detail_area.x, detail_area.y + 1)].symbol(), "2");
+    }
+
+    #[test]
+    fn collapsed_sidebar_keeps_workspace_status_visible_for_two_digit_positions() {
+        let mut app = crate::app::state::AppState::test_new();
+        app.workspaces = (1..=10)
+            .map(|idx| Workspace::test_new(&format!("workspace-{idx}")))
+            .collect();
+        app.ensure_test_terminals();
+
+        for ws_idx in 0..app.workspaces.len() {
+            let pane = app.workspaces[ws_idx].tabs[0].root_pane;
+            let terminal_id = app.workspaces[ws_idx].tabs[0].panes[&pane]
+                .attached_terminal_id
+                .clone();
+            app.terminals.get_mut(&terminal_id).unwrap().detected_agent = Some(Agent::Claude);
+        }
+
+        let area = Rect::new(0, 0, 4, 25);
+        let (workspace_area, _, _) = collapsed_sidebar_sections(area);
+        let mut terminal = Terminal::new(TestBackend::new(area.width, area.height))
+            .expect("test terminal should initialize");
+
+        terminal
+            .draw(|frame| render_sidebar_collapsed(&app, frame, area))
+            .expect("collapsed sidebar should render");
+
+        let tenth_row = workspace_area.y + 9;
+        let buffer = terminal.backend().buffer();
+        assert_eq!(buffer[(workspace_area.x, workspace_area.y)].symbol(), "1");
+        assert_eq!(
+            buffer[(workspace_area.x + 1, workspace_area.y)].symbol(),
+            " "
+        );
+        assert_eq!(
+            buffer[(workspace_area.x + 2, workspace_area.y)].symbol(),
+            "·"
+        );
+        assert_eq!(buffer[(workspace_area.x, tenth_row)].symbol(), "1");
+        assert_eq!(buffer[(workspace_area.x + 1, tenth_row)].symbol(), "0");
+        assert_eq!(buffer[(workspace_area.x + 2, tenth_row)].symbol(), "·");
     }
 
     #[test]
