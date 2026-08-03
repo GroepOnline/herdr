@@ -15,6 +15,7 @@
 | `herdr-thermos-audit` | `.cursor/skills/herdr-thermos-audit/SKILL.md` | Report-only parallel thermos audit with a live Herdr pane/tab canvas (map, findings, connections, where-live). |
 | `herdr-ui` | `.cursor/skills/herdr-ui/SKILL.md` | Polish and harden the herdr mouse-first TUI — premium consistent overlays, sidebar/tabs/dialogs, pure render, and fix memory leaks or UI errors. |
 | `herdr` | `.cursor/skills/herdr/SKILL.md` | Develop and change the herdr terminal agent runtime (Rust TUI, session server, socket API, detection manifests, integrations). |
+| `maintain-herdr` | `.cursor/skills/maintain-herdr/SKILL.md` | Maintain the OnlineChefGroep/herdr fork — PR triage to merge-ready, rebase/conflict playbooks, draft triage, quality-gate redirects, fork hygiene. |
 | `verify-herdr` | `.cursor/skills/verify-herdr/SKILL.md` | Drive Herdr like a user — headless CLI e2e, mouse-first TUI (settings/modals/pane splits), optional future sandbox. |
 
 ## Agents
