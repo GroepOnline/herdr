@@ -47,18 +47,34 @@ fn run_shell_hook_with_env(
     hook_input: &str,
     envs: &[(&str, &str)],
 ) -> Option<serde_json::Value> {
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+
     let base = unique_test_dir();
     fs::create_dir_all(&base).unwrap();
     let socket_path = base.join("herdr.sock");
     let listener = UnixListener::bind(&socket_path).unwrap();
 
-    // Cold CI runners often need >700ms before python3 hook clients connect
-    // (nextest fan-out right after a long compile). Keep the accept window
-    // aligned with the child lifetime plus a short grace period.
+    // Cold CI runners (nextest fan-out right after a long compile) can take
+    // well over 700ms before python3 hook clients connect. Wait for the child
+    // to finish, then keep a short grace window for in-flight connects so
+    // negative cases (no report) stay fast.
+    let child_done = Arc::new(AtomicBool::new(false));
+    let child_done_server = Arc::clone(&child_done);
     let server = thread::spawn(move || {
         listener.set_nonblocking(true).unwrap();
-        let deadline = Instant::now() + Duration::from_secs(5);
-        while Instant::now() < deadline {
+        let hard_deadline = Instant::now() + Duration::from_secs(8);
+        let mut grace_deadline: Option<Instant> = None;
+        while Instant::now() < hard_deadline {
+            if let Some(deadline) = grace_deadline {
+                if Instant::now() >= deadline {
+                    break;
+                }
+            } else if child_done_server.load(Ordering::Acquire) {
+                grace_deadline = Some(Instant::now() + Duration::from_millis(750));
+            }
             match listener.accept() {
                 Ok((mut stream, _)) => {
                     let mut line = String::new();
@@ -98,6 +114,8 @@ fn run_shell_hook_with_env(
     drop(stdin);
 
     let output = child.wait_with_output().unwrap();
+    child_done.store(true, Ordering::Release);
+    let request = server.join().unwrap();
     assert!(
         output.status.success(),
         "hook failed: status={:?} stderr={} stdout={}",
@@ -105,8 +123,6 @@ fn run_shell_hook_with_env(
         String::from_utf8_lossy(&output.stderr),
         String::from_utf8_lossy(&output.stdout)
     );
-
-    let request = server.join().unwrap();
     cleanup_test_base(&base);
     request.map(|line| serde_json::from_str(&line).unwrap())
 }

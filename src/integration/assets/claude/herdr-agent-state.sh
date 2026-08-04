@@ -3,7 +3,7 @@
 # managed by herdr; reinstalling or updating the integration overwrites this file.
 # add custom hooks beside this file instead of editing it.
 # HERDR_INTEGRATION_ID=claude
-# HERDR_INTEGRATION_VERSION=7
+# HERDR_INTEGRATION_VERSION=8
 
 set -eu
 
@@ -86,16 +86,25 @@ if agent_session_id:
 else:
     raise SystemExit(0)
 
-try:
-    client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    client.settimeout(0.5)
-    client.connect(socket_path)
-    client.sendall((json.dumps(request) + "\n").encode())
+deadline = time.monotonic() + 2.0
+while time.monotonic() < deadline:
+    client = None
     try:
-        client.recv(4096)
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.settimeout(0.5)
+        client.connect(socket_path)
+        client.sendall((json.dumps(request) + "\n").encode())
+        try:
+            client.recv(4096)
+        except Exception:
+            pass
+        client.close()
+        break
     except Exception:
-        pass
-    client.close()
-except Exception:
-    pass
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                pass
+        time.sleep(0.05)
 PY
