@@ -6,7 +6,7 @@ on:
 
 jobs:
   check-contributor:
-    uses: OnlineChefGroep/.github/.github/workflows/pr-gate-reusable.yml@master
+    uses: GroepOnline/.github/.github/workflows/pr-gate-reusable.yml@master
     permissions:
       contents: read
       issues: write

@@ -28,7 +28,7 @@ except ModuleNotFoundError:  # Direct execution: python scripts/changelog.py
 SECTION_RE = re.compile(r"^##\s+(?:\[(?P<bracketed>[^\]]+)\]|(?P<plain>.+?))\s*$", re.MULTILINE)
 VERSION_WITH_DATE_RE = re.compile(r"^(?P<version>.+?)\s+-\s+\d{4}-\d{2}-\d{2}$")
 # Kept as a literal because CI also guards this downstream ownership boundary.
-DEFAULT_RELEASE_REPO = "OnlineChefGroep/herdr"
+DEFAULT_RELEASE_REPO = "GroepOnline/herdr"
 if DEFAULT_RELEASE_REPO != PRODUCT_GITHUB_REPO:
     raise RuntimeError("product_config.py and changelog.py disagree on the release repository")
 

@@ -47,7 +47,7 @@ class CiQualityTests(unittest.TestCase):
         (root / "npm/package.json").write_text(
             json.dumps(
                 {
-                    "name": "onlinechefgroep-herdr",
+                    "name": "groeponline-herdr",
                     "version": npm_version,
                     "license": "AGPL-3.0-or-later",
                     "repository": {
