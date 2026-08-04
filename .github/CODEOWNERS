@@ -9,7 +9,7 @@
 # Installer, packaging, and release tooling
 /website/install.sh @OnlineChef
 /npm/install.js @OnlineChef
-/packaging/homebrew/onlinechefgroep-herdr.rb @OnlineChef
+/packaging/homebrew/groeponline-herdr.rb @OnlineChef
 /scripts/homebrew_formula.py @OnlineChef
 /scripts/changelog.py @OnlineChef
 /scripts/ci_quality.py @OnlineChef

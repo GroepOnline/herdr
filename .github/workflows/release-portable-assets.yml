@@ -343,8 +343,8 @@ jobs:
           python3 scripts/homebrew_formula.py \
             --version "$VERSION" \
             --checksums release-assets/SHA256SUMS \
-            --output packaging/homebrew/onlinechefgroep-herdr.rb
-          ruby -c packaging/homebrew/onlinechefgroep-herdr.rb
+            --output packaging/homebrew/groeponline-herdr.rb
+          ruby -c packaging/homebrew/groeponline-herdr.rb
 
       - name: Commit stable manifest and formula
         env:
@@ -353,7 +353,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add website/latest.json docs/next/product-announcement.json packaging/homebrew/onlinechefgroep-herdr.rb
+          git add website/latest.json docs/next/product-announcement.json packaging/homebrew/groeponline-herdr.rb
           git diff --cached --quiet || git commit -m "docs: atomically promote v$VERSION"
           git push origin main
 

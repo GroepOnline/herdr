@@ -6,10 +6,10 @@
   "commit": "c940c3369f9bfd36329d20ce71fcf4a17b658639",
   "built_at": "2026-08-01T21:50:42Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-01-c940c3369f9b\n\nBuilt from `c940c3369f9b` on `main`.\nBase stable: v0.7.7\nCompare: https://github.com/OnlineChefGroep/herdr/compare/e7717fd97d5df48a7dcfe7f8049c51f3e659676b...c940c3369f9bfd36329d20ce71fcf4a17b658639\n\n### Maintenance\n- Cloud env standards + full verify-herdr e2e (#107)",
+  "notes": "Dev build 2026-08-01-c940c3369f9b\n\nBuilt from `c940c3369f9b` on `main`.\nBase stable: v0.7.7\nCompare: https://github.com/GroepOnline/herdr/compare/e7717fd97d5df48a7dcfe7f8049c51f3e659676b...c940c3369f9bfd36329d20ce71fcf4a17b658639\n\n### Maintenance\n- Cloud env standards + full verify-herdr e2e (#107)",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-c940c3369f9b/herdr-linux-x86_64",
+      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-c940c3369f9b/herdr-linux-x86_64",
       "sha256": "a94733132a46a3f453eb4a473c4fd32c2d01c81f89c4e34ab157fa5a79b311be"
     }
   },
@@ -22,7 +22,7 @@
       "tag": "dev-2026-08-01-c940c3369f9b",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-c940c3369f9b/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-c940c3369f9b/herdr-linux-x86_64",
           "sha256": "a94733132a46a3f453eb4a473c4fd32c2d01c81f89c4e34ab157fa5a79b311be"
         }
       }
@@ -35,7 +35,7 @@
       "tag": "dev-2026-08-01-e7717fd97d5d",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-e7717fd97d5d/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-e7717fd97d5d/herdr-linux-x86_64",
           "sha256": "60dbeed2efd7f9c8b015fe17f78a06ee0a074710844e920d70fe1bd7c04cfca4"
         }
       }
@@ -48,7 +48,7 @@
       "tag": "dev-2026-08-01-7ae5f08b673b",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-7ae5f08b673b/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-7ae5f08b673b/herdr-linux-x86_64",
           "sha256": "e5b358c05e0fdd097ece23c8ec52099a51f25898702c65bf73ddafb821f224f8"
         }
       }
@@ -61,7 +61,7 @@
       "tag": "dev-2026-08-01-88367852d101",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-88367852d101/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-88367852d101/herdr-linux-x86_64",
           "sha256": "76f982f7e96b4aab96d1f8f5a7e17b01e00d493c90d042fc5d6ba91de128a5b2"
         }
       }
@@ -74,7 +74,7 @@
       "tag": "dev-2026-08-01-b0d5272626d8",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-b0d5272626d8/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-b0d5272626d8/herdr-linux-x86_64",
           "sha256": "e0880c8eaa06d527559eaedfb49e9c634b11375c7da882dd9f7f89fd9299b231"
         }
       }
@@ -87,7 +87,7 @@
       "tag": "dev-2026-08-01-f2f18084b97c",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-f2f18084b97c/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-f2f18084b97c/herdr-linux-x86_64",
           "sha256": "70a805c6bfa275e02738e76595277c75a6bd0fc466b0775461a62d398a9a01fd"
         }
       }
@@ -100,7 +100,7 @@
       "tag": "dev-2026-08-01-7462fcfae603",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-7462fcfae603/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-7462fcfae603/herdr-linux-x86_64",
           "sha256": "0fe3dc93763d32b6369833573bc595a4fb9bd79a5232c99ef3489f8dbff9bb29"
         }
       }
@@ -113,7 +113,7 @@
       "tag": "dev-2026-08-01-9ff3f027c1ef",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-08-01-9ff3f027c1ef/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-9ff3f027c1ef/herdr-linux-x86_64",
           "sha256": "ab7318d844cc8eaba9a2166829395d6e289afeaf1f8dd885c8659bbf7a34a036"
         }
       }
@@ -126,7 +126,7 @@
       "tag": "dev-2026-07-31-73d5fd0a6799",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-31-73d5fd0a6799/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-31-73d5fd0a6799/herdr-linux-x86_64",
           "sha256": "6ebbe45c2c7353902e8e8a4e6302d8d4efe052930186f78099082060388212fc"
         }
       }
@@ -139,7 +139,7 @@
       "tag": "dev-2026-07-31-79317e435d7e",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-31-79317e435d7e/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-31-79317e435d7e/herdr-linux-x86_64",
           "sha256": "cadf6df7b7f12f998640942ede21f909ace76b09bf8ba55b37294baf699cb806"
         }
       }
@@ -152,7 +152,7 @@
       "tag": "dev-2026-07-31-8a631f4d81d9",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-31-8a631f4d81d9/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-31-8a631f4d81d9/herdr-linux-x86_64",
           "sha256": "bd605be0c9ff71b3c85daf1aafcd071e4a36704fbe4fcdee04b19044c265b6c3"
         }
       }
@@ -165,7 +165,7 @@
       "tag": "dev-2026-07-30-7d3afd3616b0",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-30-7d3afd3616b0/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-30-7d3afd3616b0/herdr-linux-x86_64",
           "sha256": "bee78b1443fc0f87e02b61269bf0e4cfb062308b22a62fc4a5e42437eb956717"
         }
       }
@@ -178,7 +178,7 @@
       "tag": "dev-2026-07-27-7ab2f60a311c",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-27-7ab2f60a311c/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-27-7ab2f60a311c/herdr-linux-x86_64",
           "sha256": "a42e537137e776f7e7a5d8266f0143deb2c4471728efab173d66b22aec069c1d"
         }
       }
@@ -191,7 +191,7 @@
       "tag": "dev-2026-07-25-2903932847f8",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-25-2903932847f8/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-25-2903932847f8/herdr-linux-x86_64",
           "sha256": "aa6de6a2c046a76ebc363f083805e908fa1fd78a03c1fe3ca52872b44da6dcc1"
         }
       }
@@ -204,7 +204,7 @@
       "tag": "dev-2026-07-25-c3f1e660d032",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-25-c3f1e660d032/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-25-c3f1e660d032/herdr-linux-x86_64",
           "sha256": "c621b924d02ce0acda0143db2f3cb0495073929dad3e4a2acb57eb42ee28aad7"
         }
       }
@@ -217,7 +217,7 @@
       "tag": "dev-2026-07-25-1208d7a35a32",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-25-1208d7a35a32/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-25-1208d7a35a32/herdr-linux-x86_64",
           "sha256": "0a632ec1ad1207af528784ced60a9e5875ce31a2417c3fea4eede1d6cdc03008"
         }
       }
@@ -230,7 +230,7 @@
       "tag": "dev-2026-07-25-789ff1745503",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-25-789ff1745503/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-25-789ff1745503/herdr-linux-x86_64",
           "sha256": "80ca4698d70d0eb758413ea23d2d7db778a49097f3f0aebe80e63b00ef417e5e"
         }
       }
@@ -243,7 +243,7 @@
       "tag": "dev-2026-07-24-69c4e87e0b43",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-24-69c4e87e0b43/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-24-69c4e87e0b43/herdr-linux-x86_64",
           "sha256": "4cb9ecc3e3746e0eca86c4f756120e9fe07f65c3655240b5baba398eab82b156"
         }
       }
@@ -256,7 +256,7 @@
       "tag": "dev-2026-07-24-fef349593391",
       "assets": {
         "linux-x86_64": {
-          "url": "https://github.com/OnlineChefGroep/herdr/releases/download/dev-2026-07-24-fef349593391/herdr-linux-x86_64",
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-24-fef349593391/herdr-linux-x86_64",
           "sha256": "521acc99b5e480c306e70da852c101f00c3cb2d6ca4b36e4a996454a8eb94ab8"
         }
       }

@@ -1,11 +1,11 @@
 {
-  "name": "onlinechefgroep-herdr",
+  "name": "groeponline-herdr",
   "version": "0.7.7",
-  "description": "Herdr - fast terminal multiplexer with AI agent detection (OnlineChefGroep distribution)",
+  "description": "Herdr - fast terminal multiplexer with AI agent detection (GroepOnline distribution)",
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
-    "url": "https://github.com/OnlineChefGroep/herdr.git"
+    "url": "https://github.com/GroepOnline/herdr.git"
   },
   "homepage": "https://herdr.chefgroep.nl",
   "keywords": [

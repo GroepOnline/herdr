@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the multi-platform OnlineChefGroep Homebrew formula.
+"""Generate the multi-platform GroepOnline Homebrew formula.
 
 The generator consumes the release's SHA256SUMS file and verifies GitHub's
 published asset digest when one is available. It never re-downloads the four
@@ -58,7 +58,7 @@ def _get(url: str, *, authenticate: bool = False) -> bytes:
     _validate_url(url)
     headers = {
         "Accept": "application/vnd.github+json",
-        "User-Agent": "onlinechefgroep-herdr-homebrew-generator",
+        "User-Agent": "groeponline-herdr-homebrew-generator",
     }
     # The token is only ever sent to the API host: asset URLs redirect to
     # storage hosts that must never receive the credential.
@@ -173,7 +173,7 @@ def render(
         url, checksum = assets[name]
         return f'{indent}url "{url}"\n{indent}sha256 "{checksum}"'
 
-    return f'''class OnlinechefgroepHerdr < Formula
+    return f'''class GroeponlineHerdr < Formula
   desc "Terminal workspace manager for AI coding agents"
   homepage "https://github.com/{repo}"
   version "{version}"

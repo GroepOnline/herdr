@@ -121,8 +121,8 @@ jobs:
           python3 scripts/homebrew_formula.py \
             --version "$VERSION" \
             --checksums release-assets/SHA256SUMS \
-            --output "$RUNNER_TEMP/onlinechefgroep-herdr.rb"
-          ruby -c "$RUNNER_TEMP/onlinechefgroep-herdr.rb"
+            --output "$RUNNER_TEMP/groeponline-herdr.rb"
+          ruby -c "$RUNNER_TEMP/groeponline-herdr.rb"
 
       - name: Pack npm artifact
         id: npm_pack
@@ -145,7 +145,7 @@ jobs:
           npm init --yes >/dev/null
           npm install "$TARBALL"
           ./node_modules/.bin/herdr --version | grep -F "$VERSION"
-          test -x node_modules/onlinechefgroep-herdr/bin/herdr
+          test -x node_modules/groeponline-herdr/bin/herdr
 
       - name: Require publication credentials
         if: ${{ !inputs.dry_run }}
@@ -165,8 +165,8 @@ jobs:
           TARBALL: ${{ steps.npm_pack.outputs.tarball }}
         run: |
           set -euo pipefail
-          if npm view "onlinechefgroep-herdr@$VERSION" version --json >/dev/null 2>&1; then
-            echo "onlinechefgroep-herdr@$VERSION already exists; publication is idempotently complete"
+          if npm view "groeponline-herdr@$VERSION" version --json >/dev/null 2>&1; then
+            echo "groeponline-herdr@$VERSION already exists; publication is idempotently complete"
           else
             npm publish "$TARBALL" --access public --provenance
           fi
@@ -175,7 +175,7 @@ jobs:
         if: ${{ !inputs.dry_run }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
-          repository: OnlineChefGroep/homebrew-tap
+          repository: GroepOnline/homebrew-tap
           path: homebrew-tap
           ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
           persist-credentials: true
@@ -187,12 +187,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p homebrew-tap/Formula
-          cp "$RUNNER_TEMP/onlinechefgroep-herdr.rb" \
-            homebrew-tap/Formula/onlinechefgroep-herdr.rb
+          cp "$RUNNER_TEMP/groeponline-herdr.rb" \
+            homebrew-tap/Formula/groeponline-herdr.rb
           cd homebrew-tap
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Formula/onlinechefgroep-herdr.rb
+          git add Formula/groeponline-herdr.rb
           git diff --cached --quiet || git commit -m "herdr: update formula to v$VERSION"
           git push
 
@@ -203,6 +203,6 @@ jobs:
           name: distribution-dry-run-${{ inputs.tag }}
           path: |
             ${{ steps.npm_pack.outputs.tarball }}
-            ${{ runner.temp }}/onlinechefgroep-herdr.rb
+            ${{ runner.temp }}/groeponline-herdr.rb
             release-assets/SHA256SUMS
           if-no-files-found: error
