@@ -847,6 +847,7 @@ pub(super) fn render_sidebar_collapsed(app: &AppState, frame: &mut Frame, area: 
                 detail.state,
                 detail.seen,
                 app.spinner_tick,
+                app.status_indicators,
                 app.spinner_style,
                 p,
             );
@@ -1415,6 +1416,7 @@ fn render_agent_detail(
             detail.state,
             detail.seen,
             app.spinner_tick,
+            app.status_indicators,
             app.spinner_style,
             p,
         );

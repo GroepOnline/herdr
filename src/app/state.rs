@@ -1722,6 +1722,8 @@ pub struct AppState {
     pub spinner_tick: u32,
     /// Active spinner animation style.
     pub spinner_style: crate::config::SpinnerStyle,
+    /// Agent status indicator style: animated dots or distinct static symbols.
+    pub status_indicators: crate::config::StatusIndicatorStyle,
     /// UI color palette — all sidebar/UI colors centralized for theming.
     pub palette: Palette,
     /// Currently applied theme name (for settings UI).
@@ -2115,6 +2117,7 @@ impl AppState {
             keybinds: Keybinds::default(),
             spinner_tick: 0,
             spinner_style: crate::config::SpinnerStyle::Dots,
+            status_indicators: crate::config::StatusIndicatorStyle::Dots,
             palette: Palette::catppuccin(),
             theme_name: "catppuccin".to_string(),
             theme_runtime: ThemeRuntimeConfig {

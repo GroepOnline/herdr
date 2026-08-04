@@ -10,7 +10,7 @@ use super::text::display_width_u16;
 use super::widgets::panel_contrast_fg;
 use crate::{
     app::state::{CopyFeedback, Palette, ToastKind, ToastNotification},
-    config::{ToastClipboardPosition, ToastHerdrPosition},
+    config::{StatusIndicatorStyle, ToastClipboardPosition, ToastHerdrPosition},
     detect::AgentState,
 };
 
@@ -203,13 +203,31 @@ pub(super) fn state_dot(state: AgentState, seen: bool, p: &Palette) -> (&'static
     }
 }
 
+/// Static distinct symbols per state (upstream `status_indicators = "symbols"`).
+pub(super) fn state_icon_symbol(state: AgentState, seen: bool) -> &'static str {
+    match (state, seen) {
+        (AgentState::Blocked, _) => "×",
+        (AgentState::Working, _) => "◐",
+        (AgentState::Idle, false) => "✓",
+        (AgentState::Idle, true) => "○",
+        (AgentState::Unknown, _) => "·",
+    }
+}
+
 pub(super) fn agent_icon(
     state: AgentState,
     seen: bool,
     tick: u32,
+    indicator_style: StatusIndicatorStyle,
     style: crate::config::SpinnerStyle,
     p: &Palette,
 ) -> (&'static str, Style) {
+    if indicator_style == StatusIndicatorStyle::Symbols {
+        return (
+            state_icon_symbol(state, seen),
+            Style::default().fg(state_label_color(state, seen, p)),
+        );
+    }
     match (state, seen) {
         (AgentState::Blocked, _) => ("◉", Style::default().fg(p.red)),
         (AgentState::Working, _) => (

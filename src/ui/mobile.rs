@@ -11,7 +11,7 @@ use super::sidebar::{
     next_entry_is_indented_workspace, workspace_list_entries_expanded, AgentPanelEntry,
     WorkspaceListEntry,
 };
-use super::status::{agent_icon, state_dot};
+use super::status::{agent_icon, state_dot, state_icon_symbol, state_label_color};
 use super::text::{display_width_u16, truncate_end};
 use crate::app::state::{Palette, ToastKind, ToastNotification};
 use crate::app::AppState;
@@ -331,6 +331,11 @@ fn render_header_status(
             super::spinner_frame(app.spinner_tick, app.spinner_style),
             Style::default().fg(p.yellow),
         )
+    } else if app.status_indicators == crate::config::StatusIndicatorStyle::Symbols {
+        (
+            state_icon_symbol(state, seen),
+            Style::default().fg(state_label_color(state, seen, p)),
+        )
     } else {
         state_dot(state, seen, p)
     };
@@ -543,6 +548,7 @@ fn render_mobile_switcher_content(
                 entry.state,
                 entry.seen,
                 app.spinner_tick,
+                app.status_indicators,
                 app.spinner_style,
                 p,
             );

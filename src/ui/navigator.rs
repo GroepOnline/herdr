@@ -124,7 +124,7 @@ fn push_state_chip(
     label: &'static str,
     app: &AppState,
 ) {
-    let (icon, icon_style) = agent_icon(state, seen, tick, app.spinner_style, &app.palette);
+    let (icon, icon_style) = agent_icon(state, seen, tick, app.status_indicators, app.spinner_style, &app.palette);
     spans.push(Span::styled(icon, icon_style.add_modifier(Modifier::BOLD)));
     spans.push(Span::raw(" "));
     spans.push(Span::styled(
@@ -213,7 +213,7 @@ fn render_row(
         Style::default().fg(p.subtext0).bg(p.panel_bg)
     };
     let (status_icon, status_style) =
-        agent_icon(row.status, row.seen, app.spinner_tick, app.spinner_style, p);
+        agent_icon(row.status, row.seen, app.spinner_tick, app.status_indicators, app.spinner_style, p);
     let status_style = if selected {
         base_style.add_modifier(Modifier::BOLD)
     } else if context_only {

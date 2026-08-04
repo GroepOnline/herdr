@@ -50,6 +50,7 @@ impl App {
                 self.save_switch_ascii_input_source_in_prefix(enabled)
             }
             SettingsAction::SaveSpinnerStyle(style) => self.save_spinner_style(style),
+            SettingsAction::SaveStatusIndicators(style) => self.save_status_indicators(style),
             SettingsAction::ApplyPaneTemplate(template) => self.apply_pane_template(template),
             SettingsAction::InstallRecommendedIntegrations => {
                 self.install_recommended_integrations()

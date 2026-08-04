@@ -3,8 +3,8 @@ use crate::{
     app::state::{AgentPanelSort, AppState, ExperimentSetting},
     config::{
         HostCursorModeConfig, NewTerminalCwdConfig, ShellModeConfig, SidebarCollapsedModeConfig,
-        SpinnerStyle, ToastClipboardPosition, ToastDelivery, ToastHerdrPosition,
-        UpdateChannelConfig,
+        SpinnerStyle, StatusIndicatorStyle, ToastClipboardPosition, ToastDelivery,
+        ToastHerdrPosition, UpdateChannelConfig,
     },
     pane_template::PaneTemplateId,
 };
@@ -16,6 +16,7 @@ pub(crate) enum SettingsItemId {
     ThemeAutoSwitch,
     Theme { index: usize },
     Spinner { index: usize },
+    StatusIndicators { index: usize },
     PaneBorders,
     PaneGaps,
     AgentLabels,
@@ -76,6 +77,7 @@ pub(crate) enum SettingsAction {
     SavePaneHistory(bool),
     SaveSwitchAsciiInputSourceInPrefix(bool),
     SaveSpinnerStyle(SpinnerStyle),
+    SaveStatusIndicators(StatusIndicatorStyle),
     ApplyPaneTemplate(PaneTemplateId),
     InstallRecommendedIntegrations,
     SaveMouseCapture(bool),
@@ -294,6 +296,13 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
                 .copied()
                 .map(SettingsAction::SaveSpinnerStyle)
         }
+        SettingsItemId::StatusIndicators { index } => Some(SettingsAction::SaveStatusIndicators(
+            if index == 0 {
+                StatusIndicatorStyle::Dots
+            } else {
+                StatusIndicatorStyle::Symbols
+            },
+        )),
         SettingsItemId::PaneBorders => Some(SettingsAction::SavePaneBorders(
             !state.pane_borders_enabled(),
         )),
