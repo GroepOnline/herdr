@@ -52,9 +52,12 @@ fn run_shell_hook_with_env(
     let socket_path = base.join("herdr.sock");
     let listener = UnixListener::bind(&socket_path).unwrap();
 
+    // Cold CI runners often need >700ms before python3 hook clients connect
+    // (nextest fan-out right after a long compile). Keep the accept window
+    // aligned with the child lifetime plus a short grace period.
     let server = thread::spawn(move || {
         listener.set_nonblocking(true).unwrap();
-        let deadline = Instant::now() + Duration::from_millis(700);
+        let deadline = Instant::now() + Duration::from_secs(5);
         while Instant::now() < deadline {
             match listener.accept() {
                 Ok((mut stream, _)) => {
