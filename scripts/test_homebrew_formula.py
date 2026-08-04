@@ -22,7 +22,7 @@ class HomebrewFormulaTests(unittest.TestCase):
             {
                 "name": target["asset"],
                 "browser_download_url": (
-                    "https://github.com/OnlineChefGroep/herdr/releases/download/"
+                    "https://github.com/GroepOnline/herdr/releases/download/"
                     f"v1.2.3/{target['asset']}"
                 ),
                 "digest": f"sha256:{checksums[target['asset']]}",
@@ -33,7 +33,7 @@ class HomebrewFormulaTests(unittest.TestCase):
             {
                 "name": "SHA256SUMS",
                 "browser_download_url": (
-                    "https://github.com/OnlineChefGroep/herdr/releases/download/"
+                    "https://github.com/GroepOnline/herdr/releases/download/"
                     "v1.2.3/SHA256SUMS"
                 ),
             }

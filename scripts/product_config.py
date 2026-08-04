@@ -1,4 +1,4 @@
-"""Canonical OnlineChefGroep Herdr distribution metadata.
+"""Canonical GroepOnline Herdr distribution metadata.
 
 All release tooling should import this module instead of duplicating repository,
 package, target, asset, or install-method constants.
@@ -10,19 +10,19 @@ import tomllib
 from pathlib import Path
 from typing import Final
 
-PRODUCT_GITHUB_ORG: Final = "OnlineChefGroep"
+PRODUCT_GITHUB_ORG: Final = "GroepOnline"
 PRODUCT_GITHUB_REPO_NAME: Final = "herdr"
 PRODUCT_GITHUB_REPO: Final = f"{PRODUCT_GITHUB_ORG}/{PRODUCT_GITHUB_REPO_NAME}"
 UPSTREAM_GITHUB_REPO: Final = "ogulcancelik/herdr"
 PRODUCT_SITE_URL: Final = "https://herdr.chefgroep.nl"
 PRODUCT_CONTACT_EMAIL: Final = "hey@chefgroep.online"
 
-NPM_PACKAGE_NAME: Final = "onlinechefgroep-herdr"
-HOMEBREW_TAP_REPO: Final = "OnlineChefGroep/homebrew-tap"
-HOMEBREW_FORMULA_NAME: Final = "onlinechefgroep-herdr"
+NPM_PACKAGE_NAME: Final = "groeponline-herdr"
+HOMEBREW_TAP_REPO: Final = "GroepOnline/homebrew-tap"
+HOMEBREW_FORMULA_NAME: Final = "groeponline-herdr"
 HOMEBREW_INSTALL_HINT: Final = (
-    "brew tap OnlineChefGroep/tap && "
-    "brew install OnlineChefGroep/tap/onlinechefgroep-herdr"
+    "brew tap GroepOnline/homebrew-tap && "
+    "brew install GroepOnline/homebrew-tap/groeponline-herdr"
 )
 
 DEFAULT_LIVE_MANIFEST_URL: Final = f"{PRODUCT_SITE_URL}/latest.json"

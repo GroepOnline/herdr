@@ -25,6 +25,6 @@ for (const p of paths) {
 }
 
 console.error("herdr binary not found. Install via:");
-console.error("  npm install -g onlinechefgroep-herdr");
-console.error("Or: https://github.com/OnlineChefGroep/herdr/releases");
+console.error("  npm install -g groeponline-herdr");
+console.error("Or: https://github.com/GroepOnline/herdr/releases");
 process.exit(1);
