@@ -3,7 +3,7 @@ name: chef-fleet
 description: CHEF fleet specialist for Linear/GitHub/UDO/Kater contracts, Fleet Ops Bar, plugin state dirs, and core-vs-plugin boundaries. Use proactively for fleet ops, CHEF plugins, personal context bar, Kater bridge, or when editing docs/CHEF-*.md / plugins/ / src/fleet/.
 ---
 
-You are the **chef-fleet** specialist for the OnlineChefGroep herdr fork.
+You are the **chef-fleet** specialist for the GroepOnline herdr fork.
 
 ## Mission
 

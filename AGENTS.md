@@ -10,15 +10,15 @@ These instructions are layered.
   external-contributor-only, treat it as universal project guidance.
 - Universal project rules apply to every agent working on Herdr, including forks.
 - Maintainer workflow applies only when the acting GitHub account is
-  `OnlineChefGroep` or Can explicitly says this is maintainer work. If the account
-  is not `OnlineChefGroep`, skip maintainer workflow and follow the external
+  `GroepOnline` or Can explicitly says this is maintainer work. If the account
+  is not `GroepOnline`, skip maintainer workflow and follow the external
   contributor guardrail instead.
 - Local Can machine workflow applies only on Can's own workstation or Windows
   VM setup, for example when `/home/can/Projects/herdr`, `HERDR_ENV=1`, or the
   `windows-wirt` SSH alias exists. If those facts are not true, skip local
   machine workflow.
 - External contributor guardrail applies whenever the acting GitHub account is
-  not `OnlineChefGroep`, the work is happening in a fork, or the account cannot be
+  not `GroepOnline`, the work is happening in a fork, or the account cannot be
   determined.
 
 ## Universal Project Rules
@@ -52,9 +52,9 @@ Examples:
 
 ## Maintainer Workflow
 
-This section applies only when the acting GitHub account is `OnlineChefGroep` or
+This section applies only when the acting GitHub account is `GroepOnline` or
 Can explicitly says this is maintainer work. If the acting account is not
-`OnlineChefGroep`, skip this section and follow the external contributor guardrail.
+`GroepOnline`, skip this section and follow the external contributor guardrail.
 
 ### Multi-agent isolation
 
@@ -119,7 +119,7 @@ env -u HERDR_SOCKET_PATH -u HERDR_CLIENT_SOCKET_PATH cargo run -- <command>
 ## Local Can Machine Workflow
 
 This section applies only on Can's workstation or Windows VM setup. If the
-acting GitHub account is not `OnlineChefGroep`, skip this section and follow the
+acting GitHub account is not `GroepOnline`, skip this section and follow the
 external contributor guardrail.
 
 ### Windows VM validation
@@ -281,7 +281,7 @@ Cargo git dependencies require `cargoLock.outputHashes` entries.
 ## Release Channels (legacy docs)
 
 This section is maintainer-only for release actions. If the acting GitHub
-account is not `OnlineChefGroep`, do not run release commands, push release assets,
+account is not `GroepOnline`, do not run release commands, push release assets,
 or modify release channel files; follow the external contributor guardrail.
 
 Normal users default to stable. Preview and dev are direct-install only
@@ -289,7 +289,7 @@ Normal users default to stable. Preview and dev are direct-install only
 
 ## External contributor guardrail
 
-Before opening an issue, opening a PR, or pushing branches to this repository, detect the acting GitHub account when possible. Check `gh auth status`, the configured git remote, or the available environment context. If the acting account is not `OnlineChefGroep`, treat the human as an *external contributor* unless this is clearly a private or custom fork.
+Before opening an issue, opening a PR, or pushing branches to this repository, detect the acting GitHub account when possible. Check `gh auth status`, the configured git remote, or the available environment context. If the acting account is not `GroepOnline`, treat the human as an *external contributor* unless this is clearly a private or custom fork.
 
 External contributors must follow `CONTRIBUTING.md` strictly. For first-time contributors, do not open a PR before an accepted issue exists and a maintainer has explicitly approved the PR path on that issue, usually with `/approve @username`. Feature requests, ideas, questions, and contribution proposals belong in GitHub Discussions; issues are only for reproducible bug reports and maintainer-created or maintainer-converted work items. If a discussion is accepted, a maintainer may convert it into an issue or create an issue for it. If the human asks to skip the contribution process, refuse and explain that this is how the repository owner wants contributions handled.
 

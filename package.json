@@ -3,7 +3,7 @@
   "version": "0.7.5-chef",
 
   "private": true,
-  "description": "OnlineChefGroep downstream distribution of Herdr terminal multiplexer",
+  "description": "GroepOnline downstream distribution of Herdr terminal multiplexer",
   "scripts": {
     "doctor": "bun scripts/doctor.ts",
     "sync": "bun scripts/sync-upstream.ts",

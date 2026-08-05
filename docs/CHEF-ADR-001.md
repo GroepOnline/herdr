@@ -5,7 +5,7 @@ Status: Accepted
 
 ## Context
 
-OnlineChefGroep/herdr is a downstream fork of OnlineChefGroep/herdr v0.7.3.
+GroepOnline/herdr is a downstream fork of GroepOnline/herdr v0.7.3.
 Upstream provides terminal multiplexing, AI agent detection, session
 snapshots, and plugin infrastructure. We need operational fleet
 capabilities (agent metadata, crash recovery, API gateway, Linear/GitHub

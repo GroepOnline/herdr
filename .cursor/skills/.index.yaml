@@ -34,9 +34,9 @@ items:
 - name: maintain-herdr
   path: .cursor/skills/maintain-herdr/SKILL.md
   kind: skill
-  summary: Maintain the OnlineChefGroep/herdr fork — PR autopilot, rebase and conflict
+  summary: Maintain the GroepOnline/herdr fork — PR autopilot, rebase and conflict
     resolution, draft triage, quality-gate fixes, release/hygiene.
-  when: Maintain the OnlineChefGroep/herdr fork — PR autopilot, reb…
+  when: Maintain the GroepOnline/herdr fork — PR autopilot, reb…
 - name: verify-herdr
   path: .cursor/skills/verify-herdr/SKILL.md
   kind: skill

@@ -4,7 +4,7 @@ herdr is independent, open source, and built full-time.
 Every sponsorship goes directly toward development, stability, and reaching herdr's
 goal of becoming the runtime for coding agents.
 
-→ Sponsor: https://github.com/OnlineChefGroep
+→ Sponsor: https://github.com/GroepOnline
 → Enterprise / partnership: joep@chefgroep.nl
 
 ## Tiers

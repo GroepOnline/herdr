@@ -10,12 +10,12 @@
   <a href="https://herdr.chefgroep.nl/docs/integrations/">Integrations</a> ·
   <a href="https://herdr.chefgroep.nl/docs/configuration/">Configuration</a> ·
   <a href="https://herdr.chefgroep.nl/docs/socket-api/">Socket API</a> ·
-  <a href="https://github.com/OnlineChefGroep/herdr/releases/latest">Latest release</a>
+  <a href="https://github.com/GroepOnline/herdr/releases/latest">Latest release</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/OnlineChefGroep/herdr/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/OnlineChefGroep/herdr?display_name=tag&sort=semver"></a>
-  <a href="https://github.com/OnlineChefGroep/herdr/actions"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/OnlineChefGroep/herdr/ci.yml?branch=main"></a>
+  <a href="https://github.com/GroepOnline/herdr/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/GroepOnline/herdr?display_name=tag&sort=semver"></a>
+  <a href="https://github.com/GroepOnline/herdr/actions"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/GroepOnline/herdr/ci.yml?branch=main"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue"></a>
 </p>
 
@@ -23,7 +23,7 @@
 
 Herdr gives you persistent workspaces, tabs and real terminal panes, with agent-aware states such as blocked, working, done and idle. Detach and reattach without killing the running agents. There is no Electron shell, wrapped agent UI or macOS-only native application.
 
-The OnlineChefGroep distribution tracks upstream Herdr and adds the CHEF release, integration and deployment layer. The current stable line is **v0.7.6**; `main` can contain validated post-release fixes before the next tag.
+The GroepOnline distribution tracks upstream Herdr and adds the CHEF release, integration and deployment layer. The current stable line is **v0.7.6**; `main` can contain validated post-release fixes before the next tag.
 
 ## Install
 
@@ -39,18 +39,18 @@ Windows preview beta:
 powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps1 | iex"
 ```
 
-Homebrew (OnlineChefGroep tap — Linux/macOS, Intel/ARM):
+Homebrew (GroepOnline tap — Linux/macOS, Intel/ARM):
 
 ```bash
-brew tap OnlineChefGroep/tap
-brew install OnlineChefGroep/tap/onlinechefgroep-herdr
+brew tap GroepOnline/tap
+brew install GroepOnline/tap/groeponline-herdr
 ```
 
 npm or Bun (Linux/macOS, Intel/ARM; postinstall verifies SHA256SUMS):
 
 ```bash
-npm install --global onlinechefgroep-herdr
-# or: bun add --global onlinechefgroep-herdr
+npm install --global groeponline-herdr
+# or: bun add --global groeponline-herdr
 ```
 
 mise:
@@ -62,10 +62,10 @@ mise use -g herdr
 When an older mise version cannot find the registry entry, update mise or temporarily use:
 
 ```bash
-mise use -g github:OnlineChefGroep/herdr
+mise use -g github:GroepOnline/herdr
 ```
 
-Stable Linux/macOS binaries and preview artifacts are available from [GitHub Releases](https://github.com/OnlineChefGroep/herdr/releases). Native Windows binaries remain preview-only.
+Stable Linux/macOS binaries and preview artifacts are available from [GitHub Releases](https://github.com/GroepOnline/herdr/releases). Native Windows binaries remain preview-only.
 
 ## Quick start
 
@@ -127,8 +127,8 @@ herdr session attach <name>
 Package-manager installs update through their package manager:
 
 ```bash
-brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr
-npm install --global onlinechefgroep-herdr@latest
+brew update && brew upgrade GroepOnline/tap/groeponline-herdr
+npm install --global groeponline-herdr@latest
 mise upgrade herdr
 ```
 
@@ -197,7 +197,7 @@ Herdr exposes a local socket API that lets agents create workspaces, split or zo
 Install the reusable skill globally:
 
 ```bash
-npx skills add OnlineChefGroep/herdr --skill herdr -g
+npx skills add GroepOnline/herdr --skill herdr -g
 ```
 
 Start with:
@@ -262,7 +262,7 @@ Herdr writes logs under `~/.config/herdr/`. In persistent-session mode, `herdr-c
 Read [`AGENTS.md`](./AGENTS.md) and [`CONTRIBUTING.md`](./CONTRIBUTING.md) before changing the repository.
 
 ```bash
-git clone https://github.com/OnlineChefGroep/herdr.git
+git clone https://github.com/GroepOnline/herdr.git
 cd herdr
 cargo build --release
 ./target/release/herdr

@@ -9,7 +9,7 @@ You are a specialist for the **herdr** repository: a terminal-native multiplexer
 
 1. Read `AGENTS.md` (same content as `CLAUDE.md`) for layered rules: universal vs maintainer vs local Can machine vs external contributor.
 2. Prefer `just` recipes over raw cargo: `just lint`, `just test`, `just check`, `just test-one <filter>`.
-3. Detect the acting GitHub account when opening issues/PRs. If not `OnlineChefGroep`, follow the external contributor guardrail in `AGENTS.md` / `CONTRIBUTING.md` — do not open issues on their behalf.
+3. Detect the acting GitHub account when opening issues/PRs. If not `GroepOnline`, follow the external contributor guardrail in `AGENTS.md` / `CONTRIBUTING.md` — do not open issues on their behalf.
 
 ## Architecture invariants (never violate)
 

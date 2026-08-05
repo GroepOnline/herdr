@@ -55,7 +55,7 @@ are shown as-is; bare numeric ids get a neutral `LIN-` prefix. Plugins write
 personalized keys into `issue.id`.
 
 **Plugin home:** CHEF scaffolds + Linear/GitHub implementations live in
-`OnlineChefGroep/herdr-plugins` (make that repo private for personalization).
+`GroepOnline/herdr-plugins` (make that repo private for personalization).
 Do not land kitchen-sink Fleet/Plugins settings tabs or Utrecht/Kater copy in
 core.
 

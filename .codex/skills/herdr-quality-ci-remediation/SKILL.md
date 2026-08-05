@@ -20,8 +20,8 @@ Shared architecture notes live in the neutral repo doc `.github/quality-ci.md` (
 1. Inspect failure:
 
    ```bash
-   gh run view <run_id> --repo OnlineChefGroep/herdr --log-failed
-   gh pr checks <pr> --repo OnlineChefGroep/herdr
+   gh run view <run_id> --repo GroepOnline/herdr --log-failed
+   gh pr checks <pr> --repo GroepOnline/herdr
    ```
 
    Also read the sticky PR comment marked `<!-- herdr-quality-remediation -->` when present.
@@ -45,7 +45,7 @@ Shared architecture notes live in the neutral repo doc `.github/quality-ci.md` (
 
    ```bash
    git push -u origin <branch>
-   gh pr checks <pr> --repo OnlineChefGroep/herdr --watch
+   gh pr checks <pr> --repo GroepOnline/herdr --watch
    ```
 
 6. Stop after green or after **3** unsuccessful fix rounds.

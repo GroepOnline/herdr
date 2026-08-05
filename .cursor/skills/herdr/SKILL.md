@@ -66,4 +66,4 @@ For Linear/GitHub/UDO/Kater, Fleet Ops Bar, and `com.chefgroep.*` plugins, use t
 
 ## External contributors
 
-If GitHub account is not `OnlineChefGroep`, follow `CONTRIBUTING.md`. Agents must not open GitHub issues on a human’s behalf.
+If GitHub account is not `GroepOnline`, follow `CONTRIBUTING.md`. Agents must not open GitHub issues on a human’s behalf.

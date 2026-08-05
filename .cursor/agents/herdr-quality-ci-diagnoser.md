@@ -11,7 +11,7 @@ You diagnose Herdr Quality CI failures. You do not edit files or push.
 ## Steps
 
 1. Resolve the newest failed CI run for the PR/branch.
-2. Run `gh run view <run_id> --repo OnlineChefGroep/herdr --log-failed`.
+2. Run `gh run view <run_id> --repo GroepOnline/herdr --log-failed`.
 3. Map each failure to one gate job: Lint, Test, Maintenance, Windows lint, Release metadata, Release smoke, Quality gate.
 4. Extract the top actionable error lines (not full logs).
 5. Recommend the next fix owner:

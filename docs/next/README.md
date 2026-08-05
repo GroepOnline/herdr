@@ -36,17 +36,17 @@ powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps
 or install with homebrew:
 
 ```bash
-brew tap OnlineChefGroep/tap
-brew install OnlineChefGroep/tap/onlinechefgroep-herdr
+brew tap GroepOnline/tap
+brew install GroepOnline/tap/groeponline-herdr
 ```
 
-update later with `brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr`. the upstream `brew install herdr` formula can lag behind [herdr.chefgroep.nl/latest.json](https://herdr.chefgroep.nl/latest.json).
+update later with `brew update && brew upgrade GroepOnline/tap/groeponline-herdr`. the upstream `brew install herdr` formula can lag behind [herdr.chefgroep.nl/latest.json](https://herdr.chefgroep.nl/latest.json).
 
 or install with npm/bun (Linux/macOS, Intel/ARM):
 
 ```bash
-npm install --global onlinechefgroep-herdr
-# or: bun add --global onlinechefgroep-herdr
+npm install --global groeponline-herdr
+# or: bun add --global groeponline-herdr
 ```
 
 The npm postinstall verifies the release `SHA256SUMS` before installing the native binary.
@@ -57,9 +57,9 @@ or install with mise:
 mise use -g herdr
 ```
 
-if mise reports `herdr not found in mise tool registry`, update mise and retry. older mise versions predate the herdr registry entry; `mise use -g github:OnlineChefGroep/herdr` works as a temporary fallback.
+if mise reports `herdr not found in mise tool registry`, update mise and retry. older mise versions predate the herdr registry entry; `mise use -g github:GroepOnline/herdr` works as a temporary fallback.
 
-or download the stable Linux/macOS binary from [releases](https://github.com/OnlineChefGroep/herdr/releases). Native Windows binaries are beta builds; the preview and dev channels currently publish Linux (musl) binaries only.
+or download the stable Linux/macOS binary from [releases](https://github.com/GroepOnline/herdr/releases). Native Windows binaries are beta builds; the preview and dev channels currently publish Linux (musl) binaries only.
 
 ## quick start
 
@@ -95,7 +95,7 @@ Herdr notifies you when a new version is available. Run manually:
 herdr update
 ```
 
-`herdr update` is for installs managed by Herdr's own installer. Homebrew, npm, mise, and Nix installs update through `brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr`, `npm install --global onlinechefgroep-herdr@latest`, `mise upgrade herdr`, or your Nix workflow, then use the same stop-and-run-again flow if a session is still running the old server. Direct installs can opt into preview builds with `herdr channel set preview`, dev builds with `herdr channel set dev`, and return to stable with `herdr channel set stable` on Linux and macOS. See [install docs](https://herdr.chefgroep.nl/docs/install/) and [session state docs](https://herdr.chefgroep.nl/docs/session-state/) for the full update, restart, restore, and handoff matrix.
+`herdr update` is for installs managed by Herdr's own installer. Homebrew, npm, mise, and Nix installs update through `brew update && brew upgrade GroepOnline/tap/groeponline-herdr`, `npm install --global groeponline-herdr@latest`, `mise upgrade herdr`, or your Nix workflow, then use the same stop-and-run-again flow if a session is still running the old server. Direct installs can opt into preview builds with `herdr channel set preview`, dev builds with `herdr channel set dev`, and return to stable with `herdr channel set stable` on Linux and macOS. See [install docs](https://herdr.chefgroep.nl/docs/install/) and [session state docs](https://herdr.chefgroep.nl/docs/session-state/) for the full update, restart, restore, and handoff matrix.
 
 Linux and macOS direct installs use the stable update channel by default. Windows beta installs default to preview. To test preview builds from `main` before the next stable release:
 
@@ -194,7 +194,7 @@ not a gui window, not a web dashboard, not electron. herdr runs inside whatever 
 The local Unix socket lets agents create workspaces, split or zoom panes, spawn helpers, read output, and wait for state changes. Install the reusable skill with:
 
 ```bash
-npx skills add OnlineChefGroep/herdr --skill herdr -g
+npx skills add GroepOnline/herdr --skill herdr -g
 ```
 
 Start with the [agent skill docs](https://herdr.chefgroep.nl/docs/agent-skill/), [socket API docs](https://herdr.chefgroep.nl/docs/socket-api/), and [`SKILL.md`](./SKILL.md).
@@ -302,7 +302,7 @@ if you are an ai agent helping with this repository, read [`AGENTS.md`](./AGENTS
 ## development
 
 ```bash
-git clone https://github.com/OnlineChefGroep/herdr
+git clone https://github.com/GroepOnline/herdr
 cd herdr
 cargo build --release
 ./target/release/herdr
@@ -315,7 +315,7 @@ just check       # formatting, tests, and maintenance checks
 
 herdr is built full-time, in the open, with no revenue behind it. sponsoring directly funds development, stability, and the path to a real agent runtime.
 
-[**→ become a sponsor**](https://github.com/sponsors/OnlineChefGroep) · enterprise / partnership: hey@herdr.chefgroep.nl · see [SPONSORS.md](./SPONSORS.md) for tiers. thank you 🐑
+[**→ become a sponsor**](https://github.com/sponsors/GroepOnline) · enterprise / partnership: hey@herdr.chefgroep.nl · see [SPONSORS.md](./SPONSORS.md) for tiers. thank you 🐑
 
 ## license
 

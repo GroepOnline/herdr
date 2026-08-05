@@ -43,7 +43,7 @@ Escape hatch PR label: `ci-autofix-disabled`.
 ## Agent commands
 
 ```bash
-gh run view <run_id> --repo OnlineChefGroep/herdr --log-failed
-gh pr checks <pr> --repo OnlineChefGroep/herdr --watch
-gh pr view <pr> --repo OnlineChefGroep/herdr --json files,labels,headRefName,headRefOid
+gh run view <run_id> --repo GroepOnline/herdr --log-failed
+gh pr checks <pr> --repo GroepOnline/herdr --watch
+gh pr view <pr> --repo GroepOnline/herdr --json files,labels,headRefName,headRefOid
 ```

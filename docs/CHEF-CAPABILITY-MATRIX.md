@@ -1,7 +1,7 @@
 # CHEF Fleet Operations Layer — Capability Matrix
 
-Baseline: upstream v0.7.3 (OnlineChefGroep/herdr @ f36d804)
-Downstream: OnlineChefGroep/herdr @ master (v0.7.3-chef)
+Baseline: upstream v0.7.3 (GroepOnline/herdr @ f36d804)
+Downstream: GroepOnline/herdr @ master (v0.7.3-chef)
 Date: 2026-07-12
 
 ## 1. Agent Detection & Semantic State

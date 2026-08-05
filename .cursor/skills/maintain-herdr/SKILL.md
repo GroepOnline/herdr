@@ -1,11 +1,11 @@
 ---
 name: maintain-herdr
-description: Maintain the OnlineChefGroep/herdr fork — PR autopilot, rebase and conflict resolution, draft triage, quality-gate fixes, release/hygiene. Use when opening, rebasing, merging or closing PRs on the fork, handling draft/cursor PRs, resolving merge conflicts after bulk merges, or keeping fork/main healthy relative to upstream ogulcancelik/herdr.
+description: Maintain the GroepOnline/herdr fork — PR autopilot, rebase and conflict resolution, draft triage, quality-gate fixes, release/hygiene. Use when opening, rebasing, merging or closing PRs on the fork, handling draft/cursor PRs, resolving merge conflicts after bulk merges, or keeping fork/main healthy relative to upstream ogulcancelik/herdr.
 ---
 
 # Maintain herdr (fork ops)
 
-Fork: `OnlineChefGroep/herdr`. Upstream: `ogulcancelik/herdr` (read-only).
+Fork: `GroepOnline/herdr`. Upstream: `ogulcancelik/herdr` (read-only).
 All source changes land on the fork first — never push to upstream directly.
 
 ## Remotes
@@ -13,15 +13,15 @@ All source changes land on the fork first — never push to upstream directly.
 ```bash
 git remote -v
 # origin  = https://github.com/ogulcancelik/herdr.git   (read-only upstream)
-# fork    = git@github.com:OnlineChefGroep/herdr.git    (push here)
-# private = git@github.com:OnlineChefGroep/herdr-private.git
+# fork    = git@github.com:GroepOnline/herdr.git    (push here)
+# private = git@github.com:GroepOnline/herdr-private.git
 ```
 
 Clone locally at `~/herdr`. Rebase on `fork/main`, never `origin/main`.
 
 ## PR autopilot loop
 
-1. `gh pr list -R OnlineChefGroep/herdr --state open --json number,title,isDraft,mergeable`
+1. `gh pr list -R GroepOnline/herdr --state open --json number,title,isDraft,mergeable`
 2. Per PR: `gh pr checks <n>` — merge only when every check passes or skips.
 3. Green + not draft → `gh pr merge <n> --squash --delete-branch`.
 4. Green + draft (cursor-generated, user opted in) → `gh pr ready <n>`, then merge.
@@ -34,7 +34,7 @@ Always work from a full clone. A fresh clone only has `origin`, so rename it and
 re-add the remotes to match the layout above before anything references `fork/*`:
 
 ```bash
-git clone https://github.com/OnlineChefGroep/herdr.git ~/herdr && cd ~/herdr
+git clone https://github.com/GroepOnline/herdr.git ~/herdr && cd ~/herdr
 git remote rename origin fork
 git remote add origin https://github.com/ogulcancelik/herdr.git   # read-only upstream
 git fetch fork && git fetch origin
@@ -52,7 +52,7 @@ git rebase fork/main
 # resolve conflicts, then:
 git push --force-with-lease fork <pr-branch>
 gh pr checks <n>   # wait for re-run
-gh pr merge <n> -R OnlineChefGroep/herdr --squash --delete-branch
+gh pr merge <n> -R GroepOnline/herdr --squash --delete-branch
 ```
 
 ## Conflict resolution patterns

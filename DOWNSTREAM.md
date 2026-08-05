@@ -1,15 +1,15 @@
-# OnlineChefGroep/herdr — downstream distribution
+# GroepOnline/herdr — downstream distribution
 
-Maintained public Herdr distribution for OnlineChefGroep agent operations. Downstream product, agent-detection, gateway, fleet-control, packaging, and release changes remain explicit and independently validated.
+Maintained public Herdr distribution for GroepOnline agent operations. Downstream product, agent-detection, gateway, fleet-control, packaging, and release changes remain explicit and independently validated.
 
 ## Distribution contract
 
-- Canonical repository: `OnlineChefGroep/herdr`
+- Canonical repository: `GroepOnline/herdr`
 - Package version source: `Cargo.toml`; `npm/package.json` is mechanically synchronized
 - Toolchain: pinned Rust in CI, Zig `0.15.2`, Node.js `>=18`
 - Stable native assets: Linux and macOS, x86_64 and ARM64
-- npm package: `onlinechefgroep-herdr`
-- Homebrew tap/formula: `OnlineChefGroep/homebrew-tap` / `onlinechefgroep-herdr`
+- npm package: `groeponline-herdr`
+- Homebrew tap/formula: `GroepOnline/homebrew-tap` / `groeponline-herdr`
 - Stable install manifest: `website/latest.json` → `https://herdr.chefgroep.nl/latest.json`
 - Native Windows: preview-only until a stable Windows release contract is declared
 
@@ -28,7 +28,7 @@ A partial release can exist on GitHub while portable builders finish, but it can
 ## Installer/update ownership
 
 - Direct Linux/macOS installs require manifest SHA-256 metadata and atomically replace the binary only after verification.
-- npm postinstall verifies `SHA256SUMS` and installs inside `node_modules/onlinechefgroep-herdr/bin`.
+- npm postinstall verifies `SHA256SUMS` and installs inside `node_modules/groeponline-herdr/bin`.
 - `herdr update` detects Homebrew, npm, mise, and Nix paths and refuses to overwrite package-managed files.
 - Homebrew, npm, mise, and Nix installations update through their respective package manager.
 
@@ -36,7 +36,7 @@ A partial release can exist on GitHub while portable builders finish, but it can
 
 - Owner: `@OnlineChef`, enforced for the preview workflow, helper, and manifest through `.github/CODEOWNERS`.
 - Source branch: `main`; requested commits must be reachable from `origin/main`.
-- Artifact namespace: preview prereleases in `OnlineChefGroep/herdr` only. CI rejects references outside the downstream release namespace.
+- Artifact namespace: preview prereleases in `GroepOnline/herdr` only. CI rejects references outside the downstream release namespace.
 - Publication requires a complete checksum target matrix. Missing, extra, or malformed SHA-256 values abort before the manifest commit.
 - Rollback: dispatch the Preview workflow with an earlier downstream commit reachable from `main`. If no safe downstream preview exists, keep top-level `assets` empty so clients fail closed; never restore external asset URLs.
 - Website ownership follows the repository-backed `website/preview.json`; no separate `*.pages.dev` binding is a source of truth.
@@ -44,7 +44,7 @@ A partial release can exist on GitHub while portable builders finish, but it can
 ## Sync policy
 
 - Reconcile upstream on dedicated sync branches; do not combine upstream sync with release closeout.
-- Never reuse upstream binaries or checksums for an OnlineChefGroep release.
+- Never reuse upstream binaries or checksums for an GroepOnline release.
 - Keep downstream behavior covered by CI and preserve the baseline rather than removing tests or weakening runtime functionality.
 - Do not port Hermes-related upstream changes into this distribution.
 

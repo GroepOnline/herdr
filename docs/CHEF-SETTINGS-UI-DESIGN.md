@@ -38,7 +38,7 @@ left navigation, search, and scrollable section content.
 - Shared `SettingsLayout` drives render and mouse hit-testing
 - Animations: `SettingsState.preview_tick` while `Mode::Settings`
 - CHEF personalization (Fleet/Plugins kitchen-sink tabs, `com.chefgroep.*`,
-  `ENG-` branding) lives in private `OnlineChefGroep/herdr-plugins`, not in
+  `ENG-` branding) lives in private `GroepOnline/herdr-plugins`, not in
   core settings. Core exposes a native **Plugins** section with installed
   plugin toggles and a curated CHEF catalog install list, plus a generic Advanced
   **fleet ops bar** toggle and a cached, plugin-id-agnostic `fleet_ops.json`
@@ -60,7 +60,7 @@ left navigation, search, and scrollable section content.
 
 ### Plugins v2 (next)
 
-PR-A aligns the curated catalog with `OnlineChefGroep/herdr-plugins` paths on main.
+PR-A aligns the curated catalog with `GroepOnline/herdr-plugins` paths on main.
 Follow-ups: install progress/toast feedback while `herdr plugin install` runs, load
 available entries from `herdr-plugins/registry.json` instead of a hardcoded list, and
 a searchable marketplace tab once registry metadata (categories, versions) is wired through
