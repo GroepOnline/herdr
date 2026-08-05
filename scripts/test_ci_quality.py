@@ -47,12 +47,12 @@ class CiQualityTests(unittest.TestCase):
         (root / "npm/package.json").write_text(
             json.dumps(
                 {
-                    "name": "groeponline-herdr",
+                    "name": "onlinechefgroep-herdr",
                     "version": npm_version,
                     "license": "AGPL-3.0-or-later",
                     "repository": {
                         "type": "git",
-                        "url": "https://github.com/GroepOnline/herdr.git",
+                        "url": "https://github.com/OnlineChefGroep/herdr.git",
                     },
                     "os": ["linux", "darwin"],
                 },
@@ -89,7 +89,7 @@ class CiQualityTests(unittest.TestCase):
             encoding="utf-8",
         )
         (root / "scripts/changelog.py").write_text(
-            'DEFAULT_RELEASE_REPO = "GroepOnline/herdr"\n',
+            'DEFAULT_RELEASE_REPO = "OnlineChefGroep/herdr"\n',
             encoding="utf-8",
         )
         (root / "npm/README.md").write_text("# npm package\n", encoding="utf-8")
