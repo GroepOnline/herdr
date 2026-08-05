@@ -196,69 +196,96 @@ Do not use GitHub closing keywords like `fixes #<issue-number>`, `closes #<issue
 - Integration asset versions (`HERDR_INTEGRATION_VERSION` markers and matching `*_INTEGRATION_VERSION` constants) are migration versions relative to the latest released tag, not per-commit counters on `main`. If an integration asset changes multiple times between releases, bump it once from the version in the latest release.
 - When changing the server/client wire protocol, compare `src/protocol/wire.rs::PROTOCOL_VERSION` against the latest released tag. Bump it only if the current source protocol is not already greater than the latest released protocol. Update hardcoded protocol expectations and manual protocol fixtures in tests.
 
-## Release Channels
+## Version Management
+
+### Version identity
+
+The single source of truth for the current version is `package.version` in
+`Cargo.toml`. `scripts/product_config.py` exposes it via `cargo_version()` and
+provides `release_tag()` ("v" prefix) and `release_asset_url()` helpers. All
+release tooling imports this module; nothing hardcodes the org, repo, or asset
+matrix.
+
+### Release channels
+
+Herdr has one branch (`main`) and three update channels. All three build from
+`main`; there are no long-lived preview or dev branches.
+
+| Channel | Version string | Tag pattern | Trigger | Install |
+|---|---|---|---|---|
+| **stable** | `0.7.7` | `v0.7.7` | push tag `v*` | `herdr.chefgroep.nl` install.sh, npm, Homebrew |
+| **preview** | `0.7.7-preview.2026-08-04-abc12345` | `preview-<build_id>` | manual dispatch + Wed/Fri 10:00 UTC schedule | `herdr channel set preview && herdr update` |
+| **dev** | `0.7.7-dev.2026-08-04-abc12345` | `dev-<build_id>` | push to `main` (auto) + manual dispatch | `herdr channel set dev && herdr update` |
+
+Preview and dev builds append `-{channel}.{YYYY-MM-DD}-{short_sha}` to the
+Cargo.toml base version via CI env vars (`HERDR_BUILD_CHANNEL`,
+`HERDR_BUILD_ID`, `HERDR_BUILD_COMMIT` in `src/build_info.rs`).
+
+### Stable release process
+
+1. Run `/pre-release-audit` and fix all findings.
+2. Finalize `docs/next/`; copy approved docs into stable docs/root files.
+3. Run `just release-docs-check` to verify the sync.
+4. Run `just check` (fmt, nextest, clippy, maintenance tests, release smoke).
+5. Run `just release 0.7.7` — this prepares the release commit and tag, then
+   pushes the tag.
+6. GitHub Actions runs:
+   - `release.yml`: verifies tag matches Cargo.toml, builds linux-x86_64,
+     creates the GitHub release with changelog notes, updates `latest.json`,
+     closes released issues.
+   - `release-portable-assets.yml`: triggered after Release completes; builds
+     linux-aarch64 + macOS binaries, uploads all 4 assets + SHA256SUMS to the
+     release, updates `latest.json` with portable asset URLs.
+   - `publish-distribution.yml`: called by release-portable-assets; publishes
+     npm package (`groeponline-herdr`) and Homebrew formula (`GroepOnline/homebrew-tap`).
+
+The tag must match `Cargo.toml` exactly ("v" prefix + semver). A mismatch
+fails the release workflow immediately.
+
+### Package publishing
+
+Stable releases publish to three package registries automatically:
+
+| Registry | Package | Workflow | Secret |
+|---|---|---|---|
+| GitHub Releases | `herdr-{platform}-{arch}` binaries | `release.yml` + `release-portable-assets.yml` | `RELEASE_DEPLOY_KEY` (SSH), `CLOUDFLARE_PAGES_DEPLOY_HOOK` (optional) |
+| npm | `groeponline-herdr` | `publish-distribution.yml` (via workflow_call) | `NPM_TOKEN` (org-level, visibility all) |
+| Homebrew | `groeponline-herdr` formula | `publish-distribution.yml` (via workflow_call) | `HOMEBREW_TAP_DEPLOY_KEY` (SSH deploy key for `GroepOnline/homebrew-tap`) |
+
+The Homebrew formula (`scripts/homebrew_formula.py`) generates a
+`GroeponlineHerdr` class covering all four platforms from release assets and
+SHA256SUMS. The formula is generated, Ruby-syntax-checked, and pushed to the
+tap repo automatically.
+
+`publish-distribution.yml` runs as a reusable workflow (`workflow_call`) so it
+can be triggered manually via `workflow_dispatch` (with `dry_run: true` for
+validation without publishing) or automatically by `release-portable-assets.yml`.
+
+### Manifest files
+
+| File | Channel | Updated by |
+|---|---|---|
+| `website/latest.json` | stable | `release.yml` (version + protocol) + `release-portable-assets.yml` (assets) |
+| `website/preview.json` | preview | `preview.yml` |
+| `website/dev.json` | dev | `dev.yml` |
+
+Do not hand-edit manifests; fix the workflow or script and re-run.
+
+### Nix
+
+`nix/package.nix` imports `Cargo.lock` directly with `cargoLock.lockFile`,
+so release version bumps do not require a separate Nix cargo hash update.
+`nix.yml` runs `flake check` on PRs and push to main (validation only). New
+Cargo git dependencies require `cargoLock.outputHashes` entries.
+
+## Release Channels (legacy docs)
 
 This section is maintainer-only for release actions. If the acting GitHub
 account is not `OnlineChefGroep`, do not run release commands, push release assets,
 or modify release channel files; follow the external contributor guardrail.
 
-Herdr has one main branch and three update channels: stable, preview, and dev. All three build from `main`; there is no long-lived preview or dev branch.
-
-Normal users default to stable. Stable docs are `/docs/`, stable updates use `website/latest.json`, and Homebrew/Nix stay stable-only. Preview and dev are direct-install only (rejected for Homebrew/mise/Nix installs).
-
-Preview is opt-in for direct Herdr installs:
-
-```bash
-herdr channel set preview
-herdr update
-```
-
-Dev is opt-in for direct Herdr installs:
-
-```bash
-herdr channel set dev
-herdr update
-```
-
-Switch back with:
-
-```bash
-herdr channel set stable
-herdr update
-```
-
-Preview releases are GitHub prereleases produced by `.github/workflows/preview.yml` on manual dispatch and the Wednesday/Friday schedule. The workflow updates `website/preview.json`, which the website build publishes as `/preview.json`. Do not hand-edit `website/preview.json`; fix the workflow or `scripts/preview.py` and rerun Preview.
-
-Dev is the bleeding-edge channel for maintainers to dogfood every merge. Install it directly on a fresh machine, or switch an existing install:
-
-```bash
-curl -fsSL https://herdr.chefgroep.nl/install.sh | sh -s -- --channel dev
-# or, on an existing install:
-herdr channel set dev
-herdr update
-```
-
-`website/install.sh` is channel-aware (`--channel <stable|preview|dev>` or `HERDR_CHANNEL`); it reads the matching manifest and, for non-stable channels, runs `herdr channel set` so later updates track that channel.
-
-Dev releases are GitHub prereleases (`dev-<build_id>`) produced by `.github/workflows/dev.yml` automatically on every push to `main` (and manual dispatch). It builds with `HERDR_BUILD_CHANNEL=dev`, publishes the binary, and updates `website/dev.json`, which the website build publishes as `/dev.json`. It reuses the preview manifest/notes machinery via `scripts/dev.py` (a thin wrapper over `scripts/preview.py`). Dev skips the full `just check` (main is already CI-gated at merge) to stay fast. Do not hand-edit `website/dev.json`; fix `.github/workflows/dev.yml` or `scripts/dev.py`. The GitHub-token manifest commit does not retrigger the workflow, and the preflight skips when `dev.json` already points at the selected commit, so there is no publish loop.
-
-Stable releases use:
-
-```bash
-just check
-just release 0.x.y
-```
-
-Before stable release, run `/pre-release-audit`, finalize `docs/next`, copy approved docs into the stable docs/root files, and let `just release-docs-check` verify the sync. `just release` prepares the release commit, tags it, pushes the tag, and GitHub Actions builds binaries, creates the GitHub release, closes released issues, and updates `website/latest.json`.
-
-The release workflows must publish these four assets:
-
-- `herdr-linux-x86_64`
-- `herdr-linux-aarch64`
-- `herdr-macos-x86_64`
-- `herdr-macos-aarch64`
-
-`nix/package.nix` imports `Cargo.lock` directly with `cargoLock.lockFile`, so release version bumps do not require a separate Nix cargo hash update. If Cargo git dependencies are added later, add the required `cargoLock.outputHashes` entries as part of that dependency change.
+Normal users default to stable. Preview and dev are direct-install only
+(rejected for Homebrew/mise/Nix installs).
 
 ## External contributor guardrail
 
