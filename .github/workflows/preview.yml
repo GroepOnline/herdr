@@ -1,6 +1,8 @@
 name: Preview
 
 on:
+  schedule:
+    - cron: "0 10 * * 3,5" # Wednesday + Friday at 10:00 UTC
   workflow_dispatch:
     inputs:
       commit:
