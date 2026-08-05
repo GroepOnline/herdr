@@ -1,4 +1,4 @@
-# Installing OnlineChefGroep Herdr
+# Installing GroepOnline Herdr
 
 ## From binary release
 
@@ -12,5 +12,5 @@ bun install v1.3.14 (0d9b296a)
 
 ## Chef profile
 
-This installs the OnlineChefGroep defaults (Ctrl+A prefix, Catppuccin theme, agent settings)
+This installs the GroepOnline defaults (Ctrl+A prefix, Catppuccin theme, agent settings)
 without overwriting your existing config.

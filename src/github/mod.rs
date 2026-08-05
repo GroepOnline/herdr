@@ -270,7 +270,7 @@ github.example.com:
 
     #[test]
     fn validates_repo_path_segments() {
-        assert!(is_valid_repo_path_segment("OnlineChefGroep"));
+        assert!(is_valid_repo_path_segment("GroepOnline"));
         assert!(is_valid_repo_path_segment("herdr"));
         assert!(is_valid_repo_path_segment("foo.bar_baz-1"));
         assert!(!is_valid_repo_path_segment(""));

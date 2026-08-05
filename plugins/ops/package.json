@@ -4,5 +4,5 @@
   "private": true,
   "type": "module",
   "main": "src/index.js",
-  "description": "CHEF runtime location scaffold; production inventory lives in OnlineChefGroep/herdr-ops"
+  "description": "CHEF runtime location scaffold; production inventory lives in GroepOnline/herdr-ops"
 }

@@ -52,7 +52,7 @@ The quality gate treats `skipped` as OK for optional heavy jobs so docs PRs stay
 Validate with:
 
 ```bash
-gh pr checks <pr-number> --repo OnlineChefGroep/herdr --watch
+gh pr checks <pr-number> --repo GroepOnline/herdr --watch
 ```
 
 ## Autofix vs remediation
@@ -94,7 +94,7 @@ Remediation payload:
 Create a Cursor Automation that listens for GitHub `repository_dispatch` with `event_type=herdr-quality-remediation`:
 
 ```text
-Repository: OnlineChefGroep/herdr
+Repository: GroepOnline/herdr
 PR: {{client_payload.pr}}
 Failed run: {{client_payload.run_id}}
 Branch: {{client_payload.branch}}

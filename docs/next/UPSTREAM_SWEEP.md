@@ -1,6 +1,6 @@
 # Upstream sweep (ogulcancelik/herdr)
 
-Track useful upstream fixes that are not yet in OnlineChefGroep/herdr.
+Track useful upstream fixes that are not yet in GroepOnline/herdr.
 Do **not** port Hermes-related changes.
 
 Merge-base reference: see `git merge-base origin/main upstream/master`.

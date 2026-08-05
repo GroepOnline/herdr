@@ -11,7 +11,7 @@
 ### Changed
 - Stable release metadata is now promoted atomically only after all four native assets and `SHA256SUMS` have been downloaded and verified.
 - Homebrew, npm, mise, and Nix installs are detected as package-managed and update through their owning package manager.
-- Preview builds now publish from `main` under the OnlineChefGroep release namespace with mandatory checksums and explicit ownership.
+- Preview builds now publish from `main` under the GroepOnline release namespace with mandatory checksums and explicit ownership.
 
 ### Fixed
 - Direct, npm, self-update, and remote-bootstrap downloads now fail closed when SHA-256 metadata is missing, malformed, or mismatched.
@@ -74,7 +74,7 @@
 
 ## [0.7.4] - 2026-07-15
 
-OnlineChefGroep fork release with upstream herdr 0.7.4 merged in. First OnlineChefGroep build shipped from `OnlineChefGroep/herdr` CI (not upstream binaries).
+GroepOnline fork release with upstream herdr 0.7.4 merged in. First GroepOnline build shipped from `GroepOnline/herdr` CI (not upstream binaries).
 
 ### Added
 
@@ -83,7 +83,7 @@ OnlineChefGroep fork release with upstream herdr 0.7.4 merged in. First OnlineCh
 - Fleet Ops Bar, Fleet/Plugins settings tabs, and workspace templates (`dev`, `incident`).
 - Spinner appearance settings with live preview (76 styles).
 - GitHub Actions CI (check, test, cross-build).
-- npm package `onlinechefgroep-herdr` and Homebrew tap `OnlineChefGroep/tap`.
+- npm package `groeponline-herdr` and Homebrew tap `GroepOnline/tap`.
 - Added session-modal popup floating terminal panes for `type = "popup"` custom command keybindings and plugin panes, with optional cell or percentage sizing and no changes to the tiled tab layout. (#1125)
 - Added `ui.copy_on_select` to disable automatic clipboard copying after mouse selection while keeping the selection visible.
 - Added configurable row layouts for expanded Space and Agent sidebar entries, including built-in display tokens, per-agent overrides, custom metadata tokens, and pane/workspace metadata reporting through the CLI and socket API.
@@ -97,7 +97,7 @@ OnlineChefGroep fork release with upstream herdr 0.7.4 merged in. First OnlineCh
 - Prefix routing test updated for `ctrl+a` default.
 - Direct attach preserves single- and multi-byte configured prefixes without silently falling back to `ctrl+a`.
 - Gateway health reports the Cargo package version and actual process uptime.
-- Release manifest generation now reads releases from `OnlineChefGroep/herdr`.
+- Release manifest generation now reads releases from `GroepOnline/herdr`.
 - npm no longer advertises an unsupported Windows prebuilt and its packaged README is clean.
 - Collapsed Agent sidebar rows now follow the same ordering and click targets as the expanded panel, and their shortcut numbers are assigned by visible list position instead of repeating across workspaces. (#1168, #1344)
 - Shifted indexed bindings such as `prefix+shift+1..9` now match terminals that report the corresponding punctuation characters. (#1184)
@@ -125,7 +125,7 @@ OnlineChefGroep fork release with upstream herdr 0.7.4 merged in. First OnlineCh
 
 ### Changed
 
-- Distribution binaries publish from `OnlineChefGroep/herdr` releases (replacing upstream-seeded v0.7.3 assets).
+- Distribution binaries publish from `GroepOnline/herdr` releases (replacing upstream-seeded v0.7.3 assets).
 - CI uses the same patched Zig path as release builds on macOS and gates only supported release platforms.
 - Expanded Space and Agent sidebar entries now use a packed layout by default; set the corresponding `row_gap` to `1` to restore the previous spacing.
 - Refreshed the bundled Herdr agent skill for current public workspace, tab, and pane ids and the current CLI/API workflow. (#1297)

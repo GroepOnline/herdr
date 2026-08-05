@@ -6,7 +6,7 @@
   "commit": "",
   "built_at": "2026-07-31T22:23:30Z",
   "protocol": 18,
-  "notes": "Preview is temporarily disabled because the previous manifest referenced artifacts outside the OnlineChefGroep release namespace. Dispatch the Preview workflow from main to publish the first downstream-owned checksummed preview.",
+  "notes": "Preview is temporarily disabled because the previous manifest referenced artifacts outside the GroepOnline release namespace. Dispatch the Preview workflow from main to publish the first downstream-owned checksummed preview.",
   "assets": {},
   "builds": {}
 }

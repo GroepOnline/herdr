@@ -109,7 +109,7 @@ async fn health(State(state): State<SharedState>) -> Json<Value> {
 
 /// Neutral ops/runtime location view for fleet tooling.
 /// Composes public socket methods + host identity; no private TUI socket fields.
-/// Future CHEF inventory plugins should live in OnlineChefGroep/herdr-ops
+/// Future CHEF inventory plugins should live in GroepOnline/herdr-ops
 /// (`com.chefgroep.ops`) and consume this endpoint / `agent.list`.
 async fn get_ops_context(State(state): State<SharedState>) -> Json<Value> {
     let s = state.read().await;
@@ -126,7 +126,7 @@ async fn get_ops_context(State(state): State<SharedState>) -> Json<Value> {
         "session": session.unwrap_or_else(|e| json!({"error": e})),
         "ops_plugin": {
             "recommended_id": "com.chefgroep.ops",
-            "recommended_repo": "OnlineChefGroep/herdr-ops",
+            "recommended_repo": "GroepOnline/herdr-ops",
             "note": "Inventory/health SSOTs belong in herdr-ops plugins; this endpoint is the runtime location surface inside Herdr."
         }
     }))

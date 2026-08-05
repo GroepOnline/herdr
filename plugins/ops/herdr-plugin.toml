@@ -1,5 +1,5 @@
 # Scaffold for CHEF runtime/ops inventory (what runs where).
-# Production SSOT + Tailscale/host probes belong in OnlineChefGroep/herdr-ops
+# Production SSOT + Tailscale/host probes belong in GroepOnline/herdr-ops
 # as com.chefgroep.ops. This in-repo scaffold documents the contract and keeps
 # free OSS CI able to exercise the plugin path.
 
@@ -7,7 +7,7 @@ id = "com.chefgroep.ops"
 name = "Herdr Ops"
 version = "0.1.0"
 min_herdr_version = "0.7.5"
-description = "Runtime location bridge for Fleet Ops (scaffold → OnlineChefGroep/herdr-ops)"
+description = "Runtime location bridge for Fleet Ops (scaffold → GroepOnline/herdr-ops)"
 platforms = ["linux"]
 
 [[actions]]

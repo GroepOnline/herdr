@@ -5611,17 +5611,17 @@ mod tests {
         state.handle_app_event(AppEvent::UpdateReady {
             version: "0.5.0".into(),
             install_command:
-                "brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr".into(),
+                "brew update && brew upgrade GroepOnline/tap/groeponline-herdr".into(),
         });
 
         assert_eq!(
             state.update_install_command,
-            "brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr"
+            "brew update && brew upgrade GroepOnline/tap/groeponline-herdr"
         );
         let toast = state.toast.as_ref().expect("update toast");
         assert_eq!(
             toast.context,
-            "detach, run `brew update && brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr`, then restart this Herdr session when ready"
+            "detach, run `brew update && brew upgrade GroepOnline/tap/groeponline-herdr`, then restart this Herdr session when ready"
         );
     }
 

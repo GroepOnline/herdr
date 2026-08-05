@@ -136,25 +136,25 @@ pub(crate) const PLUGIN_CATALOG: &[PluginCatalogEntry] = &[
     PluginCatalogEntry {
         name: "Linear issues",
         blurb: "issue · assignee · cycle on the ops bar",
-        source: "OnlineChefGroep/herdr-plugins/chef-linear-context",
+        source: "GroepOnline/herdr-plugins/chef-linear-context",
         plugin_id: "com.chefgroep.linear-context",
     },
     PluginCatalogEntry {
         name: "GitHub checks",
         blurb: "PR number and CI status on the ops bar",
-        source: "OnlineChefGroep/herdr-plugins/chef-github-status",
+        source: "GroepOnline/herdr-plugins/chef-github-status",
         plugin_id: "com.chefgroep.github-status",
     },
     PluginCatalogEntry {
         name: "Kater bridge",
         blurb: "gateway health, doctor, PR-gate, Utrecht fleet",
-        source: "OnlineChefGroep/herdr-plugins/kater-bridge",
+        source: "GroepOnline/herdr-plugins/kater-bridge",
         plugin_id: "com.chefgroep.kater-bridge",
     },
     PluginCatalogEntry {
         name: "Pane reaper",
         blurb: "ghost-reaper on pane exit for orphaned processes",
-        source: "OnlineChefGroep/herdr-plugins/chef-pane-reaper",
+        source: "GroepOnline/herdr-plugins/chef-pane-reaper",
         plugin_id: "com.chefgroep.pane-reaper",
     },
 ];
