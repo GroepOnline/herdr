@@ -2,18 +2,31 @@
   "schema_version": 1,
   "channel": "dev",
   "base_version": "0.7.7",
-  "build_id": "2026-08-01-c940c3369f9b",
-  "commit": "c940c3369f9bfd36329d20ce71fcf4a17b658639",
-  "built_at": "2026-08-01T21:50:42Z",
+  "build_id": "2026-08-08-eff384390036",
+  "commit": "eff3843900362683bd2353394283e2a9094aa521",
+  "built_at": "2026-08-07T23:48:55Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-01-c940c3369f9b\n\nBuilt from `c940c3369f9b` on `main`.\nBase stable: v0.7.7\nCompare: https://github.com/GroepOnline/herdr/compare/e7717fd97d5df48a7dcfe7f8049c51f3e659676b...c940c3369f9bfd36329d20ce71fcf4a17b658639\n\n### Maintenance\n- Cloud env standards + full verify-herdr e2e (#107)",
+  "notes": "Dev build 2026-08-08-eff384390036\n\nBuilt from `eff384390036` on `main`.\nBase stable: v0.7.7\nCompare: https://github.com/GroepOnline/herdr/compare/v0.7.7...eff3843900362683bd2353394283e2a9094aa521\n\n### Maintenance\n- Bump taiki-e/install-action in the github-actions group\n- Bump the cargo-dependencies group with 2 updates\n\n### Other\n- Merge pull request #2 from GroepOnline/dependabot/cargo/cargo-dependencies-aab3cc0d1c\n- Merge pull request #3 from GroepOnline/dependabot/github_actions/github-actions-69f9ce34b6",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-c940c3369f9b/herdr-linux-x86_64",
-      "sha256": "a94733132a46a3f453eb4a473c4fd32c2d01c81f89c4e34ab157fa5a79b311be"
+      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-08-eff384390036/herdr-linux-x86_64",
+      "sha256": "ff682031ce8cd10dba7a38ac246bd7e7d702f62ce3fe8b1799c91c583728e11d"
     }
   },
   "builds": {
+    "2026-08-08-eff384390036": {
+      "base_version": "0.7.7",
+      "commit": "eff3843900362683bd2353394283e2a9094aa521",
+      "built_at": "2026-08-07T23:48:55Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-08-eff384390036",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-08-eff384390036/herdr-linux-x86_64",
+          "sha256": "ff682031ce8cd10dba7a38ac246bd7e7d702f62ce3fe8b1799c91c583728e11d"
+        }
+      }
+    },
     "2026-08-01-c940c3369f9b": {
       "base_version": "0.7.7",
       "commit": "c940c3369f9bfd36329d20ce71fcf4a17b658639",
