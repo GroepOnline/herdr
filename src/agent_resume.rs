@@ -183,7 +183,12 @@ pub fn plan(source: &str, agent: &str, session_ref: &AgentSessionRef) -> Option<
         }
         ("herdr:cursor", "cursor", AgentSessionRefKind::Id) => {
             vec![
-                "cursor-agent".into(),
+                if cfg!(windows) {
+                    "cursor-agent.cmd"
+                } else {
+                    "cursor-agent"
+                }
+                .into(),
                 "--resume".into(),
                 session_ref.value.clone(),
             ]
@@ -465,7 +470,15 @@ mod tests {
             )
             .unwrap()
             .argv,
-            vec!["cursor-agent", "--resume", "cursor-session"]
+            vec![
+                if cfg!(windows) {
+                    "cursor-agent.cmd"
+                } else {
+                    "cursor-agent"
+                },
+                "--resume",
+                "cursor-session",
+            ]
         );
         assert_eq!(
             plan(
