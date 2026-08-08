@@ -18,6 +18,30 @@ pub struct ForegroundJob {
     pub processes: Vec<ForegroundProcess>,
 }
 
+pub(crate) fn should_restore_host_terminal_theme(
+    owner_pgid: u32,
+    shell_pid: u32,
+    alternate_screen: bool,
+    foreground_job: Option<&ForegroundJob>,
+) -> bool {
+    if alternate_screen {
+        return false;
+    }
+    let Some(foreground_job) = foreground_job else {
+        return false;
+    };
+    #[cfg(target_os = "macos")]
+    {
+        let _ = owner_pgid;
+        foreground_job.processes.iter().any(|process| process.pid == shell_pid)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        foreground_job.process_group_id != owner_pgid
+            && foreground_job.processes.iter().any(|process| process.pid == shell_pid)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Signal {
     Hangup,
