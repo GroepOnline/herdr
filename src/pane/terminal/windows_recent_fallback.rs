@@ -1,9 +1,9 @@
-use super::{ghostty_line_from_cells, GhosttyPaneCore, TerminalReadSnapshot};
+use crate::pane::terminal::{ghostty_line_from_cells, GhosttyPaneCore, TerminalReadSnapshot};
 
 const CACHE_LINES: usize = 2000;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(super) struct Cache {
+pub(crate) struct Cache {
     rows: Vec<RenderedLine>,
     last_snapshot: Vec<RenderedLine>,
     usable: bool,
@@ -16,7 +16,7 @@ struct RenderedLine {
     wrap_continuation: bool,
 }
 
-pub(super) fn update(core: &mut GhosttyPaneCore) {
+pub(crate) fn update(core: &mut GhosttyPaneCore) {
     if !primary_screen_active(core) {
         return;
     }
@@ -44,7 +44,7 @@ pub(super) fn update(core: &mut GhosttyPaneCore) {
     core.recent_fallback.usable = true;
 }
 
-pub(super) fn recent_text(
+pub(crate) fn recent_text(
     core: &GhosttyPaneCore,
     lines: usize,
     unwrap: bool,

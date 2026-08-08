@@ -17,7 +17,7 @@ use crate::layout::PaneId;
 use crate::protocol::CellData;
 
 #[cfg(windows)]
-mod windows_recent_fallback;
+use crate::platform::windows_recent_fallback;
 
 use super::cursor::{CursorPositionSettleState, DecscusrTracker, CURSOR_POSITION_SETTLE};
 use super::{
@@ -161,7 +161,7 @@ pub(crate) struct GhosttyPaneTerminal {
 pub(crate) struct GhosttyPaneCore {
     pub terminal: crate::ghostty::Terminal,
     #[cfg(windows)]
-    recent_fallback: windows_recent_fallback::Cache,
+    pub(crate) recent_fallback: windows_recent_fallback::Cache,
     pub render_state: crate::ghostty::RenderState,
     pub kitty_keyboard: KittyKeyboardTracker,
     pub initial_default_foreground: Option<crate::ghostty::RgbColor>,
@@ -2701,7 +2701,7 @@ fn ghostty_screen_row(
     Ok(line.trim_end().to_string())
 }
 
-fn ghostty_line_from_cells(
+pub(crate) fn ghostty_line_from_cells(
     cells: &mut crate::ghostty::RowCellIter<'_>,
 ) -> Result<String, crate::ghostty::Error> {
     let mut line = String::new();

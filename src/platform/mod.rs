@@ -3,6 +3,10 @@
 //! Centralizes OS-dependent behavior behind a clean boundary so core
 //! modules don't scatter `#[cfg]` branches through product logic.
 
+#[cfg(windows)]
+#[path = "../pane/terminal/windows_recent_fallback.rs"]
+pub(crate) mod windows_recent_fallback;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForegroundProcess {
     pub pid: u32,
