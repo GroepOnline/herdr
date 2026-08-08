@@ -13,7 +13,7 @@ const checks: { name: string; run: () => string }[] = [
   { name: "DOWNSTREAM.md", run: () => Bun.file("DOWNSTREAM.md").exists() ? "present" : "MISSING" },
 ];
 
-console.log("herdr doctor — OnlineChefGroep downstream\n");
+console.log("herdr doctor — GroepOnline downstream\n");
 for (const check of checks) {
   try {
     console.log(`  ${check.name.padEnd(20)} ${check.run()}`);

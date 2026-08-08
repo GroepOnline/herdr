@@ -1,10 +1,10 @@
-// install-profile — install OnlineChefGroep herdr profile
+// install-profile — install GroepOnline herdr profile
 import { $ } from "bun";
 
 const configPath = `${Bun.env.HOME}/.config/herdr/config.toml`;
 
 const chefDefaults = `
-# OnlineChefGroep herdr profile
+# GroepOnline herdr profile
 # Applied by install-profile.ts — does not overwrite existing config
 
 [keys]
@@ -21,7 +21,7 @@ name = "catppuccin"
 default_shell = "/usr/bin/fish"
 `;
 
-console.log("Installing OnlineChefGroep herdr profile...");
+console.log("Installing GroepOnline herdr profile...");
 
 const exists = Bun.file(configPath).exists();
 if (exists) {

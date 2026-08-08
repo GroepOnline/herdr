@@ -3,7 +3,7 @@
 # Prefer: HERDR_BIN → /opt/herdr → release asset → CI smoke → PATH.
 set -euo pipefail
 
-REPO="${HERDR_CLOUD_REPO:-OnlineChefGroep/herdr}"
+REPO="${HERDR_CLOUD_REPO:-GroepOnline/herdr}"
 OPT_BIN="${HERDR_CLOUD_BIN_DIR:-/opt/herdr}/herdr-linux-x86_64"
 FRESH_DIR="${HERDR_CLOUD_FRESH_DIR:-/tmp/herdr-bin-fresh}"
 FRESH_BIN="$FRESH_DIR/herdr-linux-x86_64"

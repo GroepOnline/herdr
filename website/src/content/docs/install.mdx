@@ -37,16 +37,16 @@ If you already use mise:
 mise use -g herdr
 ```
 
-If mise reports `herdr not found in mise tool registry`, update mise and retry. Older mise versions predate the Herdr registry entry; `mise use -g github:OnlineChefGroep/herdr` works as a temporary fallback.
+If mise reports `herdr not found in mise tool registry`, update mise and retry. Older mise versions predate the Herdr registry entry; `mise use -g github:GroepOnline/herdr` works as a temporary fallback.
 
 ## Install with Nix
 
 If you already use Nix, Herdr provides a flake that builds Herdr from source:
 
 ```bash
-nix run github:OnlineChefGroep/herdr/v0.x.y
-nix build github:OnlineChefGroep/herdr/v0.x.y
-nix profile install github:OnlineChefGroep/herdr/v0.x.y
+nix run github:GroepOnline/herdr/v0.x.y
+nix build github:GroepOnline/herdr/v0.x.y
+nix profile install github:GroepOnline/herdr/v0.x.y
 ```
 
 Replace `v0.x.y` with the latest release tag. You can omit the tag to track `master`, but release tags are recommended for normal installs.
@@ -54,7 +54,7 @@ Replace `v0.x.y` with the latest release tag. You can omit the tag to track `mas
 The flake also exposes a development shell:
 
 ```bash
-nix develop github:OnlineChefGroep/herdr
+nix develop github:GroepOnline/herdr
 ```
 
 Update through the same Nix workflow you used to install Herdr. For a profile install, list your profile entries and upgrade the Herdr entry:
@@ -72,7 +72,7 @@ nix flake update herdr
 
 ## Download manually
 
-You can also download a binary from [GitHub releases](https://github.com/OnlineChefGroep/herdr/releases).
+You can also download a binary from [GitHub releases](https://github.com/GroepOnline/herdr/releases).
 
 Choose the asset that matches your system:
 

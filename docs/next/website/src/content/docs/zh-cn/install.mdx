@@ -23,7 +23,7 @@ powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps
 
 ## 用 Homebrew 安装
 
-OnlineChefGroep 通过专用 Homebrew tap 发布 Herdr。上游的
+GroepOnline 通过专用 Homebrew tap 发布 Herdr。上游的
 `brew install herdr` 公式 formula 可能落后于
 [herdr.chefgroep.nl/latest.json](https://herdr.chefgroep.nl/latest.json)
 上的稳定版。
@@ -31,14 +31,14 @@ OnlineChefGroep 通过专用 Homebrew tap 发布 Herdr。上游的
 如果你已经在用 Homebrew:
 
 ```bash
-brew tap OnlineChefGroep/tap
-brew install OnlineChefGroep/tap/onlinechefgroep-herdr
+brew tap GroepOnline/tap
+brew install GroepOnline/tap/groeponline-herdr
 ```
 
 后续更新:
 
 ```bash
-brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr
+brew upgrade GroepOnline/tap/groeponline-herdr
 ```
 
 ## 用 mise 安装
@@ -49,16 +49,16 @@ brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr
 mise use -g herdr
 ```
 
-如果 mise 报 `herdr not found in mise tool registry`,请更新 mise 后重试。旧版 mise 早于 Herdr 的注册表条目;`mise use -g github:OnlineChefGroep/herdr` 可以作为临时兜底。
+如果 mise 报 `herdr not found in mise tool registry`,请更新 mise 后重试。旧版 mise 早于 Herdr 的注册表条目;`mise use -g github:GroepOnline/herdr` 可以作为临时兜底。
 
 ## 用 Nix 安装
 
 如果你已经在用 Nix,Herdr 提供了一个从源码构建的 flake:
 
 ```bash
-nix run github:OnlineChefGroep/herdr/v0.x.y
-nix build github:OnlineChefGroep/herdr/v0.x.y
-nix profile install github:OnlineChefGroep/herdr/v0.x.y
+nix run github:GroepOnline/herdr/v0.x.y
+nix build github:GroepOnline/herdr/v0.x.y
+nix profile install github:GroepOnline/herdr/v0.x.y
 ```
 
 把 `v0.x.y` 替换为最新的发布标签。省略标签可以跟踪 `main`,但常规安装建议使用发布标签。
@@ -66,7 +66,7 @@ nix profile install github:OnlineChefGroep/herdr/v0.x.y
 flake 还提供一个开发 shell:
 
 ```bash
-nix develop github:OnlineChefGroep/herdr
+nix develop github:GroepOnline/herdr
 ```
 
 更新时使用你安装 Herdr 的同一套 Nix 工作流。对于 profile 安装,列出 profile 条目并升级 Herdr 条目:
@@ -84,7 +84,7 @@ nix flake update herdr
 
 ## 手动下载
 
-也可以从 [GitHub releases](https://github.com/OnlineChefGroep/herdr/releases) 下载二进制文件。
+也可以从 [GitHub releases](https://github.com/GroepOnline/herdr/releases) 下载二进制文件。
 
 选择匹配你系统的产物:
 
@@ -136,7 +136,7 @@ just release-status
 该 recipe 会比较 `Cargo.toml`、git 标签、GitHub 发布资产、本地
 `website/latest.json` 和 live 站点清单。打标签后,用
 `python3 scripts/homebrew_formula.py --version X.Y.Z` 重新生成 Homebrew formula,
-并向 [OnlineChefGroep/homebrew-tap](https://github.com/OnlineChefGroep/homebrew-tap)
+并向 [GroepOnline/homebrew-tap](https://github.com/GroepOnline/homebrew-tap)
 提交 PR。
 
 预览和 dev 直接安装在 `/preview.json` 与 `/dev.json` 上使用相同 schema。

@@ -11,7 +11,7 @@ HERDR_BIN="$HERDR_BIN_DIR/herdr-linux-x86_64"
 FRESH_DIR="${HERDR_CLOUD_FRESH_DIR:-/tmp/herdr-bin-fresh}"
 ARTIFACT_NAME="ci-smoke-herdr-linux-x86_64"
 RELEASE_ASSET="herdr-linux-x86_64"
-REPO="${HERDR_CLOUD_REPO:-OnlineChefGroep/herdr}"
+REPO="${HERDR_CLOUD_REPO:-GroepOnline/herdr}"
 
 log() {
   printf '[herdr-cloud-install] %s\n' "$*"
