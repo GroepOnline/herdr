@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install-chef-profile.sh — apply OnlineChefGroep Herdr defaults
+# install-chef-profile.sh — apply GroepOnline Herdr defaults
 set -euo pipefail
 
 HERDR="${HERDR_BIN:-herdr}"
@@ -19,7 +19,7 @@ if [ -f "$CONFIG" ]; then
 fi
 
 # Merge profile (only add missing keys, never overwrite)
-echo "Applying OnlineChefGroep Herdr profile..."
+echo "Applying GroepOnline Herdr profile..."
 mkdir -p "$(dirname "$CONFIG")"
 
 if [ -f "$CONFIG" ]; then

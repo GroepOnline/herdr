@@ -25,18 +25,18 @@ Windows uses versioned install folders and a `current` junction so an update doe
 
 ## Homebrew
 
-Use the OnlineChefGroep tap for the release synchronized with Herdr's manifest:
+Use the GroepOnline tap for the release synchronized with Herdr's manifest:
 
 ```bash
-brew tap OnlineChefGroep/tap
-brew install OnlineChefGroep/tap/onlinechefgroep-herdr
+brew tap GroepOnline/tap
+brew install GroepOnline/tap/groeponline-herdr
 ```
 
 The formula supports Linux and macOS on Intel and ARM. Update with:
 
 ```bash
 brew update
-brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr
+brew upgrade GroepOnline/tap/groeponline-herdr
 ```
 
 ## npm or Bun
@@ -44,15 +44,15 @@ brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr
 The npm package supports Linux and macOS on Intel and ARM. Its postinstall downloads the matching release binary and verifies it against `SHA256SUMS` before installation.
 
 ```bash
-npm install --global onlinechefgroep-herdr
+npm install --global groeponline-herdr
 # or
-bun add --global onlinechefgroep-herdr
+bun add --global groeponline-herdr
 ```
 
 Update with:
 
 ```bash
-npm install --global onlinechefgroep-herdr@latest
+npm install --global groeponline-herdr@latest
 ```
 
 ## mise
@@ -64,7 +64,7 @@ mise use -g herdr
 If mise reports `herdr not found in mise tool registry`, update mise and retry. Older mise versions can temporarily use:
 
 ```bash
-mise use -g github:OnlineChefGroep/herdr
+mise use -g github:GroepOnline/herdr
 ```
 
 Update with `mise upgrade herdr`.
@@ -74,16 +74,16 @@ Update with `mise upgrade herdr`.
 Herdr provides a flake that builds from source:
 
 ```bash
-nix run github:OnlineChefGroep/herdr/v0.x.y
-nix build github:OnlineChefGroep/herdr/v0.x.y
-nix profile install github:OnlineChefGroep/herdr/v0.x.y
+nix run github:GroepOnline/herdr/v0.x.y
+nix build github:GroepOnline/herdr/v0.x.y
+nix profile install github:GroepOnline/herdr/v0.x.y
 ```
 
 Replace `v0.x.y` with the intended release tag. For profile installs, use `nix profile list` followed by `nix profile upgrade <index-or-name>`. For flake inputs, update the Herdr input and rebuild the owning system or environment.
 
 ## Manual download
 
-Download the binary and `SHA256SUMS` from [GitHub releases](https://github.com/OnlineChefGroep/herdr/releases), verify the selected asset, then place it on your PATH.
+Download the binary and `SHA256SUMS` from [GitHub releases](https://github.com/GroepOnline/herdr/releases), verify the selected asset, then place it on your PATH.
 
 | System | Asset |
 | --- | --- |

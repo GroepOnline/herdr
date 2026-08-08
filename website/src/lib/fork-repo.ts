@@ -3,7 +3,7 @@ import {
 	productGitHubUrl,
 } from "../config/product.ts";
 
-/** OnlineChefGroep downstream distribution repo (not upstream ogulcancelik/herdr). */
+/** GroepOnline downstream distribution repo (not upstream ogulcancelik/herdr). */
 export const FORK_GITHUB_REPO = PRODUCT_GITHUB_REPO;
 
 export function forkGitHubUrl(path = ""): string {

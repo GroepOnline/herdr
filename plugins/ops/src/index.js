@@ -5,7 +5,7 @@
  * Writes a schema-compatible fleet_ops.json heartbeat fragment and reports the
  * host/socket runtime location in the CLI response so operators can see *what
  * runs where* without guessing. Full inventory (Tailscale, SSH probes,
- * UDO/Kater SSOTs) should land in OnlineChefGroep/herdr-ops — keep this plugin
+ * UDO/Kater SSOTs) should land in GroepOnline/herdr-ops — keep this plugin
  * as the in-tree contract + free-CI exercise path.
  */
 import { mkdir, rename, writeFile } from "node:fs/promises";
@@ -88,7 +88,7 @@ async function main() {
       action,
       path: target,
       host: hostName(),
-      recommended_repo: "OnlineChefGroep/herdr-ops",
+      recommended_repo: "GroepOnline/herdr-ops",
       location: location(),
     }),
   );

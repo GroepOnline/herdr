@@ -39,7 +39,7 @@ Moshi 不能替代 Herdr。把它当作已经运行代理的机器上的远程�
 多主机在线时，请设置唯一的 `HERDR_HOST_NAME`，并使用网关
 `GET /v1/ops/context`，以便在手机接入前看清**何处运行着什么**。
 完整 HTTP 面见 [Fleet ops 与 gateway](/zh-cn/docs/fleet-ops/)。
-生产库存插件应放在 `OnlineChefGroep/herdr-ops`（`com.chefgroep.ops`）。
+生产库存插件应放在 `GroepOnline/herdr-ops`（`com.chefgroep.ops`）。
 
 网关绑定在 `127.0.0.1`，因此手机无法直接访问 `/v1/ops/context`。请在主机上
 查询，或先通过 SSH 转发端口（例如 `ssh -L 7777:127.0.0.1:7777 <host>`），

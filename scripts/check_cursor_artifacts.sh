@@ -40,7 +40,7 @@ if [[ -n "${GEN}" ]]; then
   REGEN_ARGS=(--check)
   ALLOW_ORG=0
   if command -v rg >/dev/null 2>&1; then
-    if rg -qi 'onlinechefgroep|chefgroep\.(nl|online)' .cursor/skills .cursor/agents .cursor/commands .cursor/rules 2>/dev/null; then
+    if rg -qi 'groeponline|chefgroep\.(nl|online)' .cursor/skills .cursor/agents .cursor/commands .cursor/rules 2>/dev/null; then
       ALLOW_ORG=1
     fi
   fi

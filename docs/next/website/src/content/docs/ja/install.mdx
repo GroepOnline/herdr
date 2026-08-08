@@ -23,7 +23,7 @@ powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps
 
 ## Homebrew でインストール
 
-OnlineChefGroep は専用 Homebrew tap から Herdr を配布しています。上流の
+GroepOnline は専用 Homebrew tap から Herdr を配布しています。上流の
 `brew install herdr` 公式式は
 [herdr.chefgroep.nl/latest.json](https://herdr.chefgroep.nl/latest.json)
 の安定版より遅れることがあります。
@@ -31,14 +31,14 @@ OnlineChefGroep は専用 Homebrew tap から Herdr を配布しています。�
 すでに Homebrew を使っている場合:
 
 ```bash
-brew tap OnlineChefGroep/tap
-brew install OnlineChefGroep/tap/onlinechefgroep-herdr
+brew tap GroepOnline/tap
+brew install GroepOnline/tap/groeponline-herdr
 ```
 
 アップデート:
 
 ```bash
-brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr
+brew upgrade GroepOnline/tap/groeponline-herdr
 ```
 
 ## mise でインストール
@@ -49,16 +49,16 @@ brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr
 mise use -g herdr
 ```
 
-mise が `herdr not found in mise tool registry` と報告する場合は、mise をアップデートして再試行してください。古い mise は Herdr のレジストリ登録より前のバージョンです。一時的な回避策として `mise use -g github:OnlineChefGroep/herdr` も使えます。
+mise が `herdr not found in mise tool registry` と報告する場合は、mise をアップデートして再試行してください。古い mise は Herdr のレジストリ登録より前のバージョンです。一時的な回避策として `mise use -g github:GroepOnline/herdr` も使えます。
 
 ## Nix でインストール
 
 すでに Nix を使っている場合、Herdr はソースからビルドする flake を提供しています:
 
 ```bash
-nix run github:OnlineChefGroep/herdr/v0.x.y
-nix build github:OnlineChefGroep/herdr/v0.x.y
-nix profile install github:OnlineChefGroep/herdr/v0.x.y
+nix run github:GroepOnline/herdr/v0.x.y
+nix build github:GroepOnline/herdr/v0.x.y
+nix profile install github:GroepOnline/herdr/v0.x.y
 ```
 
 `v0.x.y` は最新のリリースタグに置き換えてください。タグを省略すると `main` を追跡できますが、通常のインストールにはリリースタグを推奨します。
@@ -66,7 +66,7 @@ nix profile install github:OnlineChefGroep/herdr/v0.x.y
 flake は開発用シェルも公開しています:
 
 ```bash
-nix develop github:OnlineChefGroep/herdr
+nix develop github:GroepOnline/herdr
 ```
 
 アップデートは、Herdr のインストールに使ったのと同じ Nix ワークフローで行います。プロファイルインストールの場合は、プロファイルのエントリを一覧して Herdr のエントリをアップグレードします:
@@ -84,7 +84,7 @@ nix flake update herdr
 
 ## 手動でダウンロード
 
-[GitHub releases](https://github.com/OnlineChefGroep/herdr/releases) からバイナリをダウンロードすることもできます。
+[GitHub releases](https://github.com/GroepOnline/herdr/releases) からバイナリをダウンロードすることもできます。
 
 システムに合ったアセットを選んでください:
 
@@ -137,7 +137,7 @@ just release-status
 このレシピは `Cargo.toml`、git タグ、GitHub リリースアセット、ローカル
 `website/latest.json`、live サイトマニフェストを比較します。タグ後は
 `python3 scripts/homebrew_formula.py --version X.Y.Z` で Homebrew 式を再生成し、
-[OnlineChefGroep/homebrew-tap](https://github.com/OnlineChefGroep/homebrew-tap)
+[GroepOnline/homebrew-tap](https://github.com/GroepOnline/homebrew-tap)
 へ PR を開いてください。
 
 プレビュー / dev 直接インストールは `/preview.json` と `/dev.json` で同じ

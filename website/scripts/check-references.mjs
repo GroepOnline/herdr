@@ -2,9 +2,9 @@
 /**
  * Check built website output for stale upstream references.
  *
- * After the OnlineChefGroep rebrand, no built page should contain:
+ * After the GroepOnline rebrand, no built page should contain:
  *   - herdr.dev                 (old canonical domain → herdr.chefgroep.nl)
- *   - ogulcancelik/herdr        (old upstream repo  → OnlineChefGroep/herdr)
+ *   - ogulcancelik/herdr        (old upstream repo  → GroepOnline/herdr)
  *   - github.com/ogulcancelik   (old GitHub user)
  *   - hey@herdr.dev             (old contact email)
  *
