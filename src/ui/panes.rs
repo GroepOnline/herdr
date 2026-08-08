@@ -31,7 +31,7 @@ fn pane_border_title(label: &str, pane_width: u16, _focused: bool) -> Option<Str
     Some(format!(" {} ", truncate_end(label, max_label_width)))
 }
 
-fn stable_terminal_inner_rect(pane_inner: Rect, pane_scrollbars: bool) -> Rect {
+pub(crate) fn stable_terminal_inner_rect(pane_inner: Rect, pane_scrollbars: bool) -> Rect {
     if !pane_scrollbars || pane_inner.width <= 4 {
         return pane_inner;
     }
