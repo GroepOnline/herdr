@@ -674,10 +674,19 @@ impl AppState {
         let body = self.keybind_help_body_rect()?;
         let viewport_rows = body.height.max(1) as usize;
         let wrap_width = body.width.max(1) as usize;
-        let total_rows = crate::ui::keybind_help_lines(self)
-            .into_iter()
+        let lines = crate::ui::keybind_help_lines(self);
+        let total_rows_full = lines
+            .iter()
             .map(|(width, _)| width.max(1).div_ceil(wrap_width))
             .sum::<usize>();
+        let total_rows = if total_rows_full > viewport_rows {
+            lines
+                .into_iter()
+                .map(|(width, _)| width.max(1).div_ceil(body.width.saturating_sub(1).max(1) as usize))
+                .sum::<usize>()
+        } else {
+            total_rows_full
+        };
         let max_offset_from_bottom = total_rows.saturating_sub(viewport_rows);
         Some(crate::pane::ScrollMetrics {
             offset_from_bottom: max_offset_from_bottom
