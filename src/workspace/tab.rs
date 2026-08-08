@@ -110,6 +110,7 @@ impl Tab {
         )
     }
 
+    // Runtime construction passes the complete launch context explicitly.
     #[allow(clippy::too_many_arguments)]
     fn new_with_runtime(
         number: usize,

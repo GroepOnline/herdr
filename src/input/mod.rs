@@ -2,6 +2,7 @@ mod encode;
 mod model;
 mod parse;
 
+// Re-export is retained for downstream protocol integrations that enable it conditionally.
 #[allow(unused_imports)]
 pub use encode::{
     encode_cursor_key, encode_key, encode_mouse_button, encode_mouse_scroll, encode_terminal_key,

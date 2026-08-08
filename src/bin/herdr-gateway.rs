@@ -73,6 +73,7 @@ async fn socket_request(socket_path: &PathBuf, req: &Value) -> Result<Value, Str
     }
 }
 
+// The request counter is shared with optional gateway request paths.
 #[allow(dead_code)]
 static REQUEST_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
