@@ -12,6 +12,9 @@ categories = ["command-line-utilities"]
 include = [
     "src/**/*",
     "assets/sounds/*",
+    "SKILL.md",
+    "vendor/portable-pty/**",
+    "vendor/libghostty-vt/src/terminal/kitty/graphics_unicode.zig",
     "docs/next/api/herdr-api.schema.json",
     "README.md",
     "LICENSE",
