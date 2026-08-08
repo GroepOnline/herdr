@@ -1,5 +1,3 @@
-#[cfg(not(windows))]
-use crossterm::event::KeyboardEnhancementFlags;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde::{Deserialize, Serialize};
 
@@ -41,13 +39,6 @@ impl From<KeyEvent> for TerminalKey {
     fn from(value: KeyEvent) -> Self {
         Self::new(value.code, value.modifiers).with_kind(value.kind)
     }
-}
-
-#[cfg(not(windows))]
-pub fn ime_compatible_keyboard_enhancement_flags() -> KeyboardEnhancementFlags {
-    KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
-        | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
-        | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

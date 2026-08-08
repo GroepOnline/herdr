@@ -23,7 +23,7 @@ const NESTED_HERDR_MESSAGES: [&str; 6] = [
 fn push_keyboard_enhancement_flags() -> io::Result<()> {
     execute!(
         io::stdout(),
-        PushKeyboardEnhancementFlags(crate::input::ime_compatible_keyboard_enhancement_flags())
+        PushKeyboardEnhancementFlags(crate::platform::ime_compatible_keyboard_enhancement_flags())
     )
 }
 

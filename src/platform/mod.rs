@@ -40,6 +40,15 @@ pub(crate) fn configure_background_command(command: &mut std::process::Command) 
 }
 
 #[cfg(not(windows))]
+pub(crate) fn ime_compatible_keyboard_enhancement_flags() -> crossterm::event::KeyboardEnhancementFlags {
+    use crossterm::event::KeyboardEnhancementFlags;
+
+    KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+        | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+        | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
+}
+
+#[cfg(not(windows))]
 fn configure_background_command_platform(_command: &mut std::process::Command) {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
