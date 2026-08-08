@@ -149,16 +149,16 @@ const apiUrl = import.meta.env.DEV ? null : snapshotUrl;
 
     function buildCard(p) {
       const url = isGithubUrl(p.url) ? p.url : null;
-      const card = el(url ? "a" : "div", "plugin-card");
+      const card = el("div", "plugin-card");
       card.setAttribute("role", "listitem");
-      if (url) {
-        card.href = url;
-        card.target = "_blank";
-        card.rel = "noopener noreferrer";
-      }
 
       const head = el("div", "plugin-card-head");
-      const title = el("div", "plugin-title");
+      const title = url ? el("a", "plugin-title") : el("div", "plugin-title");
+      if (url) {
+        title.href = url;
+        title.target = "_blank";
+        title.rel = "noopener noreferrer";
+      }
       title.appendChild(el("span", "plugin-owner", (p.owner || "?") + "/"));
       title.appendChild(el("span", "plugin-name", p.name || "unknown"));
       head.appendChild(title);
@@ -192,12 +192,32 @@ const apiUrl = import.meta.env.DEV ? null : snapshotUrl;
       if (updated) meta.appendChild(el("span", "plugin-stat plugin-updated", "updated " + updated));
 
       card.appendChild(meta);
+
+      for (const manifest of p.manifests || []) {
+        const row = el("div", "plugin-manifest");
+        const path = manifest.path || "";
+        const directory = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+        const sourceUrl = url && p.headCommit
+          ? url.replace(/\/$/, "") + "/tree/" + p.headCommit + (directory ? "/" + directory : "")
+          : null;
+        const name = sourceUrl ? el("a", "plugin-manifest-name") : el("span", "plugin-manifest-name");
+        name.textContent = manifest.name || manifest.id;
+        if (sourceUrl) {
+          name.href = sourceUrl;
+          name.target = "_blank";
+          name.rel = "noopener noreferrer";
+        }
+        row.appendChild(name);
+        row.appendChild(el("span", "plugin-manifest-version", "v" + manifest.version));
+        card.appendChild(row);
+      }
       return card;
     }
 
     function matches(p, q) {
       if (!q) return true;
-      const hay = [p.fullName, p.owner, p.name, p.description, p.language, ...(p.topics || [])]
+      const manifests = (p.manifests || []).flatMap((m) => [m.id, m.name, m.version, m.description, ...(m.platforms || [])]);
+      const hay = [p.fullName, p.owner, p.name, p.description, p.language, ...(p.topics || []), ...manifests]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
