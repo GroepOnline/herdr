@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { docsChannel, docsPath } from './docs-path.ts';
+import { docsRoute, docsPath } from './docs-path.ts';
 
 describe('docsChannel', () => {
   const cases: Array<[string, string]> = [
@@ -14,7 +14,7 @@ describe('docsChannel', () => {
 
   for (const [pathname, expected] of cases) {
     test(`maps ${pathname} to ${expected}`, () => {
-      assert.equal(docsChannel(pathname), expected);
+      assert.equal(docsRoute(pathname).target, expected);
     });
   }
 });

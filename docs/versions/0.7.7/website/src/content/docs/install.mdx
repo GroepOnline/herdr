@@ -1,0 +1,129 @@
+---
+title: Install Herdr
+description: Install, verify, and update Herdr on Linux, macOS, and Windows beta.
+---
+
+Stable Herdr binaries are published for Linux and macOS on x86_64 and ARM64. Native Windows support remains preview-only beta.
+
+## Direct install
+
+On Linux or macOS:
+
+```bash
+curl -fsSL https://herdr.chefgroep.nl/install.sh | sh
+```
+
+The installer reads the selected channel manifest, requires a 64-hex SHA-256 for the platform asset, downloads into the destination directory, verifies the binary, and only then atomically replaces `herdr`. A failed download or checksum leaves the existing binary untouched.
+
+On Windows preview beta:
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps1 | iex"
+```
+
+Windows uses versioned install folders and a `current` junction so an update does not overwrite a running `herdr.exe`.
+
+## Homebrew
+
+Use the OnlineChefGroep tap for the release synchronized with Herdr's manifest:
+
+```bash
+brew tap OnlineChefGroep/tap
+brew install OnlineChefGroep/tap/onlinechefgroep-herdr
+```
+
+The formula supports Linux and macOS on Intel and ARM. Update with:
+
+```bash
+brew update
+brew upgrade OnlineChefGroep/tap/onlinechefgroep-herdr
+```
+
+## npm or Bun
+
+The npm package supports Linux and macOS on Intel and ARM. Its postinstall downloads the matching release binary and verifies it against `SHA256SUMS` before installation.
+
+```bash
+npm install --global onlinechefgroep-herdr
+# or
+bun add --global onlinechefgroep-herdr
+```
+
+Update with:
+
+```bash
+npm install --global onlinechefgroep-herdr@latest
+```
+
+## mise
+
+```bash
+mise use -g herdr
+```
+
+If mise reports `herdr not found in mise tool registry`, update mise and retry. Older mise versions can temporarily use:
+
+```bash
+mise use -g github:OnlineChefGroep/herdr
+```
+
+Update with `mise upgrade herdr`.
+
+## Nix
+
+Herdr provides a flake that builds from source:
+
+```bash
+nix run github:OnlineChefGroep/herdr/v0.x.y
+nix build github:OnlineChefGroep/herdr/v0.x.y
+nix profile install github:OnlineChefGroep/herdr/v0.x.y
+```
+
+Replace `v0.x.y` with the intended release tag. For profile installs, use `nix profile list` followed by `nix profile upgrade <index-or-name>`. For flake inputs, update the Herdr input and rebuild the owning system or environment.
+
+## Manual download
+
+Download the binary and `SHA256SUMS` from [GitHub releases](https://github.com/OnlineChefGroep/herdr/releases), verify the selected asset, then place it on your PATH.
+
+| System | Asset |
+| --- | --- |
+| Linux x86_64 | `herdr-linux-x86_64` |
+| Linux aarch64 | `herdr-linux-aarch64` |
+| macOS Intel | `herdr-macos-x86_64` |
+| macOS Apple silicon | `herdr-macos-aarch64` |
+
+Example:
+
+```bash
+sha256sum --check --ignore-missing SHA256SUMS
+chmod +x herdr-linux-x86_64
+mv herdr-linux-x86_64 ~/.local/bin/herdr
+```
+
+On macOS, use `shasum -a 256 --ignore-missing --check SHA256SUMS` when `sha256sum` is unavailable.
+
+## Direct-install update channels
+
+`herdr update` is only for direct installs managed by Herdr. Package-manager installs are intentionally detected and must update through Homebrew, npm, mise, or Nix.
+
+Linux and macOS direct installs use `stable` by default:
+
+```bash
+herdr update
+herdr channel set preview
+herdr channel set dev
+herdr channel set stable
+```
+
+Preview and dev are direct-install channels. Windows beta defaults to preview and cannot switch to stable until stable Windows assets exist.
+
+A running server continues using its current process after the binary changes. Restart the default session with `herdr server stop` followed by `herdr`; restart a named session with `herdr session stop <name>` followed by `herdr session attach <name>`. `herdr update --handoff` remains experimental.
+
+## Verify
+
+```bash
+herdr --version
+herdr
+```
+
+If the shell cannot find `herdr`, restart it or add the selected install directory to `PATH`.

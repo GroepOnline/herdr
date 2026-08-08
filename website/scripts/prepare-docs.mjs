@@ -25,6 +25,25 @@ if (process.argv[2] === '--rewrite-preview-doc-fixture') {
 } else {
   await preparePublicAssets();
   await preparePreviewDocs();
+  await prepareDocsVersions();
+}
+
+async function prepareDocsVersions() {
+  // Sidebar/DocsVersionSelect importeren src/data/docs-versions.json (gitignored,
+  // generated). Minimal geldige structuur: current + scopes (leeg = geen
+  // target-filtering). Bron: website/latest.json (version).
+  const latest = JSON.parse(await readFile(resolve(repoRoot, 'website/latest.json'), 'utf8'));
+  const destination = resolve(repoRoot, 'website/src/data/docs-versions.json');
+  await writeFile(
+    destination,
+    `${JSON.stringify({ current: latest.version, versions: [], scopes: {} }, null, 2)}\n`,
+    'utf8',
+  );
+  // ConfigReference.astro importeert config-reference-versions.json (gitignored).
+  // Per-versie archived references zijn niet beschikbaar in deze checkout; lege
+  // map = geen archived version tabs.
+  const versionsDestination = resolve(repoRoot, 'website/src/data/config-reference-versions.json');
+  await writeFile(versionsDestination, `${JSON.stringify({}, null, 2)}\n`, 'utf8');
 }
 
 async function preparePublicAssets() {

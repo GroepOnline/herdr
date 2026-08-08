@@ -62,7 +62,7 @@ if (previous) {
 }
 
 const sitemap = await readFile(resolve(distDir, 'sitemap-0.xml'), 'utf8');
-assertIncludes(sitemap, 'https://herdr.dev/docs/');
+assertIncludes(sitemap, 'https://herdr.chefgroep.nl/docs/');
 if (nonCanonicalDocsUrl.test(sitemap)) {
   throw new Error('preview or immutable documentation URLs must not appear in the sitemap');
 }
