@@ -692,6 +692,11 @@ fn main() -> io::Result<()> {
         "-h",
     ];
     for arg in &args[1..] {
+        if arg.starts_with("--skill=") {
+            eprintln!("unknown option: {arg}");
+            eprintln!("run 'herdr --help' for usage");
+            std::process::exit(2);
+        }
         let arg_name = arg.split_once('=').map(|(name, _)| name).unwrap_or(arg);
         if arg.starts_with('-') && !known_flags.contains(&arg_name) {
             eprintln!("unknown option: {arg}");
