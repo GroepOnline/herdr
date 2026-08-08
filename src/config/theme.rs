@@ -111,8 +111,8 @@ pub fn parse_color(s: &str) -> ratatui::style::Color {
         "lightmagenta" => Color::LightMagenta,
         "lightcyan" => Color::LightCyan,
         _ => {
-            warn!(color = s, "unknown color, defaulting to cyan");
-            Color::Cyan
+            warn!(color = s, "unknown color, using terminal default");
+            Color::Reset
         }
     }
 }
