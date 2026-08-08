@@ -110,6 +110,7 @@ impl Tab {
         )
     }
 
+    // This constructor receives all terminal/runtime handles needed to initialize a tab in one place.
     #[allow(clippy::too_many_arguments)]
     fn new_with_runtime(
         number: usize,
