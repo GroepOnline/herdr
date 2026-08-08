@@ -107,7 +107,7 @@ fix: handle pane focus
 refs #128
 ```
 
-Do not use GitHub closing keywords like `fixes #128`, `closes #128`, or `resolves #128` in normal PR commits. Herdr closes released issues after a release is published, not when unreleased commits land on `main`.
+Do not use GitHub closing keywords in normal PR commits. Herdr closes released issues after a release is published, not when unreleased commits land on `main`. Reference issues with `refs #<issue-number>`.
 
 ## PR scope
 
