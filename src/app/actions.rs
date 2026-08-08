@@ -5610,8 +5610,7 @@ mod tests {
 
         state.handle_app_event(AppEvent::UpdateReady {
             version: "0.5.0".into(),
-            install_command:
-                "brew update && brew upgrade GroepOnline/tap/groeponline-herdr".into(),
+            install_command: "brew update && brew upgrade GroepOnline/tap/groeponline-herdr".into(),
         });
 
         assert_eq!(
