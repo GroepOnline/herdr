@@ -87,7 +87,9 @@ pub(crate) use self::{
         mobile_switcher_areas, mobile_switcher_max_scroll, mobile_switcher_target_at,
         mobile_switcher_workspace_doc_range, MobileSwitcherTarget,
     },
-    panes::{apply_pane_chrome, pane_inner_rect, pane_is_scrolled_back},
+    panes::{
+        apply_pane_chrome, pane_inner_rect, pane_is_scrolled_back, stable_terminal_inner_rect,
+    },
     tab_surface::{tab_surface_cursor, tab_surface_hyperlinks, TabSurfaceView},
     tabs::compute_tab_bar_view,
     widgets::{centered_popup_rect, modal_stack_areas},
