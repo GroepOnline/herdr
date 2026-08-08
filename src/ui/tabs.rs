@@ -64,24 +64,22 @@ fn centered_tab_scroll(ws: &crate::workspace::Workspace, area: Rect) -> usize {
     let mut best_scroll = ws.active_tab;
     let mut best_distance = u16::MAX;
     let viewport_center = area.x.saturating_mul(2).saturating_add(area.width);
+    let widths: Vec<u16> = (0..ws.tabs.len()).map(|idx| tab_width(ws, idx)).collect();
 
-    for scroll in 0..=ws.active_tab {
-        let rects = layout_tab_hit_areas(ws, area, scroll);
-        let Some(active_rect) = rects.get(ws.active_tab).copied() else {
-            continue;
-        };
-        if active_rect.width == 0 {
-            continue;
-        }
-
-        let active_center = active_rect
-            .x
+    // Moving the start index only shifts the active tab; avoid laying out every tab
+    // for every candidate scroll position.
+    let mut active_x = area.x;
+    for scroll in (0..=ws.active_tab).rev() {
+        let active_center = active_x
             .saturating_mul(2)
-            .saturating_add(active_rect.width);
+            .saturating_add(widths[ws.active_tab]);
         let distance = active_center.abs_diff(viewport_center);
         if distance <= best_distance {
             best_distance = distance;
             best_scroll = scroll;
+        }
+        if scroll > 0 {
+            active_x = active_x.saturating_add(widths[scroll - 1] + 1);
         }
     }
 
@@ -98,13 +96,18 @@ fn trailing_tab_controls_x(tab_hit_areas: &[Rect], fallback_x: u16) -> u16 {
 }
 
 fn max_tab_scroll(ws: &crate::workspace::Workspace, area: Rect) -> usize {
-    (0..ws.tabs.len())
-        .find(|&scroll| {
-            layout_tab_hit_areas(ws, area, scroll)
-                .last()
-                .is_some_and(|rect| rect.width > 0)
-        })
-        .unwrap_or(0)
+    let widths: Vec<u16> = (0..ws.tabs.len()).map(|idx| tab_width(ws, idx)).collect();
+    let mut remaining = 0u16;
+    for (idx, width) in widths.iter().enumerate().rev() {
+        remaining = remaining.saturating_add(*width);
+        if idx + 1 < widths.len() {
+            remaining = remaining.saturating_add(1);
+        }
+        if remaining <= area.width {
+            return idx;
+        }
+    }
+    0
 }
 
 pub(crate) fn compute_tab_bar_view(
