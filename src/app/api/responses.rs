@@ -1,7 +1,8 @@
 use crate::api::schema::{ErrorBody, ErrorResponse, ResponseResult, SuccessResponse};
 
 pub(super) fn encode_success(id: String, result: ResponseResult) -> String {
-    serde_json::to_string(&SuccessResponse { id, result }).unwrap()
+    serde_json::to_string(&SuccessResponse { id, result })
+        .unwrap_or_else(|_| r#"{"error":"failed to encode response"}"#.to_owned())
 }
 
 pub(super) fn encode_error(id: String, code: &str, message: impl Into<String>) -> String {
