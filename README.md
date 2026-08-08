@@ -5,10 +5,6 @@
 </p>
 
 <p align="center">
-  <a href="https://herdr.chefgroep.nl">Website</a> ·
-  <a href="https://herdr.chefgroep.nl/docs/quick-start/">Quick start</a> ·
-  <a href="https://herdr.chefgroep.nl/docs/integrations/">Integrations</a> ·
-  <a href="https://herdr.chefgroep.nl/docs/configuration/">Configuration</a> ·
   <a href="https://herdr.chefgroep.nl/docs/socket-api/">Socket API</a> ·
   <a href="https://github.com/GroepOnline/herdr/releases/latest">Latest release</a>
 </p>
