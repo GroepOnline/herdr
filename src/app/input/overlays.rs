@@ -232,7 +232,7 @@ impl App {
                             && mouse.row >= rect.y
                             && mouse.row < rect.y + rect.height;
                         if !inside {
-                            leave_modal(&mut self.state);
+                            keybind_help_back(&mut self.state);
                         }
                     }
                 }
