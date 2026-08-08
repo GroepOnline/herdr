@@ -2,18 +2,31 @@
   "schema_version": 1,
   "channel": "dev",
   "base_version": "0.7.7",
-  "build_id": "2026-08-08-eff384390036",
-  "commit": "eff3843900362683bd2353394283e2a9094aa521",
-  "built_at": "2026-08-07T23:48:55Z",
+  "build_id": "2026-08-08-6c617fdb7b3e",
+  "commit": "6c617fdb7b3e9c228419467d8f40c59365eb6a61",
+  "built_at": "2026-08-07T23:59:58Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-08-eff384390036\n\nBuilt from `eff384390036` on `main`.\nBase stable: v0.7.7\nCompare: https://github.com/GroepOnline/herdr/compare/v0.7.7...eff3843900362683bd2353394283e2a9094aa521\n\n### Maintenance\n- Bump taiki-e/install-action in the github-actions group\n- Bump the cargo-dependencies group with 2 updates\n\n### Other\n- Merge pull request #2 from GroepOnline/dependabot/cargo/cargo-dependencies-aab3cc0d1c\n- Merge pull request #3 from GroepOnline/dependabot/github_actions/github-actions-69f9ce34b6",
+  "notes": "Dev build 2026-08-08-6c617fdb7b3e\n\nBuilt from `6c617fdb7b3e` on `main`.\nBase stable: v0.7.7\nCompare: https://github.com/GroepOnline/herdr/compare/eff3843900362683bd2353394283e2a9094aa521...6c617fdb7b3e9c228419467d8f40c59365eb6a61\n\n### Added\n- Add machine-readable design-system contract\n\n### Fixed\n- Align design-system contract yaml\n\n### Maintenance\n- Validate design-system contract\n- Clarify design-system contract validation\n- Document shared design-system scope\n- Pin shared design-system contract\n\n### Other\n- Merge pull request #4 from GroepOnline/feat/design-system-consumer-contract-20260804",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-08-eff384390036/herdr-linux-x86_64",
-      "sha256": "ff682031ce8cd10dba7a38ac246bd7e7d702f62ce3fe8b1799c91c583728e11d"
+      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-08-6c617fdb7b3e/herdr-linux-x86_64",
+      "sha256": "3a2dc5326b4777cfda1bc823a441e276bd65e03f534c6cc443d771a00811988d"
     }
   },
   "builds": {
+    "2026-08-08-6c617fdb7b3e": {
+      "base_version": "0.7.7",
+      "commit": "6c617fdb7b3e9c228419467d8f40c59365eb6a61",
+      "built_at": "2026-08-07T23:59:58Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-08-6c617fdb7b3e",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-08-6c617fdb7b3e/herdr-linux-x86_64",
+          "sha256": "3a2dc5326b4777cfda1bc823a441e276bd65e03f534c6cc443d771a00811988d"
+        }
+      }
+    },
     "2026-08-08-eff384390036": {
       "base_version": "0.7.7",
       "commit": "eff3843900362683bd2353394283e2a9094aa521",
@@ -258,19 +271,6 @@
         "linux-x86_64": {
           "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-24-69c4e87e0b43/herdr-linux-x86_64",
           "sha256": "4cb9ecc3e3746e0eca86c4f756120e9fe07f65c3655240b5baba398eab82b156"
-        }
-      }
-    },
-    "2026-07-24-fef349593391": {
-      "base_version": "0.7.6",
-      "commit": "fef349593391be7540cffc73037f394e4f2cdc55",
-      "built_at": "2026-07-24T21:45:31Z",
-      "protocol": 18,
-      "tag": "dev-2026-07-24-fef349593391",
-      "assets": {
-        "linux-x86_64": {
-          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-24-fef349593391/herdr-linux-x86_64",
-          "sha256": "521acc99b5e480c306e70da852c101f00c3cb2d6ca4b36e4a996454a8eb94ab8"
         }
       }
     }
