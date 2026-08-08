@@ -39,10 +39,8 @@ done
 if [[ -n "${GEN}" ]]; then
   REGEN_ARGS=(--check)
   ALLOW_ORG=0
-  if command -v rg >/dev/null 2>&1; then
-    if rg -qi 'groeponline|chefgroep\.(nl|online)' .cursor/skills .cursor/agents .cursor/commands .cursor/rules 2>/dev/null; then
-      ALLOW_ORG=1
-    fi
+  if [[ "${CURSOR_ALLOW_ORG_LEAK:-}" == "1" ]]; then
+    ALLOW_ORG=1
   fi
   if [[ "${GEN}" == *"/.cursor/scripts/"* ]]; then
     REGEN_CMD="python3 .cursor/scripts/generate_cursor_index.py"
