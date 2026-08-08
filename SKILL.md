@@ -199,7 +199,7 @@ When CHEF fleet plugins are linked, drive them through the plugin action surface
 ```bash
 herdr plugin list
 herdr plugin action list
-herdr plugin action invoke <plugin-id> <action-id>
+herdr plugin action invoke <action-id> --plugin <plugin-id>
 ```
 
 Typical CHEF plugin ids: `com.chefgroep.linear-context`, `com.chefgroep.github-status`, `com.chefgroep.kater-bridge`, `com.chefgroep.fleet-health`, `com.chefgroep.cloudflare-tunnel`, `com.chefgroep.session-park`, `com.chefgroep.issue-provision`.
