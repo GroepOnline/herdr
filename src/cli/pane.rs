@@ -3,7 +3,7 @@ use crate::api::schema::{
     PaneFocusDirectionParams, PaneLayoutParams, PaneListParams, PaneMoveDestination,
     PaneMoveParams, PaneNeighborParams, PaneProcessInfoParams, PaneReadParams,
     PaneReleaseAgentParams, PaneRenameParams, PaneReportAgentParams, PaneReportAgentSessionParams,
-    PaneReportMetadataParams, PaneResizeParams, PaneSendInputParams, PaneSendKeysParams,
+    PaneReportMetadataParams, PaneResizeParams, PaneRightClickTarget, PaneSendInputParams, PaneSendKeysParams,
     PaneSendTextParams, PaneSplitParams, PaneSwapParams, PaneTarget, PaneWaitForOutputParams,
     PaneZoomMode, PaneZoomParams, ReadFormat, ReadSource, Request, SplitDirection,
 };
@@ -509,6 +509,14 @@ fn pane_read(args: &[String]) -> std::io::Result<i32> {
     super::print_read_response(&response)
 }
 
+fn parse_right_click_target(value: &str) -> Result<PaneRightClickTarget, String> {
+    match value {
+        "herdr" => Ok(PaneRightClickTarget::Herdr),
+        "pane" => Ok(PaneRightClickTarget::Pane),
+        _ => Err(format!("invalid right-click target: {value}")),
+    }
+}
+
 fn pane_split(args: &[String]) -> std::io::Result<i32> {
     let env_pane_id = std::env::var("HERDR_PANE_ID")
         .ok()
@@ -539,6 +547,7 @@ fn parse_pane_split_args(
     let mut cwd = None;
     let mut focus = false;
     let mut command = None;
+    let mut right_click = PaneRightClickTarget::Herdr;
 
     let mut index = 0;
     if args
@@ -597,6 +606,13 @@ fn parse_pane_split_args(
                 focus = false;
                 index += 1;
             }
+            "--right-click" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err("missing value for --right-click".into());
+                };
+                right_click = parse_right_click_target(value)?;
+                index += 2;
+            }
             "--argv" | "--command" => {
                 if command.is_some() {
                     return Err("command specified more than once".into());
@@ -641,7 +657,7 @@ fn parse_pane_split_args(
 
     let Some(direction) = direction else {
         return Err(
-            "usage: herdr pane split [<pane_id>|--pane ID|--current] --direction right|down [--ratio FLOAT] [--cwd PATH] [--env KEY=VALUE] [--argv COMMAND...|-- <command...>] [--focus] [--no-focus]"
+            "usage: herdr pane split [<pane_id>|--pane ID|--current] --direction right|down [--ratio FLOAT] [--cwd PATH] [--env KEY=VALUE] [--argv COMMAND...|-- <command...>] [--right-click herdr|pane] [--focus] [--no-focus]"
                 .into(),
         );
     };
@@ -653,6 +669,7 @@ fn parse_pane_split_args(
         ratio,
         cwd,
         focus,
+        right_click,
         env,
         command,
     })
@@ -791,6 +808,13 @@ fn parse_pane_move_args(args: &[String]) -> Result<PaneMoveParams, String> {
             "--no-focus" => {
                 focus = false;
                 index += 1;
+            }
+            "--right-click" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err("missing value for --right-click".into());
+                };
+                right_click = parse_right_click_target(value)?;
+                index += 2;
             }
             other => return Err(format!("unknown option: {other}")),
         }
@@ -1571,7 +1595,7 @@ fn print_pane_help() {
     eprintln!("  herdr pane rename <pane_id> <label>|--clear");
     eprintln!("  herdr pane read <pane_id> [--source visible|recent|recent-unwrapped] [--lines N] [--format text|ansi] [--ansi]");
     eprintln!(
-        "  herdr pane split [<pane_id>|--pane ID|--current] --direction right|down [--ratio FLOAT] [--cwd PATH] [--env KEY=VALUE] [--argv COMMAND...|-- <command...>] [--focus] [--no-focus]"
+        "  herdr pane split [<pane_id>|--pane ID|--current] --direction right|down [--ratio FLOAT] [--cwd PATH] [--env KEY=VALUE] [--argv COMMAND...|-- <command...>] [--right-click herdr|pane] [--focus] [--no-focus]"
     );
     eprintln!("  herdr pane swap --direction left|right|up|down [--pane ID|--current]");
     eprintln!("  herdr pane swap --source-pane ID --target-pane ID");
