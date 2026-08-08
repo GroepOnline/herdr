@@ -13,6 +13,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
 use tokio::sync::RwLock;
 use tokio_stream::wrappers::UnboundedReceiverStream;
+use tracing::info;
 
 #[derive(Clone)]
 struct GatewayState {
@@ -73,6 +74,7 @@ async fn socket_request(socket_path: &PathBuf, req: &Value) -> Result<Value, Str
     }
 }
 
+// Reserved for request correlation when gateway socket requests are enabled.
 #[allow(dead_code)]
 static REQUEST_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
@@ -271,8 +273,8 @@ async fn main() -> anyhow::Result<()> {
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    eprintln!("herdr-gateway listening on http://127.0.0.1:{}", port);
-    eprintln!("socket: {}", socket_path.display());
+    info!(port, "herdr-gateway listening on http://127.0.0.1:{port}");
+    info!(socket = %socket_path.display(), "gateway socket configured");
     axum::serve(listener, app).await?;
 
     Ok(())
