@@ -1,7 +1,7 @@
 # herdr
 
 <p align="center">
-  <img src="assets/logo.png" alt="Herdr" width="100" />
+  <img src="assets/logo.png" alt="herdr" width="120" />
 </p>
 
 <p align="center">
