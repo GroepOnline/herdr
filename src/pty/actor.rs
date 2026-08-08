@@ -255,6 +255,7 @@ mod windows {
         writer.flush()
     }
 
+    // Compile-time helper retained for platforms whose actor implementation uses it.
     #[allow(dead_code)]
     fn _assert_duration_send(_: Duration) {}
 }

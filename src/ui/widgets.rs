@@ -202,6 +202,7 @@ pub(crate) fn render_modal_description(frame: &mut Frame, area: Rect, text: &str
     );
 }
 
+// Shared by modal implementations that are conditionally compiled.
 #[allow(dead_code)]
 pub(crate) fn modal_choice_rows(area: Rect, count: usize, row_height: u16) -> Vec<Rect> {
     let mut rows = Vec::with_capacity(count);
@@ -218,6 +219,7 @@ pub(crate) fn modal_choice_rows(area: Rect, count: usize, row_height: u16) -> Ve
     rows
 }
 
+// Kept as a reusable renderer for modal variants not enabled in every build.
 #[allow(dead_code)]
 pub(crate) fn render_modal_choice_list<T>(
     frame: &mut Frame,

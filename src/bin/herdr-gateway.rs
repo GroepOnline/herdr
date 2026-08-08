@@ -73,6 +73,7 @@ async fn socket_request(socket_path: &PathBuf, req: &Value) -> Result<Value, Str
     }
 }
 
+// Reserved for request correlation IDs when gateway request tracing is enabled.
 #[allow(dead_code)]
 static REQUEST_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
@@ -274,6 +275,10 @@ async fn main() -> anyhow::Result<()> {
     eprintln!("herdr-gateway listening on http://127.0.0.1:{}", port);
     eprintln!("socket: {}", socket_path.display());
     axum::serve(listener, app).await?;
+
+    Ok(())
+}
+rve(listener, app).await?;
 
     Ok(())
 }

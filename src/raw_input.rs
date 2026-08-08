@@ -8,6 +8,7 @@ use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 /// same parsing pipeline that the monolithic binary uses for stdin.
 /// Incomplete sequences at the end of the buffer are flushed as best-effort
 /// (same logic as the live input reader).
+// Public for the headless server API; some builds do not call it directly.
 #[allow(dead_code)]
 pub fn parse_raw_input_bytes(data: &[u8]) -> Vec<RawInputEvent> {
     // Delegate to the sync version which actually works.
