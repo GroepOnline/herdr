@@ -73,6 +73,7 @@ async fn socket_request(socket_path: &PathBuf, req: &Value) -> Result<Value, Str
     }
 }
 
+// Used by the gateway request-id generator; retained for builds where the generator is conditionally unused.
 #[allow(dead_code)]
 static REQUEST_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
