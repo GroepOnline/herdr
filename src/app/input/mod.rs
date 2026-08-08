@@ -603,15 +603,7 @@ pub(crate) fn is_modal_paste_shortcut(key: &KeyEvent) -> bool {
         return false;
     }
 
-    #[cfg(target_os = "macos")]
-    {
-        key.modifiers.contains(KeyModifiers::SUPER) || key.modifiers.contains(KeyModifiers::CONTROL)
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        key.modifiers.contains(KeyModifiers::CONTROL)
-    }
+    crate::platform::is_modal_paste_shortcut(key.modifiers)
 }
 
 pub(crate) fn modal_paste_target_active(state: &AppState) -> bool {

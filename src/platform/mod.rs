@@ -39,6 +39,19 @@ pub(crate) fn configure_background_command(command: &mut std::process::Command) 
     configure_background_command_platform(command);
 }
 
+pub(crate) fn is_modal_paste_shortcut(modifiers: crossterm::event::KeyModifiers) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        modifiers.contains(crossterm::event::KeyModifiers::SUPER)
+            || modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
+    }
+}
+
 #[cfg(not(windows))]
 fn configure_background_command_platform(_command: &mut std::process::Command) {}
 
