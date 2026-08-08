@@ -26,6 +26,7 @@ default = ["browser"]
 browser = []
 
 [dependencies]
+# Gateway HTTP routing, middleware, and error propagation; these capabilities are not provided by the stdlib.
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "json"] }
 tower = "0.5"
 tower-http = { version = "0.7", features = ["cors", "trace"] }
