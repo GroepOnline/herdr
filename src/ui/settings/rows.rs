@@ -76,6 +76,21 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     search_extra: None,
                 });
             }
+            for (idx, (label, detail)) in [
+                ("dots", "animated spinner dots"),
+                ("symbols", "distinct static shapes per state"),
+            ]
+            .iter()
+            .enumerate()
+            {
+                rows.push(SettingsRow {
+                    label: (*label).to_string(),
+                    detail: Some((*detail).to_string()),
+                    kind: SettingsRowKind::Choice,
+                    id: SettingsItemId::StatusIndicators { index: idx },
+                    search_extra: None,
+                });
+            }
         }
         SettingsSection::Layout => {
             for (label, detail, id) in [
@@ -535,6 +550,9 @@ pub(crate) fn row_choice_selected(
                 == crate::config::UpdateChannelConfig::Preview
         }
         SettingsItemId::ToastDelivery { delivery } => app.toast_delivery() == delivery,
+        SettingsItemId::StatusIndicators { index } => {
+            (index == 0) == (app.status_indicators == crate::config::StatusIndicatorStyle::Dots)
+        }
         _ => false,
     }
 }

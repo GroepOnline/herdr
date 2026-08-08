@@ -941,7 +941,7 @@ impl TerminalState {
                     && current_kind == crate::agent_resume::AgentSessionRefKind::Id
                     && session_ref.kind == crate::agent_resume::AgentSessionRefKind::Id
                     && current_value != session_ref.value
-                    && !Self::session_start_source_allows_session_replacement(
+                    && !Self::session_report_allows_session_replacement(
                         source,
                         agent_label,
                         session_start_source,
@@ -974,7 +974,7 @@ impl TerminalState {
                 })
     }
 
-    fn session_start_source_allows_session_replacement(
+    fn session_report_allows_session_replacement(
         source: &str,
         agent_label: &str,
         session_start_source: Option<&str>,
@@ -995,6 +995,12 @@ impl TerminalState {
             ) | ("herdr:opencode", "opencode", Some("new"))
                 | ("herdr:pi", "pi", Some("new" | "resume" | "fork"))
                 | ("herdr:omp", "omp", Some("new" | "resume" | "fork"))
+                | (
+                    "herdr:omp",
+                    "omp",
+                    Some("startup" | "new" | "resume" | "fork")
+                )
+                | ("herdr:antigravity_cli", "agy", None)
         )
     }
 
@@ -1034,7 +1040,7 @@ impl TerminalState {
         if self.known_agent_label_conflicts_with_detected_agent(&agent_label) {
             return None;
         }
-        let session_replacement_allowed = Self::session_start_source_allows_session_replacement(
+        let session_replacement_allowed = Self::session_report_allows_session_replacement(
             &source,
             &agent_label,
             session_start_source.as_deref(),

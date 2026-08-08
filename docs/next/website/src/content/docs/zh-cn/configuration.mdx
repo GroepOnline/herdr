@@ -98,14 +98,14 @@ Git 工作区行提供 worktree 操作。`New worktree` 会创建检出：如果
 
 ## 远程连接
 
-远程连接默认使用临时保活设置和连接复用兜底来管理 SSH 连接。
+远程连接默认使用临时保活设置，并在支持时复用连接，以管理 SSH 连接。
 
 ```toml
 [remote]
 manage_ssh_config = true
 ```
 
-启用后，`herdr --remote` 会写入一份私有的临时 SSH 配置：先包含你的 `~/.ssh/config` 和 `/etc/ssh/ssh_config`，再添加兜底的 `ServerAliveInterval` 和 `ServerAliveCountMax` 值。你自己的保活设置优先。Herdr 还会为每次远程连接使用私有的 OpenSSH control socket，以复用首次通过身份验证的连接。设置 `manage_ssh_config = false` 可通过普通 `ssh` 进行远程连接，不使用 Herdr 生成的配置或 control socket。
+启用后，`herdr --remote` 会写入一份私有的临时 SSH 配置：先包含用户和系统 SSH 配置，再添加兜底的 `ServerAliveInterval` 和 `ServerAliveCountMax` 值。你自己的保活设置优先。Linux 和 macOS 客户端还会为每次远程连接使用私有的 OpenSSH control socket，以复用首次通过身份验证的连接；Windows OpenSSH 不使用此复用方式。设置 `manage_ssh_config = false` 可通过普通 `ssh` 进行远程连接，不使用 Herdr 生成的配置或 control socket。
 
 ## 按键绑定
 
@@ -431,14 +431,18 @@ cjk_ime_agents = ["claude", "pi", "codex"]
 
 ## 前缀输入源切换
 
-在 macOS 上，当前缀命令和由前缀启动的模式处于活动状态时，Herdr 可以临时切换到系统中支持 ASCII 的输入源：
+在 macOS 和 Windows 上，当前缀命令和由前缀启动的模式处于活动状态时，Herdr 可以临时切换到支持 ASCII 的输入源：
 
 ```toml
 [experimental]
 switch_ascii_input_source_in_prefix = true
 ```
 
-返回终端输入或进入文本字段时，Herdr 会恢复之前的输入源。此设置在其他平台上无效。
+在 macOS 上，会切换到当前支持 ASCII 的键盘布局；在 Windows 上，会将 IME 切换到英文（ASCII）输入。返回终端输入或进入文本字段时，Herdr 会恢复之前的输入源。此设置在其他平台上无效。
+
+:::caution[Windows 上仅支持韩语 IME]
+目前 Windows 上的支持仅限于韩语 IME。使用其他语言的 IME 时，此设置不会改变输入源。
+:::
 
 ## 环境变量
 

@@ -45,7 +45,6 @@ fn configure_background_command_platform(_command: &mut std::process::Command) {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PlatformCapabilities {
     pub(crate) live_handoff: bool,
-    pub(crate) remote_attach: bool,
     pub(crate) direct_terminal_attach: bool,
     pub(crate) preserve_legacy_doubled_escape_input: bool,
 }
@@ -53,7 +52,6 @@ pub(crate) struct PlatformCapabilities {
 pub(crate) const fn capabilities() -> PlatformCapabilities {
     PlatformCapabilities {
         live_handoff: cfg!(unix),
-        remote_attach: cfg!(unix),
         direct_terminal_attach: cfg!(unix),
         preserve_legacy_doubled_escape_input: cfg!(target_os = "macos"),
     }
@@ -125,14 +123,11 @@ pub struct ClipboardCommand {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-// Windows does not wire clipboard-image bridging into semantic input yet.
-#[cfg_attr(windows, allow(dead_code))]
 pub struct ClipboardImage {
     pub bytes: Vec<u8>,
     pub extension: &'static str,
 }
 
-#[cfg(unix)]
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum LimitedRead {
     Empty,
@@ -140,7 +135,6 @@ pub(crate) enum LimitedRead {
     Oversized,
 }
 
-#[cfg(unix)]
 pub(crate) fn read_limited_reader(
     mut reader: impl std::io::Read,
     max_bytes: usize,
@@ -177,6 +171,16 @@ pub(crate) fn read_limited_reader(
         };
     }
 }
+
+#[derive(Debug, Clone)]
+pub(crate) struct RemoteSshConfigPaths {
+    pub(crate) user_config: Option<std::path::PathBuf>,
+    pub(crate) system_config: Option<std::path::PathBuf>,
+    pub(crate) multiplexing: bool,
+}
+
+#[cfg(unix)]
+mod unix_common;
 
 #[cfg(target_os = "linux")]
 mod linux;
@@ -298,16 +302,16 @@ pub(crate) fn parse_agent_env_hint(environ: &[u8]) -> Option<crate::detect::Agen
     None
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 #[derive(Debug)]
 pub(crate) struct InputSourceRestore;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub(crate) fn switch_to_ascii_input_source() -> Option<InputSourceRestore> {
     None
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub(crate) fn pump_input_source_runloop() {}
 
 /// Switches the host keyboard input source while prefix mode is active.

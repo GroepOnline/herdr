@@ -2148,7 +2148,9 @@
             "hermes",
             "qodercli",
             "cursor",
-            "mastracode"
+            "mastracode",
+            "antigravity_cli",
+            "grok"
           ],
           "type": "string"
         },
@@ -2561,6 +2563,21 @@
             "format",
             "image_width",
             "image_height"
+          ],
+          "type": "object"
+        },
+        "PaneInputSetParams": {
+          "properties": {
+            "pane_id": {
+              "type": "string"
+            },
+            "right_click": {
+              "$ref": "#/schemas/request/$defs/PaneRightClickTarget"
+            }
+          },
+          "required": [
+            "pane_id",
+            "right_click"
           ],
           "type": "object"
         },
@@ -3010,6 +3027,13 @@
           ],
           "type": "object"
         },
+        "PaneRightClickTarget": {
+          "enum": [
+            "herdr",
+            "pane"
+          ],
+          "type": "string"
+        },
         "PaneSendInputParams": {
           "properties": {
             "keys": {
@@ -3099,6 +3123,10 @@
                 "number",
                 "null"
               ]
+            },
+            "right_click": {
+              "$ref": "#/schemas/request/$defs/PaneRightClickTarget",
+              "default": "herdr"
             },
             "target_pane_id": {
               "type": [
@@ -5361,6 +5389,22 @@
         {
           "properties": {
             "method": {
+              "const": "pane.input.set",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/PaneInputSetParams"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
               "const": "pane.rename",
               "type": "string"
             },
@@ -7222,7 +7266,9 @@
             "hermes",
             "qodercli",
             "cursor",
-            "mastracode"
+            "mastracode",
+            "antigravity_cli",
+            "grok"
           ],
           "type": "string"
         },

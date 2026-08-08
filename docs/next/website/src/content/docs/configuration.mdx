@@ -102,14 +102,14 @@ Deleting a worktree checkout is explicit. Use `Delete worktree checkout...` on a
 
 ## Remote attach
 
-Remote attach manages its SSH connection with a temporary keepalive and connection-reuse fallback by default.
+Remote attach manages its SSH connection with temporary keepalives and, where supported, connection reuse by default.
 
 ```toml
 [remote]
 manage_ssh_config = true
 ```
 
-When enabled, `herdr --remote` writes a private temporary SSH config that includes your `~/.ssh/config` and `/etc/ssh/ssh_config` first, then adds fallback `ServerAliveInterval` and `ServerAliveCountMax` values. Your own keepalive settings win. Herdr also uses a private per-attach OpenSSH control socket to reuse the first authenticated connection. Set `manage_ssh_config = false` to run remote attach through plain `ssh` without Herdr's generated config or control socket.
+When enabled, `herdr --remote` writes a private temporary SSH config that includes your user and system SSH configs first, then adds fallback `ServerAliveInterval` and `ServerAliveCountMax` values. Your own keepalive settings win. Linux and macOS clients also use a private per-attach OpenSSH control socket to reuse the first authenticated connection; Windows OpenSSH does not. Set `manage_ssh_config = false` to run remote attach through plain `ssh` without Herdr's generated config or control socket.
 
 ## Keybindings
 
@@ -441,14 +441,18 @@ Restricting `cjk_ime_agents` avoids showing an extra hardware cursor in unrelate
 
 ## Prefix input source switching
 
-On macOS, Herdr can temporarily switch to the system ASCII-capable input source while prefix commands and prefix-launched modes are active:
+On macOS and Windows, Herdr can temporarily switch to an ASCII-capable input source while prefix commands and prefix-launched modes are active:
 
 ```toml
 [experimental]
 switch_ascii_input_source_in_prefix = true
 ```
 
-Herdr restores the previous input source when returning to terminal input or entering a text field. This setting has no effect on other platforms.
+On macOS this switches to the current ASCII-capable keyboard layout; on Windows it switches the IME to English (ASCII) input. Herdr restores the previous input source when returning to terminal input or entering a text field. This setting has no effect on other platforms.
+
+:::caution[Windows support is Korean IME only]
+On Windows, support is currently limited to the Korean IME. With an IME for any other language, this setting leaves the input source unchanged.
+:::
 
 ## Environment variables
 
