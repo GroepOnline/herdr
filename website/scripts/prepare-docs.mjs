@@ -29,21 +29,52 @@ if (process.argv[2] === '--rewrite-preview-doc-fixture') {
 }
 
 async function prepareDocsVersions() {
-  // Sidebar/DocsVersionSelect importeren src/data/docs-versions.json (gitignored,
-  // generated). Minimal geldige structuur: current + scopes (leeg = geen
-  // target-filtering). Bron: website/latest.json (version).
-  const latest = JSON.parse(await readFile(resolve(repoRoot, 'website/latest.json'), 'utf8'));
-  const destination = resolve(repoRoot, 'website/src/data/docs-versions.json');
-  await writeFile(
-    destination,
-    `${JSON.stringify({ current: latest.version, versions: [], scopes: {} }, null, 2)}\n`,
-    'utf8',
-  );
-  // ConfigReference.astro importeert config-reference-versions.json (gitignored).
-  // Per-versie archived references zijn niet beschikbaar in deze checkout; lege
-  // map = geen archived version tabs.
-  const versionsDestination = resolve(repoRoot, 'website/src/data/config-reference-versions.json');
-  await writeFile(versionsDestination, `${JSON.stringify({}, null, 2)}\n`, 'utf8');
+  const manifest = JSON.parse(await readFile(resolve(repoRoot, 'docs/versions/manifest.json'), 'utf8'));
+  const versions = [];
+  const scopes = {};
+  const references = {};
+  for (const entry of manifest.versions) {
+    const source = resolve(repoRoot, 'docs/versions', entry.version, 'website/src/content/docs');
+    const destination = resolve(stableDocsDir, '_versions', entry.version);
+    await rm(destination, { recursive: true, force: true });
+    await cp(source, destination, { recursive: true });
+    await rewriteArchivedDocs(destination);
+    const locales = {};
+    await collectDocPages(source, '', locales);
+    versions.push({ version: entry.version, tag: entry.tag });
+    scopes[entry.version] = { locales };
+    try {
+      references[entry.version] = JSON.parse(await readFile(resolve(repoRoot, 'docs/versions', entry.version, 'website/src/data/config-reference.json'), 'utf8'));
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+  await writeFile(resolve(repoRoot, 'website/src/data/docs-versions.json'), `${JSON.stringify({ current: manifest.current, versions, scopes }, null, 2)}\n`, 'utf8');
+  await writeFile(resolve(repoRoot, 'website/src/data/config-reference-versions.json'), `${JSON.stringify(references, null, 2)}\n`, 'utf8');
+}
+
+async function rewriteArchivedDocs(directory) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) await rewriteArchivedDocs(path);
+    else if (entry.isFile()) {
+      const content = await readFile(path, 'utf8');
+      await writeFile(path, content.replaceAll('herdr.dev', 'herdr.chefgroep.nl').replaceAll('github.com/ogulcancelik/herdr', 'github.com/GroepOnline/herdr'), 'utf8');
+    }
+  }
+}
+
+async function collectDocPages(directory, relativeDirectory, locales) {
+  for (const entry of await readdir(resolve(directory, relativeDirectory), { withFileTypes: true })) {
+    const relativePath = join(relativeDirectory, entry.name);
+    if (entry.isDirectory()) await collectDocPages(directory, relativePath, locales);
+    else if (/\\.(md|mdx|markdown|mdown|mkdn|mkd|mdwn)$/i.test(entry.name)) {
+      const parts = relativePath.split('/');
+      const locale = ['ja', 'zh-cn'].includes(parts[0]) ? parts.shift() : 'root';
+      const page = parts.join('/').replace(/\\.(md|mdx|markdown|mdown|mkdn|mkd|mdwn)$/i, '').replace(/\\/index$/, '') || 'index';
+      (locales[locale] ??= []).push(page);
+    }
+  }
 }
 
 async function preparePublicAssets() {
