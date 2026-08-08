@@ -68,10 +68,10 @@ async function collectDocPages(directory, relativeDirectory, locales) {
   for (const entry of await readdir(resolve(directory, relativeDirectory), { withFileTypes: true })) {
     const relativePath = join(relativeDirectory, entry.name);
     if (entry.isDirectory()) await collectDocPages(directory, relativePath, locales);
-    else if (/\\.(md|mdx|markdown|mdown|mkdn|mkd|mdwn)$/i.test(entry.name)) {
+    else if (/\.(md|mdx|markdown|mdown|mkdn|mkd|mdwn)$/i.test(entry.name)) {
       const parts = relativePath.split('/');
       const locale = ['ja', 'zh-cn'].includes(parts[0]) ? parts.shift() : 'root';
-      const page = parts.join('/').replace(/\\.(md|mdx|markdown|mdown|mkdn|mkd|mdwn)$/i, '').replace(/\\/index$/, '') || 'index';
+      const page = parts.join('/').replace(/\.(md|mdx|markdown|mdown|mkdn|mkd|mdwn)$/i, '').replace(/\/index$/, '') || 'index';
       (locales[locale] ??= []).push(page);
     }
   }

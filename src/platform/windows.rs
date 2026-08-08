@@ -4,7 +4,7 @@ use std::{
     mem::{size_of, MaybeUninit},
     path::PathBuf,
     ptr::{copy_nonoverlapping, null_mut},
-    sync::{Arc, Mutex},
+    sync::{Arc, LazyLock, Mutex},
     time::{Duration, Instant},
 };
 
@@ -65,34 +65,15 @@ const STILL_ACTIVE: u32 = 259;
 const FOREGROUND_PROCESS_SNAPSHOT_CACHE_TTL: Duration = Duration::from_millis(250);
 
 pub(crate) fn encode_windows_conpty_shift_enter(key: crate::input::TerminalKey) -> Option<Vec<u8>> {
-||||||| /tmp/w_base.rs
-const PANE_RUNTIME_MARKER_ENV_VAR: &str = "HERDR_PANE_RUNTIME_ID";
-const MAX_PROCESS_ENVIRONMENT_BYTES: usize = 256 * 1024;
-const PROCESS_ENVIRONMENT_READ_CHUNK_BYTES: usize = 16 * 1024;
-const PROCESS_RUNTIME_MARKER_CACHE_CAPACITY: usize = 1_024;
-const PROCESS_RUNTIME_MARKER_CACHE_RETENTION: Duration = Duration::from_secs(60);
-const PROCESS_RUNTIME_MARKER_NEGATIVE_TTL: Duration = Duration::from_secs(1);
+    use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 
-static NEXT_PANE_RUNTIME_MARKER: AtomicU64 = AtomicU64::new(1);
-static PROCESS_RUNTIME_MARKER_CACHE: LazyLock<Mutex<HashMap<u32, CachedProcessRuntimeMarker>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
-static GIT_BASH_PROCESS_CACHE: LazyLock<Mutex<HashMap<u32, CachedGitBashProcess>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+    if key.code != KeyCode::Enter || key.modifiers != KeyModifiers::SHIFT {
+        return None;
+    }
 
-/// Encode native or targeted semantic Win32 input for a compatible ConPTY destination.
-pub(crate) fn encode_windows_conpty_fallback(key: &crate::input::TerminalKey) -> Option<Vec<u8>> {
-const PANE_RUNTIME_MARKER_ENV_VAR: &str = "HERDR_PANE_RUNTIME_ID";
-const MAX_PROCESS_ENVIRONMENT_BYTES: usize = 256 * 1024;
-const PROCESS_ENVIRONMENT_READ_CHUNK_BYTES: usize = 16 * 1024;
-const PROCESS_RUNTIME_MARKER_CACHE_CAPACITY: usize = 1_024;
-const PROCESS_RUNTIME_MARKER_CACHE_RETENTION: Duration = Duration::from_secs(60);
-const PROCESS_RUNTIME_MARKER_NEGATIVE_TTL: Duration = Duration::from_secs(1);
-
-static NEXT_PANE_RUNTIME_MARKER: AtomicU64 = AtomicU64::new(1);
-static PROCESS_RUNTIME_MARKER_CACHE: LazyLock<Mutex<HashMap<u32, CachedProcessRuntimeMarker>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
-static GIT_BASH_PROCESS_CACHE: LazyLock<Mutex<HashMap<u32, CachedGitBashProcess>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+    let key_down = !matches!(key.kind, KeyEventKind::Release);
+    Some(format!("\x1b[13;28;13;{};16;1_", u8::from(key_down)).into_bytes())
+}
 
 pub(crate) fn remote_ssh_config_paths() -> super::RemoteSshConfigPaths {
     super::RemoteSshConfigPaths {
@@ -203,12 +184,35 @@ pub(crate) fn remote_reattach_argument(value: &str) -> String {
 pub(crate) fn encode_windows_conpty_fallback(key: &crate::input::TerminalKey) -> Option<Vec<u8>> {
     use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 
-    if key.code != KeyCode::Enter || key.modifiers != KeyModifiers::SHIFT {
-        return None;
-    }
+    let (virtual_key_code, virtual_scan_code, unicode, control_key_state) =
+        if let Some(record) = key.windows_record() {
+            (
+                record.virtual_key_code,
+                record.virtual_scan_code,
+                record.unicode,
+                record.control_key_state,
+            )
+        } else if key.code == KeyCode::Esc
+            && key.modifiers.is_empty()
+            && key.kind == KeyEventKind::Press
+            && key.vt_bytes().is_none()
+        {
+            return Some(b"\x1b[27;1;27;1;0;1_\x1b[27;1;27;0;0;1_".to_vec());
+        } else if key.code == KeyCode::Enter && key.modifiers == KeyModifiers::SHIFT {
+            (13, 28, 13, 16)
+        } else {
+            return None;
+        };
+    let key_down = key.kind != KeyEventKind::Release;
+    let repeat_count = if key_down { key.repeat_count.max(1) } else { 1 };
 
-    let key_down = !matches!(key.kind, KeyEventKind::Release);
-    Some(format!("\x1b[13;28;13;{};16;1_", u8::from(key_down)).into_bytes())
+    Some(
+        format!(
+            "\x1b[{virtual_key_code};{virtual_scan_code};{unicode};{};{control_key_state};{repeat_count}_",
+            u8::from(key_down),
+        )
+        .into_bytes(),
+    )
 }
 
 #[derive(Debug)]
@@ -837,9 +841,6 @@ pub fn read_clipboard_image() -> Option<ClipboardImage> {
     None
 }
 
-pub fn show_desktop_notification(_title: &str, _body: Option<&str>) -> std::io::Result<bool> {
-    Ok(false)
-||||||| /tmp/w_base.rs
 pub fn show_desktop_notification(title: &str, body: Option<&str>) -> std::io::Result<bool> {
     let title = title.to_owned();
     let body = body.unwrap_or(&title).to_owned();
@@ -944,6 +945,8 @@ fn copy_wide_truncated<const N: usize>(destination: &mut [u16; N], value: &str) 
         destination[offset..offset + encoded.len()].copy_from_slice(encoded);
         offset += encoded.len();
     }
+}
+
 fn read_registered_png_clipboard() -> Option<Vec<u8>> {
     static PNG_FORMAT: LazyLock<u32> = LazyLock::new(|| {
         let name = wide_null("PNG");
@@ -981,112 +984,6 @@ fn clipboard_global_bytes(format: u32, max_bytes: usize) -> Option<Vec<u8>> {
         GlobalUnlock(handle);
     }
     Some(bytes)
-}
-
-pub fn show_desktop_notification(title: &str, body: Option<&str>) -> std::io::Result<bool> {
-    let title = title.to_owned();
-    let body = body.unwrap_or(&title).to_owned();
-    let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
-    std::thread::Builder::new()
-        .name("herdr-windows-notification".into())
-        .spawn(move || show_desktop_notification_on_thread(&title, &body, ready_tx))?;
-    ready_rx
-        .recv_timeout(Duration::from_secs(2))
-        .map_err(|err| match err {
-            std::sync::mpsc::RecvTimeoutError::Timeout => std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                "Windows notification setup timed out",
-            ),
-            std::sync::mpsc::RecvTimeoutError::Disconnected => std::io::Error::other(
-                "Windows notification thread exited before reporting readiness",
-            ),
-        })?
-}
-
-fn show_desktop_notification_on_thread(
-    title: &str,
-    body: &str,
-    ready_tx: std::sync::mpsc::SyncSender<std::io::Result<bool>>,
-) {
-    let class_name = wide_null("STATIC");
-    let window_name = wide_null("Herdr notifications");
-    let hwnd = unsafe {
-        CreateWindowExW(
-            0,
-            class_name.as_ptr(),
-            window_name.as_ptr(),
-            0,
-            0,
-            0,
-            0,
-            0,
-            null_mut(),
-            null_mut(),
-            null_mut(),
-            std::ptr::null(),
-        )
-    };
-    if hwnd.is_null() {
-        let _ = ready_tx.send(Err(std::io::Error::last_os_error()));
-        return;
-    }
-
-    let mut notification = unsafe { std::mem::zeroed::<NOTIFYICONDATAW>() };
-    notification.cbSize = size_of::<NOTIFYICONDATAW>() as u32;
-    notification.hWnd = hwnd;
-    notification.uID = 1;
-    notification.hIcon = unsafe { LoadIconW(null_mut(), IDI_APPLICATION) };
-    notification.uFlags = NIF_TIP;
-    if !notification.hIcon.is_null() {
-        notification.uFlags |= NIF_ICON;
-    }
-    copy_wide_truncated(&mut notification.szTip, "Herdr");
-
-    if unsafe { Shell_NotifyIconW(NIM_ADD, &notification) } == 0 {
-        let _ = ready_tx.send(Err(std::io::Error::other(
-            "failed to add Herdr notification-area icon",
-        )));
-        unsafe {
-            DestroyWindow(hwnd);
-        }
-        return;
-    }
-
-    notification.uFlags = NIF_INFO;
-    notification.dwInfoFlags = NIIF_INFO | NIIF_NOSOUND;
-    copy_wide_truncated(&mut notification.szInfoTitle, title);
-    copy_wide_truncated(&mut notification.szInfo, body);
-    if unsafe { Shell_NotifyIconW(NIM_MODIFY, &notification) } == 0 {
-        unsafe {
-            Shell_NotifyIconW(NIM_DELETE, &notification);
-            DestroyWindow(hwnd);
-        }
-        let _ = ready_tx.send(Err(std::io::Error::other(
-            "failed to show Herdr desktop notification",
-        )));
-        return;
-    }
-
-    let _ = ready_tx.send(Ok(true));
-    std::thread::sleep(Duration::from_secs(10));
-    unsafe {
-        Shell_NotifyIconW(NIM_DELETE, &notification);
-        DestroyWindow(hwnd);
-    }
-}
-
-fn copy_wide_truncated<const N: usize>(destination: &mut [u16; N], value: &str) {
-    destination.fill(0);
-    let mut offset = 0;
-    for ch in value.chars() {
-        let mut units = [0; 2];
-        let encoded = ch.encode_utf16(&mut units);
-        if offset + encoded.len() >= N {
-            break;
-        }
-        destination[offset..offset + encoded.len()].copy_from_slice(encoded);
-        offset += encoded.len();
-    }
 }
 
 fn wide_null(value: &str) -> Vec<u16> {
