@@ -1359,17 +1359,10 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "unicode-width",
-<<<<<<< HEAD
  "viuer",
- "windows-sys 0.61.2",
-||||||| parent of 2863b715 (feat(windows): support remote attach to unix hosts (#2329))
- "windows-sys",
- "wmi",
-=======
  "widestring",
- "windows-sys",
+ "windows-sys 0.61.2",
  "wmi",
->>>>>>> 2863b715 (feat(windows): support remote attach to unix hosts (#2329))
 ]
 
 [[package]]
