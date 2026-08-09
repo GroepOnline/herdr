@@ -36,11 +36,11 @@ async function prepareDocsVersions() {
   for (const entry of manifest.versions) {
     const source = resolve(repoRoot, 'docs/versions', entry.version, 'website/src/content/docs');
     const destination = resolve(stableDocsDir, '_versions', entry.version);
-    await rm(destination, { recursive: true, force: true });
-    await cp(source, destination, { recursive: true });
-    await rewriteArchivedDocs(destination);
     const locales = {};
     await collectDocPages(source, '', locales);
+    await rm(destination, { recursive: true, force: true });
+    await cp(source, destination, { recursive: true });
+    await rewriteArchivedDocs(destination, entry.version, locales);
     versions.push({ version: entry.version, tag: entry.tag });
     scopes[entry.version] = { locales };
     try {
@@ -71,16 +71,32 @@ export function rewriteArchivedDocContent(content, isLocalized) {
     );
 }
 
-async function rewriteArchivedDocs(directory) {
+async function rewriteArchivedDocs(directory, version, locales) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) await rewriteArchivedDocs(path);
+    if (entry.isDirectory()) await rewriteArchivedDocs(path, version, locales);
     else if (entry.isFile()) {
       const content = await readFile(path, 'utf8');
       const isLocalized = /[\\/](?:ja|zh-cn)[\\/]/.test(path);
-      await writeFile(path, rewriteArchivedDocContent(content, isLocalized), 'utf8');
+      const rewritten = rewriteArchivedDocContent(content, isLocalized);
+      await writeFile(path, rewriteArchivedDocLinks(rewritten, version, locales), 'utf8');
     }
   }
+}
+
+export function rewriteArchivedDocLinks(content, version, archivePages = {}) {
+  let rewritten = content;
+  for (const page of archivePages.root ?? []) {
+    rewritten = rewritten.split(`/docs/${page}/`).join(`/docs/${version}/${page}/`);
+  }
+  for (const locale of ['ja', 'zh-cn']) {
+    for (const page of archivePages[locale] ?? []) {
+      rewritten = rewritten
+        .split(`/${locale}/docs/${page}/`)
+        .join(`/${locale}/docs/${version}/${page}/`);
+    }
+  }
+  return rewritten;
 }
 
 async function collectDocPages(directory, relativeDirectory, locales) {
