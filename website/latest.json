@@ -1,26 +1,48 @@
 {
-  "version": "0.7.6",
+  "version": "0.8.0",
   "protocol": 18,
-  "notes": "### Added\n- Added a native `pi.session.ended` event and a built-in `pi_sessions` watcher. When a Pi coding-agent session JSONL stops growing (configurable stale window), Herdr emits a `pi.session.ended` event carrying the session id, cwd, host, stop reason, and event count. Fleet plugins (e.g. `chef-pi-eval`) can subscribe via `on = \"pi.session.ended\"` to ingest and auto-evaluate sessions. (#58)\n- Exposed `pi.session.ended` in `PLUGIN_HOOK_EVENT_KINDS` so plugin `on = \"pi.session.ended\"` hooks fire for any opted-in plugin.",
+  "notes": "### Added\n- Ported upstream v0.8.0 features (consolidated): versioned release documentation; Grok CLI integration with native session restore; antigravity-cli integration; ASCII IME in prefix mode on Windows; distinct status indicators (`ui.status_indicators = \"dots\" | \"symbols\"`); Windows remote attach to unix hosts; marketplace star history with dated backups and delta stats; Windows support for all agent integrations (`.ps1` assets for cursor, devin, grok, mastracode); per-pane right-click routing (`herdr pane split --right-click herdr|pane`).\n- `herdr --skill` prints the bundled agent skill file and exits.\n- Added herdr integration install grok for Grok CLI (Grok Build) hooks that report session ids through Herdr's socket API. Grok state stays screen-detected. When native agent session restore is enabled, Herdr can resume Grok panes with `grok --resume <id>`.\n\n### Fixed\n- Restored CI and release pipeline health: Windows lint and test lanes are green again, omp session scoping is restored, and the release pipeline is fully wired for v0.8.0 (npm, Homebrew, portable assets).\n- Website builds now hard-fail on stale upstream references; versioned doc archives and config-reference data are rewritten to GroepOnline/herdr.chefgroep.nl at build time.",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/GroepOnline/herdr/releases/download/v0.7.6/herdr-linux-x86_64",
-      "sha256": "8f0785c5e9e471e03e7611d6b987b60bf1f9a7db0f25bec95c11f54e156a561a"
+      "url": "https://github.com/GroepOnline/herdr/releases/download/v0.8.0/herdr-linux-x86_64",
+      "sha256": "e66a473fd8c350d148b91b5173a6335f5c56f04e068c42722aab65e719bfad05"
     },
     "linux-aarch64": {
-      "url": "https://github.com/GroepOnline/herdr/releases/download/v0.7.6/herdr-linux-aarch64",
-      "sha256": "ee943dfdf577fe48d5430f6bd4631bbad67019719f6af57422bd345d015eb671"
+      "url": "https://github.com/GroepOnline/herdr/releases/download/v0.8.0/herdr-linux-aarch64",
+      "sha256": "6db980fa072c0efe3611891b1a8b5431e51b304a9874c307509b1113db388583"
     },
     "macos-x86_64": {
-      "url": "https://github.com/GroepOnline/herdr/releases/download/v0.7.6/herdr-macos-x86_64",
-      "sha256": "6347f7bf567d48a7617ff6c6b9f8d5ca13fe9b492ccd30ca4fda4c5a34a41dff"
+      "url": "https://github.com/GroepOnline/herdr/releases/download/v0.8.0/herdr-macos-x86_64",
+      "sha256": "24217f2cd1474b83791ca97488880b220f88e70b6413d5117b7d18646b79464b"
     },
     "macos-aarch64": {
-      "url": "https://github.com/GroepOnline/herdr/releases/download/v0.7.6/herdr-macos-aarch64",
-      "sha256": "4abe05e0858758b166e1e08bd57305363e151dfa65b1bd3cd9e1f99e5ca1dfcd"
+      "url": "https://github.com/GroepOnline/herdr/releases/download/v0.8.0/herdr-macos-aarch64",
+      "sha256": "2edc02575454c26b1093b7bb776ab4143e32733f851cd9d6c5b969b3783f954d"
     }
   },
   "releases": {
+    "0.8.0": {
+      "notes": "### Added\n- Ported upstream v0.8.0 features (consolidated): versioned release documentation; Grok CLI integration with native session restore; antigravity-cli integration; ASCII IME in prefix mode on Windows; distinct status indicators (`ui.status_indicators = \"dots\" | \"symbols\"`); Windows remote attach to unix hosts; marketplace star history with dated backups and delta stats; Windows support for all agent integrations (`.ps1` assets for cursor, devin, grok, mastracode); per-pane right-click routing (`herdr pane split --right-click herdr|pane`).\n- `herdr --skill` prints the bundled agent skill file and exits.\n- Added herdr integration install grok for Grok CLI (Grok Build) hooks that report session ids through Herdr's socket API. Grok state stays screen-detected. When native agent session restore is enabled, Herdr can resume Grok panes with `grok --resume <id>`.\n\n### Fixed\n- Restored CI and release pipeline health: Windows lint and test lanes are green again, omp session scoping is restored, and the release pipeline is fully wired for v0.8.0 (npm, Homebrew, portable assets).\n- Website builds now hard-fail on stale upstream references; versioned doc archives and config-reference data are rewritten to GroepOnline/herdr.chefgroep.nl at build time.",
+      "protocol": 18,
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/GroepOnline/herdr/releases/download/v0.8.0/herdr-linux-x86_64",
+          "sha256": "e66a473fd8c350d148b91b5173a6335f5c56f04e068c42722aab65e719bfad05"
+        },
+        "linux-aarch64": {
+          "url": "https://github.com/GroepOnline/herdr/releases/download/v0.8.0/herdr-linux-aarch64",
+          "sha256": "6db980fa072c0efe3611891b1a8b5431e51b304a9874c307509b1113db388583"
+        },
+        "macos-x86_64": {
+          "url": "https://github.com/GroepOnline/herdr/releases/download/v0.8.0/herdr-macos-x86_64",
+          "sha256": "24217f2cd1474b83791ca97488880b220f88e70b6413d5117b7d18646b79464b"
+        },
+        "macos-aarch64": {
+          "url": "https://github.com/GroepOnline/herdr/releases/download/v0.8.0/herdr-macos-aarch64",
+          "sha256": "2edc02575454c26b1093b7bb776ab4143e32733f851cd9d6c5b969b3783f954d"
+        }
+      }
+    },
     "0.7.6": {
       "notes": "### Added\n- Added a native `pi.session.ended` event and a built-in `pi_sessions` watcher. When a Pi coding-agent session JSONL stops growing (configurable stale window), Herdr emits a `pi.session.ended` event carrying the session id, cwd, host, stop reason, and event count. Fleet plugins (e.g. `chef-pi-eval`) can subscribe via `on = \"pi.session.ended\"` to ingest and auto-evaluate sessions. (#58)\n- Exposed `pi.session.ended` in `PLUGIN_HOOK_EVENT_KINDS` so plugin `on = \"pi.session.ended\"` hooks fire for any opted-in plugin.",
       "protocol": 18,
