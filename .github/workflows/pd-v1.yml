@@ -1,0 +1,25 @@
+name: PD v1
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: tag
+        required: true
+        type: string
+      dry_run:
+        description: dry
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      NPM_TOKEN:
+        required: false
+      HOMEBREW_TAP_DEPLOY_KEY:
+        required: false
+
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "hello ${{ inputs.tag }}"
