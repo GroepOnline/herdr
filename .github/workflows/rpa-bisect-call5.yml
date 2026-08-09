@@ -1,0 +1,19 @@
+name: RPA bisect call5
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable tag to backfill, for example v0.7.6
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  call-min:
+    name: Call minimal reusable
+    uses: ./.github/workflows/pd-min.yml
+    with:
+      tag: v0.8.0

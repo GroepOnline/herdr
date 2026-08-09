@@ -1,0 +1,15 @@
+name: PD min
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: tag
+        required: true
+        type: string
+
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "hello ${{ inputs.tag }}"
