@@ -51,9 +51,8 @@ use windows_sys::{
                 },
             },
             Shell::{
-                CommandLineToArgvW, NIF_ICON, NIF_INFO, NIF_TIP, NIIF_INFO, NIIF_NOSOUND,
-                NIM_ADD, NIM_DELETE, NIM_MODIFY, NOTIFYICONDATAW, ShellExecuteW,
-                Shell_NotifyIconW,
+                CommandLineToArgvW, ShellExecuteW, Shell_NotifyIconW, NIF_ICON, NIF_INFO, NIF_TIP,
+                NIIF_INFO, NIIF_NOSOUND, NIM_ADD, NIM_DELETE, NIM_MODIFY, NOTIFYICONDATAW,
             },
             WindowsAndMessaging::{
                 CreateWindowExW, DestroyWindow, GetForegroundWindow, GetWindowThreadProcessId,
@@ -191,10 +190,7 @@ pub(crate) fn remote_reattach_argument(value: &str) -> String {
 pub(crate) fn encode_windows_conpty_fallback(key: &crate::input::TerminalKey) -> Option<Vec<u8>> {
     use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 
-    if key.code == KeyCode::Esc
-        && key.modifiers.is_empty()
-        && key.kind == KeyEventKind::Press
-    {
+    if key.code == KeyCode::Esc && key.modifiers.is_empty() && key.kind == KeyEventKind::Press {
         return Some(b"\x1b[27;1;27;1;0;1_\x1b[27;1;27;0;0;1_".to_vec());
     }
 
