@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## [0.8.0] - 2026-08-09
+
+### Added
+- Ported upstream v0.8.0 features (consolidated): versioned release documentation; Grok CLI integration with native session restore; antigravity-cli integration; ASCII IME in prefix mode on Windows; distinct status indicators (`ui.status_indicators = "dots" | "symbols"`); Windows remote attach to unix hosts; marketplace star history with dated backups and delta stats; Windows support for all agent integrations (`.ps1` assets for cursor, devin, grok, mastracode); per-pane right-click routing (`herdr pane split --right-click herdr|pane`).
+- `herdr --skill` prints the bundled agent skill file and exits.
+- Added herdr integration install grok for Grok CLI (Grok Build) hooks that report session ids through Herdr's socket API. Grok state stays screen-detected. When native agent session restore is enabled, Herdr can resume Grok panes with `grok --resume <id>`.
+
+### Fixed
+- Restored CI and release pipeline health: Windows lint and test lanes are green again, omp session scoping is restored, and the release pipeline is fully wired for v0.8.0 (npm, Homebrew, portable assets).
+- Website builds now hard-fail on stale upstream references; versioned doc archives and config-reference data are rewritten to GroepOnline/herdr.chefgroep.nl at build time.
+
 ## [0.7.7] - 2026-08-01
 
 ### Added
@@ -156,7 +167,6 @@ GroepOnline fork release with upstream herdr 0.7.4 merged in. First GroepOnline 
 - Added `herdr terminal session control` for bridge processes that need live ANSI frames plus input, resize, scroll, release, and takeover authority.
 - Added `ui.hide_tab_bar_when_single_tab` to hide the tab row when a workspace has one tab. (#448)
 - Added Japanese and Simplified Chinese website docs.
-- Added `herdr integration install grok` for Grok CLI (Grok Build) hooks that report session ids through Herdr's socket API. Grok state stays screen-detected. When native agent session restore is enabled, Herdr can resume Grok panes with `grok --resume <id>`.
 
 ### Changed
 - The mobile switcher now starts from an agents-first summary and renders worktrees as a tree, making narrow terminals easier to scan.
