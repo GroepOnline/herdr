@@ -17,6 +17,18 @@ any = [
 ]
 
 [[rules]]
+id = "gemini_tool_working"
+state = "working"
+priority = 95
+region = "bottom_non_empty_lines(6)"
+visible_working = true
+any = [
+  { line_regex = ['(?i)(running|executing|applying)\s+(command|tool|edit)'] },
+  { line_regex = ['(?i)(ruff|pytest|uv\s+run)'] },
+  { line_regex = ['(?i)utrecht\s+(parse|normalize|index|embed|eval|ask|serve)'] },
+]
+
+[[rules]]
 id = "esc_cancel_working"
 state = "working"
 priority = 100
