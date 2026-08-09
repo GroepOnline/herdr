@@ -1,7 +1,22 @@
 {
   "schema_version": 1,
-  "current": "0.7.5",
+  "current": "0.7.6",
   "versions": [
+    {
+      "version": "0.8.0",
+      "tag": "v0.8.0",
+      "source": "docs/next/website/src/content/docs"
+    },
+    {
+      "version": "0.7.7",
+      "tag": "v0.7.7",
+      "source": "docs/next/website/src/content/docs"
+    },
+    {
+      "version": "0.7.6",
+      "tag": "v0.7.6",
+      "source": "docs/next/website/src/content/docs"
+    },
     {
       "version": "0.7.5",
       "tag": "v0.7.5",

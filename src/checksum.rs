@@ -1,11 +1,10 @@
 use std::io;
 
-// Only the manifest-side grammar check is cross-platform. Windows updates run
-// through install.ps1, so nothing on that target hashes a downloaded file.
-#[cfg(not(windows))]
+// Checksum normalization is cross-platform. Hashing is also used by the
+// remote attach download path on every target (Windows updates still run
+// through install.ps1, but remote asset downloads are verified here too).
 use std::{fs::File, io::Read, path::Path};
 
-#[cfg(not(windows))]
 use sha2::{Digest, Sha256};
 
 pub(crate) fn normalize_sha256(expected: &str) -> io::Result<String> {
@@ -19,7 +18,6 @@ pub(crate) fn normalize_sha256(expected: &str) -> io::Result<String> {
     Ok(expected)
 }
 
-#[cfg(not(windows))]
 pub(crate) fn verify_sha256(path: &Path, expected: &str) -> io::Result<()> {
     let expected = normalize_sha256(expected)?;
     let actual = file_sha256(path)?;
@@ -32,7 +30,6 @@ pub(crate) fn verify_sha256(path: &Path, expected: &str) -> io::Result<()> {
     Ok(())
 }
 
-#[cfg(not(windows))]
 fn file_sha256(path: &Path) -> io::Result<String> {
     let mut file = File::open(path)?;
     let mut hasher = Sha256::new();
@@ -47,7 +44,6 @@ fn file_sha256(path: &Path) -> io::Result<String> {
     Ok(to_lower_hex(&hasher.finalize()))
 }
 
-#[cfg(not(windows))]
 fn to_lower_hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut output = String::with_capacity(bytes.len() * 2);
@@ -74,7 +70,6 @@ mod tests {
         assert!(super::normalize_sha256(&"g".repeat(64)).is_err());
     }
 
-    #[cfg(not(windows))]
     #[test]
     fn verifies_matching_sha256() {
         use std::fs;

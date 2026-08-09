@@ -601,3 +601,28 @@ fn removed_show_changelog_flag_fails_before_nested_guard() {
         "unknown flag should be rejected before nested guard: {stderr}"
     );
 }
+
+#[test]
+fn skill_flag_prints_bundled_agent_skill_without_a_server() {
+    let output = Command::new(env!("CARGO_BIN_EXE_herdr"))
+        .arg("--skill")
+        .env_remove("HERDR_SOCKET_PATH")
+        .env_remove("HERDR_CLIENT_SOCKET_PATH")
+        .env_remove("HERDR_ENV")
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let bundled = fs::read_to_string(format!("{}/SKILL.md", env!("CARGO_MANIFEST_DIR")))
+        .expect("SKILL.md must exist at the crate root");
+    assert_eq!(
+        stdout.as_ref(),
+        bundled.as_str(),
+        "--skill must print the bundled SKILL.md verbatim"
+    );
+}

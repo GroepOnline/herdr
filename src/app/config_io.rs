@@ -668,6 +668,7 @@ impl App {
                 ratio: Some(ratio),
                 cwd: None,
                 focus: true,
+                right_click: Default::default(),
                 env: Default::default(),
                 command: None,
             },

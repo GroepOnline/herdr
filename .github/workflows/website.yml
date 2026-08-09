@@ -49,7 +49,6 @@ jobs:
       - name: Check for stale upstream references
         working-directory: website
         run: node scripts/check-references.mjs
-        continue-on-error: true
 
       - name: Internal link check
         working-directory: website

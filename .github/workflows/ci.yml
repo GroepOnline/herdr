@@ -136,7 +136,7 @@ jobs:
           bun test src/integration/assets/opencode/herdr-agent-state.test.ts
 
       - name: Plugin marketplace tests
-        run: cd workers/plugin-marketplace && bun test
+        run: cd workers/plugin-marketplace && bun install --frozen-lockfile && bun test
 
   windows-lint:
     name: Windows lint

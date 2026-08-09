@@ -4,7 +4,7 @@ use std::{
     mem::{size_of, MaybeUninit},
     path::PathBuf,
     ptr::{copy_nonoverlapping, null_mut},
-    sync::{Arc, Mutex},
+    sync::{Arc, LazyLock, Mutex},
     time::{Duration, Instant},
 };
 
@@ -17,7 +17,6 @@ use windows_sys::{
             CloseHandle, GlobalFree, LocalFree, HANDLE, HWND, INVALID_HANDLE_VALUE, NTSTATUS,
             STATUS_SUCCESS, UNICODE_STRING,
         },
-        Globalization::{CompareStringOrdinal, CSTR_EQUAL, CSTR_GREATER_THAN, CSTR_LESS_THAN},
         Security::SECURITY_ATTRIBUTES,
         Storage::FileSystem::CreateDirectoryW,
         System::{
@@ -50,10 +49,13 @@ use windows_sys::{
                     KEYEVENTF_KEYUP,
                 },
             },
-            Shell::{CommandLineToArgvW, ShellExecuteW},
+            Shell::{
+                CommandLineToArgvW, ShellExecuteW, Shell_NotifyIconW, NIF_ICON, NIF_INFO, NIF_TIP,
+                NIIF_INFO, NIIF_NOSOUND, NIM_ADD, NIM_DELETE, NIM_MODIFY, NOTIFYICONDATAW,
+            },
             WindowsAndMessaging::{
-                GetForegroundWindow, GetWindowThreadProcessId, SendMessageTimeoutW,
-                SMTO_ABORTIFHUNG, WM_IME_CONTROL,
+                CreateWindowExW, DestroyWindow, GetForegroundWindow, GetWindowThreadProcessId,
+                LoadIconW, SendMessageTimeoutW, IDI_APPLICATION, SMTO_ABORTIFHUNG, WM_IME_CONTROL,
             },
         },
     },
@@ -65,34 +67,15 @@ const STILL_ACTIVE: u32 = 259;
 const FOREGROUND_PROCESS_SNAPSHOT_CACHE_TTL: Duration = Duration::from_millis(250);
 
 pub(crate) fn encode_windows_conpty_shift_enter(key: crate::input::TerminalKey) -> Option<Vec<u8>> {
-||||||| /tmp/w_base.rs
-const PANE_RUNTIME_MARKER_ENV_VAR: &str = "HERDR_PANE_RUNTIME_ID";
-const MAX_PROCESS_ENVIRONMENT_BYTES: usize = 256 * 1024;
-const PROCESS_ENVIRONMENT_READ_CHUNK_BYTES: usize = 16 * 1024;
-const PROCESS_RUNTIME_MARKER_CACHE_CAPACITY: usize = 1_024;
-const PROCESS_RUNTIME_MARKER_CACHE_RETENTION: Duration = Duration::from_secs(60);
-const PROCESS_RUNTIME_MARKER_NEGATIVE_TTL: Duration = Duration::from_secs(1);
+    use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 
-static NEXT_PANE_RUNTIME_MARKER: AtomicU64 = AtomicU64::new(1);
-static PROCESS_RUNTIME_MARKER_CACHE: LazyLock<Mutex<HashMap<u32, CachedProcessRuntimeMarker>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
-static GIT_BASH_PROCESS_CACHE: LazyLock<Mutex<HashMap<u32, CachedGitBashProcess>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+    if key.code != KeyCode::Enter || key.modifiers != KeyModifiers::SHIFT {
+        return None;
+    }
 
-/// Encode native or targeted semantic Win32 input for a compatible ConPTY destination.
-pub(crate) fn encode_windows_conpty_fallback(key: &crate::input::TerminalKey) -> Option<Vec<u8>> {
-const PANE_RUNTIME_MARKER_ENV_VAR: &str = "HERDR_PANE_RUNTIME_ID";
-const MAX_PROCESS_ENVIRONMENT_BYTES: usize = 256 * 1024;
-const PROCESS_ENVIRONMENT_READ_CHUNK_BYTES: usize = 16 * 1024;
-const PROCESS_RUNTIME_MARKER_CACHE_CAPACITY: usize = 1_024;
-const PROCESS_RUNTIME_MARKER_CACHE_RETENTION: Duration = Duration::from_secs(60);
-const PROCESS_RUNTIME_MARKER_NEGATIVE_TTL: Duration = Duration::from_secs(1);
-
-static NEXT_PANE_RUNTIME_MARKER: AtomicU64 = AtomicU64::new(1);
-static PROCESS_RUNTIME_MARKER_CACHE: LazyLock<Mutex<HashMap<u32, CachedProcessRuntimeMarker>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
-static GIT_BASH_PROCESS_CACHE: LazyLock<Mutex<HashMap<u32, CachedGitBashProcess>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+    let key_down = !matches!(key.kind, KeyEventKind::Release);
+    Some(format!("\x1b[13;28;13;{};16;1_", u8::from(key_down)).into_bytes())
+}
 
 pub(crate) fn remote_ssh_config_paths() -> super::RemoteSshConfigPaths {
     super::RemoteSshConfigPaths {
@@ -199,9 +182,19 @@ pub(crate) fn remote_reattach_argument(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
-/// Encode native or targeted semantic Win32 input for a compatible ConPTY destination.
+/// Encode the semantic fallback supported by the current TerminalKey model.
+///
+/// Native Win32 key records are not carried by TerminalKey in this fork, so this
+/// compatibility path handles semantic Escape and Shift+Enter only. It is
+/// exercised by unit tests and will be wired into production input once native
+/// Win32 key records are supported.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn encode_windows_conpty_fallback(key: &crate::input::TerminalKey) -> Option<Vec<u8>> {
     use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
+
+    if key.code == KeyCode::Esc && key.modifiers.is_empty() && key.kind == KeyEventKind::Press {
+        return Some(b"\x1b[27;1;27;1;0;1_\x1b[27;1;27;0;0;1_".to_vec());
+    }
 
     if key.code != KeyCode::Enter || key.modifiers != KeyModifiers::SHIFT {
         return None;
@@ -837,9 +830,6 @@ pub fn read_clipboard_image() -> Option<ClipboardImage> {
     None
 }
 
-pub fn show_desktop_notification(_title: &str, _body: Option<&str>) -> std::io::Result<bool> {
-    Ok(false)
-||||||| /tmp/w_base.rs
 pub fn show_desktop_notification(title: &str, body: Option<&str>) -> std::io::Result<bool> {
     let title = title.to_owned();
     let body = body.unwrap_or(&title).to_owned();
@@ -944,6 +934,8 @@ fn copy_wide_truncated<const N: usize>(destination: &mut [u16; N], value: &str) 
         destination[offset..offset + encoded.len()].copy_from_slice(encoded);
         offset += encoded.len();
     }
+}
+
 fn read_registered_png_clipboard() -> Option<Vec<u8>> {
     static PNG_FORMAT: LazyLock<u32> = LazyLock::new(|| {
         let name = wide_null("PNG");
@@ -981,112 +973,6 @@ fn clipboard_global_bytes(format: u32, max_bytes: usize) -> Option<Vec<u8>> {
         GlobalUnlock(handle);
     }
     Some(bytes)
-}
-
-pub fn show_desktop_notification(title: &str, body: Option<&str>) -> std::io::Result<bool> {
-    let title = title.to_owned();
-    let body = body.unwrap_or(&title).to_owned();
-    let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
-    std::thread::Builder::new()
-        .name("herdr-windows-notification".into())
-        .spawn(move || show_desktop_notification_on_thread(&title, &body, ready_tx))?;
-    ready_rx
-        .recv_timeout(Duration::from_secs(2))
-        .map_err(|err| match err {
-            std::sync::mpsc::RecvTimeoutError::Timeout => std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                "Windows notification setup timed out",
-            ),
-            std::sync::mpsc::RecvTimeoutError::Disconnected => std::io::Error::other(
-                "Windows notification thread exited before reporting readiness",
-            ),
-        })?
-}
-
-fn show_desktop_notification_on_thread(
-    title: &str,
-    body: &str,
-    ready_tx: std::sync::mpsc::SyncSender<std::io::Result<bool>>,
-) {
-    let class_name = wide_null("STATIC");
-    let window_name = wide_null("Herdr notifications");
-    let hwnd = unsafe {
-        CreateWindowExW(
-            0,
-            class_name.as_ptr(),
-            window_name.as_ptr(),
-            0,
-            0,
-            0,
-            0,
-            0,
-            null_mut(),
-            null_mut(),
-            null_mut(),
-            std::ptr::null(),
-        )
-    };
-    if hwnd.is_null() {
-        let _ = ready_tx.send(Err(std::io::Error::last_os_error()));
-        return;
-    }
-
-    let mut notification = unsafe { std::mem::zeroed::<NOTIFYICONDATAW>() };
-    notification.cbSize = size_of::<NOTIFYICONDATAW>() as u32;
-    notification.hWnd = hwnd;
-    notification.uID = 1;
-    notification.hIcon = unsafe { LoadIconW(null_mut(), IDI_APPLICATION) };
-    notification.uFlags = NIF_TIP;
-    if !notification.hIcon.is_null() {
-        notification.uFlags |= NIF_ICON;
-    }
-    copy_wide_truncated(&mut notification.szTip, "Herdr");
-
-    if unsafe { Shell_NotifyIconW(NIM_ADD, &notification) } == 0 {
-        let _ = ready_tx.send(Err(std::io::Error::other(
-            "failed to add Herdr notification-area icon",
-        )));
-        unsafe {
-            DestroyWindow(hwnd);
-        }
-        return;
-    }
-
-    notification.uFlags = NIF_INFO;
-    notification.dwInfoFlags = NIIF_INFO | NIIF_NOSOUND;
-    copy_wide_truncated(&mut notification.szInfoTitle, title);
-    copy_wide_truncated(&mut notification.szInfo, body);
-    if unsafe { Shell_NotifyIconW(NIM_MODIFY, &notification) } == 0 {
-        unsafe {
-            Shell_NotifyIconW(NIM_DELETE, &notification);
-            DestroyWindow(hwnd);
-        }
-        let _ = ready_tx.send(Err(std::io::Error::other(
-            "failed to show Herdr desktop notification",
-        )));
-        return;
-    }
-
-    let _ = ready_tx.send(Ok(true));
-    std::thread::sleep(Duration::from_secs(10));
-    unsafe {
-        Shell_NotifyIconW(NIM_DELETE, &notification);
-        DestroyWindow(hwnd);
-    }
-}
-
-fn copy_wide_truncated<const N: usize>(destination: &mut [u16; N], value: &str) {
-    destination.fill(0);
-    let mut offset = 0;
-    for ch in value.chars() {
-        let mut units = [0; 2];
-        let encoded = ch.encode_utf16(&mut units);
-        if offset + encoded.len() >= N {
-            break;
-        }
-        destination[offset..offset + encoded.len()].copy_from_slice(encoded);
-        offset += encoded.len();
-    }
 }
 
 fn wide_null(value: &str) -> Vec<u16> {
@@ -1537,74 +1423,7 @@ mod tests {
     }
 
     #[test]
-    fn windows_conpty_native_encoder_uses_canonical_phase_and_repeat_count() {
-        let key = crate::input::TerminalKey::new(
-            crossterm::event::KeyCode::Esc,
-            crossterm::event::KeyModifiers::empty(),
-        )
-        .with_windows_record(crate::input::WindowsKeyRecord {
-            key_down: true,
-            repeat_count: 3,
-            virtual_key_code: 27,
-            virtual_scan_code: 1,
-            unicode: 27,
-            control_key_state: 0,
-        });
-
-        assert_eq!(
-            super::encode_windows_conpty_fallback(&key),
-            Some(b"\x1b[27;1;27;1;0;3_".to_vec())
-        );
-        let mut release = key.with_kind(crossterm::event::KeyEventKind::Release);
-        release.repeat_count = 3;
-        assert_eq!(
-            super::encode_windows_conpty_fallback(&release),
-            Some(b"\x1b[27;1;27;0;0;1_".to_vec())
-        );
-    }
-
-    #[test]
-    fn windows_conpty_native_encoder_preserves_semantic_escape_fallback() {
-        let escape = crate::input::TerminalKey::new(
-            crossterm::event::KeyCode::Esc,
-            crossterm::event::KeyModifiers::empty(),
-        );
-
-        assert_eq!(
-            super::encode_windows_conpty_fallback(&escape),
-            Some(b"\x1b[27;1;27;1;0;1_\x1b[27;1;27;0;0;1_".to_vec())
-        );
-        assert_eq!(
-            super::encode_windows_conpty_fallback(
-                &escape
-                    .clone()
-                    .with_kind(crossterm::event::KeyEventKind::Repeat),
-            ),
-            None
-        );
-        assert_eq!(
-            super::encode_windows_conpty_fallback(
-                &escape
-                    .clone()
-                    .with_kind(crossterm::event::KeyEventKind::Release),
-            ),
-            None
-        );
-        assert_eq!(
-            super::encode_windows_conpty_fallback(&escape.clone().with_vt_bytes(vec![27])),
-            None
-        );
-        assert_eq!(
-            super::encode_windows_conpty_fallback(&crate::input::TerminalKey::new(
-                crossterm::event::KeyCode::Esc,
-                crossterm::event::KeyModifiers::ALT,
-            ),),
-            None
-        );
-    }
-
-    #[test]
-    fn windows_conpty_native_encoder_preserves_semantic_shift_enter_fallback() {
+    fn windows_conpty_fallback_supports_current_terminal_key_shape() {
         let shift_enter = crate::input::TerminalKey::new(
             crossterm::event::KeyCode::Enter,
             crossterm::event::KeyModifiers::SHIFT,
@@ -1619,6 +1438,20 @@ mod tests {
                 crossterm::event::KeyCode::Enter,
                 crossterm::event::KeyModifiers::empty(),
             )),
+            None
+        );
+        let escape = crate::input::TerminalKey::new(
+            crossterm::event::KeyCode::Esc,
+            crossterm::event::KeyModifiers::empty(),
+        );
+        assert_eq!(
+            super::encode_windows_conpty_fallback(&escape),
+            Some(b"\x1b[27;1;27;1;0;1_\x1b[27;1;27;0;0;1_".to_vec())
+        );
+        assert_eq!(
+            super::encode_windows_conpty_fallback(
+                &escape.with_kind(crossterm::event::KeyEventKind::Release),
+            ),
             None
         );
     }

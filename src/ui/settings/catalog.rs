@@ -296,13 +296,13 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
                 .copied()
                 .map(SettingsAction::SaveSpinnerStyle)
         }
-        SettingsItemId::StatusIndicators { index } => Some(SettingsAction::SaveStatusIndicators(
-            if index == 0 {
+        SettingsItemId::StatusIndicators { index } => {
+            Some(SettingsAction::SaveStatusIndicators(if index == 0 {
                 StatusIndicatorStyle::Dots
             } else {
                 StatusIndicatorStyle::Symbols
-            },
-        )),
+            }))
+        }
         SettingsItemId::PaneBorders => Some(SettingsAction::SavePaneBorders(
             !state.pane_borders_enabled(),
         )),

@@ -22,12 +22,12 @@ pub fn version() -> String {
 
 // Only consumed by the Unix remote-update path (`src/remote/unix.rs`); gated to
 // avoid a dead-code lint failure on the Windows build under `-D warnings`.
-#[cfg(unix)]
+#[cfg_attr(not(unix), allow(dead_code))]
 pub fn is_preview() -> bool {
     channel() == "preview"
 }
 
-#[cfg(unix)]
+#[cfg_attr(not(unix), allow(dead_code))]
 pub fn is_dev() -> bool {
     channel() == "dev"
 }
