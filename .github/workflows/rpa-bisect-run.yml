@@ -1,0 +1,76 @@
+name: RPA bisect run
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable tag to backfill, for example v0.7.6
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RUST_TOOLCHAIN_VERSION: 1.96.1
+
+concurrency:
+  group: release-portable-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Resolve stable release
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      sha: ${{ steps.release.outputs.sha }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: release
+        name: Validate tag and release version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_TAG: ${{ inputs.tag }}
+          RELEASE_WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="$REQUESTED_TAG"
+          else
+            TAG="$(git tag --points-at "$RELEASE_WORKFLOW_SHA" --list 'v[0-9]*' | sort -V | tail -n 1)"
+          fi
+
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "error: could not resolve a stable vX.Y.Z tag (got: ${TAG:-empty})" >&2
+            exit 1
+          fi
+
+          SHA="$(git rev-list -n 1 "$TAG")"
+          VERSION="${TAG#v}"
+          CARGO_VERSION="$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')"
+          if [ "$CARGO_VERSION" != "$VERSION" ]; then
+            echo "error: tag $TAG does not match Cargo.toml version $CARGO_VERSION" >&2
+            exit 1
+          fi
+
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
