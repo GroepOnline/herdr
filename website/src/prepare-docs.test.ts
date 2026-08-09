@@ -49,4 +49,18 @@ describe('rewriteArchivedDocContent', () => {
     assert.equal(output, 'file: ../../../../../../public/assets/logo.svg\n');
     assert.equal(rewriteArchivedDocContent(output, true), output);
   });
+
+  test('rewrites root archive component imports once and is idempotent', () => {
+    const input = "import MobileDocShots from '../../components/MobileDocShots.astro';";
+    const output = rewriteArchivedDocContent(input, false);
+    assert.equal(output, "import MobileDocShots from '../../../../components/MobileDocShots.astro';");
+    assert.equal(rewriteArchivedDocContent(output, false), output);
+  });
+
+  test('rewrites localized archive component imports once and is idempotent', () => {
+    const input = "import MobileDocShots from '../../../components/MobileDocShots.astro';";
+    const output = rewriteArchivedDocContent(input, true);
+    assert.equal(output, "import MobileDocShots from '../../../../../components/MobileDocShots.astro';");
+    assert.equal(rewriteArchivedDocContent(output, true), output);
+  });
 });

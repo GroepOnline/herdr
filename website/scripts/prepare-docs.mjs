@@ -64,6 +64,10 @@ export function rewriteArchivedDocContent(content, isLocalized) {
         const actualSegments = (assetPath.match(/\.\.\//g) ?? []).length;
         return actualSegments === expectedSegments ? `${prefix}../../${assetPath}` : _match;
       },
+    )
+    .replace(
+      /^(import .*from\s+['"])(?=(?:\.\.\/){2,3}components\/)/gm,
+      (_match, prefix) => `${prefix}../../`,
     );
 }
 
