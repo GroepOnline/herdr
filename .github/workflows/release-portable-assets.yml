@@ -371,6 +371,13 @@ jobs:
   publish-distribution:
     name: Publish npm and Homebrew
     needs: [prepare, update-manifest]
+    # publish-distribution.yml requests id-token: write for npm provenance.
+    # A reusable workflow cannot elevate permissions above what the caller
+    # grants, so grant id-token: write here explicitly. Without this the
+    # whole workflow fails at startup with a "workflow file issue".
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/publish-distribution.yml
     with:
       tag: ${{ needs.prepare.outputs.tag }}
