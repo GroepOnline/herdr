@@ -994,11 +994,10 @@ impl TerminalState {
                 Some("clear" | "resume" | "compact")
             ) | ("herdr:opencode", "opencode", Some("new"))
                 | ("herdr:pi", "pi", Some("new" | "resume" | "fork"))
-                | (
-                    "herdr:omp",
-                    "omp",
-                    Some("startup" | "new" | "resume" | "fork")
-                )
+                // Fork divergence: the upstream v0.8.0 sync (e5e707f2) re-added
+                // "startup" here, breaking nested omp startup replacement tests.
+                // Only intentional lifecycle replacements may overwrite a bound root.
+                | ("herdr:omp", "omp", Some("new" | "resume" | "fork"))
                 | ("herdr:antigravity_cli", "agy", None)
         )
     }

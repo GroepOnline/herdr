@@ -185,7 +185,10 @@ pub(crate) fn remote_reattach_argument(value: &str) -> String {
 /// Encode the semantic fallback supported by the current TerminalKey model.
 ///
 /// Native Win32 key records are not carried by TerminalKey in this fork, so this
-/// compatibility path intentionally handles semantic Shift+Enter only.
+/// compatibility path handles semantic Escape and Shift+Enter only. It is
+/// exercised by unit tests and will be wired into production input once native
+/// Win32 key records are supported.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn encode_windows_conpty_fallback(key: &crate::input::TerminalKey) -> Option<Vec<u8>> {
     use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 
