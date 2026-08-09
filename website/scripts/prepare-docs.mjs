@@ -44,7 +44,8 @@ async function prepareDocsVersions() {
     versions.push({ version: entry.version, tag: entry.tag });
     scopes[entry.version] = { locales };
     try {
-      references[entry.version] = JSON.parse(await readFile(resolve(repoRoot, 'docs/versions', entry.version, 'website/src/data/config-reference.json'), 'utf8'));
+      const referenceSource = await readFile(resolve(repoRoot, 'docs/versions', entry.version, 'website/src/data/config-reference.json'), 'utf8');
+      references[entry.version] = JSON.parse(rewriteStaleUpstreamRefs(referenceSource));
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
     }
@@ -53,13 +54,17 @@ async function prepareDocsVersions() {
   await writeFile(resolve(repoRoot, 'website/src/data/config-reference-versions.json'), `${JSON.stringify(references, null, 2)}\n`, 'utf8');
 }
 
-export function rewriteArchivedDocContent(content, isLocalized) {
+export function rewriteStaleUpstreamRefs(content) {
   return content
     .replaceAll('herdr.dev', 'herdr.chefgroep.nl')
     .replaceAll('github.com/ogulcancelik/herdr', 'github.com/GroepOnline/herdr')
     .replaceAll('github.com/ogulcancelik', 'github.com/GroepOnline')
     .replaceAll('ogulcancelik/herdr', 'GroepOnline/herdr')
-    .replaceAll('"owner":"ogulcancelik"', '"owner":"GroepOnline"')
+    .replaceAll('"owner":"ogulcancelik"', '"owner":"GroepOnline"');
+}
+
+export function rewriteArchivedDocContent(content, isLocalized) {
+  return rewriteStaleUpstreamRefs(content)
     .replace(
       /^(\s*file:\s*["']?)((?:\.\.\/){3,4}public\/assets\/)/gm,
       (_match, prefix, assetPath) => {

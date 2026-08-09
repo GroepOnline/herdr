@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { rewriteArchivedDocContent, rewriteArchivedDocLinks, rewritePreviewDocContent } from '../scripts/prepare-docs.mjs';
+import {
+  rewriteArchivedDocContent,
+  rewriteArchivedDocLinks,
+  rewritePreviewDocContent,
+  rewriteStaleUpstreamRefs,
+} from '../scripts/prepare-docs.mjs';
 
 describe('rewritePreviewDocContent', () => {
   test('adds one parent segment to frontmatter file: public assets', () => {
@@ -80,6 +85,18 @@ describe('rewriteArchivedDocContent', () => {
     const output = rewriteArchivedDocContent(input, false);
     assert.equal(output, expected);
     assert.equal(rewriteArchivedDocContent(output, false), output);
+  });
+
+  test('rewrites stale refs in config-reference JSON and keeps it parseable', () => {
+    const input = JSON.stringify({
+      description: 'Check herdr.dev for new Herdr versions in the background.',
+      source: { owner: 'ogulcancelik', repo: 'herdr' },
+    });
+    const output = rewriteStaleUpstreamRefs(input);
+    assert.equal(output.includes('herdr.dev'), false);
+    assert.equal(output.includes('ogulcancelik'), false);
+    assert.doesNotThrow(() => JSON.parse(output));
+    assert.equal(rewriteStaleUpstreamRefs(output), output);
   });
 });
 
