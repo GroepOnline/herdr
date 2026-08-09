@@ -39,14 +39,14 @@ describe('rewriteArchivedDocContent', () => {
   test('rewrites root archive assets once and is idempotent', () => {
     const input = 'file: ../../../public/assets/logo.svg\n';
     const output = rewriteArchivedDocContent(input, false);
-    assert.equal(output, 'file: ../../../../public/assets/logo.svg\n');
+    assert.equal(output, 'file: ../../../../../public/assets/logo.svg\n');
     assert.equal(rewriteArchivedDocContent(output, false), output);
   });
 
   test('rewrites localized archive assets once and is idempotent', () => {
     const input = 'file: ../../../../public/assets/logo.svg\n';
     const output = rewriteArchivedDocContent(input, true);
-    assert.equal(output, 'file: ../../../../../public/assets/logo.svg\n');
+    assert.equal(output, 'file: ../../../../../../public/assets/logo.svg\n');
     assert.equal(rewriteArchivedDocContent(output, true), output);
   });
 });

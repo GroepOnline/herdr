@@ -2163,7 +2163,7 @@ fn should_bridge_clipboard_image_events(
                 crate::raw_input::RawInputEvent::Key(key)
                     if key.kind == crossterm::event::KeyEventKind::Press
                         && crate::config::terminal_key_matches_combo(
-                            *key,
+                            key,
                             remote_image_paste_key,
                         )
             )

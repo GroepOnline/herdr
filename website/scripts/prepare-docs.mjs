@@ -62,7 +62,7 @@ export function rewriteArchivedDocContent(content, isLocalized) {
       (_match, prefix, assetPath) => {
         const expectedSegments = isLocalized ? 4 : 3;
         const actualSegments = (assetPath.match(/\.\.\//g) ?? []).length;
-        return actualSegments === expectedSegments ? `${prefix}../${assetPath}` : _match;
+        return actualSegments === expectedSegments ? `${prefix}../../${assetPath}` : _match;
       },
     );
 }
