@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- Optional `keys.resize_pane_left`, `keys.resize_pane_down`, `keys.resize_pane_up`, and `keys.resize_pane_right` bindings now resize the focused pane in one keystroke without entering resize mode. (#2558)
+
 ## [0.8.1] - 2026-08-15
 
 ### Added
