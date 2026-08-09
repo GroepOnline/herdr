@@ -57,6 +57,9 @@ export function rewriteArchivedDocContent(content, isLocalized) {
   return content
     .replaceAll('herdr.dev', 'herdr.chefgroep.nl')
     .replaceAll('github.com/ogulcancelik/herdr', 'github.com/GroepOnline/herdr')
+    .replaceAll('github.com/ogulcancelik', 'github.com/GroepOnline')
+    .replaceAll('ogulcancelik/herdr', 'GroepOnline/herdr')
+    .replaceAll('"owner":"ogulcancelik"', '"owner":"GroepOnline"')
     .replace(
       /^(\s*file:\s*["']?)((?:\.\.\/){3,4}public\/assets\/)/gm,
       (_match, prefix, assetPath) => {

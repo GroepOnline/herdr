@@ -63,6 +63,24 @@ describe('rewriteArchivedDocContent', () => {
     assert.equal(output, "import MobileDocShots from '../../../../../components/MobileDocShots.astro';");
     assert.equal(rewriteArchivedDocContent(output, true), output);
   });
+
+  test('rewrites stale upstream references once and is idempotent', () => {
+    const input = [
+      'nix run github:ogulcancelik/herdr/v0.8.0',
+      'herdr plugin install ogulcancelik/herdr-plugin-examples/agent-telegram-notify',
+      '{"owner":"ogulcancelik","repo":"herdr-plugin-examples"}',
+      'the docs live at herdr.dev',
+    ].join('\n');
+    const expected = [
+      'nix run github:GroepOnline/herdr/v0.8.0',
+      'herdr plugin install GroepOnline/herdr-plugin-examples/agent-telegram-notify',
+      '{"owner":"GroepOnline","repo":"herdr-plugin-examples"}',
+      'the docs live at herdr.chefgroep.nl',
+    ].join('\n');
+    const output = rewriteArchivedDocContent(input, false);
+    assert.equal(output, expected);
+    assert.equal(rewriteArchivedDocContent(output, false), output);
+  });
 });
 
 describe('rewriteArchivedDocLinks', () => {
