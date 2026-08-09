@@ -1,0 +1,20 @@
+name: RPA bisect call12
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable tag to backfill, for example v0.7.6
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  call-v6:
+    name: Call pd-v6
+    uses: ./.github/workflows/pd-v6.yml
+    with:
+      tag: v0.8.0
+      dry_run: true
