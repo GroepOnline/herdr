@@ -810,13 +810,6 @@ fn parse_pane_move_args(args: &[String]) -> Result<PaneMoveParams, String> {
                 focus = false;
                 index += 1;
             }
-            "--right-click" => {
-                let Some(value) = args.get(index + 1) else {
-                    return Err("missing value for --right-click".into());
-                };
-                right_click = parse_right_click_target(value)?;
-                index += 2;
-            }
             other => return Err(format!("unknown option: {other}")),
         }
     }

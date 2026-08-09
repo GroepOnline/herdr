@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { rewritePreviewDocContent } from '../scripts/prepare-docs.mjs';
+import { rewriteArchivedDocContent, rewritePreviewDocContent } from '../scripts/prepare-docs.mjs';
 
 describe('rewritePreviewDocContent', () => {
   test('adds one parent segment to frontmatter file: public assets', () => {
@@ -31,5 +31,22 @@ describe('rewritePreviewDocContent', () => {
       output.includes('under ../public/assets'),
       `prose path was rewritten: ${output}`,
     );
+  });
+});
+
+
+describe('rewriteArchivedDocContent', () => {
+  test('rewrites root archive assets once and is idempotent', () => {
+    const input = 'file: ../../../public/assets/logo.svg\n';
+    const output = rewriteArchivedDocContent(input, false);
+    assert.equal(output, 'file: ../../../../public/assets/logo.svg\n');
+    assert.equal(rewriteArchivedDocContent(output, false), output);
+  });
+
+  test('rewrites localized archive assets once and is idempotent', () => {
+    const input = 'file: ../../../../public/assets/logo.svg\n';
+    const output = rewriteArchivedDocContent(input, true);
+    assert.equal(output, 'file: ../../../../../public/assets/logo.svg\n');
+    assert.equal(rewriteArchivedDocContent(output, true), output);
   });
 });

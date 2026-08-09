@@ -994,7 +994,6 @@ impl TerminalState {
                 Some("clear" | "resume" | "compact")
             ) | ("herdr:opencode", "opencode", Some("new"))
                 | ("herdr:pi", "pi", Some("new" | "resume" | "fork"))
-                | ("herdr:omp", "omp", Some("new" | "resume" | "fork"))
                 | (
                     "herdr:omp",
                     "omp",

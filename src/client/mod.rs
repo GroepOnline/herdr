@@ -2163,7 +2163,7 @@ fn should_bridge_clipboard_image_events(
                 crate::raw_input::RawInputEvent::Key(key)
                     if key.kind == crossterm::event::KeyEventKind::Press
                         && crate::config::terminal_key_matches_combo(
-                            &key,
+                            *key,
                             remote_image_paste_key,
                         )
             )
@@ -2750,9 +2750,6 @@ mod tests {
             code: crate::protocol::ClientKeyCode::Char('v'),
             modifiers: crossterm::event::KeyModifiers::CONTROL.bits(),
             kind: crate::protocol::ClientKeyKind::Press,
-            repeat_count: 1,
-            generated_text: None,
-            source: crate::protocol::ClientKeySource::Synthesized,
         };
         let empty_paste = crate::protocol::ClientInputEvent::Paste {
             text: String::new(),

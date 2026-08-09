@@ -53,13 +53,28 @@ async function prepareDocsVersions() {
   await writeFile(resolve(repoRoot, 'website/src/data/config-reference-versions.json'), `${JSON.stringify(references, null, 2)}\n`, 'utf8');
 }
 
+export function rewriteArchivedDocContent(content, isLocalized) {
+  return content
+    .replaceAll('herdr.dev', 'herdr.chefgroep.nl')
+    .replaceAll('github.com/ogulcancelik/herdr', 'github.com/GroepOnline/herdr')
+    .replace(
+      /^(\s*file:\s*["']?)((?:\.\.\/){3,4}public\/assets\/)/gm,
+      (_match, prefix, assetPath) => {
+        const expectedSegments = isLocalized ? 4 : 3;
+        const actualSegments = (assetPath.match(/\.\.\//g) ?? []).length;
+        return actualSegments === expectedSegments ? `${prefix}../${assetPath}` : _match;
+      },
+    );
+}
+
 async function rewriteArchivedDocs(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) await rewriteArchivedDocs(path);
     else if (entry.isFile()) {
       const content = await readFile(path, 'utf8');
-      await writeFile(path, content.replaceAll('herdr.dev', 'herdr.chefgroep.nl').replaceAll('github.com/ogulcancelik/herdr', 'github.com/GroepOnline/herdr'), 'utf8');
+      const isLocalized = /[\\/](?:ja|zh-cn)[\\/]/.test(path);
+      await writeFile(path, rewriteArchivedDocContent(content, isLocalized), 'utf8');
     }
   }
 }
