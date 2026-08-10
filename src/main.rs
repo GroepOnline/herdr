@@ -87,6 +87,7 @@ mod plugin_command;
 mod plugin_paths;
 mod popup_size;
 mod product_announcements;
+mod product_urls;
 mod protocol;
 mod pty;
 mod raw_input;

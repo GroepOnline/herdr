@@ -2,7 +2,7 @@
 export const PRODUCT_GITHUB_ORG = "GroepOnline";
 export const PRODUCT_GITHUB_REPO = "GroepOnline/herdr";
 export const UPSTREAM_GITHUB_REPO = "ogulcancelik/herdr";
-export const PRODUCT_SITE_URL = "https://herdr.chefgroep.nl";
+export const PRODUCT_SITE_URL = "https://herdr.pages.dev";
 export const PRODUCT_CONTACT_EMAIL = "hey@chefgroep.online";
 
 export const productGitHubUrl = (path = ""): string => {

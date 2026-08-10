@@ -356,9 +356,9 @@ switch ($architecture) {
 
 if ([string]::IsNullOrWhiteSpace($ManifestUrl)) {
     $ManifestUrl = if ($Channel -eq "preview") {
-        "https://herdr.chefgroep.nl/preview.json"
+        "https://herdr.pages.dev/preview.json"
     } else {
-        "https://herdr.chefgroep.nl/latest.json"
+        "https://herdr.pages.dev/latest.json"
     }
 }
 

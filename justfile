@@ -195,7 +195,7 @@ release-verify version="":
     fi
     python3 scripts/changelog.py verify-release-state \
       --version "$version" \
-      --live-url https://herdr.chefgroep.nl/latest.json
+      --live-url https://herdr.pages.dev/latest.json
 
 # Show Cargo / tag / GitHub release / local+live latest.json alignment
 # usage: just release-status        (uses Cargo.toml version)
@@ -212,14 +212,14 @@ release-status version="":
     echo "Cargo.toml:          $cargo_version"
     echo "requested:           $version"
     echo "local latest.json:   $(python3 -c 'import json; print(json.load(open("website/latest.json"))["version"])')"
-    echo "live latest.json:    $(curl -fsSL https://herdr.chefgroep.nl/latest.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' || echo UNAVAILABLE)"
+    echo "live latest.json:    $(curl -fsSL https://herdr.pages.dev/latest.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' || echo UNAVAILABLE)"
     if git rev-parse "v$version" >/dev/null 2>&1; then
       echo "local tag v$version:  $(git rev-parse --short "v$version")"
     else
       echo "local tag v$version:  missing"
     fi
     gh release view "v$version" --json tagName,assets,publishedAt --jq '"GitHub release: \(.tagName) published=\(.publishedAt) assets=\([.assets[].name]|join(", "))"' || echo "GitHub release: missing"
-    python3 scripts/changelog.py verify-release-state --version "$version" --live-url https://herdr.chefgroep.nl/latest.json || true
+    python3 scripts/changelog.py verify-release-state --version "$version" --live-url https://herdr.pages.dev/latest.json || true
 
 # Print default config
 default-config:
