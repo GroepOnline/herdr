@@ -73,10 +73,13 @@ impl App {
                 content,
                 "ui",
                 "sidebar_collapsed_mode",
-                &format!("\"{}\"", match mode {
-                    crate::config::SidebarCollapsedModeConfig::Compact => "compact",
-                    crate::config::SidebarCollapsedModeConfig::Hidden => "hidden",
-                }),
+                &format!(
+                    "\"{}\"",
+                    match mode {
+                        crate::config::SidebarCollapsedModeConfig::Compact => "compact",
+                        crate::config::SidebarCollapsedModeConfig::Hidden => "hidden",
+                    }
+                ),
             )
         }) {
             self.apply_config_from_disk(false);
