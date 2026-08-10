@@ -358,6 +358,9 @@ impl App {
                     MouseAction::SetSplitRatio { path, ratio } => {
                         self.set_split_ratio_via_api(path, ratio)
                     }
+                    MouseAction::SaveSidebarSectionSplit => {
+                        self.save_sidebar_section_split(self.state.sidebar_section_split)
+                    }
                     MouseAction::RenameModal(action) => {
                         self.apply_rename_mouse_action_via_api(action)
                     }

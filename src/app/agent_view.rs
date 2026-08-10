@@ -1,9 +1,9 @@
 use std::cmp::Ordering;
 
 use crate::api::schema::{
-    AgentStatus, AgentViewBuiltinField, AgentViewBuiltinSortField, AgentViewContext,
-    AgentViewField, AgentViewFilter, AgentViewSetParams, AgentViewSort, AgentViewSortField,
-    AgentViewSortOrder, AgentViewValue,
+    AgentViewBuiltinField, AgentViewBuiltinSortField, AgentViewContext, AgentViewField,
+    AgentViewFilter, AgentViewSetParams, AgentViewSort, AgentViewSortField, AgentViewSortOrder,
+    AgentViewValue,
 };
 use crate::ui::AgentPanelEntry;
 
@@ -389,21 +389,7 @@ fn sort_value(
 }
 
 fn status_name(state: crate::detect::AgentState, seen: bool) -> String {
-    let status = match (state, seen) {
-        (crate::detect::AgentState::Idle, false) => AgentStatus::Done,
-        (crate::detect::AgentState::Idle, true) => AgentStatus::Idle,
-        (crate::detect::AgentState::Working, _) => AgentStatus::Working,
-        (crate::detect::AgentState::Blocked, _) => AgentStatus::Blocked,
-        (crate::detect::AgentState::Unknown, _) => AgentStatus::Unknown,
-    };
-    match status {
-        AgentStatus::Idle => "idle",
-        AgentStatus::Working => "working",
-        AgentStatus::Blocked => "blocked",
-        AgentStatus::Done => "done",
-        AgentStatus::Unknown => "unknown",
-    }
-    .to_string()
+    crate::status::label(state, seen).to_string()
 }
 
 fn public_tab_id(app: &AppState, entry: &AgentPanelEntry) -> Option<String> {

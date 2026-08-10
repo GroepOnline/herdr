@@ -52,6 +52,7 @@ pub(super) enum MouseAction {
         path: Vec<bool>,
         ratio: f32,
     },
+    SaveSidebarSectionSplit,
     RenameModal(ModalAction),
     ConfirmCloseAccept,
     ContextMenu {
@@ -891,6 +892,9 @@ impl AppState {
                             });
                         }
                     }
+                    Some(DragState {
+                        target: DragTarget::SidebarSectionDivider,
+                    }) => return Some(MouseAction::SaveSidebarSectionSplit),
                     Some(_) => {}
                     None => {
                         if let Some(press) = workspace_press {
@@ -1909,6 +1913,42 @@ mod tests {
             checkout_path: format!("/repo/worktree-{ws_idx}").into(),
             is_linked_worktree: ws_idx != 0,
         });
+    }
+
+    #[test]
+    fn sidebar_divider_mouse_up_returns_persistence_action() {
+        let mut app = app_for_mouse_test();
+        let divider = crate::ui::sidebar_section_divider_rect(
+            app.state.view.sidebar_rect,
+            app.state.sidebar_section_split,
+        );
+        let col = divider.x + 1;
+
+        assert!(app
+            .state
+            .handle_mouse(
+                &mut app.terminal_runtimes,
+                mouse(MouseEventKind::Down(MouseButton::Left), col, divider.y),
+            )
+            .is_none());
+        assert!(app
+            .state
+            .handle_mouse(
+                &mut app.terminal_runtimes,
+                mouse(
+                    MouseEventKind::Drag(MouseButton::Left),
+                    col,
+                    divider.y + 4,
+                ),
+            )
+            .is_none());
+        assert!(app.state.sidebar_section_split > 0.5);
+
+        let action = app.state.handle_mouse(
+            &mut app.terminal_runtimes,
+            mouse(MouseEventKind::Up(MouseButton::Left), col, divider.y + 4),
+        );
+        assert!(matches!(action, Some(MouseAction::SaveSidebarSectionSplit)));
     }
 
     #[tokio::test]

@@ -1007,12 +1007,12 @@ impl GlobalAgentCounts {
 fn global_agent_counts(app: &AppState) -> GlobalAgentCounts {
     let mut counts = GlobalAgentCounts::default();
     for entry in crate::ui::all_agent_panel_entries(app) {
-        match (entry.state, entry.seen) {
-            (AgentState::Blocked, _) => counts.blocked += 1,
-            (AgentState::Idle, false) => counts.done += 1,
-            (AgentState::Working, _) => counts.working += 1,
-            (AgentState::Idle, true) => counts.idle += 1,
-            (AgentState::Unknown, _) => {}
+        match crate::status::project(entry.state, entry.seen).agent_status {
+            crate::api::schema::AgentStatus::Blocked => counts.blocked += 1,
+            crate::api::schema::AgentStatus::Done => counts.done += 1,
+            crate::api::schema::AgentStatus::Working => counts.working += 1,
+            crate::api::schema::AgentStatus::Idle => counts.idle += 1,
+            crate::api::schema::AgentStatus::Unknown => {}
         }
     }
     counts

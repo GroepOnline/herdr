@@ -63,11 +63,9 @@ Then attach with:
 herdr --remote workbox
 ```
 
-Remote attach supports Linux and macOS hosts on x86_64 and aarch64. Herdr checks the remote platform, prefers a matching `herdr` already on the remote `PATH`, then checks common direct, Homebrew, mise, and Nix profile install paths. If no matching binary exists, interactive runs prompt to install one to `~/.local/bin/herdr`; non-interactive runs fail instead of modifying the host. If `~/.local/bin` is not on the remote `PATH`, Herdr warns after install.
+Remote attach supports Linux, macOS, and Windows local clients connecting to Linux or macOS hosts on x86_64 and aarch64. Herdr checks the remote platform, prefers a matching `herdr` already on the remote `PATH`, then checks common direct, Homebrew, mise, and Nix profile install paths. If no matching binary exists, interactive runs prompt to install one to `~/.local/bin/herdr`; non-interactive runs fail instead of modifying the host. If `~/.local/bin` is not on the remote `PATH`, Herdr warns after install. Windows is not supported as the remote host.
 
-Native Windows `herdr --remote` is not part of the Windows beta. From Windows, SSH into the server and run `herdr` there.
-
-By default, `herdr --remote` runs remote setup and the bridge through a temporary SSH config that includes your SSH config first, then adds fallback keepalive settings and a private per-attach control socket for connection reuse. Existing user keepalive settings win. Set `[remote].manage_ssh_config = false` to use plain `ssh` without Herdr's generated config or control socket.
+By default, `herdr --remote` runs remote setup and the bridge through a temporary SSH config that includes your SSH config first, then adds fallback keepalive settings. Existing user keepalive settings win. Linux and macOS clients also use a private per-attach control socket for connection reuse; Windows OpenSSH does not. Set `[remote].manage_ssh_config = false` to use plain `ssh` without Herdr's generated config or control socket.
 
 Remote attach uses your normal OpenSSH authentication. If the target uses a passphrase-protected key in a non-interactive shell, script, CI job, or mobile terminal that cannot show the passphrase prompt, load the key into ssh-agent first:
 
@@ -86,13 +84,33 @@ herdr --remote workbox --handoff
 
 If you SSH into the server first and run `herdr` there, Herdr runs entirely on the server. That mode is useful and simple, but it cannot access your local desktop clipboard beyond normal terminal text paste.
 
-When your local and remote platforms match, Herdr can copy the current local binary for direct installs. For Homebrew, mise, and Nix installs, or when the platforms differ, it downloads the matching release asset for the current client version from `https://herdr.dev/latest.json`.
+When your local and remote platforms match, Herdr can copy the current local binary for direct installs. For Homebrew, mise, and Nix installs, or when the platforms differ, it downloads the matching release asset for the current client version from `https://herdr.chefgroep.nl/latest.json`.
 
 For local builds or custom binaries, set `HERDR_REMOTE_BINARY` to a local file path before running remote attach.
 
 ```bash
 HERDR_REMOTE_BINARY=target/release/herdr herdr --remote workbox
 ```
+
+## Mobile access (Moshi)
+
+On iPhone, use a mobile terminal such as [Moshi](https://getmoshi.app/) against
+the same SSH (or mosh) host where Herdr already runs your agents. Herdr stays
+the server-side multiplexer; Moshi is the phone UI.
+
+Typical flow:
+
+1. Run agents under Herdr on the host (`herdr` or `herdr session attach`).
+2. Reach the host over SSH or mosh (Tailscale works well for fleet hosts).
+3. Attach from Moshi to the shell or session you need.
+
+Load passphrase-protected keys into `ssh-agent` before connecting from Moshi if
+the phone cannot show an interactive passphrase prompt.
+
+When many hosts are online, set unique `HERDR_HOST_NAME` values and use the
+[Fleet ops and gateway](/docs/fleet-ops/) docs (`/v1/ops/context` or the Fleet
+Ops Bar) to see what runs where before attaching from a phone. Full Moshi setup
+notes live in [Moshi (iPhone) with Herdr](/docs/moshi/).
 
 ## Remote named sessions
 

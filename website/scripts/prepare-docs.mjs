@@ -63,14 +63,13 @@ export function rewriteStaleUpstreamRefs(content) {
     .replaceAll('"owner":"ogulcancelik"', '"owner":"GroepOnline"');
 }
 
-export function rewriteArchivedDocContent(content, isLocalized) {
+export function rewriteArchivedDocContent(content) {
   return rewriteStaleUpstreamRefs(content)
     .replace(
       /^(\s*file:\s*["']?)((?:\.\.\/){3,4}public\/assets\/)/gm,
       (_match, prefix, assetPath) => {
-        const expectedSegments = isLocalized ? 4 : 3;
         const actualSegments = (assetPath.match(/\.\.\//g) ?? []).length;
-        return actualSegments === expectedSegments ? `${prefix}../../${assetPath}` : _match;
+        return actualSegments === 3 ? `${prefix}../../${assetPath}` : _match;
       },
     )
     .replace(
@@ -85,8 +84,7 @@ async function rewriteArchivedDocs(directory, version, locales) {
     if (entry.isDirectory()) await rewriteArchivedDocs(path, version, locales);
     else if (entry.isFile()) {
       const content = await readFile(path, 'utf8');
-      const isLocalized = /[\\/](?:ja|zh-cn)[\\/]/.test(path);
-      const rewritten = rewriteArchivedDocContent(content, isLocalized);
+      const rewritten = rewriteArchivedDocContent(content, false);
       await writeFile(path, rewriteArchivedDocLinks(rewritten, version, locales), 'utf8');
     }
   }
@@ -97,13 +95,6 @@ export function rewriteArchivedDocLinks(content, version, archivePages = {}) {
   for (const page of archivePages.root ?? []) {
     rewritten = rewritten.split(`/docs/${page}/`).join(`/docs/${version}/${page}/`);
   }
-  for (const locale of ['ja', 'zh-cn']) {
-    for (const page of archivePages[locale] ?? []) {
-      rewritten = rewritten
-        .split(`/${locale}/docs/${page}/`)
-        .join(`/${locale}/docs/${version}/${page}/`);
-    }
-  }
   return rewritten;
 }
 
@@ -112,10 +103,8 @@ async function collectDocPages(directory, relativeDirectory, locales) {
     const relativePath = join(relativeDirectory, entry.name);
     if (entry.isDirectory()) await collectDocPages(directory, relativePath, locales);
     else if (/\.(md|mdx|markdown|mdown|mkdn|mkd|mdwn)$/i.test(entry.name)) {
-      const parts = relativePath.split('/');
-      const locale = ['ja', 'zh-cn'].includes(parts[0]) ? parts.shift() : 'root';
-      const page = parts.join('/').replace(/\.(md|mdx|markdown|mdown|mkdn|mkd|mdwn)$/i, '').replace(/\/index$/, '') || 'index';
-      (locales[locale] ??= []).push(page);
+      const page = relativePath.replace(/\.(md|mdx|markdown|mdown|mkdn|mkd|mdwn)$/i, '').replace(/\/index$/, '') || 'index';
+      (locales.root ??= []).push(page);
     }
   }
 }
@@ -187,7 +176,7 @@ export function rewritePreviewDocContent(content, relativePath = '') {
       (_match, prefix, assetPath) => `${prefix}../${assetPath}`,
     )
     // Preview docs live one directory deeper than stable docs, so component
-    // imports need one more parent segment regardless of locale depth. Only
+    // imports need one more parent segment. Only
     // MDX import lines are rewritten; prose mentioning relative paths is not.
     .replace(/^(import .*from\s+['"])(?=(?:\.\.\/)+components\/)/gm, '$1../');
   return insertPreviewNotice(rewritten, relativePath);

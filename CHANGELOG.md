@@ -2,10 +2,22 @@
 
 ## Unreleased
 
+### 0.8.1 foundation
+- Added one shared status projection for the sidebar, navigator, agent views, API helpers, and fleet presentation.
+- Added explicit `unknown` status presentation so insufficient evidence is no longer displayed as `idle`.
+- Documented the existing configurable sidebar row layouts, semantic status indicators, spinner catalog, per-agent layouts, and live Settings preview as the 0.8.1 UI foundation.
+
+### Fixed
+- Fixed inconsistent status labels across UI surfaces: `working`, `blocked`, `done`, `idle`, and `unknown` now use the same projection.
+- Fixed agent-aware documentation that described only four states and could imply that every non-working pane was idle.
+
+### Scope
+- The full settings/menu/sidebar editor rewrite remains a follow-up slice. 0.8.1 establishes the shared contracts first so the editor cannot diverge from server-owned runtime state.
+
 ## [0.8.0] - 2026-08-09
 
 ### Added
-- Ported upstream v0.8.0 features (consolidated): versioned release documentation; Grok CLI integration with native session restore; antigravity-cli integration; ASCII IME in prefix mode on Windows; distinct status indicators (`ui.status_indicators = "dots" | "symbols"`); Windows remote attach to unix hosts; marketplace star history with dated backups and delta stats; Windows support for all agent integrations (`.ps1` assets for cursor, devin, grok, mastracode); per-pane right-click routing (`herdr pane split --right-click herdr|pane`).
+- Included v0.8.0 product features: versioned release documentation; Grok CLI integration with native session restore; antigravity-cli integration; ASCII IME in prefix mode on Windows; distinct status indicators (`ui.status_indicators = "dots" | "symbols"`); Windows remote attach to unix hosts; marketplace star history with dated backups and delta stats; Windows support for all agent integrations (`.ps1` assets for cursor, devin, grok, mastracode); per-pane right-click routing (`herdr pane split --right-click herdr|pane`).
 - `herdr --skill` prints the bundled agent skill file and exits.
 - Added herdr integration install grok for Grok CLI (Grok Build) hooks that report session ids through Herdr's socket API. Grok state stays screen-detected. When native agent session restore is enabled, Herdr can resume Grok panes with `grok --resume <id>`.
 
@@ -673,7 +685,7 @@ This is a hotfix for v0.6.3. See the v0.6.3 notes for the full feature release.
 ## [0.5.1] - 2026-04-25
 
 ### Added
-- Toast notifications can now be delivered through the outer terminal as desktop notifications. Configure this with `ui.toast.delivery = "terminal"`; see the [configuration docs](https://herdr.dev/docs/configuration/) for details.
+- Toast notifications can now be delivered through the outer terminal as desktop notifications. Configure this with `ui.toast.delivery = "terminal"`; see the [configuration docs](https://herdr.chefgroep.nl/docs/configuration/) for details.
 - Herdr now writes separate capped support logs for app, client, and server modes, making persistent-session issue reports easier to diagnose without unbounded log growth.
 - The bundled opencode plugin now reports question prompts as blocked while waiting for user input, then returns to working or idle when answered or dismissed. Question prompts are also detected by the default terminal-screen heuristics. (#51, thanks @mspiegel31)
 
@@ -950,7 +962,7 @@ This is a hotfix for v0.6.3. See the v0.6.3 notes for the full feature release.
 ### Added
 - Added first-run onboarding flow that lets you choose notification preferences (sound and toast) on startup.
 - Added optional visual toast notifications in the top-right corner for background workspace events (completion and attention-needed alerts).
-- Added configurable keybindings for all navigate mode actions: new workspace, rename workspace, close workspace, resize mode, and toggle sidebar. See the [configuration docs](https://herdr.dev/docs/configuration/) for the full key reference.
+- Added configurable keybindings for all navigate mode actions: new workspace, rename workspace, close workspace, resize mode, and toggle sidebar. See the [configuration docs](https://herdr.chefgroep.nl/docs/configuration/) for the full key reference.
 - Added configuration validation with startup diagnostics. Invalid key combinations or duplicate bindings now fall back to safe defaults with a visible warning.
 
 ### Changed

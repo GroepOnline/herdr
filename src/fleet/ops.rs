@@ -253,6 +253,7 @@ impl FleetOpsMetadata {
         &self,
         agent_name: &str,
         state: AgentState,
+        seen: bool,
         label: Option<&str>,
     ) -> Vec<FleetOpsBarPart> {
         let mut parts = Vec::new();
@@ -264,7 +265,7 @@ impl FleetOpsMetadata {
 
         parts.push(FleetOpsBarPart {
             kind: FleetOpsBarKind::State,
-            text: state_label(state).to_string(),
+            text: crate::status::label(state, seen).to_string(),
         });
 
         if let Some(repo) = &self.repo {
@@ -360,15 +361,6 @@ pub fn format_issue_label(issue: &str) -> String {
         }
     }
     format!("LIN-{trimmed}")
-}
-
-fn state_label(state: AgentState) -> &'static str {
-    match state {
-        AgentState::Idle => "idle",
-        AgentState::Working => "working",
-        AgentState::Blocked => "blocked",
-        AgentState::Unknown => "unknown",
-    }
 }
 
 fn format_duration(d: Duration) -> String {
@@ -517,10 +509,11 @@ mod tests {
 
     #[test]
     fn test_state_labels() {
-        assert_eq!(state_label(AgentState::Idle), "idle");
-        assert_eq!(state_label(AgentState::Working), "working");
-        assert_eq!(state_label(AgentState::Blocked), "blocked");
-        assert_eq!(state_label(AgentState::Unknown), "unknown");
+        assert_eq!(crate::status::label(AgentState::Idle, true), "idle");
+        assert_eq!(crate::status::label(AgentState::Idle, false), "done");
+        assert_eq!(crate::status::label(AgentState::Working, true), "working");
+        assert_eq!(crate::status::label(AgentState::Blocked, true), "blocked");
+        assert_eq!(crate::status::label(AgentState::Unknown, true), "unknown");
     }
 
     #[test]
@@ -544,7 +537,7 @@ mod tests {
             ..Default::default()
         };
         let texts: Vec<_> = meta
-            .bar_parts("claude", AgentState::Idle, None)
+            .bar_parts("claude", AgentState::Idle, true, None)
             .into_iter()
             .map(|part| part.text)
             .collect();
@@ -569,7 +562,7 @@ mod tests {
             ..Default::default()
         };
         let texts: Vec<_> = meta
-            .bar_parts("claude", AgentState::Working, Some("chef-bot"))
+            .bar_parts("claude", AgentState::Working, true, Some("chef-bot"))
             .into_iter()
             .map(|part| part.text)
             .collect();
@@ -589,7 +582,7 @@ mod tests {
             session_resume_available: true,
             ..Default::default()
         };
-        let parts = meta.bar_parts("claude", AgentState::Idle, None);
+        let parts = meta.bar_parts("claude", AgentState::Idle, true, None);
         assert!(parts
             .iter()
             .any(|p| p.kind == FleetOpsBarKind::Resume && p.text == "resume"));

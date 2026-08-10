@@ -1015,6 +1015,7 @@ pub enum AgentPanelSort {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsSection {
     Appearance,
+    Sidebar,
     Layout,
     Input,
     Terminal,
@@ -1028,6 +1029,7 @@ pub enum SettingsSection {
 impl SettingsSection {
     pub const ALL: &[Self] = &[
         Self::Appearance,
+        Self::Sidebar,
         Self::Layout,
         Self::Input,
         Self::Terminal,
@@ -1041,6 +1043,7 @@ impl SettingsSection {
     pub fn label(self) -> &'static str {
         match self {
             Self::Appearance => "appearance",
+            Self::Sidebar => "sidebar",
             Self::Layout => "layout",
             Self::Input => "input",
             Self::Terminal => "terminal",
@@ -1055,6 +1058,7 @@ impl SettingsSection {
     pub fn title(self) -> &'static str {
         match self {
             Self::Appearance => "Appearance",
+            Self::Sidebar => "Sidebar",
             Self::Layout => "Layout",
             Self::Input => "Input",
             Self::Terminal => "Terminal",
@@ -1069,7 +1073,8 @@ impl SettingsSection {
     pub fn description(self) -> &'static str {
         match self {
             Self::Appearance => "theme and spinner — live preview above",
-            Self::Layout => "pane chrome, sidebar, and layout templates",
+            Self::Sidebar => "width, sections, spacing, and status presentation",
+            Self::Layout => "pane chrome and layout templates",
             Self::Input => "mouse, copy, focus redraw, and keybind help",
             Self::Terminal => "shell, cwd policy, and scrollback",
             Self::Notifications => "sound, toasts, and clipboard notices",

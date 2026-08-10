@@ -9,7 +9,9 @@ from scripts.changelog import (
     ChangelogError,
     archived_releases_from_current_manifest,
     build_latest_json,
+    canonicalize_archived_release_refs,
     canonicalize_manifest,
+    canonicalize_public_refs,
     DEFAULT_PRODUCT_ANNOUNCEMENT_PATH,
     DEFAULT_RELEASE_REPO,
     default_release_assets,
@@ -49,6 +51,27 @@ class ChangelogScriptTests(unittest.TestCase):
         body = extract_section_body(changelog, "0.1.1")
 
         self.assertEqual(body, "### Fixed\n- Smoothed Claude flapping.\n")
+
+    def test_canonicalize_archived_release_refs_keeps_historical_assets(self) -> None:
+        source = {
+            "0.1.1": {
+                "notes": "See https://herdr.dev/docs/configuration/.",
+                "assets": {
+                    "linux-x86_64": "https://github.com/ogulcancelik/herdr/releases/download/v0.1.1/herdr-linux-x86_64"
+                },
+            }
+        }
+        rewritten = canonicalize_archived_release_refs(source)
+        self.assertIn("https://herdr.chefgroep.nl/docs/configuration/", rewritten["0.1.1"]["notes"])
+        self.assertIn("ogulcancelik/herdr", rewritten["0.1.1"]["assets"]["linux-x86_64"])
+
+    def test_canonicalize_public_refs_rewrites_product_identity(self) -> None:
+        self.assertEqual(
+            canonicalize_public_refs(
+                "https://herdr.dev/docs and https://github.com/ogulcancelik/herdr"
+            ),
+            "https://herdr.chefgroep.nl/docs and https://github.com/GroepOnline/herdr",
+        )
 
     def test_build_latest_json_trims_notes(self) -> None:
         manifest = json.loads(

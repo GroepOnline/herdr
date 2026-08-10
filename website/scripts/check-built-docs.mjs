@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const websiteDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const distDir = resolve(websiteDir, 'dist');
-const nonCanonicalDocsUrl = /https:\/\/herdr\.dev\/(?:ja\/|zh-cn\/)?docs\/(?:preview|\d+\.\d+\.\d+)(?:\/|<)/;
+const nonCanonicalDocsUrl = /https:\/\/herdr\.dev\/docs\/(?:preview|\d+\.\d+\.\d+)(?:\/|<)/;
 const versions = JSON.parse(
   await readFile(resolve(websiteDir, 'src/data/docs-versions.json'), 'utf8'),
 );
@@ -12,19 +12,9 @@ const versions = JSON.parse(
 for (const entry of versions.versions) {
   const scope = versions.scopes[entry.version];
   if (!scope) throw new Error(`missing generated scope for ${entry.version}`);
-  for (const [locale, pages] of Object.entries(scope.locales)) {
-    const localePrefix = locale === 'root' ? '' : `${locale}/`;
-    for (const page of pages) {
-      const output = resolve(
-        distDir,
-        localePrefix,
-        'docs',
-        entry.version,
-        page,
-        'index.html',
-      );
-      await access(output);
-    }
+  for (const page of scope.locales.root ?? []) {
+    const output = resolve(distDir, 'docs', entry.version, page, 'index.html');
+    await access(output);
   }
 }
 

@@ -60,7 +60,13 @@ function gitPathExists(ref, path) {
 
 function listGitFiles(ref, root) {
   const output = git(['ls-tree', '-r', '--name-only', ref, '--', root]);
-  return output.split('\n').filter(Boolean);
+  return output
+    .split('\n')
+    .filter(Boolean)
+    .filter((path) => {
+      const firstSegment = relative(root, path).split('\\').join('/').split('/')[0];
+      return firstSegment !== 'ja' && firstSegment !== 'zh-cn';
+    });
 }
 
 async function extractGitTree(ref, sourceRoot, destinationRoot) {

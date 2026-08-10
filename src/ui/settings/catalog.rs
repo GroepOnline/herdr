@@ -14,6 +14,11 @@ use super::spinner::active_spinner_category;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SettingsItemId {
     ThemeAutoSwitch,
+    SidebarWidth,
+    SidebarCollapsedMode,
+    AgentPanelSort,
+    SidebarAgentRowGap,
+    SidebarSpaceRowGap,
     Theme { index: usize },
     Spinner { index: usize },
     StatusIndicators { index: usize },
@@ -21,8 +26,6 @@ pub(crate) enum SettingsItemId {
     PaneGaps,
     AgentLabels,
     HideTabBar,
-    SidebarCollapsedMode,
-    AgentPanelSort,
     PaneTemplate { index: usize },
     MouseCapture,
     CopyOnSelect,
@@ -68,6 +71,11 @@ pub(crate) enum SettingsItemId {
 #[allow(clippy::enum_variant_names)]
 pub(crate) enum SettingsAction {
     SaveTheme(String),
+    SaveSidebarWidth(u16),
+    SaveSidebarCollapsedMode(SidebarCollapsedModeConfig),
+    SaveAgentPanelSort(AgentPanelSort),
+    SaveSidebarAgentRowGap(u16),
+    SaveSidebarSpaceRowGap(u16),
     SaveSound(bool),
     SaveToastDelivery(ToastDelivery),
     SaveAgentBorderLabels(bool),
@@ -87,8 +95,6 @@ pub(crate) enum SettingsAction {
     SavePromptNewWorkspaceName(bool),
     SaveRedrawOnFocusGained(bool),
     SaveHostCursor(HostCursorModeConfig),
-    SaveSidebarCollapsedMode(SidebarCollapsedModeConfig),
-    SaveAgentPanelSort(AgentPanelSort),
     SaveShellMode(ShellModeConfig),
     SaveDefaultShell(String),
     SaveNewTerminalCwd(NewTerminalCwdConfig),
@@ -303,6 +309,26 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
                 StatusIndicatorStyle::Symbols
             }))
         }
+        SettingsItemId::SidebarWidth => {
+            let next = if state.sidebar_width >= state.sidebar_max_width {
+                state.sidebar_min_width
+            } else {
+                state.sidebar_width.saturating_add(1).min(state.sidebar_max_width)
+            };
+            Some(SettingsAction::SaveSidebarWidth(next))
+        }
+        SettingsItemId::SidebarCollapsedMode => Some(SettingsAction::SaveSidebarCollapsedMode(
+            cycle_sidebar_collapsed_mode(state.sidebar_collapsed_mode),
+        )),
+        SettingsItemId::AgentPanelSort => Some(SettingsAction::SaveAgentPanelSort(
+            cycle_agent_panel_sort(state.agent_panel_sort),
+        )),
+        SettingsItemId::SidebarAgentRowGap => Some(SettingsAction::SaveSidebarAgentRowGap(
+            (state.sidebar_agents.row_gap + 1) % 4,
+        )),
+        SettingsItemId::SidebarSpaceRowGap => Some(SettingsAction::SaveSidebarSpaceRowGap(
+            (state.sidebar_spaces.row_gap + 1) % 4,
+        )),
         SettingsItemId::PaneBorders => Some(SettingsAction::SavePaneBorders(
             !state.pane_borders_enabled(),
         )),
@@ -312,12 +338,6 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
         )),
         SettingsItemId::HideTabBar => Some(SettingsAction::SaveHideTabBarWhenSingleTab(
             !state.hide_tab_bar_when_single_tab_enabled(),
-        )),
-        SettingsItemId::SidebarCollapsedMode => Some(SettingsAction::SaveSidebarCollapsedMode(
-            cycle_sidebar_collapsed_mode(state.sidebar_collapsed_mode),
-        )),
-        SettingsItemId::AgentPanelSort => Some(SettingsAction::SaveAgentPanelSort(
-            cycle_agent_panel_sort(state.agent_panel_sort),
         )),
         SettingsItemId::PaneTemplate { index } => PaneTemplateId::ALL
             .get(index)

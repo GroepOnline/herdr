@@ -40,7 +40,7 @@ brew tap GroepOnline/tap
 brew install GroepOnline/tap/groeponline-herdr
 ```
 
-update later with `brew update && brew upgrade GroepOnline/tap/groeponline-herdr`. the upstream `brew install herdr` formula can lag behind [herdr.chefgroep.nl/latest.json](https://herdr.chefgroep.nl/latest.json).
+update later with `brew update && brew upgrade GroepOnline/tap/groeponline-herdr`. The GroepOnline tap and [herdr.chefgroep.nl/latest.json](https://herdr.chefgroep.nl/latest.json) are the canonical distribution sources.
 
 or install with npm/bun (Linux/macOS, Intel/ARM):
 
@@ -85,7 +85,7 @@ Press `ctrl+b q` to detach the client. The server and pane processes keep runnin
 
 **Keybindings.** Herdr uses explicit keybinding strings. `prefix+n` means press the configured prefix, then `n`. `ctrl+alt+n`, `cmd+k`, `alt+1`, and function-key chords are direct terminal-mode shortcuts and do not need the prefix. Plain direct printable keys such as `n` steal normal typing, so use `prefix+n` unless you intentionally want a modifier-gated direct binding.
 
-**Agent awareness.** The sidebar shows blocked, working, done, and idle states. Detection works with process names and terminal output by default. Official integrations can add native session identity for restore, semantic state reports, or both.
+**Agent awareness.** The sidebar and navigator use one explicit projection: `working`, `blocked`, `done`, `idle`, or `unknown`. `unknown` means insufficient evidence, not idle. Detection works with process names and terminal output by default; official integrations can add native session identity for restore, semantic state reports, or both.
 
 ## update
 
@@ -165,7 +165,7 @@ See [persistence and remote docs](https://herdr.chefgroep.nl/docs/persistence-re
 
 ## agent awareness
 
-the sidebar shows which agents are blocked, working, or done. workspaces roll up to their most urgent state so you can scan the full list at a glance.
+the sidebar shows which agents are blocked, working, done, idle, or unknown. Workspaces roll up to their most urgent state so you can scan the full list at a glance. `unknown` is intentionally visible instead of being presented as idle; use `herdr agent explain <target>` to inspect the evidence and authority behind a live state.
 
 states:
 
@@ -173,6 +173,7 @@ states:
 - 🟡 **working** — agent is actively running
 - 🔵 **done** — work finished, you have not looked at it yet
 - 🟢 **idle** — done and seen
+- ⚪ **unknown** — Herdr does not have enough evidence to claim another state
 
 detection works by reading foreground process and terminal output. zero config, no hooks required. official claude code, codex, github copilot cli, devin, droid, kimi code cli, qodercli, and cursor agent cli integrations provide session restore identity; pi, omp, kimi code cli, opencode, kilo code cli, hermes, mastracode, and custom socket integrations can report their own state.
 
@@ -186,6 +187,8 @@ not a gui window, not a web dashboard, not electron. herdr runs inside whatever 
 - **tabs** — first-class in the socket api and cli
 - **copy-friendly** — drag-select pane text, double-click tokens, or use keyboard copy mode with `prefix+[`, `h/j/k/l`, `{`/`}`, `v`, and `y`
 - **notifications** — sounds and toasts for background events; tab-aware suppression
+- **agent-aware presentation** — configurable sidebar rows, semantic state icons/text, per-agent layouts, terminal titles, Git context, and plugin-reported metadata
+- **motion you can tune** — a large built-in spinner catalog, dots or symbols for status indicators, and live preview in Settings
 - **18 built-in themes** — catppuccin, terminal, tokyo night, gruvbox, one, solarized, kanagawa, rosé pine, vesper, and light variants for the main palettes
 - **session persistence** — pane processes survive client detach; sessions restore panes after full restart, with opt-in recent screen history
 

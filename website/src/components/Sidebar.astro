@@ -21,11 +21,10 @@ function rewriteSidebar(entries) {
           : [];
       }
 
-      const localeKey = route.locale ?? 'root';
-      const availablePages = versions.scopes[route.target]?.locales[localeKey] ?? [];
+      const availablePages = versions.scopes[route.target]?.locales.root ?? [];
       if (!availablePages.includes(linkRoute.page)) return [];
 
-      const href = docsTargetHref({ ...linkRoute, locale: route.locale }, route.target, versions.scopes);
+      const href = docsTargetHref(linkRoute, route.target, versions.scopes);
       return [{ ...entry, href, isCurrent: samePath(href, pathname) }];
     }
 

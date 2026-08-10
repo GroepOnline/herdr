@@ -92,6 +92,50 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 });
             }
         }
+        SettingsSection::Sidebar => {
+            for (label, detail, id) in [
+                (
+                    "sidebar width",
+                    format!("{} columns · {}–{}", app.sidebar_width, app.sidebar_min_width, app.sidebar_max_width),
+                    SettingsItemId::SidebarWidth,
+                ),
+                (
+                    "collapsed mode",
+                    app.sidebar_collapsed_mode_label(),
+                    SettingsItemId::SidebarCollapsedMode,
+                ),
+                (
+                    "agent ordering",
+                    app.agent_panel_sort_label(),
+                    SettingsItemId::AgentPanelSort,
+                ),
+                (
+                    "agent row gap",
+                    format!("{} rows", app.sidebar_agents.row_gap),
+                    SettingsItemId::SidebarAgentRowGap,
+                ),
+                (
+                    "workspace row gap",
+                    format!("{} rows", app.sidebar_spaces.row_gap),
+                    SettingsItemId::SidebarSpaceRowGap,
+                ),
+            ] {
+                rows.push(SettingsRow {
+                    label: label.to_string(),
+                    detail: Some(detail.to_string()),
+                    kind: SettingsRowKind::Choice,
+                    id,
+                    search_extra: None,
+                });
+            }
+            rows.push(SettingsRow {
+                label: "token layout".to_string(),
+                detail: Some("edit [ui.sidebar] rows in config.toml · typed tokens + per-agent overrides".to_string()),
+                kind: SettingsRowKind::Note,
+                id: SettingsItemId::ConfigFile,
+                search_extra: Some("agents spaces rows rows_by_agent token custom".to_string()),
+            });
+        }
         SettingsSection::Layout => {
             for (label, detail, id) in [
                 (
@@ -123,20 +167,6 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     search_extra: None,
                 });
             }
-            rows.push(SettingsRow {
-                label: "sidebar collapsed mode".to_string(),
-                detail: Some(app.sidebar_collapsed_mode_label()),
-                kind: SettingsRowKind::Choice,
-                id: SettingsItemId::SidebarCollapsedMode,
-                search_extra: None,
-            });
-            rows.push(SettingsRow {
-                label: "agent panel sort".to_string(),
-                detail: Some(app.agent_panel_sort_label()),
-                kind: SettingsRowKind::Choice,
-                id: SettingsItemId::AgentPanelSort,
-                search_extra: None,
-            });
             for (idx, id) in PaneTemplateId::ALL.iter().enumerate() {
                 let tmpl = id.template();
                 rows.push(SettingsRow {
@@ -529,8 +559,11 @@ pub(crate) fn row_choice_selected(
     row: &SettingsRow,
 ) -> bool {
     match row.id {
-        SettingsItemId::SidebarCollapsedMode
+        SettingsItemId::SidebarWidth
+        | SettingsItemId::SidebarCollapsedMode
         | SettingsItemId::AgentPanelSort
+        | SettingsItemId::SidebarAgentRowGap
+        | SettingsItemId::SidebarSpaceRowGap
         | SettingsItemId::HostCursor
         | SettingsItemId::DefaultShell
         | SettingsItemId::ShellMode

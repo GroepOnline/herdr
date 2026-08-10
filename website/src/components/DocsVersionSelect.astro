@@ -3,12 +3,7 @@ import versions from '../data/docs-versions.json';
 import { docsRoute, docsTargetHref } from '../docs-path';
 
 const route = docsRoute(Astro.url.pathname);
-const locale = route.locale ?? 'root';
-const labels = {
-  root: { accessible: 'Documentation version', latest: 'Latest', next: 'Unreleased' },
-  ja: { accessible: 'ドキュメントのバージョン', latest: '最新', next: '未リリース' },
-  'zh-cn': { accessible: '文档版本', latest: '最新', next: '未发布' },
-}[locale];
+const labels = { accessible: 'Documentation version', latest: 'Latest', next: 'Unreleased' };
 const scopes = versions.scopes;
 ---
 

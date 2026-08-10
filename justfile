@@ -7,7 +7,7 @@ test:
 
 # Run maintenance script and Bun tests
 maintenance:
-    python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_ci_changed_paths scripts.test_ci_quality scripts.test_config_reference_check scripts.test_dev scripts.test_docs_translation_parity scripts.test_homebrew_formula scripts.test_install_sh scripts.test_preview scripts.test_release_manifest_hardening scripts.test_release_portable_assets_workflow scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
+    python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_ci_changed_paths scripts.test_ci_quality scripts.test_config_reference_check scripts.test_dev scripts.test_homebrew_formula scripts.test_install_sh scripts.test_preview scripts.test_release_manifest_hardening scripts.test_release_portable_assets_workflow scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
     just integration-assets-test
     just plugin-marketplace-test
 
@@ -89,24 +89,6 @@ release-docs-check:
         fi; \
     done
     @test -d docs/next/website/src/content/docs
-    @for file in docs/next/website/src/content/docs/*.mdx; do \
-        for locale in ja zh-cn; do \
-            translated="docs/next/website/src/content/docs/$locale/$(basename "$file")"; \
-            if [ ! -f "$translated" ]; then \
-                echo "error: $translated is missing; translate next docs before releasing"; \
-                exit 1; \
-            fi; \
-        done; \
-    done
-    @for file in docs/next/website/src/content/docs/ja/*.mdx docs/next/website/src/content/docs/zh-cn/*.mdx; do \
-        staged="docs/next/website/src/content/docs/$(basename "$file")"; \
-        if [ ! -f "$staged" ]; then \
-            echo "error: $file has no matching english doc; remove the stale translation"; \
-            exit 1; \
-        fi; \
-    done
-    python3 scripts/docs_translation_parity.py --docs-root docs/next/website/src/content/docs
-    python3 scripts/docs_translation_parity.py --docs-root website/src/content/docs
     just website-build
 
 # Prepare the release commit without tagging or pushing (usage: just release-prepare 0.1.1)

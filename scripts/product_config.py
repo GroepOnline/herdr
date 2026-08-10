@@ -13,7 +13,6 @@ from typing import Final
 PRODUCT_GITHUB_ORG: Final = "GroepOnline"
 PRODUCT_GITHUB_REPO_NAME: Final = "herdr"
 PRODUCT_GITHUB_REPO: Final = f"{PRODUCT_GITHUB_ORG}/{PRODUCT_GITHUB_REPO_NAME}"
-UPSTREAM_GITHUB_REPO: Final = "ogulcancelik/herdr"
 PRODUCT_SITE_URL: Final = "https://herdr.chefgroep.nl"
 PRODUCT_CONTACT_EMAIL: Final = "hey@chefgroep.online"
 

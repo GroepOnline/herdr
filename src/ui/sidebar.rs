@@ -184,13 +184,7 @@ fn collect_agent_panel_entries_with_runtimes(
 }
 
 pub(super) fn agent_panel_status_key(state: AgentState, seen: bool) -> &'static str {
-    match (state, seen) {
-        (AgentState::Idle, false) => "done",
-        (AgentState::Idle, true) => "idle",
-        (AgentState::Working, _) => "working",
-        (AgentState::Blocked, _) => "blocked",
-        (AgentState::Unknown, _) => "unknown",
-    }
+    crate::status::label(state, seen)
 }
 
 fn workspace_row_height(app: &AppState, ws: &crate::workspace::Workspace, indented: bool) -> u16 {
@@ -246,13 +240,7 @@ fn workspace_entry_gap(
 }
 
 fn workspace_attention_priority(state: AgentState, seen: bool) -> u8 {
-    match (state, seen) {
-        (AgentState::Blocked, _) => 4,
-        (AgentState::Idle, false) => 3,
-        (AgentState::Working, _) => 2,
-        (AgentState::Idle, true) => 1,
-        (AgentState::Unknown, _) => 0,
-    }
+    crate::status::project(state, seen).attention_priority
 }
 
 fn space_aggregate_state(app: &AppState, key: &str) -> (AgentState, bool) {

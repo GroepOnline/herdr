@@ -35,6 +35,11 @@ impl App {
     pub(super) fn apply_settings_action(&mut self, action: SettingsAction) {
         match action {
             SettingsAction::SaveTheme(name) => self.save_theme(&name),
+            SettingsAction::SaveSidebarWidth(width) => self.save_sidebar_width(width),
+            SettingsAction::SaveSidebarCollapsedMode(mode) => self.save_sidebar_collapsed_mode(mode),
+            SettingsAction::SaveAgentPanelSort(sort) => self.save_agent_panel_sort(sort),
+            SettingsAction::SaveSidebarAgentRowGap(gap) => self.save_sidebar_agent_row_gap(gap),
+            SettingsAction::SaveSidebarSpaceRowGap(gap) => self.save_sidebar_space_row_gap(gap),
             SettingsAction::SaveSound(enabled) => self.save_sound(enabled),
             SettingsAction::SaveToastDelivery(delivery) => self.save_toast_delivery(delivery),
             SettingsAction::SaveAgentBorderLabels(enabled) => {
@@ -66,10 +71,6 @@ impl App {
                 self.save_redraw_on_focus_gained(enabled)
             }
             SettingsAction::SaveHostCursor(mode) => self.save_host_cursor(mode),
-            SettingsAction::SaveSidebarCollapsedMode(mode) => {
-                self.save_sidebar_collapsed_mode(mode)
-            }
-            SettingsAction::SaveAgentPanelSort(sort) => self.save_agent_panel_sort(sort),
             SettingsAction::SaveShellMode(mode) => self.save_shell_mode(mode),
             SettingsAction::SaveDefaultShell(shell) => self.save_default_shell(&shell),
             SettingsAction::SaveNewTerminalCwd(cwd) => self.save_new_terminal_cwd(cwd),
@@ -484,7 +485,7 @@ mod tests {
             &mut state,
             KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::Layout);
+        assert_eq!(state.settings.section, SettingsSection::Sidebar);
 
         update_settings_state(
             &mut state,
@@ -507,7 +508,7 @@ mod tests {
             &mut state,
             KeyEvent::new(KeyCode::Down, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::Layout);
+        assert_eq!(state.settings.section, SettingsSection::Sidebar);
 
         update_settings_state(
             &mut state,
@@ -584,7 +585,38 @@ mod tests {
             &mut state,
             KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::Layout);
+        assert_eq!(state.settings.section, SettingsSection::Sidebar);
+    }
+
+    #[test]
+    fn sidebar_rows_expose_existing_layout_config_without_token_reimplementation() {
+        let state = state_with_workspaces(&["test"]);
+        let rows = section_rows(&state, SettingsSection::Sidebar);
+
+        assert!(rows.iter().any(|row| row.label == "sidebar width"));
+        assert!(rows.iter().any(|row| row.label == "collapsed mode"));
+        assert!(rows.iter().any(|row| row.label == "agent row gap"));
+        assert!(rows.iter().any(|row| row.label == "workspace row gap"));
+        assert!(rows.iter().any(|row| row.label == "token layout"));
+    }
+
+    #[test]
+    fn sidebar_choice_ids_map_to_existing_persistence_actions() {
+        let state = state_with_workspaces(&["test"]);
+        let rows = section_rows(&state, SettingsSection::Sidebar);
+
+        for row in rows.iter().filter(|row| {
+            matches!(
+                row.id,
+                SettingsItemId::SidebarWidth
+                    | SettingsItemId::SidebarCollapsedMode
+                    | SettingsItemId::AgentPanelSort
+                    | SettingsItemId::SidebarAgentRowGap
+                    | SettingsItemId::SidebarSpaceRowGap
+            )
+        }) {
+            assert!(activate_item(&state, row.id).is_some(), "{}", row.label);
+        }
     }
 
     #[test]
