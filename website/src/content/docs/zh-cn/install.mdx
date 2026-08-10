@@ -70,6 +70,22 @@ nix profile upgrade <index-or-name>
 nix flake update herdr
 ```
 
+## 用 Cargo 从源码安装
+
+如果你已经在用 Cargo,可以直接从仓库安装 Herdr:
+
+```bash
+cargo install --git https://github.com/GroepOnline/herdr.git
+```
+
+这会构建当前的 `main` 分支。要安装发布构建,请传入发布标签:
+
+```bash
+cargo install --git https://github.com/GroepOnline/herdr.git --tag v0.8.0
+```
+
+从源码构建需要 Rust 和 Zig 工具链(见 `rust-toolchain.toml`),比脚本或包管理器安装耗时更长。Cargo 安装通过重新运行同一条命令来更新;`herdr update` 只适用于安装器管理的安装。
+
 ## 手动下载
 
 也可以从 [GitHub releases](https://github.com/GroepOnline/herdr/releases) 下载二进制文件。

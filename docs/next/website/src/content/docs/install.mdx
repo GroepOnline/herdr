@@ -81,6 +81,22 @@ nix profile install github:GroepOnline/herdr/v0.x.y
 
 Replace `v0.x.y` with the intended release tag. For profile installs, use `nix profile list` followed by `nix profile upgrade <index-or-name>`. For flake inputs, update the Herdr input and rebuild the owning system or environment.
 
+## Cargo
+
+If you already use Cargo:
+
+```bash
+cargo install --git https://github.com/GroepOnline/herdr.git
+```
+
+This builds the current `main` branch. For a release build, pass the tag:
+
+```bash
+cargo install --git https://github.com/GroepOnline/herdr.git --tag v0.8.0
+```
+
+Building from source requires the Rust and Zig toolchains and takes longer than the direct or package-manager installs. Update a Cargo install by re-running the same command.
+
 ## Manual download
 
 Download the binary and `SHA256SUMS` from [GitHub releases](https://github.com/GroepOnline/herdr/releases), verify the selected asset, then place it on your PATH.

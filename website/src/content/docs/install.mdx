@@ -70,6 +70,22 @@ If Herdr is an input in your own flake, update that input and rebuild your syste
 nix flake update herdr
 ```
 
+## Install from source with Cargo
+
+If you already use Cargo, install Herdr directly from the repository:
+
+```bash
+cargo install --git https://github.com/GroepOnline/herdr.git
+```
+
+This builds the current `main` branch. For a release build, pass the release tag:
+
+```bash
+cargo install --git https://github.com/GroepOnline/herdr.git --tag v0.8.0
+```
+
+Building from source requires the Rust and Zig toolchains (see `rust-toolchain.toml`) and takes longer than the script or package-manager installs. Update a Cargo install by re-running the same command; `herdr update` only applies to installer-managed installs.
+
 ## Download manually
 
 You can also download a binary from [GitHub releases](https://github.com/GroepOnline/herdr/releases).

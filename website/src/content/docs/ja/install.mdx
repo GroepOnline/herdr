@@ -70,6 +70,22 @@ Herdr が自分の flake の input になっている場合は、その input �
 nix flake update herdr
 ```
 
+## Cargo でソースからインストール
+
+すでに Cargo を使っている場合、リポジトリから直接 Herdr をインストールできます:
+
+```bash
+cargo install --git https://github.com/GroepOnline/herdr.git
+```
+
+これは現在の `main` ブランチをビルドします。リリースビルドの場合はリリースタグを指定します:
+
+```bash
+cargo install --git https://github.com/GroepOnline/herdr.git --tag v0.8.0
+```
+
+ソースからのビルドには Rust と Zig のツールチェーンが必要です(`rust-toolchain.toml` を参照)。スクリプトやパッケージマネージャーでのインストールより時間がかかります。Cargo インストールの更新は同じコマンドを再実行します。`herdr update` はインストーラー管理のインストールにのみ適用されます。
+
 ## 手動でダウンロード
 
 [GitHub releases](https://github.com/GroepOnline/herdr/releases) からバイナリをダウンロードすることもできます。
