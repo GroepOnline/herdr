@@ -68,6 +68,9 @@ jobs:
       - name: Remove Zig caches
         run: rm -rf .zig-cache vendor/libghostty-vt/.zig-cache vendor/libghostty-vt/zig-out
 
+      - name: Install Rust target
+        run: rustup target add x86_64-unknown-linux-musl
+
       - name: Build
         run: cargo build --release --locked --target x86_64-unknown-linux-musl
 
