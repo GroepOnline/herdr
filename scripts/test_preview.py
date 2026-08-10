@@ -133,7 +133,12 @@ class PreviewNotesTests(unittest.TestCase):
 
     def test_preview_range_base_keeps_previous_preview_for_unreleased_work(self):
         def is_ancestor(ancestor: str, descendant: str) -> bool:
-            return (ancestor, descendant) == ("v0.7.0", "new-feature")
+            # previous-preview is a real ancestor of new-feature, but v0.7.0 was
+            # cut from a different line, so it cannot serve as the range base.
+            return (ancestor, descendant) in {
+                ("previous-preview", "new-feature"),
+                ("v0.7.0", "new-feature"),
+            }
 
         with (
             mock.patch.object(preview, "latest_stable_tag", return_value="v0.7.0"),
@@ -142,6 +147,16 @@ class PreviewNotesTests(unittest.TestCase):
             self.assertEqual(
                 preview.preview_range_base("previous-preview", "new-feature"),
                 "previous-preview",
+            )
+
+    def test_preview_range_base_falls_back_to_stable_when_previous_unreachable(self):
+        with (
+            mock.patch.object(preview, "latest_stable_tag", return_value="v0.8.0"),
+            mock.patch.object(preview, "git_is_ancestor", return_value=False),
+        ):
+            self.assertEqual(
+                preview.preview_range_base("rewritten-commit", "new-feature"),
+                "v0.8.0",
             )
 
     def test_post_stable_history_selects_release_and_bases_range_on_stable_tag(self):

@@ -110,6 +110,12 @@ def preview_range_base(previous: str, commit: str) -> str:
         stable = latest_stable_tag(commit)
     except subprocess.CalledProcessError:
         return previous
+    if not git_is_ancestor(previous, commit):
+        # previous is not reachable from the target commit (for example after
+        # an org migration rewrote history), so a notes range previous..commit
+        # would fail git log with exit 128. Base the notes on the latest stable
+        # tag instead, which is always reachable from commit.
+        return stable
     if git_is_ancestor(previous, stable) and git_is_ancestor(stable, commit):
         return stable
     return previous
