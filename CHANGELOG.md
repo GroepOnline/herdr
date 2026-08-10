@@ -2,18 +2,6 @@
 
 ## Unreleased
 
-### 0.8.1 foundation
-- Added one shared status projection for the sidebar, navigator, agent views, API helpers, and fleet presentation.
-- Added explicit `unknown` status presentation so insufficient evidence is no longer displayed as `idle`.
-- Documented the existing configurable sidebar row layouts, semantic status indicators, spinner catalog, per-agent layouts, and live Settings preview as the 0.8.1 UI foundation.
-
-### Fixed
-- Fixed inconsistent status labels across UI surfaces: `working`, `blocked`, `done`, `idle`, and `unknown` now use the same projection.
-- Fixed agent-aware documentation that described only four states and could imply that every non-working pane was idle.
-
-### Scope
-- The full settings/menu/sidebar editor rewrite remains a follow-up slice. 0.8.1 establishes the shared contracts first so the editor cannot diverge from server-owned runtime state.
-
 ## [0.8.0] - 2026-08-09
 
 ### Added
