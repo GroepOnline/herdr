@@ -2,3 +2,7 @@
 /sitemap.xml /sitemap-index.xml 301
 /docs/skill/ /docs/agent-skill/ 301
 /docs/api/ /docs/socket-api/ 301
+/ja/docs/* /docs/:splat 301
+/zh-cn/docs/* /docs/:splat 301
+/ja/* /docs/ 301
+/zh-cn/* /docs/ 301
