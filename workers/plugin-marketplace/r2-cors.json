@@ -2,7 +2,7 @@
   "rules": [
     {
       "allowed": {
-        "origins": ["https://herdr.dev"],
+        "origins": ["https://herdr.dev", "https://herdr.pages.dev", "https://herdr.chefgroep.nl"],
         "methods": ["GET", "HEAD"],
         "headers": ["*"]
       },

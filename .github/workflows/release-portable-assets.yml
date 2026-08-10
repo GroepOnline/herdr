@@ -357,6 +357,34 @@ jobs:
           git diff --cached --quiet || git commit -m "docs: atomically promote v$VERSION"
           git push origin main
 
+      - name: Verify live manifest (domain health)
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          live_url="$(python3 -c 'import sys; sys.path.insert(0, "scripts"); import product_config; print(product_config.DEFAULT_LIVE_MANIFEST_URL)')"
+          echo "Verifying live manifest at $live_url"
+          ok=0
+          for i in $(seq 1 20); do
+            body="$(curl -fsSL --retry 2 --connect-timeout 10 --max-time 20 "$live_url" 2>/dev/null || true)"
+            if [ -n "$body" ] && echo "$body" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+              live_version="$(echo "$body" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("version", ""))' 2>/dev/null || true)"
+              if [ "$live_version" = "$VERSION" ]; then
+                echo "Live manifest version $live_version matches release $VERSION"
+                ok=1
+                break
+              fi
+              echo "poll $i: live version=$live_version, expected $VERSION"
+            else
+              echo "poll $i: $live_url not reachable or invalid JSON"
+            fi
+            sleep 10
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "error: live manifest $live_url did not serve version $VERSION within the retry window" >&2
+            exit 1
+          fi
+
       - name: Trigger website deploy
         env:
           DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_HOOK }}

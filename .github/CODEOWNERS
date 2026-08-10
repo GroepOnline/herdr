@@ -1,15 +1,15 @@
 # Distribution and channel ownership
-/.github/workflows/preview.yml @OnlineChef
-/scripts/preview.py @OnlineChef
-/website/preview.json @OnlineChef
-/.github/workflows/release*.yml @OnlineChef
-/.github/workflows/publish-distribution.yml @OnlineChef
-/website/latest.json @OnlineChef
+/.github/workflows/preview.yml @GroepOnline/ci-bots
+/scripts/preview.py @GroepOnline/ci-bots
+/website/preview.json @GroepOnline/ci-bots
+/.github/workflows/release*.yml @GroepOnline/ci-bots
+/.github/workflows/publish-distribution.yml @GroepOnline/ci-bots
+/website/latest.json @GroepOnline/ci-bots
 
 # Installer, packaging, and release tooling
-/website/install.sh @OnlineChef
-/npm/install.js @OnlineChef
-/packaging/homebrew/groeponline-herdr.rb @OnlineChef
-/scripts/homebrew_formula.py @OnlineChef
-/scripts/changelog.py @OnlineChef
-/scripts/ci_quality.py @OnlineChef
+/website/install.sh @GroepOnline/ci-bots
+/npm/install.js @GroepOnline/ci-bots
+/packaging/homebrew/groeponline-herdr.rb @GroepOnline/ci-bots
+/scripts/homebrew_formula.py @GroepOnline/ci-bots
+/scripts/changelog.py @GroepOnline/ci-bots
+/scripts/ci_quality.py @GroepOnline/ci-bots

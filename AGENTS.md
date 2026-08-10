@@ -150,6 +150,10 @@ Agent detection changes should use the manifest hot-reload loop. Can drives the 
 
 Do not add large agent-specific full-screen fixture suites for routine manifest tuning. Keep Rust tests focused on manifest parsing, rule semantics, skip-state semantics, source precedence, cache reload behavior, and update flow. Use live pane reads for agent-specific screen evidence.
 
+### Staged website manifests
+
+`STAGED_WEBSITE_MANIFESTS` in `scripts/agent_detection_manifest_check.py` intentionally keeps a website manifest on an older version than the bundled one (e.g. `grok` on engine-2) so clients on the old engine keep working until an engine-3 release ships. Do not sync over a staged website manifest during release prep. When the bundled engine floor moves up and the staged reason no longer applies, remove the entry so the website publishes the bundled manifest again.
+
 ## Vendored libghostty-vt
 
 `vendor/libghostty-vt.vendor.json` records the upstream source commit currently vendored.
