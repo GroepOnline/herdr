@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Throwaway repros no longer silently use the live session when the disposable session fails to start. (upstream #2600)
+
 ## [0.8.6] - 2026-08-19
 
 ### Added
