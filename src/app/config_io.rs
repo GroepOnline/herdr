@@ -68,15 +68,16 @@ impl App {
         &mut self,
         mode: crate::config::SidebarCollapsedModeConfig,
     ) {
+        let value = match mode {
+            crate::config::SidebarCollapsedModeConfig::Compact => "compact",
+            crate::config::SidebarCollapsedModeConfig::Hidden => "hidden",
+        };
         if self.update_config_file("sidebar collapsed mode", |content| {
             crate::config::upsert_section_value(
                 content,
                 "ui",
                 "sidebar_collapsed_mode",
-                &format!("\"{}\"", match mode {
-                    crate::config::SidebarCollapsedModeConfig::Compact => "compact",
-                    crate::config::SidebarCollapsedModeConfig::Hidden => "hidden",
-                }),
+                &format!("\"{value}\""),
             )
         }) {
             self.apply_config_from_disk(false);
