@@ -1,19 +1,32 @@
 {
   "schema_version": 1,
   "channel": "dev",
-  "base_version": "0.7.7",
-  "build_id": "2026-08-08-f2cf21311ef9",
-  "commit": "f2cf21311ef9467c37b1dfce1ac14e33baa9f92d",
-  "built_at": "2026-08-08T00:09:01Z",
+  "base_version": "0.8.0",
+  "build_id": "2026-08-10-75e9808fa432",
+  "commit": "75e9808fa432ce3f12936942135e23eb1f65220c",
+  "built_at": "2026-08-10T01:09:02Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-08-f2cf21311ef9\n\nBuilt from `f2cf21311ef9` on `main`.\nBase stable: v0.7.7\nCompare: https://github.com/GroepOnline/herdr/compare/v0.7.7...f2cf21311ef9467c37b1dfce1ac14e33baa9f92d\n\n### Changed\n- Rebuilt dev from the current main branch.",
+  "notes": "Dev build 2026-08-10-75e9808fa432\n\nBuilt from `75e9808fa432` on `main`.\nBase stable: v0.8.0\nCompare: https://github.com/GroepOnline/herdr/compare/v0.8.0...75e9808fa432ce3f12936942135e23eb1f65220c\n\n### Fixed\n- Fall back to stable tag when notes range base is unreachable\n- Restore staged grok website manifest\n- Grant id-token write to distribution caller\n\n### Maintenance\n- Atomically promote v0.8.0\n- Rpa bisect v5-v7\n- Rpa bisect v1-v4\n- Rpa bisect call5+6\n- Rpa bisect call3+4\n- Rpa bisect call2 - no secrets\n- Rpa bisect workflows",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-08-f2cf21311ef9/herdr-linux-x86_64",
-      "sha256": "0812b681a7faf4dbfd406771c06f63cf2a9e85e111c19e29bc6641ce06ef1f24"
+      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-10-75e9808fa432/herdr-linux-x86_64",
+      "sha256": "b5a638b00f9ef1070a69c6e30e0205beb0dc3b2774d6475212cbcc8cc5a69d3a"
     }
   },
   "builds": {
+    "2026-08-10-75e9808fa432": {
+      "base_version": "0.8.0",
+      "commit": "75e9808fa432ce3f12936942135e23eb1f65220c",
+      "built_at": "2026-08-10T01:09:02Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-10-75e9808fa432",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-10-75e9808fa432/herdr-linux-x86_64",
+          "sha256": "b5a638b00f9ef1070a69c6e30e0205beb0dc3b2774d6475212cbcc8cc5a69d3a"
+        }
+      }
+    },
     "2026-08-08-f2cf21311ef9": {
       "base_version": "0.7.7",
       "commit": "f2cf21311ef9467c37b1dfce1ac14e33baa9f92d",
@@ -258,19 +271,6 @@
         "linux-x86_64": {
           "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-25-1208d7a35a32/herdr-linux-x86_64",
           "sha256": "0a632ec1ad1207af528784ced60a9e5875ce31a2417c3fea4eede1d6cdc03008"
-        }
-      }
-    },
-    "2026-07-25-789ff1745503": {
-      "base_version": "0.7.6",
-      "commit": "789ff1745503af88c8aa6a26fb3ca94f6a8b37eb",
-      "built_at": "2026-07-25T15:44:12Z",
-      "protocol": 18,
-      "tag": "dev-2026-07-25-789ff1745503",
-      "assets": {
-        "linux-x86_64": {
-          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-25-789ff1745503/herdr-linux-x86_64",
-          "sha256": "80ca4698d70d0eb758413ea23d2d7db778a49097f3f0aebe80e63b00ef417e5e"
         }
       }
     }
