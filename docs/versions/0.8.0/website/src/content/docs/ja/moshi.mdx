@@ -1,0 +1,50 @@
+---
+title: Moshi（iPhone）と Herdr
+description: Hermes を使わずに Moshi モバイル端末から Herdr ホストへ接続します。
+---
+
+import MobileDocShots from '../../../components/MobileDocShots.astro';
+
+Moshi（[getmoshi.app](https://getmoshi.app)）は、すでに管理しているマシン上の
+コーディングエージェント向けモバイル端末です。Kyutai の音声モデルではなく、
+このディストリビューションでは **Hermes を使いません**。
+
+## Recommended setup
+
+1. ホスト上でエージェントとシェルを Herdr の下に置きます。
+2. SSH（または mosh）でホストへ到達できるようにします。Tailscale が理想的です。
+3. Moshi でそのホストへの接続を保存し、対象の Herdr セッション / pane
+   （または `herdr` / `herdr session attach` を実行するシェル）へ入ります。
+4. 任意: エージェントがブロックしたときの push に Moshi hooks / webhooks を使い、
+   サーバー側の多重化と状態は Herdr に任せます。
+
+## Why Herdr + Moshi
+
+| Concern | Owner |
+|---|---|
+| Pane persistence, agent state, fleet ops bar | Herdr on the host |
+| Phone UI, dictation, push / Live Activities | Moshi |
+| Host reachability | SSH / mosh / Tailscale |
+
+Moshi は Herdr の代替ではありません。エージェントがすでに動いているマシンへの
+リモートクライアントとして扱ってください。
+
+<MobileDocShots
+  sessionAlt="スマートフォンで SSH 越しに表示した Herdr のエージェントセッション"
+  sessionCaption="SSH 越しのエージェントセッション"
+  menuAlt="スマートフォンで表示した Herdr のレスポンシブ切り替えメニュー"
+  menuCaption="レスポンシブな切り替えメニュー"
+/>
+
+## Fleet tip
+
+多数のホストがある場合は一意の `HERDR_HOST_NAME` と gateway の
+`GET /v1/ops/context` を使い、電話から attach する前に **何がどこで動いているか**
+を確認してください。HTTP 面の詳細は [Fleet ops と gateway](/ja/docs/fleet-ops/)
+を参照。本番インベントリは `GroepOnline/herdr-ops`
+（`com.chefgroep.ops`）に置きます。
+
+gateway は `127.0.0.1` にバインドするため、電話から `/v1/ops/context` に直接
+アクセスすることはできません。ホスト上で問い合わせるか、先に SSH で
+ポート転送してから（例: `ssh -L 7777:127.0.0.1:7777 <host>`）トンネル経由で
+エンドポイントを呼び出してください。
