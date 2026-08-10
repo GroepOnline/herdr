@@ -64,6 +64,25 @@ impl App {
         }
     }
 
+    pub(super) fn save_sidebar_collapsed_mode(
+        &mut self,
+        mode: crate::config::SidebarCollapsedModeConfig,
+    ) {
+        if self.update_config_file("sidebar collapsed mode", |content| {
+            crate::config::upsert_section_value(
+                content,
+                "ui",
+                "sidebar_collapsed_mode",
+                &format!("\"{}\"", match mode {
+                    crate::config::SidebarCollapsedModeConfig::Compact => "compact",
+                    crate::config::SidebarCollapsedModeConfig::Hidden => "hidden",
+                }),
+            )
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
     pub(super) fn save_sidebar_section_split(&mut self, split: f32) {
         let split = split.clamp(0.1, 0.9);
         if self.update_config_file("sidebar section split", |content| {

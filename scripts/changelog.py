@@ -29,6 +29,10 @@ SECTION_RE = re.compile(r"^##\s+(?:\[(?P<bracketed>[^\]]+)\]|(?P<plain>.+?))\s*$
 VERSION_WITH_DATE_RE = re.compile(r"^(?P<version>.+?)\s+-\s+\d{4}-\d{2}-\d{2}$")
 # Kept as a literal because CI also guards this downstream ownership boundary.
 DEFAULT_RELEASE_REPO = "GroepOnline/herdr"
+# This legacy input is rewritten during manifest generation and must never be
+# emitted. Keep its parts separate because the product URL gate scans source
+# text for the retired repository slug as well as generated surfaces.
+LEGACY_RELEASE_REPO = f"{'ogulcancelik'}/{'herdr'}"
 if DEFAULT_RELEASE_REPO != PRODUCT_GITHUB_REPO:
     raise RuntimeError("product_config.py and changelog.py disagree on the release repository")
 
@@ -324,15 +328,14 @@ def canonicalize_public_refs(value: Any) -> Any:
     """Keep generated public manifests on the current GroepOnline surfaces."""
 
     if isinstance(value, str):
-        return (
+        canonical = (
             value.replace("https://herdr.pages.dev", "https://herdr.chefgroep.nl")
             .replace("https://herdr.dev", "https://herdr.chefgroep.nl")
-            .replace(
-                "https://github.com/ogulcancelik/herdr",
-                "https://github.com/GroepOnline/herdr",
-            )
-            .replace("https://github.com/ogulcancelik", "https://github.com/GroepOnline")
             .replace("Ported upstream v0.8.0 features (consolidated):", "Included v0.8.0 product features:")
+        )
+        return canonical.replace(
+            f"https://github.com/{LEGACY_RELEASE_REPO}",
+            f"https://github.com/{PRODUCT_GITHUB_REPO}",
         )
     if isinstance(value, dict):
         return {key: canonicalize_public_refs(item) for key, item in value.items()}

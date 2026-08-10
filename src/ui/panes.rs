@@ -619,7 +619,6 @@ fn line_touches_pane(x: u16, y: u16, info: &PaneInfo, pane_gaps: bool) -> bool {
 /// Fleet Ops Bar — compact status line at bottom of each pane border.
 /// Shows agent | state | git | PR/issue | model | host | resume when available.
 fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame: &mut Frame) {
-    use crate::detect::AgentState;
     use crate::fleet::{FleetOpsBarKind, FleetOpsMetadata};
 
     if !app.fleet_ops_bar_enabled() {
