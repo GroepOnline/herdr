@@ -55,6 +55,92 @@ impl App {
         }
     }
 
+    pub(super) fn save_sidebar_width(&mut self, width: u16) {
+        let width = width.clamp(self.state.sidebar_min_width, self.state.sidebar_max_width);
+        if self.update_config_file("sidebar width", |content| {
+            crate::config::upsert_section_value(content, "ui", "sidebar_width", &width.to_string())
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_sidebar_collapsed_mode(
+        &mut self,
+        mode: crate::config::SidebarCollapsedModeConfig,
+    ) {
+        let value = match mode {
+            crate::config::SidebarCollapsedModeConfig::Compact => "compact",
+            crate::config::SidebarCollapsedModeConfig::Hidden => "hidden",
+        };
+        if self.update_config_file("sidebar collapsed mode", |content| {
+            crate::config::upsert_section_value(
+                content,
+                "ui",
+                "sidebar_collapsed_mode",
+                &format!("\"{value}\""),
+            )
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_sidebar_section_split(&mut self, split: f32) {
+        let split = split.clamp(0.1, 0.9);
+        if self.update_config_file("sidebar section split", |content| {
+            crate::config::upsert_section_value(
+                content,
+                "ui",
+                "sidebar_section_split",
+                &split.to_string(),
+            )
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_agent_panel_sort(&mut self, sort: crate::app::state::AgentPanelSort) {
+        let value = match sort {
+            crate::app::state::AgentPanelSort::Spaces => "spaces",
+            crate::app::state::AgentPanelSort::Priority => "priority",
+        };
+        if self.update_config_file("agent panel sort", |content| {
+            crate::config::upsert_section_value(
+                content,
+                "ui",
+                "agent_panel_sort",
+                &format!("\"{value}\""),
+            )
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_sidebar_agent_row_gap(&mut self, gap: u16) {
+        if self.update_config_file("agent sidebar row gap", |content| {
+            crate::config::upsert_section_value(
+                content,
+                "ui.sidebar.agents",
+                "row_gap",
+                &gap.min(3).to_string(),
+            )
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
+    pub(super) fn save_sidebar_space_row_gap(&mut self, gap: u16) {
+        if self.update_config_file("workspace sidebar row gap", |content| {
+            crate::config::upsert_section_value(
+                content,
+                "ui.sidebar.spaces",
+                "row_gap",
+                &gap.min(3).to_string(),
+            )
+        }) {
+            self.apply_config_from_disk(false);
+        }
+    }
+
     pub(super) fn save_status_indicators(&mut self, style: crate::config::StatusIndicatorStyle) {
         if self.update_config_file("status indicators", |content| {
             crate::config::upsert_section_value(
@@ -254,27 +340,6 @@ impl App {
         }
     }
 
-    pub(super) fn save_agent_panel_sort(&mut self, sort: crate::app::state::AgentPanelSort) {
-        let value = match sort {
-            crate::app::state::AgentPanelSort::Spaces => {
-                crate::config::AgentPanelSortConfig::Spaces.as_str()
-            }
-            crate::app::state::AgentPanelSort::Priority => {
-                crate::config::AgentPanelSortConfig::Priority.as_str()
-            }
-        };
-        if self.update_config_file("agent panel sort", |content| {
-            crate::config::upsert_section_value(
-                content,
-                "ui",
-                "agent_panel_sort",
-                &format!("\"{value}\""),
-            )
-        }) {
-            self.apply_config_from_disk(false);
-        }
-    }
-
     pub(super) fn save_mouse_capture(&mut self, enabled: bool) {
         if self.update_config_file("mouse capture", |content| {
             crate::config::upsert_section_bool(content, "ui", "mouse_capture", enabled)
@@ -331,21 +396,6 @@ impl App {
         };
         if self.update_config_file("host cursor", |content| {
             crate::config::upsert_section_value(content, "ui", "host_cursor", value)
-        }) {
-            self.apply_config_from_disk(false);
-        }
-    }
-
-    pub(super) fn save_sidebar_collapsed_mode(
-        &mut self,
-        mode: crate::config::SidebarCollapsedModeConfig,
-    ) {
-        let value = match mode {
-            crate::config::SidebarCollapsedModeConfig::Compact => "\"compact\"",
-            crate::config::SidebarCollapsedModeConfig::Hidden => "\"hidden\"",
-        };
-        if self.update_config_file("sidebar collapsed mode", |content| {
-            crate::config::upsert_section_value(content, "ui", "sidebar_collapsed_mode", value)
         }) {
             self.apply_config_from_disk(false);
         }

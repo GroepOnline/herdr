@@ -120,16 +120,6 @@ jobs:
             }
 
             const body = issue.body || '';
-            const translationConfirmationPattern = /^\s*-\s*\[[xX]\]\s*I confirm this is a translation issue in the herdr docs, not a bug report, feature request, or question\.\s*$/m;
-            const translationSections = ['### Page', '### Language', '### What is wrong'];
-            if (
-              translationConfirmationPattern.test(body) &&
-              translationSections.every((section) => body.includes(section))
-            ) {
-              console.log(`#${issue.number} matches the translation issue template; leaving issue open`);
-              return;
-            }
-
             const hasBugConfirmation = bugConfirmationPattern.test(body);
             const hasBugTemplate = requiredSections.every((section) => body.includes(section));
             const allowedHeadings = new Set(requiredSections);

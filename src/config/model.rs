@@ -734,15 +734,6 @@ pub enum AgentPanelSortConfig {
     Priority,
 }
 
-impl AgentPanelSortConfig {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Spaces => "spaces",
-            Self::Priority => "priority",
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum StatusIndicatorStyle {
@@ -1510,6 +1501,8 @@ pub struct UiConfig {
     pub status_indicators: StatusIndicatorStyle,
     /// Expanded sidebar row composition.
     pub sidebar: SidebarConfig,
+    /// Ratio of sidebar height allocated to workspaces. Default: 0.5.
+    pub sidebar_section_split: f32,
     /// Accent color for highlights, borders, and navigation UI.
     /// Accepts hex (#89b4fa), named colors (cyan, blue), or RGB (rgb(137,180,250)).
     pub accent: String,
@@ -1715,6 +1708,7 @@ impl Default for UiConfig {
             spinner_style: SpinnerStyle::Dots,
             status_indicators: StatusIndicatorStyle::Dots,
             sidebar: SidebarConfig::default(),
+            sidebar_section_split: 0.5,
             accent: "cyan".into(),
             toast: ToastConfig::default(),
             sound: SoundConfig::default(),
@@ -2149,6 +2143,19 @@ sidebar_collapsed_mode = "hidden"
             config.ui.sidebar_collapsed_mode,
             SidebarCollapsedModeConfig::Hidden
         );
+    }
+
+    #[test]
+    fn sidebar_section_split_defaults_to_half_and_parses_custom_ratio() {
+        let default_config = Config::default();
+        assert_eq!(default_config.ui.sidebar_section_split, 0.5);
+
+        let toml = r#"
+[ui]
+sidebar_section_split = 0.75
+"#;
+        let config: Config = toml::from_str(toml).unwrap();
+        assert_eq!(config.ui.sidebar_section_split, 0.75);
     }
 
     #[test]

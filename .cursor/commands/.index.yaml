@@ -4,6 +4,5 @@ items:
 - name: settings-redesign
   path: .cursor/commands/settings-redesign.md
   kind: command
-  summary: Start or continue the bold Herdr settings UI redesign with parallel workers
-    and CI-only validation.
+  summary: Start or continue the bold Herdr settings UI redesign with parallel workers and CI-only validation.
   when: Start or continue the bold Herdr settings UI redesign with…

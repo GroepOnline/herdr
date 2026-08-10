@@ -10,6 +10,12 @@ on:
     paths:
       - "website/**"
       - ".github/workflows/website.yml"
+  workflow_dispatch:
+    inputs:
+      preview_branch:
+        description: Cloudflare Pages branch for a manual preview deploy
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -119,3 +125,37 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name=groeponline-herdr --branch main
           workingDirectory: website
+
+  preview:
+    name: Deploy PR preview to Cloudflare Pages
+    needs: build
+    if: >-
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' && inputs.preview_branch != '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      PAGES_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || inputs.preview_branch }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: website-dist
+          path: website/dist
+
+      - name: Deploy PR preview to Cloudflare Pages (groeponline-herdr)
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=groeponline-herdr --branch ${{ env.PAGES_BRANCH }}
+          workingDirectory: website
+
+      - name: Report PR preview URL
+        run: >-
+          echo "Preview URL: https://${PAGES_BRANCH}.groeponline-herdr.pages.dev"

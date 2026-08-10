@@ -884,13 +884,7 @@ fn launch_label(argv: Option<&Vec<String>>) -> Option<String> {
 }
 
 fn state_label_text(state: AgentState, seen: bool) -> &'static str {
-    match (state, seen) {
-        (AgentState::Blocked, _) => "blocked",
-        (AgentState::Working, _) => "working",
-        (AgentState::Idle, false) => "done",
-        (AgentState::Idle, true) => "idle",
-        (AgentState::Unknown, _) => "unknown",
-    }
+    crate::status::label(state, seen)
 }
 
 fn tab_aggregate_state(
@@ -915,13 +909,7 @@ fn tab_aggregate_state(
 }
 
 fn state_priority(state: AgentState, seen: bool) -> u8 {
-    match (state, seen) {
-        (AgentState::Blocked, _) => 5,
-        (AgentState::Working, _) => 4,
-        (AgentState::Idle, false) => 3,
-        (AgentState::Idle, true) => 2,
-        (AgentState::Unknown, _) => 1,
-    }
+    crate::status::project(state, seen).attention_priority
 }
 
 fn tab_activity_summary(
@@ -951,6 +939,9 @@ fn activity_summary_for_panes<'a>(
         crate::terminal::TerminalState,
     >,
 ) -> String {
+    // This compact summary intentionally reports only actionable activity:
+    // blocked, working, and unseen idle transitions. Acknowledged idle and
+    // unknown remain visible through each row's full status projection.
     let mut blocked = 0usize;
     let mut working = 0usize;
     let mut done = 0usize;

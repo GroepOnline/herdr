@@ -261,7 +261,29 @@ Color values accept hex, named colors, `rgb(r,g,b)`, or reset aliases like `rese
 
 ## UI and sidebar
 
-The sidebar is the main Herdr dashboard. Search `ui.` in the [Config reference](/docs/config-reference/) for sizing, collapsed mode, Agent panel ordering, mouse behavior, pane borders, and other presentation settings.
+The sidebar is the main Herdr dashboard. Search `ui.` in the [Config reference](/docs/config-reference/) for sizing, collapsed mode, Agent panel ordering, mouse behavior, pane borders, motion, and other presentation settings.
+
+### Status semantics and motion
+
+Herdr keeps runtime facts and presentation choices separate. The server/runtime determines the pane's observed agent state; the client projects that fact into the same status vocabulary everywhere:
+
+- `working` — active processing;
+- `blocked` — input or approval is required;
+- `done` — an unseen transition into an idle prompt;
+- `idle` — an acknowledged idle prompt;
+- `unknown` — insufficient evidence to claim another state.
+
+`unknown` is intentionally not rendered as `idle`. If a status seems wrong, inspect the authority and evidence with `herdr agent explain <target>` rather than inferring from a color alone.
+
+Working indicators are presentation-only. Choose a spinner from the built-in catalog and choose semantic dots or symbols independently:
+
+```toml
+[ui]
+spinner_style = "dots-full"
+status_indicators = "symbols"
+```
+
+The Settings surface previews spinner styles before saving. Use a restrained style such as `dots`, `arc`, or `circle` for dense sidebars; reserve emoji and wide multi-cell frames for a panel with enough width. Status icons must remain understandable when animation is paused, when the terminal cannot render a glyph, and for users who prefer reduced visual motion. No spinner changes the underlying agent state or notification authority.
 
 Set `tab_bar_position = "bottom"` under `[ui]` to place the desktop tab row below the terminal panes. Prefix, Navigate, Copy, and Resize mode bars temporarily replace the bottom tab row while active. The default is `"top"`.
 

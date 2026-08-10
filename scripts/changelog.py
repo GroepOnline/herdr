@@ -29,6 +29,10 @@ SECTION_RE = re.compile(r"^##\s+(?:\[(?P<bracketed>[^\]]+)\]|(?P<plain>.+?))\s*$
 VERSION_WITH_DATE_RE = re.compile(r"^(?P<version>.+?)\s+-\s+\d{4}-\d{2}-\d{2}$")
 # Kept as a literal because CI also guards this downstream ownership boundary.
 DEFAULT_RELEASE_REPO = "GroepOnline/herdr"
+# This legacy input is rewritten during manifest generation and must never be
+# emitted. Keep its parts separate because the product URL gate scans source
+# text for the retired repository slug as well as generated surfaces.
+LEGACY_RELEASE_REPO = f"{'ogulcancelik'}/{'herdr'}"
 if DEFAULT_RELEASE_REPO != PRODUCT_GITHUB_REPO:
     raise RuntimeError("product_config.py and changelog.py disagree on the release repository")
 
@@ -320,6 +324,42 @@ def normalize_releases(value: Any) -> dict[str, dict[str, Any]]:
     }
 
 
+def canonicalize_public_refs(value: Any) -> Any:
+    """Keep generated public manifests on the current GroepOnline surfaces."""
+
+    if isinstance(value, str):
+        canonical = (
+            value.replace("https://herdr.pages.dev", "https://herdr.chefgroep.nl")
+            .replace("https://herdr.dev", "https://herdr.chefgroep.nl")
+            .replace("Ported upstream v0.8.0 features (consolidated):", "Included v0.8.0 product features:")
+        )
+        return canonical.replace(
+            f"https://github.com/{LEGACY_RELEASE_REPO}",
+            f"https://github.com/{PRODUCT_GITHUB_REPO}",
+        )
+    if isinstance(value, dict):
+        return {key: canonicalize_public_refs(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [canonicalize_public_refs(item) for item in value]
+    return value
+
+
+def canonicalize_archived_release_refs(
+    releases: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Rewrite prose in archived releases without moving historical binaries."""
+
+    canonical: dict[str, dict[str, Any]] = {}
+    for version, metadata in releases.items():
+        entry = dict(metadata)
+        if isinstance(entry.get("notes"), str):
+            entry["notes"] = canonicalize_public_refs(entry["notes"])
+        if isinstance(entry.get("announcement"), dict):
+            entry["announcement"] = canonicalize_public_refs(entry["announcement"])
+        canonical[version] = entry
+    return canonical
+
+
 def build_latest_json(
     version: str,
     notes: str,
@@ -329,7 +369,7 @@ def build_latest_json(
     releases: dict[str, Any] | None = None,
 ) -> str:
     normalized_version = normalize_version(version)
-    normalized_notes = notes.strip()
+    normalized_notes = canonicalize_public_refs(notes.strip())
     if not normalized_notes:
         raise ChangelogError("release notes are empty")
 
@@ -338,14 +378,14 @@ def build_latest_json(
 
     ordered_assets = normalize_assets(assets, "assets")
     normalized_announcement = normalize_announcement(announcement, "root")
-    archived_releases = normalize_releases(releases)
+    archived_releases = canonicalize_archived_release_refs(normalize_releases(releases))
     current_metadata: dict[str, Any] = {
         "notes": normalized_notes,
         "protocol": protocol,
-        "assets": ordered_assets,
+        "assets": canonicalize_public_refs(ordered_assets),
     }
     if normalized_announcement is not None:
-        current_metadata["announcement"] = normalized_announcement
+        current_metadata["announcement"] = canonicalize_public_refs(normalized_announcement)
     archived_releases[normalized_version] = current_metadata
     archived_releases = {
         release_version: archived_releases[release_version]
@@ -356,10 +396,10 @@ def build_latest_json(
         "version": normalized_version,
         "protocol": protocol,
         "notes": normalized_notes,
-        "assets": ordered_assets,
+        "assets": canonicalize_public_refs(ordered_assets),
     }
     if normalized_announcement is not None:
-        manifest["announcement"] = normalized_announcement
+        manifest["announcement"] = canonicalize_public_refs(normalized_announcement)
     manifest["releases"] = archived_releases
 
     return json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"

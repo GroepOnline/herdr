@@ -98,6 +98,7 @@ mod selection;
 mod server;
 mod session;
 mod sound;
+mod status;
 pub mod template;
 mod terminal;
 mod terminal_modes;
@@ -160,10 +161,10 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # Set explicitly to choose stable releases or opt-in preview builds.
 # channel = "stable"
 
-# Check herdr.dev for new Herdr versions in the background.
+# Check the GroepOnline Herdr site for new versions in the background.
 # version_check = true
 
-# Check herdr.dev for remote agent-detection manifest updates in the background.
+# Check the GroepOnline Herdr site for remote agent-detection manifest updates in the background.
 # manifest_check = true
 
 [keys]
@@ -267,6 +268,9 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 
 # Collapsed sidebar presentation: "compact" keeps the narrow status rail, "hidden" uses zero width.
 # sidebar_collapsed_mode = "compact"
+
+# Workspace/agent section split in the expanded sidebar (0.1–0.9, default 0.5).
+# sidebar_section_split = 0.5
 
 # Terminal width at or below which Herdr uses the mobile single-column layout.
 # Increase this for foldables, tablets, or wide phone terminals.
@@ -673,7 +677,7 @@ fn main() -> io::Result<()> {
         println!("Config: {}", config::config_path().display());
         println!("Logs:   {}", logging::help_log_paths_summary());
         println!("Env:    HERDR_CONFIG_PATH overrides config file path");
-        println!("Home:   https://herdr.dev");
+        println!("Home:   https://herdr.chefgroep.nl");
         println!("Skill:  herdr --skill prints agent instructions for driving herdr from a pane");
         return Ok(());
     }

@@ -23,7 +23,7 @@
 
 Herdr gives you persistent workspaces, tabs and real terminal panes, with agent-aware states such as blocked, working, done and idle. Detach and reattach without killing the running agents. There is no Electron shell, wrapped agent UI or macOS-only native application.
 
-The GroepOnline distribution tracks upstream Herdr and adds the CHEF release, integration and deployment layer. The current stable line is **v0.7.6**; `main` can contain validated post-release fixes before the next tag.
+GroepOnline maintains and ships Herdr as its own product, including the CHEF release, integration and deployment layer. The current stable line is **v0.8.0**; `main` can contain validated post-release fixes before the next tag.
 
 ## Install
 
@@ -273,9 +273,9 @@ just check
 
 The release metadata is currently aligned as follows:
 
-- Rust crate: `0.7.5`
-- CHEF distribution package: `0.7.5-chef`
-- Stable Git tag/release line: `v0.7.5`
+- Rust crate: `0.8.0`
+- CHEF distribution package: `0.8.0`
+- Stable Git tag/release line: `v0.8.0`
 
 ## License
 

@@ -393,7 +393,7 @@ impl App {
                 0,
                 config.ui.sidebar_width,
                 state::SidebarWidthSource::ConfigDefault,
-                0.5_f32,
+                config.ui.sidebar_section_split,
                 std::collections::HashSet::new(),
             )
         } else if let Some(snap) = crate::persist::load() {
@@ -429,7 +429,7 @@ impl App {
                     } else {
                         state::SidebarWidthSource::ConfigDefault
                     },
-                    snap.sidebar_section_split.unwrap_or(0.5),
+                    config.ui.sidebar_section_split,
                     snap.collapsed_space_keys,
                 )
             } else {
@@ -446,7 +446,7 @@ impl App {
                     } else {
                         state::SidebarWidthSource::ConfigDefault
                     },
-                    snap.sidebar_section_split.unwrap_or(0.5),
+                    config.ui.sidebar_section_split,
                     snap.collapsed_space_keys,
                 )
             }
@@ -457,7 +457,7 @@ impl App {
                 0,
                 config.ui.sidebar_width,
                 state::SidebarWidthSource::ConfigDefault,
-                0.5_f32,
+                config.ui.sidebar_section_split,
                 std::collections::HashSet::new(),
             )
         };
@@ -1424,6 +1424,7 @@ impl App {
                 self.state.sidebar_min_width = config.ui.sidebar_min_width;
                 self.state.sidebar_max_width = config.ui.sidebar_max_width;
                 self.state.sidebar_collapsed_mode = config.ui.sidebar_collapsed_mode;
+                self.state.sidebar_section_split = config.ui.sidebar_section_split.clamp(0.1, 0.9);
                 self.state.mobile_width_threshold = config.ui.mobile_width_threshold;
                 // Re-clamp the live width to the new bounds. No source guard — bounds
                 // always apply, including to widths owned by Persisted or Manual.
@@ -3273,6 +3274,56 @@ mod tests {
             app.state.toast_config.delivery,
             crate::config::ToastDelivery::Terminal
         );
+        std::env::remove_var(crate::config::CONFIG_PATH_ENV_VAR);
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn settings_save_sidebar_section_split_persists_then_applies_live_config() {
+        let _guard = config_env_lock().lock().unwrap();
+        let path = temp_config_path("settings-save-sidebar-section-split");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "onboarding = false\n").unwrap();
+        std::env::set_var(crate::config::CONFIG_PATH_ENV_VAR, &path);
+
+        let mut app = test_app();
+        assert_eq!(app.state.sidebar_section_split, 0.5);
+
+        app.save_sidebar_section_split(0.75);
+
+        assert_eq!(app.state.sidebar_section_split, 0.75);
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("sidebar_section_split = 0.75"));
+        assert!(app.state.config_diagnostic.is_none());
+
+        std::env::remove_var(crate::config::CONFIG_PATH_ENV_VAR);
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn settings_save_sidebar_collapsed_mode_persists_then_applies_live_config() {
+        let _guard = config_env_lock().lock().unwrap();
+        let path = temp_config_path("settings-save-sidebar-collapsed-mode");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "onboarding = false\n").unwrap();
+        std::env::set_var(crate::config::CONFIG_PATH_ENV_VAR, &path);
+
+        let mut app = test_app();
+        assert_eq!(
+            app.state.sidebar_collapsed_mode,
+            crate::config::SidebarCollapsedModeConfig::Compact
+        );
+
+        app.save_sidebar_collapsed_mode(crate::config::SidebarCollapsedModeConfig::Hidden);
+
+        assert_eq!(
+            app.state.sidebar_collapsed_mode,
+            crate::config::SidebarCollapsedModeConfig::Hidden
+        );
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains(r#"sidebar_collapsed_mode = "hidden""#));
+        assert!(app.state.config_diagnostic.is_none());
+
         std::env::remove_var(crate::config::CONFIG_PATH_ENV_VAR);
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
     }

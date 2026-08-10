@@ -91,6 +91,17 @@ class ProductUrlSyncTests(unittest.TestCase):
                 text = (ROOT / rel).read_text(encoding="utf-8")
                 self.assertIn(expected, text, f"{rel} does not reference the branded {expected}")
 
+    def test_public_catalog_and_cli_surfaces_use_the_branded_site(self):
+        manifest_update = (ROOT / "src/detect/manifest_update.rs").read_text(encoding="utf-8")
+        self.assertIn(
+            "https://herdr.chefgroep.nl/agent-detection/index.toml",
+            manifest_update,
+        )
+        main = (ROOT / "src/main.rs").read_text(encoding="utf-8")
+        self.assertIn('Home:   https://herdr.chefgroep.nl', main)
+        self.assertNotIn('Home:   https://herdr.dev', main)
+        self.assertNotIn('Check herdr.dev', main)
+
     def test_channel_manifests_derive_from_site_url(self):
         expected = site_url()
         source = (ROOT / "src" / "product_urls.rs").read_text(encoding="utf-8")

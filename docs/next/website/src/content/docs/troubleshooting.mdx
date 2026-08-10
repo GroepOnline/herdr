@@ -29,7 +29,7 @@ Native mode restores the IME anchor but may reintroduce occasional cursor moveme
 
 Older terminal versions can emit the release of Enter, Tab, and Backspace as the same bytes as the press when an application enables Kitty keyboard event reporting. Herdr cannot distinguish those duplicate bytes after the terminal sends them.
 
-Update the outer terminal to a version containing its upstream fix:
+Update the outer terminal to a version containing the relevant terminal fix:
 
 | Terminal | Minimum fixed version |
 | --- | --- |
@@ -37,7 +37,7 @@ Update the outer terminal to a version containing its upstream fix:
 | foot | 1.20.0 |
 | Alacritty | 0.15.0 |
 
-This is especially common with older terminal packages from long-term-support Linux distributions. See [Herdr issue #1116](https://github.com/GroepOnline/herdr/issues/1116) for the confirmed boundary captures and upstream references. If the problem remains on a current terminal version, report the exact terminal version and whether it also happens outside Herdr.
+This is especially common with older terminal packages from long-term-support Linux distributions. See [Herdr issue #1116](https://github.com/GroepOnline/herdr/issues/1116) for the confirmed boundary captures and compatibility notes. If the problem remains on a current terminal version, report the exact terminal version and whether it also happens outside Herdr.
 
 ## Option+Left or Option+Right inserts `;3D` or `;3C`
 

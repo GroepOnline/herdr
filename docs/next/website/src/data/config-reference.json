@@ -744,6 +744,12 @@
           "description": "Expanded Space sidebar layout. Entries may be token strings or inline { token, fg, bold, dim } style tables. Supports built-in and $name metadata tokens; at most 16 rows and 16 tokens per row."
         },
         {
+          "key": "ui.sidebar_section_split",
+          "type": "number",
+          "default": "0.5",
+          "description": "Ratio of sidebar height allocated to workspaces in the expanded sidebar. Values are clamped to 0.1–0.9."
+        },
+        {
           "key": "ui.accent",
           "type": "color",
           "default": "\"cyan\"",

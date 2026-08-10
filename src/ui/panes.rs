@@ -619,7 +619,6 @@ fn line_touches_pane(x: u16, y: u16, info: &PaneInfo, pane_gaps: bool) -> bool {
 /// Fleet Ops Bar — compact status line at bottom of each pane border.
 /// Shows agent | state | git | PR/issue | model | host | resume when available.
 fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame: &mut Frame) {
-    use crate::detect::AgentState;
     use crate::fleet::{FleetOpsBarKind, FleetOpsMetadata};
 
     if !app.fleet_ops_bar_enabled() {
@@ -660,13 +659,14 @@ fn render_fleet_ops_bar(app: &AppState, ws: &crate::workspace::Workspace, frame:
             host_str.unwrap_or("local"),
             &app.fleet_ops_cache,
         );
-        let parts = meta.bar_parts(agent_name, state, label);
+        let parts = meta.bar_parts(agent_name, state, pane.seen, label);
 
-        let state_bg = match state {
-            AgentState::Blocked => app.palette.red,
-            AgentState::Working => app.palette.accent,
-            AgentState::Idle => app.palette.overlay0,
-            AgentState::Unknown => app.palette.overlay0,
+        let state_bg = match crate::status::project(state, pane.seen).agent_status {
+            crate::api::schema::AgentStatus::Blocked => app.palette.red,
+            crate::api::schema::AgentStatus::Working => app.palette.accent,
+            crate::api::schema::AgentStatus::Done
+            | crate::api::schema::AgentStatus::Idle
+            | crate::api::schema::AgentStatus::Unknown => app.palette.overlay0,
         };
 
         let mut spans = Vec::with_capacity(parts.len());

@@ -9,6 +9,7 @@ use ratatui::{
 use super::text::display_width_u16;
 use super::widgets::panel_contrast_fg;
 use crate::{
+    api::schema::AgentStatus,
     app::state::{CopyFeedback, Palette, ToastKind, ToastNotification},
     config::{StatusIndicatorStyle, ToastClipboardPosition, ToastHerdrPosition},
     detect::AgentState,
@@ -194,23 +195,23 @@ pub(super) fn render_config_diagnostic(frame: &mut Frame, area: Rect, message: &
 }
 
 pub(super) fn state_dot(state: AgentState, seen: bool, p: &Palette) -> (&'static str, Style) {
-    match (state, seen) {
-        (AgentState::Blocked, _) => ("●", Style::default().fg(p.red)),
-        (AgentState::Working, _) => ("●", Style::default().fg(p.yellow)),
-        (AgentState::Idle, false) => ("●", Style::default().fg(p.teal)),
-        (AgentState::Idle, true) => ("○", Style::default().fg(p.green)),
-        (AgentState::Unknown, _) => ("·", Style::default().fg(p.overlay0)),
+    match crate::status::project(state, seen).agent_status {
+        AgentStatus::Blocked => ("●", Style::default().fg(p.red)),
+        AgentStatus::Working => ("●", Style::default().fg(p.yellow)),
+        AgentStatus::Done => ("●", Style::default().fg(p.teal)),
+        AgentStatus::Idle => ("○", Style::default().fg(p.green)),
+        AgentStatus::Unknown => ("·", Style::default().fg(p.overlay0)),
     }
 }
 
 /// Static distinct symbols per state (upstream `status_indicators = "symbols"`).
 pub(super) fn state_icon_symbol(state: AgentState, seen: bool) -> &'static str {
-    match (state, seen) {
-        (AgentState::Blocked, _) => "×",
-        (AgentState::Working, _) => "◐",
-        (AgentState::Idle, false) => "✓",
-        (AgentState::Idle, true) => "○",
-        (AgentState::Unknown, _) => "·",
+    match crate::status::project(state, seen).agent_status {
+        AgentStatus::Blocked => "×",
+        AgentStatus::Working => "◐",
+        AgentStatus::Done => "✓",
+        AgentStatus::Idle => "○",
+        AgentStatus::Unknown => "·",
     }
 }
 
@@ -228,35 +229,29 @@ pub(super) fn agent_icon(
             Style::default().fg(state_label_color(state, seen, p)),
         );
     }
-    match (state, seen) {
-        (AgentState::Blocked, _) => ("◉", Style::default().fg(p.red)),
-        (AgentState::Working, _) => (
+    match crate::status::project(state, seen).agent_status {
+        AgentStatus::Blocked => ("◉", Style::default().fg(p.red)),
+        AgentStatus::Working => (
             super::spinner_frame(tick, style),
             Style::default().fg(p.yellow),
         ),
-        (AgentState::Idle, false) => ("●", Style::default().fg(p.teal)),
-        (AgentState::Idle, true) => ("✓", Style::default().fg(p.green)),
-        (AgentState::Unknown, _) => ("○", Style::default().fg(p.overlay0)),
+        AgentStatus::Done => ("●", Style::default().fg(p.teal)),
+        AgentStatus::Idle => ("✓", Style::default().fg(p.green)),
+        AgentStatus::Unknown => ("○", Style::default().fg(p.overlay0)),
     }
 }
 
 pub(super) fn state_label(state: AgentState, seen: bool) -> &'static str {
-    match (state, seen) {
-        (AgentState::Blocked, _) => "blocked",
-        (AgentState::Working, _) => "working",
-        (AgentState::Idle, false) => "done",
-        (AgentState::Idle, true) => "idle",
-        (AgentState::Unknown, _) => "idle",
-    }
+    crate::status::label(state, seen)
 }
 
 pub(super) fn state_label_color(state: AgentState, seen: bool, p: &Palette) -> Color {
-    match (state, seen) {
-        (AgentState::Blocked, _) => p.red,
-        (AgentState::Working, _) => p.yellow,
-        (AgentState::Idle, false) => p.teal,
-        (AgentState::Idle, true) => p.green,
-        (AgentState::Unknown, _) => p.overlay0,
+    match crate::status::project(state, seen).agent_status {
+        AgentStatus::Blocked => p.red,
+        AgentStatus::Working => p.yellow,
+        AgentStatus::Done => p.teal,
+        AgentStatus::Idle => p.green,
+        AgentStatus::Unknown => p.overlay0,
     }
 }
 

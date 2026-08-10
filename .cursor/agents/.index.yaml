@@ -4,8 +4,7 @@ items:
 - name: chef-fleet
   path: .cursor/agents/chef-fleet.md
   kind: agent
-  summary: CHEF fleet specialist for Linear/GitHub/UDO/Kater contracts, Fleet Ops
-    Bar, plugin state dirs, and core-vs-plugin boundaries.
+  summary: CHEF fleet specialist for Linear/GitHub/UDO/Kater contracts, Fleet Ops Bar, plugin state dirs, and core-vs-plugin boundaries.
   when: CHEF fleet specialist for Linear/GitHub/UDO/Kater contracts…
 - name: herdr-quality-ci-diagnoser
   path: .cursor/agents/herdr-quality-ci-diagnoser.md
@@ -20,8 +19,7 @@ items:
 - name: herdr-ui
   path: .cursor/agents/herdr-ui.md
   kind: agent
-  summary: Herdr TUI specialist for premium mouse-first UI polish, visual consistency,
-    modal/sidebar/overlay UX, render purity, and hunting memory leaks or UI bugs.
+  summary: Herdr TUI specialist for premium mouse-first UI polish, visual consistency, modal/sidebar/overlay UX, render purity, and hunting memory leaks or UI bugs.
   when: Herdr TUI specialist for premium mouse-first UI polish, vis…
 - name: herdr
   path: .cursor/agents/herdr.md
@@ -41,8 +39,7 @@ items:
 - name: settings-implementer
   path: .cursor/agents/settings-implementer.md
   kind: agent
-  summary: Implement one settings UI redesign task with TDD-style tests and minimal
-    diff.
+  summary: Implement one settings UI redesign task with TDD-style tests and minimal diff.
   when: Implement one settings UI redesign task with TDD-style test…
 - name: settings-reviewer
   path: .cursor/agents/settings-reviewer.md
