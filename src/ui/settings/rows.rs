@@ -96,7 +96,10 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
             for (label, detail, id) in [
                 (
                     "sidebar width",
-                    format!("{} columns · {}–{}", app.sidebar_width, app.sidebar_min_width, app.sidebar_max_width),
+                    format!(
+                        "{} columns · {}–{}",
+                        app.sidebar_width, app.sidebar_min_width, app.sidebar_max_width
+                    ),
                     SettingsItemId::SidebarWidth,
                 ),
                 (
@@ -130,7 +133,10 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
             }
             rows.push(SettingsRow {
                 label: "token layout".to_string(),
-                detail: Some("edit [ui.sidebar] rows in config.toml · typed tokens + per-agent overrides".to_string()),
+                detail: Some(
+                    "edit [ui.sidebar] rows in config.toml · typed tokens + per-agent overrides"
+                        .to_string(),
+                ),
                 kind: SettingsRowKind::Note,
                 id: SettingsItemId::ConfigFile,
                 search_extra: Some("agents spaces rows rows_by_agent token custom".to_string()),

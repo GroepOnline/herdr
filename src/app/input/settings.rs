@@ -36,7 +36,9 @@ impl App {
         match action {
             SettingsAction::SaveTheme(name) => self.save_theme(&name),
             SettingsAction::SaveSidebarWidth(width) => self.save_sidebar_width(width),
-            SettingsAction::SaveSidebarCollapsedMode(mode) => self.save_sidebar_collapsed_mode(mode),
+            SettingsAction::SaveSidebarCollapsedMode(mode) => {
+                self.save_sidebar_collapsed_mode(mode)
+            }
             SettingsAction::SaveAgentPanelSort(sort) => self.save_agent_panel_sort(sort),
             SettingsAction::SaveSidebarAgentRowGap(gap) => self.save_sidebar_agent_row_gap(gap),
             SettingsAction::SaveSidebarSpaceRowGap(gap) => self.save_sidebar_space_row_gap(gap),

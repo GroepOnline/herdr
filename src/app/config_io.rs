@@ -67,7 +67,12 @@ impl App {
     pub(super) fn save_sidebar_section_split(&mut self, split: f32) {
         let split = split.clamp(0.1, 0.9);
         if self.update_config_file("sidebar section split", |content| {
-            crate::config::upsert_section_value(content, "ui", "sidebar_section_split", &split.to_string())
+            crate::config::upsert_section_value(
+                content,
+                "ui",
+                "sidebar_section_split",
+                &split.to_string(),
+            )
         }) {
             self.apply_config_from_disk(false);
         }
@@ -79,7 +84,12 @@ impl App {
             crate::app::state::AgentPanelSort::Priority => "priority",
         };
         if self.update_config_file("agent panel sort", |content| {
-            crate::config::upsert_section_value(content, "ui", "agent_panel_sort", &format!("\"{value}\""))
+            crate::config::upsert_section_value(
+                content,
+                "ui",
+                "agent_panel_sort",
+                &format!("\"{value}\""),
+            )
         }) {
             self.apply_config_from_disk(false);
         }
@@ -87,7 +97,12 @@ impl App {
 
     pub(super) fn save_sidebar_agent_row_gap(&mut self, gap: u16) {
         if self.update_config_file("agent sidebar row gap", |content| {
-            crate::config::upsert_section_value(content, "ui.sidebar.agents", "row_gap", &gap.min(3).to_string())
+            crate::config::upsert_section_value(
+                content,
+                "ui.sidebar.agents",
+                "row_gap",
+                &gap.min(3).to_string(),
+            )
         }) {
             self.apply_config_from_disk(false);
         }
@@ -95,7 +110,12 @@ impl App {
 
     pub(super) fn save_sidebar_space_row_gap(&mut self, gap: u16) {
         if self.update_config_file("workspace sidebar row gap", |content| {
-            crate::config::upsert_section_value(content, "ui.sidebar.spaces", "row_gap", &gap.min(3).to_string())
+            crate::config::upsert_section_value(
+                content,
+                "ui.sidebar.spaces",
+                "row_gap",
+                &gap.min(3).to_string(),
+            )
         }) {
             self.apply_config_from_disk(false);
         }

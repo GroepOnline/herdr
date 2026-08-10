@@ -1935,11 +1935,7 @@ mod tests {
             .state
             .handle_mouse(
                 &mut app.terminal_runtimes,
-                mouse(
-                    MouseEventKind::Drag(MouseButton::Left),
-                    col,
-                    divider.y + 4,
-                ),
+                mouse(MouseEventKind::Drag(MouseButton::Left), col, divider.y + 4,),
             )
             .is_none());
         assert!(app.state.sidebar_section_split > 0.5);

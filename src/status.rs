@@ -103,7 +103,11 @@ mod tests {
 
     #[test]
     fn seen_only_changes_idle_presentation_and_priority_order_is_total() {
-        for state in [AgentState::Blocked, AgentState::Working, AgentState::Unknown] {
+        for state in [
+            AgentState::Blocked,
+            AgentState::Working,
+            AgentState::Unknown,
+        ] {
             assert_eq!(project(state, false), project(state, true));
         }
 

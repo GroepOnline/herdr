@@ -429,7 +429,8 @@ impl App {
                     } else {
                         state::SidebarWidthSource::ConfigDefault
                     },
-                    snap.sidebar_section_split.unwrap_or(config.ui.sidebar_section_split),
+                    snap.sidebar_section_split
+                        .unwrap_or(config.ui.sidebar_section_split),
                     snap.collapsed_space_keys,
                 )
             } else {
@@ -446,7 +447,8 @@ impl App {
                     } else {
                         state::SidebarWidthSource::ConfigDefault
                     },
-                    snap.sidebar_section_split.unwrap_or(config.ui.sidebar_section_split),
+                    snap.sidebar_section_split
+                        .unwrap_or(config.ui.sidebar_section_split),
                     snap.collapsed_space_keys,
                 )
             }

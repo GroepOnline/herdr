@@ -313,7 +313,10 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
             let next = if state.sidebar_width >= state.sidebar_max_width {
                 state.sidebar_min_width
             } else {
-                state.sidebar_width.saturating_add(1).min(state.sidebar_max_width)
+                state
+                    .sidebar_width
+                    .saturating_add(1)
+                    .min(state.sidebar_max_width)
             };
             Some(SettingsAction::SaveSidebarWidth(next))
         }
