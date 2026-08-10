@@ -4,8 +4,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Files that must contain the literal live site URL (mirrors of the constant
-# in `src/product_urls.rs`). When the site moves to a custom domain, update
+# Files that must contain the literal site URL (mirrors of the constant in
+# `src/product_urls.rs`). When the site moves to a custom domain, update
 # `src/product_urls.rs` AND all of these together.
 SITE_URL_MIRRORS = [
     "website/src/config/product.ts",
@@ -21,8 +21,9 @@ SITE_URL_MIRRORS = [
 # Rust modules that import the shared constants instead of mirroring them.
 RUST_IMPORTERS = ["src/update.rs", "src/remote/attach.rs"]
 
-# These must never reference the (currently dead) custom domain; they are the
-# update-chain surface that would silently break installs/updates.
+# The update-chain surface. None of these may reference an upstream (herdr.dev
+# / herdr.pages.dev / herdrdev) deployment, which would silently break
+# installs/updates and pull upstream binaries.
 UPDATE_CHAIN_FILES = [
     "src/product_urls.rs",
     "src/update.rs",
@@ -32,6 +33,18 @@ UPDATE_CHAIN_FILES = [
     "website/install.sh",
     "website/install.ps1",
 ]
+
+# Of those, only these carry the literal branded URL; src/update.rs and
+# src/remote/attach.rs import the constants from src/product_urls.rs instead.
+BRANDED_URL_MIRRORS = [
+    "src/product_urls.rs",
+    "website/src/config/product.ts",
+    "scripts/product_config.py",
+    "website/install.sh",
+    "website/install.ps1",
+]
+
+UPSTREAM_DOMAINS = ("herdr.pages.dev", "herdr.dev")
 
 
 def site_url() -> str:
@@ -58,15 +71,24 @@ class ProductUrlSyncTests(unittest.TestCase):
                 self.assertIn("PREVIEW_UPDATE_MANIFEST_URL", text, f"{rel} missing PREVIEW_UPDATE_MANIFEST_URL")
                 self.assertIn("DEV_UPDATE_MANIFEST_URL", text, f"{rel} missing DEV_UPDATE_MANIFEST_URL")
 
-    def test_update_chain_never_references_dead_custom_domain(self):
+    def test_update_chain_never_references_upstream_domains(self):
         for rel in UPDATE_CHAIN_FILES:
             with self.subTest(file=rel):
                 text = (ROOT / rel).read_text(encoding="utf-8")
-                self.assertNotIn(
-                    "herdr.chefgroep.nl",
-                    text,
-                    f"{rel} still references the dead herdr.chefgroep.nl domain",
-                )
+                for domain in UPSTREAM_DOMAINS:
+                    self.assertNotIn(
+                        domain,
+                        text,
+                        f"{rel} references upstream domain {domain}; "
+                        "the update chain must stay on the branded deployment",
+                    )
+
+    def test_update_chain_carries_the_branded_site_url(self):
+        expected = site_url()
+        for rel in BRANDED_URL_MIRRORS:
+            with self.subTest(file=rel):
+                text = (ROOT / rel).read_text(encoding="utf-8")
+                self.assertIn(expected, text, f"{rel} does not reference the branded {expected}")
 
     def test_channel_manifests_derive_from_site_url(self):
         expected = site_url()

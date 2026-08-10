@@ -1,25 +1,28 @@
 //! Product-level URLs shared across update and attach paths.
 //!
-//! Single source of truth for the live product site and its channel
+//! Single source of truth for the branded product site and its channel
 //! manifests. `scripts/test_product_urls.py` (maintenance CI) guards that the
 //! mirrors in `website/src/config/product.ts`, `scripts/product_config.py`,
 //! `website/install.sh`, `website/install.ps1`, `Cargo.toml`,
 //! `npm/package.json`, `justfile`, and `website/scripts/check-built-docs.mjs`
-//! stay in sync.
+//! stay in sync with this constant.
 //!
-//! The site is served from Cloudflare Pages (`herdr.pages.dev`). A branded
-//! custom domain may replace it once its DNS record exists; update every
-//! mirror at the same time (the sync test will force it).
+//! NOTE: the branded domain must be the GroepOnline deployment. The upstream
+//! (herdrdev) Pages deployment must never appear in the update chain; the sync
+//! guard fails if it does. The branded domain is served from a Cloudflare Pages
+//! project with a custom domain; if its DNS record is missing, restore the
+//! custom domain before the next release (the release chain verifies the live
+//! manifest after promotion).
 
-/// Live product site URL.
-pub const PRODUCT_SITE_URL: &str = "https://herdr.pages.dev";
+/// Branded product site URL (GroepOnline downstream deployment).
+pub const PRODUCT_SITE_URL: &str = "https://herdr.chefgroep.nl";
 
 /// Stable update channel manifest.
-pub const STABLE_UPDATE_MANIFEST_URL: &str = "https://herdr.pages.dev/latest.json";
+pub const STABLE_UPDATE_MANIFEST_URL: &str = "https://herdr.chefgroep.nl/latest.json";
 /// Preview update channel manifest.
-pub const PREVIEW_UPDATE_MANIFEST_URL: &str = "https://herdr.pages.dev/preview.json";
+pub const PREVIEW_UPDATE_MANIFEST_URL: &str = "https://herdr.chefgroep.nl/preview.json";
 /// Dev update channel manifest.
-pub const DEV_UPDATE_MANIFEST_URL: &str = "https://herdr.pages.dev/dev.json";
+pub const DEV_UPDATE_MANIFEST_URL: &str = "https://herdr.chefgroep.nl/dev.json";
 
 #[cfg(test)]
 mod tests {

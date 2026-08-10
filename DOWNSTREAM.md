@@ -10,7 +10,7 @@ Maintained public Herdr distribution for GroepOnline agent operations. Downstrea
 - Stable native assets: Linux and macOS, x86_64 and ARM64
 - npm package: `groeponline-herdr`
 - Homebrew tap/formula: `GroepOnline/homebrew-tap` / `groeponline-herdr`
-- Stable install manifest: `website/latest.json` → `https://herdr.pages.dev/latest.json`
+- Stable install manifest: `website/latest.json` → `https://herdr.chefgroep.nl/latest.json`
 - Native Windows: preview-only until a stable Windows release contract is declared
 
 ## Release trust chain

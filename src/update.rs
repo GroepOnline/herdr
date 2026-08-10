@@ -1,6 +1,6 @@
 //! Self-update mechanism.
 //!
-//! Checks the hosted herdr.pages.dev update manifest for newer versions.
+//! Checks the hosted herdr.chefgroep.nl update manifest for newer versions.
 //! Manual `herdr update` downloads and installs the binary.
 //! Background checks only surface availability and release notes.
 //! Uses `curl` as a subprocess for HTTP — no additional Rust HTTP dependencies.
@@ -715,7 +715,7 @@ fn install_windows_update_with_installer(channel: UpdateChannel) -> Result<(), S
             "-ExecutionPolicy",
             "Bypass",
             "-Command",
-            "irm https://herdr.pages.dev/install.ps1 | iex",
+            "irm https://herdr.chefgroep.nl/install.ps1 | iex",
         ])
         .env("HERDR_CHANNEL", channel.as_str())
         // Drop any inherited PSModulePath. When herdr is launched from

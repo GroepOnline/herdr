@@ -2,7 +2,7 @@
 set -eu
 
 BIN="herdr"
-BASE_URL="${HERDR_BASE_URL:-https://herdr.pages.dev}"
+BASE_URL="${HERDR_BASE_URL:-https://herdr.chefgroep.nl}"
 INSTALL_DIR="${HERDR_INSTALL_DIR:-$HOME/.local/bin}"
 # Update channel to install: stable (default), preview, or dev. dev publishes a
 # fresh build for every push to main. Override with --channel or HERDR_CHANNEL.
@@ -46,7 +46,7 @@ main() {
     echo ""
     echo "      ,ww"
     echo "     wWWWWWWW_)  herdr installer"
-    echo "     \`WWWWWW'    herdr.pages.dev"
+    echo "     \`WWWWWW'    herdr.chefgroep.nl"
     echo "      II  II"
     echo ""
 
@@ -80,7 +80,7 @@ main() {
     TARGET="${os}-${arch}"
     log "fetching ${CHANNEL} release manifest..."
     MANIFEST="$(curl -fsSL --retry 3 --connect-timeout 10 --max-time 20 "$MANIFEST_URL")" \
-        || err "can't reach ${MANIFEST_URL}. Please try again later; herdr.pages.dev might be down."
+        || err "can't reach ${MANIFEST_URL}. Please try again later; herdr.chefgroep.nl might be down."
 
     # Every installable manifest entry is a checksummed object:
     #   "target": { "url": "...", "sha256": "..." }
@@ -195,7 +195,7 @@ err()  { printf '  \033[31m✗\033[0m %s\n' "$1" >&2; exit 1; }
 
 need() {
     if ! command -v "$1" >/dev/null 2>&1; then
-        err "requires '$1' — install it first, or download a binary manually from https://herdr.pages.dev/docs/install/"
+        err "requires '$1' — install it first, or download a binary manually from https://herdr.chefgroep.nl/docs/install/"
     fi
 }
 
