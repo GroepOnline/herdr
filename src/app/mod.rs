@@ -3321,7 +3321,7 @@ mod tests {
             crate::config::SidebarCollapsedModeConfig::Hidden
         );
         let content = std::fs::read_to_string(&path).unwrap();
-        assert!(content.contains("sidebar_collapsed_mode = \\\"hidden\\\""));
+        assert!(content.contains(r#"sidebar_collapsed_mode = "hidden""#));
         assert!(app.state.config_diagnostic.is_none());
 
         std::env::remove_var(crate::config::CONFIG_PATH_ENV_VAR);
