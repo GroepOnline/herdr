@@ -119,3 +119,32 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name=groeponline-herdr --branch main
           workingDirectory: website
+
+  preview:
+    name: Deploy PR preview to Cloudflare Pages
+    needs: build
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: website-dist
+          path: website/dist
+
+      - name: Deploy PR preview to Cloudflare Pages (groeponline-herdr)
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=groeponline-herdr --branch pr-${{ github.event.pull_request.number }}
+          workingDirectory: website
+
+      - name: Report PR preview URL
+        run: >-
+          echo 'Preview URL: https://pr-${{ github.event.pull_request.number }}.groeponline-herdr.pages.dev'
