@@ -10,7 +10,7 @@ Maintained public Herdr distribution for GroepOnline agent operations. Downstrea
 - Stable native assets: Linux and macOS, x86_64 and ARM64
 - npm package: `groeponline-herdr`
 - Homebrew tap/formula: `GroepOnline/homebrew-tap` / `groeponline-herdr`
-- Stable install manifest: `website/latest.json` → `https://herdr.chefgroep.nl/latest.json`
+- Stable install manifest: `website/latest.json` → `https://herdr.pages.dev/latest.json`
 - Native Windows: preview-only until a stable Windows release contract is declared
 
 ## Release trust chain
@@ -34,7 +34,8 @@ A partial release can exist on GitHub while portable builders finish, but it can
 
 ## Preview ownership and rollback
 
-- Owner: `@OnlineChef`, enforced for the preview workflow, helper, and manifest through `.github/CODEOWNERS`.
+- Owner: `@GroepOnline/ci-bots`, enforced for the preview workflow, helper, and manifest through `.github/CODEOWNERS`.
+- The preview channel is disabled by default for the downstream distribution; publishes happen only via explicit workflow dispatch with a `commit` input (rollback path).
 - Source branch: `main`; requested commits must be reachable from `origin/main`.
 - Artifact namespace: preview prereleases in `GroepOnline/herdr` only. CI rejects references outside the downstream release namespace.
 - Publication requires a complete checksum target matrix. Missing, extra, or malformed SHA-256 values abort before the manifest commit.

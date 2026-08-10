@@ -76,6 +76,13 @@ def previous_preview_commit(path: Path) -> str | None:
     return commit if isinstance(commit, str) and commit.strip() else None
 
 
+def manifest_enabled(path: Path) -> bool:
+    data = read_json(path)
+    if data is None:
+        return True
+    return bool(data.get("enabled", True))
+
+
 def hidden_subject(subject: str) -> bool:
     lowered = subject.strip().lower()
     return any(lowered.startswith(prefix) for prefix in HIDDEN_SUBJECTS)
@@ -267,6 +274,7 @@ def build_manifest(
     manifest = {
         "schema_version": 1,
         "channel": channel,
+        "enabled": True,
         "base_version": normalize_version(base_version),
         "build_id": build_id,
         "commit": commit,
@@ -314,6 +322,11 @@ def cmd_current_commit(args: argparse.Namespace) -> int:
 
 
 def cmd_select_commit(args: argparse.Namespace) -> int:
+    if not manifest_enabled(Path(args.manifest)):
+        raise SystemExit(
+            "preview channel is disabled for the downstream distribution; "
+            "publish only via explicit Preview workflow dispatch with a commit input"
+        )
     print(latest_publishable_commit(args.ref))
     return 0
 
@@ -357,6 +370,7 @@ def main() -> int:
 
     select = sub.add_parser("select-commit")
     select.add_argument("--ref", default="origin/main")
+    select.add_argument("--manifest", default="website/preview.json")
     select.set_defaults(func=cmd_select_commit)
 
     range_base = sub.add_parser("range-base")

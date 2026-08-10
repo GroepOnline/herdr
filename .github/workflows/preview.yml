@@ -1,8 +1,9 @@
 name: Preview
 
+# Preview publishes are disabled for the downstream distribution; publish
+# only by dispatching this workflow with an explicit `commit` input (rollback
+# path).
 on:
-  schedule:
-    - cron: "0 10 * * 3,5" # Wednesday + Friday at 10:00 UTC
   workflow_dispatch:
     inputs:
       commit:

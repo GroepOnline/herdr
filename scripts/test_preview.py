@@ -231,6 +231,41 @@ file: ../../../../public/assets/logo.svg
         )
         self.assertIn("file: ../../../../../public/assets/logo.svg", output)
 
+    def test_build_manifest_marks_channel_enabled(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "preview.json"
+            content = preview.build_manifest(
+                output=output,
+                repo=PRODUCT_GITHUB_REPO,
+                channel="preview",
+                tag="preview-2026-06-02-abcdef123456",
+                build_id="2026-06-02-abcdef123456",
+                commit="abcdef1234567890",
+                built_at="2026-06-02T03:00:00Z",
+                base_version="0.6.6",
+                protocol=12,
+                notes="Preview notes\n",
+                shas={"linux-x86_64": "d" * 64},
+                retain=30,
+            )
+            data = json.loads(content)
+            self.assertTrue(data["enabled"])
+
+    def test_select_commit_blocks_disabled_channel(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "preview.json"
+            manifest.write_text(json.dumps({"enabled": False, "commit": ""}), encoding="utf-8")
+            ns = mock.Mock(manifest=str(manifest), ref="origin/main")
+            with self.assertRaisesRegex(SystemExit, "disabled"):
+                preview.cmd_select_commit(ns)
+
+    def test_previous_preview_commit_is_none_when_channel_disabled(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "preview.json"
+            manifest.write_text(json.dumps({"enabled": False, "commit": ""}), encoding="utf-8")
+            self.assertIsNone(preview.previous_preview_commit(manifest))
+            self.assertFalse(preview.manifest_enabled(manifest))
+
 
 class ConventionalCommitTests(unittest.TestCase):
     def test_valid_subjects_allow_scopes_and_bang(self):

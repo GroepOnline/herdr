@@ -1,12 +1,13 @@
 {
   "schema_version": 1,
   "channel": "preview",
-  "base_version": "0.7.6",
-  "build_id": "disabled-legacy-preview",
+  "enabled": false,
+  "base_version": "0.8.0",
+  "build_id": "disabled",
   "commit": "",
-  "built_at": "2026-07-31T22:23:30Z",
+  "built_at": "2026-08-10T00:00:00Z",
   "protocol": 18,
-  "notes": "Preview is temporarily disabled because the previous manifest referenced artifacts outside the GroepOnline release namespace. Dispatch the Preview workflow from main to publish the first downstream-owned checksummed preview.",
+  "notes": "The preview channel is disabled for the downstream distribution. Publish only via explicit Preview workflow dispatch with a commit input (rollback path).",
   "assets": {},
   "builds": {}
 }
