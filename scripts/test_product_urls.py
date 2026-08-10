@@ -63,13 +63,14 @@ class ProductUrlSyncTests(unittest.TestCase):
                 self.assertIn(expected, text, f"{rel} does not reference {expected}")
 
     def test_rust_modules_import_the_shared_constants(self):
-        for rel in RUST_IMPORTERS:
-            with self.subTest(file=rel):
-                text = (ROOT / rel).read_text(encoding="utf-8")
-                self.assertIn("crate::product_urls", text, f"{rel} does not import crate::product_urls")
-                self.assertIn("STABLE_UPDATE_MANIFEST_URL", text, f"{rel} missing STABLE_UPDATE_MANIFEST_URL")
-                self.assertIn("PREVIEW_UPDATE_MANIFEST_URL", text, f"{rel} missing PREVIEW_UPDATE_MANIFEST_URL")
-                self.assertIn("DEV_UPDATE_MANIFEST_URL", text, f"{rel} missing DEV_UPDATE_MANIFEST_URL")
+        # src/update.rs derives its fallback URLs from the site constant.
+        update_text = (ROOT / "src/update.rs").read_text(encoding="utf-8")
+        self.assertIn("crate::product_urls::PRODUCT_SITE_URL", update_text)
+        # src/remote/attach.rs consumes the channel manifest constants.
+        attach_text = (ROOT / "src/remote/attach.rs").read_text(encoding="utf-8")
+        self.assertIn("crate::product_urls", attach_text)
+        for name in ("STABLE_UPDATE_MANIFEST_URL", "PREVIEW_UPDATE_MANIFEST_URL", "DEV_UPDATE_MANIFEST_URL"):
+            self.assertIn(name, attach_text, f"attach.rs missing {name}")
 
     def test_update_chain_never_references_upstream_domains(self):
         for rel in UPDATE_CHAIN_FILES:

@@ -5,7 +5,9 @@
 //! mirrors in `website/src/config/product.ts`, `scripts/product_config.py`,
 //! `website/install.sh`, `website/install.ps1`, `Cargo.toml`,
 //! `npm/package.json`, `justfile`, and `website/scripts/check-built-docs.mjs`
-//! stay in sync with this constant.
+//! stay in sync with this constant. Production consumers: `src/update.rs`
+//! derives its fallback manifest URLs from the site constant, and
+//! `src/remote/attach.rs` uses the channel manifest constants.
 //!
 //! NOTE: the branded domain must be the GroepOnline deployment. The upstream
 //! (herdrdev) Pages deployment must never appear in the update chain; the sync

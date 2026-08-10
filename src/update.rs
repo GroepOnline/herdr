@@ -23,26 +23,24 @@ use std::time::{Duration, Instant};
 use interprocess::local_socket::traits::Stream as _;
 use serde::{Deserialize, Deserializer};
 
-use crate::product_urls::{
-    DEV_UPDATE_MANIFEST_URL, PREVIEW_UPDATE_MANIFEST_URL, STABLE_UPDATE_MANIFEST_URL,
-};
+use crate::product_urls::PRODUCT_SITE_URL;
 
 fn stable_update_url() -> String {
     std::env::var("HERDR_UPDATE_BASE_URL")
         .map(|b| format!("{}/latest.json", b.trim_end_matches('/')))
-        .unwrap_or_else(|_| STABLE_UPDATE_MANIFEST_URL.to_string())
+        .unwrap_or_else(|_| format!("{}/latest.json", PRODUCT_SITE_URL))
 }
 
 fn preview_update_url() -> String {
     std::env::var("HERDR_UPDATE_BASE_URL")
         .map(|b| format!("{}/preview.json", b.trim_end_matches('/')))
-        .unwrap_or_else(|_| PREVIEW_UPDATE_MANIFEST_URL.to_string())
+        .unwrap_or_else(|_| format!("{}/preview.json", PRODUCT_SITE_URL))
 }
 
 fn dev_update_url() -> String {
     std::env::var("HERDR_UPDATE_BASE_URL")
         .map(|b| format!("{}/dev.json", b.trim_end_matches('/')))
-        .unwrap_or_else(|_| DEV_UPDATE_MANIFEST_URL.to_string())
+        .unwrap_or_else(|_| format!("{}/dev.json", PRODUCT_SITE_URL))
 }
 const HOMEBREW_FORMULA_API_URL: &str = "https://formulae.brew.sh/api/formula/herdr.json";
 const HERDR_UPDATE_COMMAND: &str = "herdr update";
