@@ -40,7 +40,8 @@ concurrency:
 jobs:
   lottery:
     name: Canary lottery
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     outputs:
       run: ${{ steps.pick.outputs.run }}
     steps:
@@ -59,6 +60,8 @@ jobs:
     name: Windows lint
     needs: lottery
     if: needs.lottery.outputs.run == 'true'
+    # BILLING_QUARANTINE: was windows-latest — disabled until spending restored
+    if: false
     runs-on: windows-latest
     timeout-minutes: 45
     env:
@@ -86,7 +89,8 @@ jobs:
     name: Release smoke build
     needs: lottery
     if: needs.lottery.outputs.run == 'true'
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     timeout-minutes: 60
     env:
       LIBGHOSTTY_VT_OPTIMIZE: ReleaseFast
@@ -114,7 +118,8 @@ jobs:
 
   heavy-gate:
     name: Heavy gate
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     needs: [lottery, windows-lint, release-smoke]
     if: always()
     steps:

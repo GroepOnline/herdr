@@ -32,7 +32,8 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_repository.full_name == github.repository)
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       sha: ${{ steps.release.outputs.sha }}
@@ -217,7 +218,8 @@ jobs:
   publish:
     name: Publish portable assets
     needs: [prepare, build]
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     permissions:
       contents: write
     steps:
@@ -271,7 +273,8 @@ jobs:
   update-manifest:
     name: Atomically promote stable manifest
     needs: [prepare, publish]
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     permissions:
       contents: write
     steps:

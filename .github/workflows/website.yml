@@ -27,7 +27,8 @@ concurrency:
 jobs:
   build:
     name: Build & Audit
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -70,7 +71,8 @@ jobs:
   smoke:
     name: Playwright smoke & axe
     needs: build
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -105,7 +107,8 @@ jobs:
     name: Deploy to Cloudflare Pages
     needs: build
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -133,7 +136,8 @@ jobs:
       (github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository) ||
       (github.event_name == 'workflow_dispatch' && inputs.preview_branch != '')
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     timeout-minutes: 10
     permissions:
       contents: read

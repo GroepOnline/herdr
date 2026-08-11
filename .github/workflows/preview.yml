@@ -23,7 +23,8 @@ concurrency:
 
 jobs:
   preflight:
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     permissions:
       contents: read
     outputs:
@@ -219,7 +220,8 @@ jobs:
   publish:
     needs: [preflight, build]
     if: needs.preflight.outputs.should_publish == 'true'
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     permissions:
       contents: write
       issues: write
