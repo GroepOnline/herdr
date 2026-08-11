@@ -29,7 +29,8 @@ concurrency:
 jobs:
   prepare-remediation:
     name: Prepare remediation brief
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     timeout-minutes: 15
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -262,7 +263,8 @@ jobs:
 
   clear-remediation:
     name: Clear remediation state
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     timeout-minutes: 5
     # Only clear after green CI for the same PR head. Manual workflow_dispatch is
     # prepare-only; clearing on dispatch would race prepare and wipe the brief.

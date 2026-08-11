@@ -24,7 +24,8 @@ concurrency:
 jobs:
   changes:
     name: Changes
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     timeout-minutes: 5
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
@@ -46,7 +47,8 @@ jobs:
     name: Lint
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
@@ -80,7 +82,8 @@ jobs:
     name: Test
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
@@ -115,7 +118,8 @@ jobs:
     name: Maintenance
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.maintenance == 'true' || needs.changes.outputs.docs_only == 'true'
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
@@ -146,6 +150,8 @@ jobs:
       github.event_name == 'push' ||
       needs.changes.outputs.platform_heavy == 'true' ||
       contains(github.event.pull_request.labels.*.name, 'ci-heavy')
+    # BILLING_QUARANTINE: was windows-latest — disabled until spending restored
+    if: false
     runs-on: windows-latest
     timeout-minutes: 45
     env:
@@ -184,7 +190,8 @@ jobs:
     name: Release metadata
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.release_meta == 'true'
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
@@ -280,7 +287,8 @@ jobs:
 
   quality-gate:
     name: Quality gate
-    runs-on: ubuntu-latest
+    # GitHub-hosted runners banned until Actions spending restored (fleet only).
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
     needs:
       - changes
       - lint
