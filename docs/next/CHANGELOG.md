@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Selections in Mosh panes remain visible without host terminal colors. (upstream #2708)
+
 ## [0.8.6] - 2026-08-19
 
 ### Added
