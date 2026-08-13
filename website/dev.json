@@ -2,19 +2,32 @@
   "schema_version": 1,
   "channel": "dev",
   "enabled": true,
-  "base_version": "0.8.0",
-  "build_id": "2026-08-10-f37d8ceb6ee3",
-  "commit": "f37d8ceb6ee36e7575d9ec9350f22dbb3f2b7d08",
-  "built_at": "2026-08-10T13:52:29Z",
+  "base_version": "0.8.1",
+  "build_id": "2026-08-13-be5fdc2fcbb0",
+  "commit": "be5fdc2fcbb0a9062eee702612c22bc97b90d0b1",
+  "built_at": "2026-08-13T21:01:38Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-10-f37d8ceb6ee3\n\nBuilt from `f37d8ceb6ee3` on `main`.\nBase stable: v0.8.0\nCompare: https://github.com/GroepOnline/herdr/compare/7ffcead162e9fb4b19678ef807ac92cb20adfdca...f37d8ceb6ee36e7575d9ec9350f22dbb3f2b7d08\n\n### Added\n- Consolidate status and documentation foundation (#26)\n\n### Fixed\n- Align current version manifest with stable release\n- Install musl target in manual artifact build",
+  "notes": "Dev build 2026-08-13-be5fdc2fcbb0\n\nBuilt from `be5fdc2fcbb0` on `main`.\nBase stable: v0.8.1\nCompare: https://github.com/GroepOnline/herdr/compare/f37d8ceb6ee36e7575d9ec9350f22dbb3f2b7d08...be5fdc2fcbb0a9062eee702612c22bc97b90d0b1\n\n### Fixed\n- Restore 0.8.0 versioned docs snapshot from v0.8.0 tag\n\n### Maintenance\n- Document english-only documentation policy\n- Sync bun lockfile with package.json\n- Prepare 0.8.1 foundation release notes and sync docs/next to root\n- Sync v0.8.0 release notes with published GitHub release\n- Route workflows off GitHub-hosted runners (billing quarantine) (#27)\n\n### Other\n- V0.8.1",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-10-f37d8ceb6ee3/herdr-linux-x86_64",
-      "sha256": "9467c311e8b230c9869e82a4eefd63b7a4f31d9765c994e18f79fcb5d9d3aa1e"
+      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-13-be5fdc2fcbb0/herdr-linux-x86_64",
+      "sha256": "b83a8ae5dc27dfdc337379eac595a515f71863148f3b89ced20761f8f7943430"
     }
   },
   "builds": {
+    "2026-08-13-be5fdc2fcbb0": {
+      "base_version": "0.8.1",
+      "commit": "be5fdc2fcbb0a9062eee702612c22bc97b90d0b1",
+      "built_at": "2026-08-13T21:01:38Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-13-be5fdc2fcbb0",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-13-be5fdc2fcbb0/herdr-linux-x86_64",
+          "sha256": "b83a8ae5dc27dfdc337379eac595a515f71863148f3b89ced20761f8f7943430"
+        }
+      }
+    },
     "2026-08-10-f37d8ceb6ee3": {
       "base_version": "0.8.0",
       "commit": "f37d8ceb6ee36e7575d9ec9350f22dbb3f2b7d08",
@@ -259,19 +272,6 @@
         "linux-x86_64": {
           "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-31-79317e435d7e/herdr-linux-x86_64",
           "sha256": "cadf6df7b7f12f998640942ede21f909ace76b09bf8ba55b37294baf699cb806"
-        }
-      }
-    },
-    "2026-07-31-8a631f4d81d9": {
-      "base_version": "0.7.6",
-      "commit": "8a631f4d81d93c071c562b0a3485e52923469e76",
-      "built_at": "2026-07-31T04:12:51Z",
-      "protocol": 18,
-      "tag": "dev-2026-07-31-8a631f4d81d9",
-      "assets": {
-        "linux-x86_64": {
-          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-07-31-8a631f4d81d9/herdr-linux-x86_64",
-          "sha256": "bd605be0c9ff71b3c85daf1aafcd071e4a36704fbe4fcdee04b19044c265b6c3"
         }
       }
     }
