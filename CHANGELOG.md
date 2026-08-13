@@ -5,7 +5,7 @@
 ## [0.8.0] - 2026-08-09
 
 ### Added
-- Included v0.8.0 product features: versioned release documentation; Grok CLI integration with native session restore; antigravity-cli integration; ASCII IME in prefix mode on Windows; distinct status indicators (`ui.status_indicators = "dots" | "symbols"`); Windows remote attach to unix hosts; marketplace star history with dated backups and delta stats; Windows support for all agent integrations (`.ps1` assets for cursor, devin, grok, mastracode); per-pane right-click routing (`herdr pane split --right-click herdr|pane`).
+- Ported upstream v0.8.0 features (consolidated): versioned release documentation; Grok CLI integration with native session restore; antigravity-cli integration; ASCII IME in prefix mode on Windows; distinct status indicators (`ui.status_indicators = "dots" | "symbols"`); Windows remote attach to unix hosts; marketplace star history with dated backups and delta stats; Windows support for all agent integrations (`.ps1` assets for cursor, devin, grok, mastracode); per-pane right-click routing (`herdr pane split --right-click herdr|pane`).
 - `herdr --skill` prints the bundled agent skill file and exits.
 - Added herdr integration install grok for Grok CLI (Grok Build) hooks that report session ids through Herdr's socket API. Grok state stays screen-detected. When native agent session restore is enabled, Herdr can resume Grok panes with `grok --resume <id>`.
 
