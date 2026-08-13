@@ -71,6 +71,8 @@ The root `README.md`, root `CHANGELOG.md`, and website docs describe the latest 
 
 If your PR changes user-facing behavior, mention the needed public-doc update in the PR. Update `docs/next/README.md` only when the root README needs to change for the next release. Update the full website-doc mirror under `docs/next/website/src/content/docs/` when website docs need to change for the next release. Release CI promotes the tagged next docs only after the GitHub Release succeeds; contributors and maintainers do not copy them into stable docs manually.
 
+Documentation is English-only: English is the canonical language and the single maintained source, and localized mirrors (for example `ja/`, `zh-cn/`) are not kept. When porting upstream docs, keep the English source and do not re-add per-locale copies.
+
 You do not need to edit the changelog for normal PRs. Maintainers prepare `docs/next/CHANGELOG.md` during release review.
 
 If you are unsure whether docs are needed, mention it in the PR.

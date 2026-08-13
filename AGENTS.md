@@ -170,6 +170,8 @@ Stable public docs live in `website/src/content/docs/`. They are the currently r
 
 Unreleased docs live in `docs/next/website/src/content/docs/`. Update those when a user-facing change needs docs before the next release. `docs/next/README.md` and `docs/next/CHANGELOG.md` stage root README and changelog changes.
 
+Documentation is English-only. English is the canonical language and the single maintained source; localized mirrors (for example `ja/`, `zh-cn/`) are not kept. When porting upstream docs, keep the English source and do not re-add per-locale copies.
+
 The website build runs `website/scripts/prepare-docs.mjs`. It keeps stable docs at `/docs/` and generates preview docs at `/docs/preview/` from `docs/next/website/src/content/docs/`. Do not edit generated `website/src/content/docs/preview/`.
 
 During release review, copy approved next docs into the stable docs and run `just release-docs-check`. Normal feature/fix work should not edit root `README.md`, root `CHANGELOG.md`, or `website/latest.json` unless explicitly requested.
