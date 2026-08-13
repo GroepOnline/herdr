@@ -46,6 +46,7 @@ pub struct AgentSoundOverrides {
     pub freebuff: AgentSoundSetting,
     pub junie: AgentSoundSetting,
     pub open_claude: AgentSoundSetting,
+    pub qwen: AgentSoundSetting,
     pub maki: AgentSoundSetting,
     pub command_code: AgentSoundSetting,
 }
@@ -146,6 +147,7 @@ impl AgentSoundOverrides {
             Some(Agent::Freebuff) => self.freebuff,
             Some(Agent::Junie) => self.junie,
             Some(Agent::OpenClaude) => self.open_claude,
+            Some(Agent::Qwen) => self.qwen,
             Some(Agent::Maki) => self.maki,
             Some(Agent::CommandCode) => self.command_code,
             None => AgentSoundSetting::Default,
@@ -189,6 +191,7 @@ impl Default for AgentSoundOverrides {
             freebuff: AgentSoundSetting::Default,
             junie: AgentSoundSetting::Default,
             open_claude: AgentSoundSetting::Default,
+            qwen: AgentSoundSetting::Default,
             maki: AgentSoundSetting::Default,
             command_code: AgentSoundSetting::Default,
         }

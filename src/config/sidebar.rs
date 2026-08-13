@@ -624,6 +624,7 @@ rows = [[{ token = "git_status", fg = "#ff00aa" }], [{ token = "$jj", bold = tru
             Agent::Freebuff,
             Agent::Junie,
             Agent::OpenClaude,
+            Agent::Qwen,
             Agent::Maki,
             Agent::CommandCode,
         ];
