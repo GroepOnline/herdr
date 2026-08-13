@@ -361,11 +361,27 @@ mod tests {
         app.mode = Mode::Settings;
         app.settings.section = SettingsSection::Layout;
         let layout = SettingsLayout::compute(Rect::new(0, 0, 120, 40), &app).expect("layout");
+        // Row 0 is the "pane chrome" header; the first selectable row is index 1.
         let row_rect = layout
-            .content_row_rect(&app, 0)
-            .expect("first layout row should have geometry");
+            .content_row_rect(&app, 1)
+            .expect("first toggle row should have geometry");
         assert_eq!(
             layout.content_index_at(&app, row_rect.x + 1, row_rect.y),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn content_index_at_returns_header_row_index() {
+        let mut app = AppState::test_new();
+        app.mode = Mode::Settings;
+        app.settings.section = SettingsSection::Appearance;
+        let layout = SettingsLayout::compute(Rect::new(0, 0, 120, 40), &app).expect("layout");
+        let header_rect = layout
+            .content_row_rect(&app, 0)
+            .expect("appearance header should have geometry");
+        assert_eq!(
+            layout.content_index_at(&app, header_rect.x + 1, header_rect.y),
             Some(0)
         );
     }

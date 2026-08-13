@@ -204,10 +204,6 @@ fn apply_settings(state: &mut AppState) -> Option<SettingsAction> {
     }
 }
 
-fn section_item_count(state: &AppState) -> usize {
-    section_rows(state, state.settings.section).len()
-}
-
 fn next_section(section: SettingsSection) -> SettingsSection {
     section.next()
 }
@@ -216,21 +212,70 @@ fn prev_section(section: SettingsSection) -> SettingsSection {
     section.prev()
 }
 
+fn first_selectable(state: &AppState, section: SettingsSection) -> usize {
+    section_rows(state, section)
+        .iter()
+        .position(|row| row.kind != SettingsRowKind::Header)
+        .unwrap_or(0)
+}
+
 fn default_selection_for_section(state: &AppState, section: SettingsSection) -> usize {
+    let fallback = || first_selectable(state, section);
     match section {
         SettingsSection::Appearance => {
             let theme_idx = current_theme_index(&state.theme_name);
             section_rows(state, section)
                 .iter()
                 .position(|row| theme_index(row.id) == Some(theme_idx))
-                .unwrap_or(0)
+                .unwrap_or_else(fallback)
         }
         SettingsSection::Notifications => section_rows(state, section)
             .iter()
             .position(|row| row.label == "sound alerts")
-            .unwrap_or(0),
-        _ => 0,
+            .unwrap_or_else(fallback),
+        _ => first_selectable(state, section),
     }
+}
+
+fn move_selection_next(state: &mut AppState) {
+    let count = section_rows(state, state.settings.section).len();
+    if count > 0 {
+        state.settings.list.selected = (state.settings.list.selected + 1).min(count - 1);
+    }
+}
+
+fn move_selection_prev(state: &mut AppState) {
+    state.settings.list.selected = state.settings.list.selected.saturating_sub(1);
+}
+
+fn toggle_collapse_at(state: &mut AppState, row_index: usize) -> bool {
+    let rows = section_rows(state, state.settings.section);
+    let Some(row) = rows.get(row_index) else {
+        return false;
+    };
+    if row.kind != SettingsRowKind::Header {
+        return false;
+    }
+    if state.settings.collapsed_groups.remove(&row.label) {
+        // Group was collapsed; it is now expanded.
+    } else {
+        state.settings.collapsed_groups.insert(row.label.clone());
+    }
+    true
+}
+
+fn collapse_all_groups(state: &mut AppState) {
+    let labels: Vec<String> = section_rows(state, state.settings.section)
+        .iter()
+        .filter(|row| row.kind == SettingsRowKind::Header)
+        .map(|row| row.label.clone())
+        .collect();
+    state.settings.collapsed_groups.extend(labels);
+    state.settings.list.selected = first_selectable(state, state.settings.section);
+}
+
+fn expand_all_groups(state: &mut AppState) {
+    state.settings.collapsed_groups.clear();
 }
 
 fn activate_row(state: &AppState, row_index: usize) -> Option<SettingsAction> {
@@ -257,7 +302,7 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
     if let KeyCode::Char(ch) = key.code {
         if key.modifiers.is_empty()
             && ch.is_ascii()
-            && !matches!(ch, ' ' | '\t' | '\x1b' | '\n' | '\r' | '/')
+            && !matches!(ch, ' ' | '\t' | '\x1b' | '\n' | '\r' | '/' | '[' | ']')
         {
             state.settings.focus = SettingsFocus::Search;
             state.settings.search.push(ch);
@@ -276,13 +321,13 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
 
     match key.code {
         KeyCode::Up | KeyCode::Char('k') => {
-            state.settings.list.move_prev();
+            move_selection_prev(state);
             if state.settings.section == SettingsSection::Appearance {
                 preview_selected_theme(state);
             }
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            state.settings.list.move_next(section_item_count(state));
+            move_selection_next(state);
             if state.settings.section == SettingsSection::Appearance {
                 preview_selected_theme(state);
             }
@@ -290,17 +335,25 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
         KeyCode::Left | KeyCode::Char('h') => {
             state.settings.focus = SettingsFocus::Nav;
         }
-        KeyCode::Char('[') if state.settings.section == SettingsSection::Appearance => {
-            if state.settings.spinner_category > 0 {
-                state.settings.spinner_category -= 1;
+        KeyCode::Char('[') => {
+            if state.settings.section == SettingsSection::Appearance {
+                if state.settings.spinner_category > 0 {
+                    state.settings.spinner_category -= 1;
+                }
+            } else {
+                collapse_all_groups(state);
             }
         }
-        KeyCode::Char(']') if state.settings.section == SettingsSection::Appearance => {
-            let max = crate::ui::settings::spinner::SPINNER_CATEGORIES
-                .len()
-                .saturating_sub(1);
-            if state.settings.spinner_category < max {
-                state.settings.spinner_category += 1;
+        KeyCode::Char(']') => {
+            if state.settings.section == SettingsSection::Appearance {
+                let max = crate::ui::settings::spinner::SPINNER_CATEGORIES
+                    .len()
+                    .saturating_sub(1);
+                if state.settings.spinner_category < max {
+                    state.settings.spinner_category += 1;
+                }
+            } else {
+                expand_all_groups(state);
             }
         }
         KeyCode::Tab => {
@@ -316,7 +369,11 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             state.settings.content_scroll = 0;
         }
         KeyCode::Enter | KeyCode::Char(' ') => {
-            return activate_row(state, state.settings.list.selected);
+            let idx = state.settings.list.selected;
+            if toggle_collapse_at(state, idx) {
+                return None;
+            }
+            return activate_row(state, idx);
         }
         _ => match super::modal::modal_action_from_key(&key, super::modal::SETTINGS_ACTIONS) {
             Some(super::modal::ModalAction::Apply) => return apply_settings(state),
@@ -435,6 +492,9 @@ impl AppState {
                 if let Some(idx) = layout.content_index_at(self, mouse.column, mouse.row) {
                     self.settings.list.select(idx);
                     self.settings.focus = SettingsFocus::Content;
+                    if toggle_collapse_at(self, idx) {
+                        return None;
+                    }
                     if self.settings.section == SettingsSection::Appearance {
                         preview_selected_theme(self);
                     }
@@ -580,6 +640,110 @@ mod tests {
     }
 
     #[test]
+    fn settings_enter_on_header_toggles_group_collapse() {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::Appearance);
+
+        // Land on the "theme" header (index 0).
+        state.settings.list.selected = 0;
+        assert_eq!(
+            section_rows(&state, SettingsSection::Appearance)[0].kind,
+            SettingsRowKind::Header
+        );
+
+        // Activating a header collapses its group.
+        let action = update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
+        );
+        assert!(action.is_none());
+        assert!(state.settings.collapsed_groups.contains("theme"));
+        assert!(!section_rows(&state, SettingsSection::Appearance)
+            .iter()
+            .any(|row| row.label == "auto-switch theme with host"));
+
+        // Activating the header again expands the group.
+        state.settings.list.selected = 0;
+        let action = update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
+        );
+        assert!(action.is_none());
+        assert!(!state.settings.collapsed_groups.contains("theme"));
+        assert!(section_rows(&state, SettingsSection::Appearance)
+            .iter()
+            .any(|row| row.label == "auto-switch theme with host"));
+    }
+
+    #[test]
+    fn settings_navigation_can_land_on_headers() {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::Advanced);
+
+        // Default selection is the first non-header row (first experiment).
+        let rows = section_rows(&state, SettingsSection::Advanced);
+        assert_ne!(
+            rows[state.settings.list.selected].kind,
+            SettingsRowKind::Header
+        );
+
+        // Arrow-up lands on the "experiments" header.
+        update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Up, KeyModifiers::empty()),
+        );
+        let rows = section_rows(&state, SettingsSection::Advanced);
+        assert_eq!(
+            rows[state.settings.list.selected].kind,
+            SettingsRowKind::Header
+        );
+    }
+
+    #[test]
+    fn settings_brackets_collapse_and_expand_all_groups() {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::Advanced);
+
+        update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Char('['), KeyModifiers::empty()),
+        );
+        let collapsed = section_rows(&state, SettingsSection::Advanced);
+        assert!(collapsed
+            .iter()
+            .all(|row| row.kind == SettingsRowKind::Header));
+        assert_eq!(collapsed.len(), 3); // experiments, system, paths & config
+
+        update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Char(']'), KeyModifiers::empty()),
+        );
+        assert!(state.settings.collapsed_groups.is_empty());
+        assert!(section_rows(&state, SettingsSection::Advanced)
+            .iter()
+            .any(|row| row.label == "fleet ops bar"));
+    }
+
+    #[test]
+    fn settings_brackets_cycle_spinner_categories_in_appearance() {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::Appearance);
+        state.settings.spinner_category = 1;
+
+        update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Char('['), KeyModifiers::empty()),
+        );
+        assert_eq!(state.settings.spinner_category, 0);
+
+        update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Char(']'), KeyModifiers::empty()),
+        );
+        assert_eq!(state.settings.spinner_category, 1);
+    }
+
+    #[test]
     fn settings_tab_advances_sections() {
         let mut state = state_with_workspaces(&["test"]);
         open_settings_at(&mut state, SettingsSection::Appearance);
@@ -693,14 +857,16 @@ mod tests {
         open_settings_at(&mut app.state, SettingsSection::Advanced);
 
         let area = app.state.settings_layout().expect("layout").content;
+        // First list row (content.y + 3) is the "experiments" header; the first
+        // selectable row (pane history) sits one row below.
         let action = app.state.handle_settings_mouse(mouse(
             MouseEventKind::Down(crossterm::event::MouseButton::Left),
             area.x + 2,
-            area.y + 3,
+            area.y + 4,
         ));
 
         assert_eq!(action, Some(SettingsAction::SavePaneHistory(true)));
-        assert_eq!(app.state.settings.list.selected, 0);
+        assert_eq!(app.state.settings.list.selected, 1);
     }
 
     #[test]

@@ -5479,7 +5479,9 @@ next_tab = ""
         }));
         server.app.state.mode = crate::app::Mode::Settings;
         server.app.state.settings.section = crate::app::state::SettingsSection::Notifications;
-        server.app.state.settings.list.selected = 2;
+        // "toast inside herdr" is the 5th content row (index 4) after the
+        // "sound" / "toasts" subheaders were added to the notifications list.
+        server.app.state.settings.list.selected = 4;
 
         assert!(server.handle_server_event(ServerEvent::ClientInput {
             client_id: 1,
@@ -5555,7 +5557,9 @@ next_tab = ""
         }));
         server.app.state.mode = crate::app::Mode::Settings;
         server.app.state.settings.section = crate::app::state::SettingsSection::Notifications;
-        server.app.state.settings.list.selected = 2;
+        // "toast inside herdr" is the 5th content row (index 4) after the
+        // "sound" / "toasts" subheaders were added to the notifications list.
+        server.app.state.settings.list.selected = 4;
 
         assert!(server.handle_server_event(ServerEvent::ClientInput {
             client_id: 1,

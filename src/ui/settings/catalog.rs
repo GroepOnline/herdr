@@ -13,6 +13,7 @@ use super::spinner::active_spinner_category;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SettingsItemId {
+    Header,
     ThemeAutoSwitch,
     SidebarWidth,
     SidebarCollapsedMode,
@@ -47,11 +48,9 @@ pub(crate) enum SettingsItemId {
     ResumeAgentsOnRestore,
     Integration { index: usize },
     IntegrationsEmpty,
-    PluginsInstalledHeader,
     // TODO(plugins-v2): key InstalledPlugin by plugin_id once SettingsItemId can hold owned ids.
     InstalledPlugin { index: usize },
     PluginsEmpty,
-    PluginsCatalogHeader,
     CatalogPlugin { plugin_id: &'static str },
     UpdateChannelStable,
     UpdateChannelPreview,
@@ -442,13 +441,12 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
             .map(|entry| SettingsAction::InstallCatalogPlugin {
                 source: entry.source.to_string(),
             }),
-        SettingsItemId::Theme { .. }
+        SettingsItemId::Header
+        | SettingsItemId::Theme { .. }
         | SettingsItemId::KeybindHelp
         | SettingsItemId::Integration { .. }
         | SettingsItemId::IntegrationsEmpty
-        | SettingsItemId::PluginsInstalledHeader
         | SettingsItemId::PluginsEmpty
-        | SettingsItemId::PluginsCatalogHeader
         | SettingsItemId::WorktreesPath
         | SettingsItemId::ReloadConfig
         | SettingsItemId::ConfigFile => None,

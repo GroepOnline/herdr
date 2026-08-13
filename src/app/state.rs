@@ -1254,16 +1254,6 @@ impl SelectionListState {
         Self { selected }
     }
 
-    pub fn move_prev(&mut self) {
-        self.selected = self.selected.saturating_sub(1);
-    }
-
-    pub fn move_next(&mut self, item_count: usize) {
-        if item_count > 0 {
-            self.selected = (self.selected + 1).min(item_count - 1);
-        }
-    }
-
     pub fn select(&mut self, idx: usize) {
         self.selected = idx;
     }
@@ -1315,6 +1305,8 @@ pub struct SettingsState {
     pub config_snapshot: SettingsConfigSnapshot,
     /// Latest catalog plugin install job for the plugins settings section.
     pub plugin_install_job: Option<PluginInstallJob>,
+    /// Labels of collapsed groups in the settings content list.
+    pub collapsed_groups: std::collections::BTreeSet<String>,
 }
 
 pub(crate) enum DragTarget {
@@ -2110,6 +2102,7 @@ impl AppState {
                 preview_tick: 0,
                 config_snapshot: SettingsConfigSnapshot::load(),
                 plugin_install_job: None,
+                collapsed_groups: std::collections::BTreeSet::new(),
             },
             integration_recommendations: Vec::new(),
             agent_manifest_summaries: Vec::new(),

@@ -21,6 +21,33 @@ use super::{
     spinner::{active_spinner_category, spinner_frame_at, spinner_hero_strip},
 };
 
+fn highlight_spans<'a>(text: &'a str, needle: &str, base: Style, matched: Style) -> Vec<Span<'a>> {
+    if needle.is_empty() {
+        return vec![Span::styled(text, base)];
+    }
+    // Settings labels/details are ASCII, so lowercasing preserves byte offsets
+    // and `match_indices` offsets map directly back onto the original text.
+    let lower = text.to_lowercase();
+    let needle_lower = needle.to_lowercase();
+    let mut spans = Vec::new();
+    let mut last = 0usize;
+    for (start, _) in lower.match_indices(&needle_lower) {
+        if start > last {
+            spans.push(Span::styled(&text[last..start], base));
+        }
+        let end = (start + needle_lower.len()).min(text.len());
+        spans.push(Span::styled(&text[start..end], matched));
+        last = end;
+    }
+    if last < text.len() {
+        spans.push(Span::styled(&text[last..], base));
+    }
+    if spans.is_empty() {
+        spans.push(Span::styled(text, base));
+    }
+    spans
+}
+
 pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout: &SettingsLayout) {
     let p = &app.palette;
     let section = app.settings.section;
@@ -63,6 +90,8 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
     let rows = section_rows(app, section);
     let (scroll, visible) = layout.visible_row_range(app);
     let selected = app.settings.list.selected.min(rows.len().saturating_sub(1));
+    let filter = app.settings.search.as_str();
+    let match_style = Style::default().fg(p.yellow).add_modifier(Modifier::BOLD);
 
     for visible_idx in 0..visible {
         let row_index = scroll + visible_idx;
@@ -75,6 +104,27 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
         };
 
         let is_sel = row_index == selected;
+
+        if row.kind == SettingsRowKind::Header {
+            let collapsed = app.settings.collapsed_groups.contains(&row.label);
+            let glyph = if collapsed { "▸" } else { "▾" };
+            let header_style = if is_sel {
+                Style::default()
+                    .bg(p.surface0)
+                    .fg(p.text)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(p.overlay0).add_modifier(Modifier::BOLD)
+            };
+            frame.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::styled(format!(" {glyph} "), header_style),
+                    Span::styled(row.label.clone(), header_style),
+                ])),
+                rect,
+            );
+            continue;
+        }
         let row_style = if is_sel {
             Style::default()
                 .bg(p.surface0)
@@ -123,12 +173,12 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
             SettingsRowKind::Note => "·",
             // Compact apply-row — no ASCII wireframe cards.
             SettingsRowKind::Template => "▸",
+            // Unreachable: headers render above and `continue` before this match.
+            SettingsRowKind::Header => "",
         };
 
-        let mut spans = vec![
-            Span::styled(format!(" {marker} "), row_style),
-            Span::styled(row.label.clone(), row_style),
-        ];
+        let mut spans = vec![Span::styled(format!(" {marker} "), row_style)];
+        spans.extend(highlight_spans(&row.label, filter, row_style, match_style));
 
         if row.kind == SettingsRowKind::Spinner {
             let styles = active_spinner_styles(app);
@@ -144,9 +194,12 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
         }
 
         if let Some(detail) = &row.detail {
-            spans.push(Span::styled(
-                format!("  — {detail}"),
+            spans.push(Span::styled("  — ", Style::default().fg(p.overlay1)));
+            spans.extend(highlight_spans(
+                detail,
+                filter,
                 Style::default().fg(p.overlay1),
+                match_style,
             ));
         }
 
@@ -391,10 +444,11 @@ pub(crate) fn render_settings_footer(app: &AppState, frame: &mut Frame, layout: 
             Span::styled(" select  ", Style::default().fg(p.overlay1)),
             Span::styled("tab", Style::default().fg(p.overlay0)),
             Span::styled(" section  ", Style::default().fg(p.overlay1)),
-            Span::styled("[", Style::default().fg(p.overlay0)),
             Span::styled("/", Style::default().fg(p.overlay0)),
+            Span::styled(" search  ", Style::default().fg(p.overlay1)),
+            Span::styled("[", Style::default().fg(p.overlay0)),
             Span::styled("]", Style::default().fg(p.overlay0)),
-            Span::styled(" search", Style::default().fg(p.overlay1)),
+            Span::styled(" collapse", Style::default().fg(p.overlay1)),
         ])),
         layout.footer_hints,
     );
@@ -424,4 +478,34 @@ pub(crate) fn render_settings_footer(app: &AppState, frame: &mut Frame, layout: 
             .bg(p.surface0)
             .add_modifier(Modifier::BOLD),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::style::{Modifier, Style};
+
+    #[test]
+    fn highlight_spans_marks_matching_substring() {
+        let base = Style::default();
+        let matched = Style::default().add_modifier(Modifier::BOLD);
+        let spans = highlight_spans("auto-switch theme", "theme", base, matched);
+
+        assert_eq!(spans.len(), 2);
+        assert_eq!(spans[0].content.as_ref(), "auto-switch ");
+        assert_eq!(spans[0].style, base);
+        assert_eq!(spans[1].content.as_ref(), "theme");
+        assert_eq!(spans[1].style, matched);
+    }
+
+    #[test]
+    fn highlight_spans_without_needle_returns_single_span() {
+        let base = Style::default();
+        let matched = Style::default().add_modifier(Modifier::BOLD);
+        let spans = highlight_spans("label", "", base, matched);
+
+        assert_eq!(spans.len(), 1);
+        assert_eq!(spans[0].content.as_ref(), "label");
+        assert_eq!(spans[0].style, base);
+    }
 }
