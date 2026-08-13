@@ -1,47 +1,77 @@
 ---
 title: Install Herdr
-description: Install, update, and verify Herdr on Linux, macOS, and Windows beta.
+description: Install, verify, and update Herdr on Linux, macOS, and Windows beta.
 ---
 
-Herdr ships stable binaries for Linux and macOS. Native Windows support is preview-only beta.
+Stable Herdr binaries are published for Linux and macOS on x86_64 and ARM64. Native Windows support remains preview-only beta.
 
-## Install
+## Direct install
 
-On Linux or macOS, run:
+On Linux or macOS:
 
 ```bash
 curl -fsSL https://herdr.chefgroep.nl/install.sh | sh
 ```
 
-On Windows preview beta, install the preview channel:
+The installer reads the selected channel manifest, requires a 64-hex SHA-256 for the platform asset, downloads into the destination directory, verifies the binary, and only then atomically replaces `herdr`. A failed download or checksum leaves the existing binary untouched.
+
+On Windows preview beta:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps1 | iex"
 ```
 
-The installer downloads the right release binary for your platform and places it on your PATH. Herdr defaults to preview on Windows without changing your config. The installer uses versioned install folders and updates a `current` junction, so updates do not need to overwrite a running `herdr.exe`.
+Windows uses versioned install folders and a `current` junction so an update does not overwrite a running `herdr.exe`.
 
-## Install with Homebrew
+## Homebrew
 
-If you already use Homebrew:
+Use the GroepOnline tap for the release synchronized with Herdr's manifest:
 
 ```bash
-brew install herdr
+brew tap GroepOnline/tap
+brew install GroepOnline/tap/groeponline-herdr
 ```
 
-## Install with mise
+The formula supports Linux and macOS on Intel and ARM. Update with:
 
-If you already use mise:
+```bash
+brew update
+brew upgrade GroepOnline/tap/groeponline-herdr
+```
+
+## npm or Bun
+
+The npm package supports Linux and macOS on Intel and ARM. Its postinstall downloads the matching release binary and verifies it against `SHA256SUMS` before installation.
+
+```bash
+npm install --global groeponline-herdr
+# or
+bun add --global groeponline-herdr
+```
+
+Update with:
+
+```bash
+npm install --global groeponline-herdr@latest
+```
+
+## mise
 
 ```bash
 mise use -g herdr
 ```
 
-If mise reports `herdr not found in mise tool registry`, update mise and retry. Older mise versions predate the Herdr registry entry; `mise use -g github:GroepOnline/herdr` works as a temporary fallback.
+If mise reports `herdr not found in mise tool registry`, update mise and retry. Older mise versions can temporarily use:
 
-## Install with Nix
+```bash
+mise use -g github:GroepOnline/herdr
+```
 
-If you already use Nix, Herdr provides a flake that builds Herdr from source:
+Update with `mise upgrade herdr`.
+
+## Nix
+
+Herdr provides a flake that builds from source:
 
 ```bash
 nix run github:GroepOnline/herdr/v0.x.y
@@ -49,48 +79,27 @@ nix build github:GroepOnline/herdr/v0.x.y
 nix profile install github:GroepOnline/herdr/v0.x.y
 ```
 
-Replace `v0.x.y` with the latest release tag. You can omit the tag to track `master`, but release tags are recommended for normal installs.
+Replace `v0.x.y` with the intended release tag. For profile installs, use `nix profile list` followed by `nix profile upgrade <index-or-name>`. For flake inputs, update the Herdr input and rebuild the owning system or environment.
 
-The flake also exposes a development shell:
+## Cargo
 
-```bash
-nix develop github:GroepOnline/herdr
-```
-
-Update through the same Nix workflow you used to install Herdr. For a profile install, list your profile entries and upgrade the Herdr entry:
-
-```bash
-nix profile list
-nix profile upgrade <index-or-name>
-```
-
-If Herdr is an input in your own flake, update that input and rebuild your system, Home Manager, or development environment:
-
-```bash
-nix flake update herdr
-```
-
-## Install from source with Cargo
-
-If you already use Cargo, install Herdr directly from the repository:
+If you already use Cargo:
 
 ```bash
 cargo install --git https://github.com/GroepOnline/herdr.git
 ```
 
-This builds the current `main` branch. For a release build, pass the release tag:
+This builds the current `main` branch. For a release build, pass the tag:
 
 ```bash
 cargo install --git https://github.com/GroepOnline/herdr.git --tag v0.8.0
 ```
 
-Building from source requires the Rust and Zig toolchains (see `rust-toolchain.toml`) and takes longer than the script or package-manager installs. Update a Cargo install by re-running the same command; `herdr update` only applies to installer-managed installs.
+Building from source requires the Rust and Zig toolchains and takes longer than the direct or package-manager installs. Update a Cargo install by re-running the same command.
 
-## Download manually
+## Manual download
 
-You can also download a binary from [GitHub releases](https://github.com/GroepOnline/herdr/releases).
-
-Choose the asset that matches your system:
+Download the binary and `SHA256SUMS` from [GitHub releases](https://github.com/GroepOnline/herdr/releases), verify the selected asset, then place it on your PATH.
 
 | System | Asset |
 | --- | --- |
@@ -99,69 +108,38 @@ Choose the asset that matches your system:
 | macOS Intel | `herdr-macos-x86_64` |
 | macOS Apple silicon | `herdr-macos-aarch64` |
 
-On Linux or macOS, make it executable and move it somewhere on your PATH.
+Example:
 
 ```bash
+sha256sum --check --ignore-missing SHA256SUMS
 chmod +x herdr-linux-x86_64
 mv herdr-linux-x86_64 ~/.local/bin/herdr
 ```
 
-### Windows beta downloads
+On macOS, use `shasum -a 256 --ignore-missing --check SHA256SUMS` when `sha256sum` is unavailable.
 
-Windows binaries are published only on preview releases while native Windows support is in beta. Use the preview installer above for normal testing, or download the Windows asset from a preview GitHub prerelease:
+## Direct-install update channels
 
-| System | Asset |
-| --- | --- |
-| Windows x86_64 beta | `herdr-windows-x86_64.exe` |
+`herdr update` is only for direct installs managed by Herdr. Package-manager installs are intentionally detected and must update through Homebrew, npm, mise, or Nix.
 
-## Verify
-
-Start Herdr:
-
-```bash
-herdr
-```
-
-If your shell cannot find `herdr`, restart the terminal or check that the install directory is on your PATH.
-
-## Update
-
-Herdr checks for new releases and notifies you in the app. You can update manually:
+Linux and macOS direct installs use `stable` by default:
 
 ```bash
 herdr update
-```
-
-`herdr update` is for installs managed by Herdr's own installer. Homebrew, mise, and Nix installs are updated through those package managers instead.
-
-On Linux and macOS, Herdr uses the stable update channel by default. To opt into preview builds from `master`, set the channel:
-
-```bash
 herdr channel set preview
-```
-
-Switch Linux and macOS direct installs back to stable the same way:
-
-```bash
+herdr channel set dev
 herdr channel set stable
 ```
 
-For direct installs, changing channels also checks that channel and installs its latest binary. If that update fails, run `herdr update` to retry from the configured channel.
+Preview and dev are direct-install channels. Windows beta defaults to preview and cannot switch to stable until stable Windows assets exist.
 
-Preview builds are manually published GitHub prereleases from the current development branch. They are useful when you want fixes before the next stable release, but they can regress. Homebrew, mise, and Nix installs do not use the preview channel.
+A running server continues using its current process after the binary changes. Restart the default session with `herdr server stop` followed by `herdr`; restart a named session with `herdr session stop <name>` followed by `herdr session attach <name>`. `herdr update --handoff` remains experimental.
 
-Windows beta builds are preview-only for now. `herdr channel set stable` is rejected on Windows until stable Windows releases are available.
-
-By default, `herdr update` installs the new binary and leaves compatible running sessions alone. If an update changes Herdr's client/server protocol, Herdr asks whether to stop the old server after installing. Stop the old server to use the new version. Stopping exits pane processes. For the default session, run `herdr server stop`, then run `herdr` again. For a named session, run `herdr session stop <name>`, then run `herdr session attach <name>` again.
-
-To opt into experimental live server handoff for supported running sessions, run:
+## Verify
 
 ```bash
-herdr update --handoff
+herdr --version
+herdr
 ```
 
-Live handoff does not apply to Homebrew, mise, or Nix package-manager updates. For those installs, update with the package manager, then restart that Herdr session when you are ready to use the new server. If a running session still uses the old server, stop it with `herdr server stop` or `herdr session stop <name>`, then run Herdr again.
-
-## Requirements
-
-Stable Herdr releases support Linux and macOS. Native Windows builds are preview-only beta releases; see [Windows beta](/docs/windows-beta/) for supported workflows and known limitations.
+If the shell cannot find `herdr`, restart it or add the selected install directory to `PATH`.

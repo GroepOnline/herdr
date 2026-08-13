@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [0.8.1] - 2026-08-13
+
+### 0.8.1 foundation
+- Added one shared status projection for the sidebar, navigator, agent views, API helpers, and fleet presentation.
+- Added explicit `unknown` status presentation so insufficient evidence is no longer displayed as `idle`.
+- Documented the existing configurable sidebar row layouts, semantic status indicators, spinner catalog, per-agent layouts, and live Settings preview as the 0.8.1 UI foundation.
+
+### Fixed
+- Fixed inconsistent status labels across UI surfaces: `working`, `blocked`, `done`, `idle`, and `unknown` now use the same projection.
+- Fixed agent-aware documentation that described only four states and could imply that every non-working pane was idle.
+
+### Scope
+- The full settings/menu/sidebar editor rewrite remains a follow-up slice. 0.8.1 establishes the shared contracts first so the editor cannot diverge from server-owned runtime state.
+
 ## [0.8.0] - 2026-08-09
 
 ### Added
@@ -85,11 +99,11 @@
 
 ## [0.7.4] - 2026-07-15
 
-GroepOnline fork release with upstream herdr 0.7.4 merged in. First GroepOnline build shipped from `GroepOnline/herdr` CI (not upstream binaries).
+GroepOnline product release based on the Herdr 0.7.4 baseline. First GroepOnline build shipped from `GroepOnline/herdr` CI.
 
 ### Added
 
-- Agent detection for `freebuff`, `junie`, `openclaude`, and upstream `maki`.
+- Agent detection for `freebuff`, `junie`, `openclaude`, and `maki`.
 - `herdr-gateway` HTTP API with SSE event streaming (`:7777`).
 - Fleet Ops Bar, Fleet/Plugins settings tabs, and workspace templates (`dev`, `incident`).
 - Spinner appearance settings with live preview (76 styles).
@@ -136,7 +150,7 @@ GroepOnline fork release with upstream herdr 0.7.4 merged in. First GroepOnline 
 
 ### Changed
 
-- Distribution binaries publish from `GroepOnline/herdr` releases (replacing upstream-seeded v0.7.3 assets).
+- Distribution binaries publish from `GroepOnline/herdr` releases with explicit GroepOnline ownership.
 - CI uses the same patched Zig path as release builds on macOS and gates only supported release platforms.
 - Expanded Space and Agent sidebar entries now use a packed layout by default; set the corresponding `row_gap` to `1` to restore the previous spacing.
 - Refreshed the bundled Herdr agent skill for current public workspace, tab, and pane ids and the current CLI/API workflow. (#1297)
@@ -930,7 +944,7 @@ This is a hotfix for v0.6.3. See the v0.6.3 notes for the full feature release.
 - Added CLI wrappers on top of the socket API with `herdr workspace ...`, `herdr pane ...`, and `herdr wait ...`, using compact public ids for scripting and agent orchestration.
 - Added a settings popup with mouse support for changing themes, sound alerts, and toast notifications from inside herdr.
 - Added 9 built-in themes: catppuccin, tokyo night, dracula, nord, gruvbox, one dark, solarized, kanagawa, and rosé pine.
-- Added interactive pane scrollbars, manual sidebar resizing, and upstream git ahead/behind indicators in the workspace sidebar.
+- Added interactive pane scrollbars, manual sidebar resizing, and Git ahead/behind indicators in the workspace sidebar.
 
 ### Changed
 - Redesigned the sidebar into a two-section layout that separates workspace-level triage from per-agent detail, making it easier to supervise multiple agents in parallel.

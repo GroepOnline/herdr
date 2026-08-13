@@ -143,12 +143,20 @@ like `ctrl+h`, `control+j`, `alt+x`, and `shift+tab`, function keys like
 {"id":"req_focus","method":"pane.focus_direction","params":{"direction":"right"}}
 {"id":"req_resize","method":"pane.resize","params":{"pane_id":"w1:p1","direction":"right","amount":0.1}}
 {"id":"req_zoom","method":"pane.zoom","params":{"pane_id":"w1:p1","mode":"toggle"}}
-{"id":"req_split","method":"pane.split","params":{"direction":"right","ratio":0.333,"env":{"HERDR_ROLE":"tests"}}}
+{"id":"req_input","method":"pane.input.set","params":{"pane_id":"w1:p1","right_click":"pane"}}
+{"id":"req_split","method":"pane.split","params":{"direction":"right","ratio":0.333,"right_click":"pane","env":{"HERDR_ROLE":"tests"}}}
 {"id":"req_process","method":"pane.process_info","params":{"pane_id":"w1:p1"}}
 ```
 
 `pane.current` returns a single `PaneInfo`. When `caller_pane_id` is present,
 Herdr returns that pane. When it is omitted, Herdr returns the active focused
+pane.
+
+`pane.input.set` sets `right_click` to `herdr` or `pane` for one pane. `herdr`
+is the default. `pane` forwards unmodified right-click hold and drag gestures
+when the application requests terminal mouse reporting; otherwise Herdr falls
+back to its pane menu. Right-clicking the pane frame always opens Herdr's menu.
+`pane.split` accepts the same optional `right_click` value for the newly created
 pane.
 
 `PaneInfo` includes `scroll` when terminal scroll metrics are available:
@@ -689,6 +697,23 @@ Session-only official integrations report native session references with `pane.r
 ```
 
 If no native session reference is stored, the field is omitted.
+
+Lifecycle integrations release agent authority with `pane.release_agent`. Integrations that know their current session should include the same `agent_session_id` or `agent_session_path` used in their state reports:
+
+```json
+{
+  "id": "req_3",
+  "method": "pane.release_agent",
+  "params": {
+    "pane_id": "w1:p1",
+    "source": "herdr:pi",
+    "agent": "pi",
+    "agent_session_path": "/path/to/pi-session.jsonl"
+  }
+}
+```
+
+When the current owner is session-bound, Herdr accepts the release only when its source, agent, and session reference all match. Mismatched or unscoped releases are ignored without consuming their sequence number. Sessionless integrations retain the existing immediate release behavior.
 
 `pane.get`, `pane.list`, `agent.get`, and `agent.list` also expose `foreground_cwd` when Herdr can resolve the cwd of the process currently controlling the pane PTY. The existing `cwd` field remains the pane/workspace cwd used for labels, follow-cwd behavior, and restored session state.
 

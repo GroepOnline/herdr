@@ -32,11 +32,15 @@ herdr --default-config > ~/.config/herdr/config.toml
 
 If a config value is invalid, Herdr falls back to a safe default and shows a startup warning.
 
-Herdr shows first-run setup when `onboarding` is missing or true. Continuing from onboarding writes `onboarding = false` and opens settings on the integrations tab. Set it when you want to skip that flow after setup.
+Herdr shows first-run setup when `onboarding` is missing or true. Continuing from onboarding writes `onboarding = false` and opens settings on the Agents section. Set it when you want to skip that flow after setup.
 
 ```toml
 onboarding = false
 ```
+
+## Settings UI
+
+Open the in-app settings shell with the settings keybinding (default `prefix+s`). The left-nav modal surfaces most `config.toml` options across Appearance, Layout, Input, Terminal, Notifications, Agents, Updates, and Advanced. Use `/` to search setting labels, and keep editing `config.toml` or CLI helpers (`herdr channel`, `herdr config check`) when you prefer the file path.
 
 ## Reload config
 
@@ -98,14 +102,14 @@ Deleting a worktree checkout is explicit. Use `Delete worktree checkout...` on a
 
 ## Remote attach
 
-Remote attach manages its SSH connection with a temporary keepalive and connection-reuse fallback by default.
+Remote attach manages its SSH connection with temporary keepalives and, where supported, connection reuse by default.
 
 ```toml
 [remote]
 manage_ssh_config = true
 ```
 
-When enabled, `herdr --remote` writes a private temporary SSH config that includes your `~/.ssh/config` and `/etc/ssh/ssh_config` first, then adds fallback `ServerAliveInterval` and `ServerAliveCountMax` values. Your own keepalive settings win. Herdr also uses a private per-attach OpenSSH control socket to reuse the first authenticated connection. Set `manage_ssh_config = false` to run remote attach through plain `ssh` without Herdr's generated config or control socket.
+When enabled, `herdr --remote` writes a private temporary SSH config that includes your user and system SSH configs first, then adds fallback `ServerAliveInterval` and `ServerAliveCountMax` values. Your own keepalive settings win. Linux and macOS clients also use a private per-attach OpenSSH control socket to reuse the first authenticated connection; Windows OpenSSH does not. Set `manage_ssh_config = false` to run remote attach through plain `ssh` without Herdr's generated config or control socket.
 
 ## Keybindings
 
@@ -242,6 +246,7 @@ You can override individual colors:
 
 ```toml
 [theme.custom]
+sidebar_bg = "#181825"
 panel_bg = "reset"
 accent = "#a6e3a1"
 green = "#a6e3a1"
@@ -250,11 +255,37 @@ red = "#f38ba8"
 yellow = "#f9e2af"
 ```
 
+`sidebar_bg` optionally gives the desktop sidebar its own background. When omitted, the sidebar keeps the host terminal background.
+
 Color values accept hex, named colors, `rgb(r,g,b)`, or reset aliases like `reset`, `default`, `none`, and `transparent`.
 
 ## UI and sidebar
 
-The sidebar is the main Herdr dashboard. Search `ui.` in the [Config reference](/docs/config-reference/) for sizing, collapsed mode, Agent panel ordering, mouse behavior, pane borders, and other presentation settings.
+The sidebar is the main Herdr dashboard. Search `ui.` in the [Config reference](/docs/config-reference/) for sizing, collapsed mode, Agent panel ordering, mouse behavior, pane borders, motion, and other presentation settings.
+
+### Status semantics and motion
+
+Herdr keeps runtime facts and presentation choices separate. The server/runtime determines the pane's observed agent state; the client projects that fact into the same status vocabulary everywhere:
+
+- `working` — active processing;
+- `blocked` — input or approval is required;
+- `done` — an unseen transition into an idle prompt;
+- `idle` — an acknowledged idle prompt;
+- `unknown` — insufficient evidence to claim another state.
+
+`unknown` is intentionally not rendered as `idle`. If a status seems wrong, inspect the authority and evidence with `herdr agent explain <target>` rather than inferring from a color alone.
+
+Working indicators are presentation-only. Choose a spinner from the built-in catalog and choose semantic dots or symbols independently:
+
+```toml
+[ui]
+spinner_style = "dots-full"
+status_indicators = "symbols"
+```
+
+The Settings surface previews spinner styles before saving. Use a restrained style such as `dots`, `arc`, or `circle` for dense sidebars; reserve emoji and wide multi-cell frames for a panel with enough width. Status icons must remain understandable when animation is paused, when the terminal cannot render a glyph, and for users who prefer reduced visual motion. No spinner changes the underlying agent state or notification authority.
+
+Set `tab_bar_position = "bottom"` under `[ui]` to place the desktop tab row below the terminal panes. Prefix, Navigate, Copy, and Resize mode bars temporarily replace the bottom tab row while active. The default is `"top"`.
 
 ### Sidebar row layouts
 
@@ -432,14 +463,18 @@ Restricting `cjk_ime_agents` avoids showing an extra hardware cursor in unrelate
 
 ## Prefix input source switching
 
-On macOS, Herdr can temporarily switch to the system ASCII-capable input source while prefix commands and prefix-launched modes are active:
+On macOS and Windows, Herdr can temporarily switch to an ASCII-capable input source while prefix commands and prefix-launched modes are active:
 
 ```toml
 [experimental]
 switch_ascii_input_source_in_prefix = true
 ```
 
-Herdr restores the previous input source when returning to terminal input or entering a text field. This setting has no effect on other platforms.
+On macOS this switches to the current ASCII-capable keyboard layout; on Windows it switches the IME to English (ASCII) input. Herdr restores the previous input source when returning to terminal input or entering a text field. This setting has no effect on other platforms.
+
+:::caution[Windows support is Korean IME only]
+On Windows, support is currently limited to the Korean IME. With an IME for any other language, this setting leaves the input source unchanged.
+:::
 
 ## Environment variables
 

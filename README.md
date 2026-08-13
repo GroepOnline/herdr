@@ -1,175 +1,237 @@
 # herdr
 
+
 <p align="center">
-  <img src="assets/logo.png" alt="Herdr" width="100" />
+  <img src="../../assets/logo.png" alt="herdr" width="100" />
 </p>
 
 <p align="center">
-  <a href="https://herdr.chefgroep.nl">Website</a> ·
-  <a href="https://herdr.chefgroep.nl/docs/quick-start/">Quick start</a> ·
-  <a href="https://herdr.chefgroep.nl/docs/integrations/">Integrations</a> ·
-  <a href="https://herdr.chefgroep.nl/docs/configuration/">Configuration</a> ·
-  <a href="https://herdr.chefgroep.nl/docs/socket-api/">Socket API</a> ·
-  <a href="https://github.com/GroepOnline/herdr/releases/latest">Latest release</a>
+  <a href="https://herdr.chefgroep.nl">herdr.chefgroep.nl</a> · <a href="#install">install</a> · <a href="#quick-start">quick start</a> · <a href="#supported-agents">supported agents</a> · <a href="https://herdr.chefgroep.nl/docs/integrations/">integrations</a> · <a href="https://herdr.chefgroep.nl/docs/configuration/">configuration</a> · <a href="https://herdr.chefgroep.nl/docs/socket-api/">socket api</a> · <a href="#sponsors">sponsor</a>
 </p>
 
-<p align="center">
-  <a href="https://github.com/GroepOnline/herdr/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/GroepOnline/herdr?display_name=tag&sort=semver"></a>
-  <a href="https://github.com/GroepOnline/herdr/actions"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/GroepOnline/herdr/ci.yml?branch=main"></a>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue"></a>
-</p>
+---
 
-**A terminal-native multiplexer and control surface for AI coding agents.**
+<video src="https://herdr.chefgroep.nl/assets/demo-v2.mp4" controls width="100%" autoplay muted loop playsinline></video>
 
-Herdr gives you persistent workspaces, tabs and real terminal panes, with agent-aware states such as blocked, working, done and idle. Detach and reattach without killing the running agents. There is no Electron shell, wrapped agent UI or macOS-only native application.
+**agent multiplexer that lives in your terminal.**
 
-GroepOnline maintains and ships Herdr as its own product, including the CHEF release, integration and deployment layer. The current stable line is **v0.8.0**; `main` can contain validated post-release fixes before the next tag.
+workspaces, tabs, panes. mouse-native: click, drag, split. every agent at a glance: blocked, working, done. detach and reattach, agents keep running. no gui app, no electron, no mac-only native wrapper. you see the agent's own terminal, not someone's interpretation of it.
 
-## Install
+---
 
-Linux and macOS direct install (the manifest SHA-256 is verified before replacement):
+## install
 
 ```bash
 curl -fsSL https://herdr.chefgroep.nl/install.sh | sh
 ```
 
-Windows preview beta:
+The Linux/macOS installer verifies the selected manifest SHA-256 before atomically replacing the binary.
+
+on windows preview beta:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps1 | iex"
 ```
 
-Homebrew (GroepOnline tap — Linux/macOS, Intel/ARM):
+or install with homebrew:
 
 ```bash
 brew tap GroepOnline/tap
 brew install GroepOnline/tap/groeponline-herdr
 ```
 
-npm or Bun (Linux/macOS, Intel/ARM; postinstall verifies SHA256SUMS):
+update later with `brew update && brew upgrade GroepOnline/tap/groeponline-herdr`. The GroepOnline tap and [herdr.chefgroep.nl/latest.json](https://herdr.chefgroep.nl/latest.json) are the canonical distribution sources.
+
+or install with npm/bun (Linux/macOS, Intel/ARM):
 
 ```bash
 npm install --global groeponline-herdr
 # or: bun add --global groeponline-herdr
 ```
 
-mise:
+The npm postinstall verifies the release `SHA256SUMS` before installing the native binary.
+
+or install with mise:
 
 ```bash
 mise use -g herdr
 ```
 
-When an older mise version cannot find the registry entry, update mise or temporarily use:
+if mise reports `herdr not found in mise tool registry`, update mise and retry. older mise versions predate the herdr registry entry; `mise use -g github:GroepOnline/herdr` works as a temporary fallback.
 
-```bash
-mise use -g github:GroepOnline/herdr
-```
+or download the stable Linux/macOS binary from [releases](https://github.com/GroepOnline/herdr/releases). Native Windows binaries are beta builds; the preview and dev channels currently publish Linux (musl) binaries only.
 
-Stable Linux/macOS binaries and preview artifacts are available from [GitHub Releases](https://github.com/GroepOnline/herdr/releases). Native Windows binaries remain preview-only.
+## quick start
 
-## Quick start
-
-Start Herdr in the directory containing your work:
+Start Herdr in the directory where the work lives:
 
 ```bash
 herdr
 ```
 
-Herdr starts or attaches to a background session server and opens a workspace when needed.
+Herdr starts or attaches to one background session server. When a session has no workspaces, Herdr opens one automatically. Run an agent in the root pane. Press `ctrl+b`, then `shift+n` to create another workspace, `ctrl+b`, then `v` or `minus` to split panes, `ctrl+b`, then `c` to create a tab, and `ctrl+b`, then `w` to switch workspaces.
 
-Common controls:
+Press `ctrl+b q` to detach the client. The server and pane processes keep running. Open another terminal and run `herdr` again to reattach.
 
-| Key | Action |
-|---|---|
-| `ctrl+b`, then `shift+n` | New workspace |
-| `ctrl+b`, then `c` | New tab |
-| `ctrl+b`, then `v` or `-` | Split pane |
-| `ctrl+b`, then `w` | Switch workspace |
-| `ctrl+b`, then `z` | Zoom pane |
-| `ctrl+b`, then `[` | Copy mode |
-| `ctrl+b`, then `q` | Detach client |
+## core concepts
 
-Detaching closes only the client. The server and pane processes continue running. Run `herdr` again to reattach.
+**Server and client.** By default, `herdr` attaches to a background server. Detaching closes only the client. `herdr server stop` stops the default server and kills its panes. Named sessions are separate server namespaces: use `herdr session attach work`, `herdr session stop work`, and `herdr session list` when you want fully separate runtime state.
 
-## Core model
+**Workspaces, tabs, panes.** A workspace is the project-level container. Tabs group panes inside a workspace. Panes are real terminal processes, not rewritten agent views.
 
-- **Server and client:** one background server owns the session; clients can detach and reattach.
-- **Workspaces, tabs and panes:** workspaces are project-level containers, tabs group panes, and panes are real terminal processes.
-- **Named sessions:** use `herdr session attach <name>`, `herdr session stop <name>` and `herdr session list` for isolated runtime namespaces.
-- **Agent awareness:** foreground processes, terminal output and direct integrations drive blocked, working, done and idle state.
-- **Persistence and restore:** pane processes survive client detach; supported agent integrations can restore native agent sessions after a full restart.
-- **Remote operation:** Herdr works over SSH and supports direct remote attach.
+**Copy.** Herdr copies pane text, not the sidebar. Drag-select inside a pane, double-click a word or token, or press `prefix+[` for keyboard copy mode. In copy mode, move with `h/j/k/l`, `w/b/e`, and `{`/`}`, start selection with `v` or Space, copy with `y` or Enter, and leave with `q` or Esc. In PuTTY and some SSH terminals, hold `Shift` while dragging to use the terminal's own selection, and `Shift` + right click to paste.
 
-## Update
+**Update and restore.** `herdr update` installs a new binary, but a running server keeps using the old process until it is stopped or handed off. Stop the old server to use the new version. Stopping exits pane processes. Run `herdr server stop`, then run `herdr` again for the default session. For a named session, run `herdr session stop <name>`, then run `herdr session attach <name>` again. `herdr update --handoff` is experimental and tries to move live panes, including foreground processes such as dev servers, from the old server to the new one. With current official integrations installed, supported agent panes can restart from their native agent sessions after a server restart or update.
 
-For direct installs:
+**Keybindings.** Herdr uses explicit keybinding strings. `prefix+n` means press the configured prefix, then `n`. `ctrl+alt+n`, `cmd+k`, `alt+1`, and function-key chords are direct terminal-mode shortcuts and do not need the prefix. Plain direct printable keys such as `n` steal normal typing, so use `prefix+n` unless you intentionally want a modifier-gated direct binding.
+
+**Agent awareness.** The sidebar and navigator use one explicit projection: `working`, `blocked`, `done`, `idle`, or `unknown`. `unknown` means insufficient evidence, not idle. Detection works with process names and terminal output by default; official integrations can add native session identity for restore, semantic state reports, or both.
+
+## update
+
+Herdr notifies you when a new version is available. Run manually:
 
 ```bash
 herdr update
 ```
 
-A running server continues using its current binary until it is stopped or handed off. For the default session:
+`herdr update` is for installs managed by Herdr's own installer. Homebrew, npm, mise, and Nix installs update through `brew update && brew upgrade GroepOnline/tap/groeponline-herdr`, `npm install --global groeponline-herdr@latest`, `mise upgrade herdr`, or your Nix workflow, then use the same stop-and-run-again flow if a session is still running the old server. Direct installs can opt into preview builds with `herdr channel set preview`, dev builds with `herdr channel set dev`, and return to stable with `herdr channel set stable` on Linux and macOS. See [install docs](https://herdr.chefgroep.nl/docs/install/) and [session state docs](https://herdr.chefgroep.nl/docs/session-state/) for the full update, restart, restore, and handoff matrix.
 
-```bash
-herdr server stop
-herdr
-```
-
-For a named session:
-
-```bash
-herdr session stop <name>
-herdr session attach <name>
-```
-
-`herdr update --handoff` is experimental and attempts to transfer supported live panes to the replacement server.
-
-Package-manager installs update through their package manager:
-
-```bash
-brew update && brew upgrade GroepOnline/tap/groeponline-herdr
-npm install --global groeponline-herdr@latest
-mise upgrade herdr
-```
-
-Direct Linux/macOS installs use the stable channel by default. Preview builds can be selected with:
+Linux and macOS direct installs use the stable update channel by default. Windows beta installs default to preview. To test preview builds from `main` before the next stable release:
 
 ```bash
 herdr channel set preview
 ```
 
-Return to stable with:
+To test dev builds published from merges to `main`:
+
+```bash
+herdr channel set dev
+```
+
+To return Linux and macOS direct installs to stable:
 
 ```bash
 herdr channel set stable
 ```
 
-Windows beta installs currently use the preview channel.
+For direct installs, changing channels also checks that channel and installs its latest binary. If that update fails, run `herdr update` to retry from the configured channel.
 
-## Agent support
+Preview is only for direct installs managed by Herdr's updater. Homebrew, mise, and Nix stay on stable and update through their package managers.
+Dev is also direct-install only. It follows merges to `main` and is meant for smoke testing merge results.
 
-Automatic process and terminal-output detection works without hooks. Current built-in coverage includes:
+## how it compares
 
-- pi
-- Claude Code
-- Codex
-- Droid
-- Amp
-- OpenCode
-- Grok CLI
-- Hermes Agent
-- Kilo Code CLI
-- Devin CLI
-- Cursor Agent CLI
-- Antigravity CLI
-- Kimi Code CLI
-- GitHub Copilot CLI
-- Qoder CLI
-- Kiro CLI
+|                          | tmux | gui managers | herdr |
+|--------------------------|------|--------------|-------|
+| persistent sessions       | ✓    | —            | ✓     |
+| detach / reattach        | ✓    | —            | ✓     |
+| panes, tabs, workspaces  | ✓    | ✓            | ✓     |
+| agent awareness          | —    | ✓            | ✓     |
+| lives in your terminal   | ✓    | —            | ✓     |
+| real terminal views      | ✓    | —            | ✓     |
+| mouse-native            | —    | ✓            | ✓     |
+| lightweight binary       | ✓    | —            | ✓     |
+| agents can orchestrate   | ?    | ?            | ✓     |
 
-Gemini CLI and Cline are detected but are not yet considered fully validated.
+tmux gives you persistence and panes, but it was built before agents existed. gui managers show agent state, but they make you leave your terminal and use their wrapped view. herdr is persistence and awareness in one tool that stays out of your way.
 
-Official integrations can provide native session identity, semantic state reporting or both:
+## remote and attach
+
+Herdr works over normal SSH. Run it on the remote host, detach, and reattach later:
+
+```
+ssh you@yourserver
+herdr
+```
+
+You can also attach from your local terminal without opening a shell first:
+
+```bash
+herdr --remote workbox
+herdr --remote ssh://you@yourserver:2222
+```
+
+Remote attach adds fallback SSH keepalives and connection reuse by default while preserving your own SSH config. Set `[remote].manage_ssh_config = false` to use plain `ssh`.
+
+Direct attach connects your current terminal to one server-owned terminal:
+
+```bash
+herdr agent attach <target>
+herdr terminal attach <terminal_id>
+```
+
+See [persistence and remote docs](https://herdr.chefgroep.nl/docs/persistence-remote/) for remote keybinding, named-session, and handoff details.
+
+## agent awareness
+
+the sidebar shows which agents are blocked, working, done, idle, or unknown. Workspaces roll up to their most urgent state so you can scan the full list at a glance. `unknown` is intentionally visible instead of being presented as idle; use `herdr agent explain <target>` to inspect the evidence and authority behind a live state.
+
+states:
+
+- 🔴 **blocked** — agent needs input or approval
+- 🟡 **working** — agent is actively running
+- 🔵 **done** — work finished, you have not looked at it yet
+- 🟢 **idle** — done and seen
+- ⚪ **unknown** — Herdr does not have enough evidence to claim another state
+
+detection works by reading foreground process and terminal output. zero config, no hooks required. official claude code, codex, github copilot cli, devin, droid, kimi code cli, qodercli, and cursor agent cli integrations provide session restore identity; pi, omp, kimi code cli, opencode, kilo code cli, hermes, mastracode, and custom socket integrations can report their own state.
+
+## lives in your terminal
+
+not a gui window, not a web dashboard, not electron. herdr runs inside whatever terminal you already use. single rust binary, no dependencies. works inside tmux as the outer terminal environment.
+
+## what you get
+
+- **workspaces** — organized around git repos or folder names, each with its own tabs and panes
+- **tabs** — first-class in the socket api and cli
+- **copy-friendly** — drag-select pane text, double-click tokens, or use keyboard copy mode with `prefix+[`, `h/j/k/l`, `{`/`}`, `v`, and `y`
+- **notifications** — sounds and toasts for background events; tab-aware suppression
+- **agent-aware presentation** — configurable sidebar rows, semantic state icons/text, per-agent layouts, terminal titles, Git context, and plugin-reported metadata
+- **motion you can tune** — a large built-in spinner catalog, dots or symbols for status indicators, and live preview in Settings
+- **18 built-in themes** — catppuccin, terminal, tokyo night, gruvbox, one, solarized, kanagawa, rosé pine, vesper, and light variants for the main palettes
+- **session persistence** — pane processes survive client detach; sessions restore panes after full restart, with opt-in recent screen history
+
+## agents can use herdr too
+
+The local Unix socket lets agents create workspaces, split or zoom panes, spawn helpers, read output, and wait for state changes. Install the reusable skill with:
+
+```bash
+npx skills add GroepOnline/herdr --skill herdr -g
+```
+
+Start with the [agent skill docs](https://herdr.chefgroep.nl/docs/agent-skill/), [socket API docs](https://herdr.chefgroep.nl/docs/socket-api/), and [`SKILL.md`](./SKILL.md).
+
+## supported agents
+
+automatic detection works out of the box. process name matching plus terminal output heuristics.
+
+| agent | idle / done | working | blocked |
+|-------|-------------|---------|---------|
+| [pi](https://pi.dev) | ✓ | ✓ | partial |
+| [claude code](https://docs.anthropic.com/en/docs/claude-code) | ✓ | ✓ | ✓ |
+| [codex](https://github.com/openai/codex) | ✓ | ✓ | ✓ |
+| [droid](https://factory.ai) | ✓ | ✓ | ✓ |
+| [amp](https://ampcode.com) | ✓ | ✓ | ✓ |
+| [opencode](https://github.com/anomalyco/opencode) | ✓ | ✓ | ✓ |
+| [grok cli](https://x.ai/grok) | ✓ | ✓ | ✓ |
+| [hermes agent](https://github.com/NousResearch/hermes-agent) | ✓ | ✓ | ✓ |
+| [kilo code cli](https://kilo.ai/) | ✓ | ✓ | ✓ |
+| [devin cli](https://docs.devin.ai/cli) | ✓ | ✓ | ✓ |
+| cursor agent | ✓ | ✓ | ✓ |
+| antigravity cli | ✓ | ✓ | ✓ |
+| kimi code cli | ✓ | ✓ | ✓ |
+| [github copilot cli](https://github.com/features/copilot) | ✓ | ✓ | ✓ |
+| [qodercli](https://qoder.com/cli) | ✓ | ✓ | ✓ |
+| [kiro cli](https://kiro.dev/docs/cli/) | ✓ | ✓ | — |
+
+detected but not fully tested: gemini cli, cline.
+
+for agents outside the built-in list, herdr still works as a terminal multiplexer with workspaces, panes, and tiling. custom integrations can report agent labels over the socket api. see the [socket api docs](https://herdr.chefgroep.nl/docs/socket-api/).
+
+### direct integrations
+
+official integrations have two roles. claude code, codex, github copilot cli, devin, droid, qodercli, and cursor agent cli report session identity for native restore, while their state still comes from screen detection. pi, omp, kimi code cli, opencode, kilo code cli, hermes, and mastracode report both semantic state and session identity. install with:
 
 ```bash
 herdr integration install pi
@@ -188,100 +250,81 @@ herdr integration install qodercli
 herdr integration install cursor
 ```
 
-See the [integration documentation](https://herdr.chefgroep.nl/docs/integrations/) for exact capabilities and setup requirements.
+see the [integrations docs](https://herdr.chefgroep.nl/docs/integrations/) for setup details.
 
-## Agent automation
+## keybindings
 
-Herdr exposes a local socket API that lets agents create workspaces, split or zoom panes, spawn helpers, inspect output and wait for state changes.
+Press `ctrl+b` to enter prefix mode. Default actions are prefix-first and tmux-like:
 
-Install the reusable skill globally:
+| key | action |
+|-----|--------|
+| `prefix+c` | new tab |
+| `prefix+n` / `prefix+p` | next / previous tab |
+| `prefix+1..9` | switch tab |
+| `prefix+w` | workspace navigation |
+| `prefix+g` | session navigator |
+| `prefix+shift+n` | new workspace |
+| `prefix+shift+g` | new worktree |
+| `prefix+shift+w` | rename workspace |
+| `prefix+shift+d` | close workspace |
+| `prefix+h/j/k/l` | focus pane |
+| `prefix+shift+h/j/k/l` | swap pane |
+| `prefix+v` / `prefix+minus` | split pane |
+| `prefix+x` | close pane |
+| `prefix+b` | toggle sidebar |
+| `prefix+z` | zoom pane |
+| `prefix+r` | resize mode |
+| `prefix+q` | detach |
 
-```bash
-npx skills add GroepOnline/herdr --skill herdr -g
-```
+Mouse is supported throughout. Resize mode uses `h`/`l` for width, `j`/`k` for height, and `esc` to exit. Full syntax, optional actions, indexed bindings, and custom command bindings live in the [configuration docs](https://herdr.chefgroep.nl/docs/configuration/).
 
-Start with:
+## configuration
 
-- [Agent skill documentation](https://herdr.chefgroep.nl/docs/agent-skill/)
-- [`SKILL.md`](./SKILL.md)
-- [Socket API documentation](https://herdr.chefgroep.nl/docs/socket-api/)
-
-## Remote and direct attach
-
-Run Herdr normally on a remote host:
-
-```bash
-ssh you@yourserver
-herdr
-```
-
-Or attach from the local terminal:
-
-```bash
-herdr --remote workbox
-herdr --remote ssh://you@yourserver:2222
-```
-
-Directly attach to a server-owned agent or terminal:
+config file: `~/.config/herdr/config.toml`
 
 ```bash
-herdr agent attach <target>
-herdr terminal attach <terminal_id>
+herdr --default-config   # print full default config
 ```
 
-See [persistence and remote documentation](https://herdr.chefgroep.nl/docs/persistence-remote/) for SSH behavior, named sessions and handoff details.
+In-app settings cover theme, sound, and toast preferences. Herdr writes logs under `~/.config/herdr/`; in persistent session mode, `herdr-client.log` and `herdr-server.log` are usually the useful files. Full configuration and logging details live in the [configuration docs](https://herdr.chefgroep.nl/docs/configuration/).
 
-## Configuration
+## docs
 
-The configuration file is located at:
+- [quick start](https://herdr.chefgroep.nl/docs/quick-start/) — first session, panes, copy, and named sessions
+- [install](https://herdr.chefgroep.nl/docs/install/) — install, update, Homebrew, mise, and Nix
+- [session state](https://herdr.chefgroep.nl/docs/session-state/) — detach, restart restore, agent restore, and live handoff
+- [configuration](https://herdr.chefgroep.nl/docs/configuration/) — keybindings, themes, notifications, environment variables
+- [integrations](https://herdr.chefgroep.nl/docs/integrations/) — pi, omp, claude code, codex, cursor agent cli, github copilot cli, droid, kimi code cli, opencode, kilo code cli, hermes, mastracode, qodercli integrations
+- [`SKILL.md`](./SKILL.md) — reusable agent skill
+- [socket api](https://herdr.chefgroep.nl/docs/socket-api/) — socket protocol and cli reference
 
-```text
-~/.config/herdr/config.toml
-```
+## agent instructions
 
-Print the complete default configuration:
+if you are an ai agent helping with this repository, read [`AGENTS.md`](./AGENTS.md) before making changes and read [`CONTRIBUTING.md`](./CONTRIBUTING.md) before opening issues or PRs.
+
+## development
 
 ```bash
-herdr --default-config
-```
-
-Herdr writes logs under `~/.config/herdr/`. In persistent-session mode, `herdr-client.log` and `herdr-server.log` are usually the relevant files.
-
-## Documentation
-
-- [Quick start](https://herdr.chefgroep.nl/docs/quick-start/)
-- [Install and update](https://herdr.chefgroep.nl/docs/install/)
-- [Session state and restore](https://herdr.chefgroep.nl/docs/session-state/)
-- [Configuration](https://herdr.chefgroep.nl/docs/configuration/)
-- [Integrations](https://herdr.chefgroep.nl/docs/integrations/)
-- [Socket API](https://herdr.chefgroep.nl/docs/socket-api/)
-- [`SKILL.md`](./SKILL.md)
-
-## Development
-
-Read [`AGENTS.md`](./AGENTS.md) and [`CONTRIBUTING.md`](./CONTRIBUTING.md) before changing the repository.
-
-```bash
-git clone https://github.com/GroepOnline/herdr.git
+git clone https://github.com/GroepOnline/herdr
 cd herdr
 cargo build --release
 ./target/release/herdr
 
-just test
-just check
+just test        # unit tests
+just check       # formatting, tests, and maintenance checks
 ```
 
-The release metadata is currently aligned as follows:
+## sponsors
 
-- Rust crate: `0.8.0`
-- CHEF distribution package: `0.8.0`
-- Stable Git tag/release line: `v0.8.0`
+herdr is built full-time, in the open, with no revenue behind it. sponsoring directly funds development, stability, and the path to a real agent runtime.
 
-## License
+[**→ become a sponsor**](https://github.com/sponsors/GroepOnline) · enterprise / partnership: hey@herdr.chefgroep.nl · see [SPONSORS.md](./SPONSORS.md) for tiers. thank you 🐑
+
+## license
 
 Herdr is dual-licensed:
 
-1. GNU Affero General Public License v3.0 or later (`AGPL-3.0-or-later`).
-2. Commercial licenses for organizations that cannot comply with the AGPL.
+1. Open source: GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later).
+2. Commercial: commercial licenses are available for organizations that cannot comply with AGPL.
 
-Commercial and partnership contact: `hey@herdr.chefgroep.nl`.
+Contact: hey@herdr.chefgroep.nl
