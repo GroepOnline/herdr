@@ -409,10 +409,6 @@ impl PaneTerminal {
         self.ghostty.detection_text()
     }
 
-    pub fn recent_text(&self, lines: usize) -> String {
-        self.ghostty.recent_text(lines)
-    }
-
     pub(crate) fn recent_text_snapshot(&self, lines: usize) -> TerminalReadSnapshot {
         self.ghostty.recent_text_snapshot(lines)
     }
@@ -1922,6 +1918,7 @@ impl GhosttyPaneTerminal {
             .unwrap_or_default()
     }
 
+    #[cfg(test)]
     pub fn recent_text(&self, lines: usize) -> String {
         self.recent_text_snapshot(lines).text
     }
