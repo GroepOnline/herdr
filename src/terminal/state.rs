@@ -1023,6 +1023,16 @@ impl TerminalState {
                 // "startup" here, breaking nested omp startup replacement tests.
                 // Only intentional lifecycle replacements may overwrite a bound root.
                 | ("herdr:omp", "omp", Some("new" | "resume" | "fork"))
+                | (
+                    "herdr:omp",
+                    "omp",
+                    Some("startup" | "new" | "resume" | "fork")
+                )
+                | (
+                    "herdr:qwen",
+                    "qwen",
+                    Some("startup" | "clear" | "resume" | "compact" | "branch")
+                )
                 | ("herdr:antigravity_cli", "agy", None)
         )
     }
@@ -4455,6 +4465,73 @@ mod tests {
 
     #[test]
     fn nested_omp_startup_does_not_replace_root_or_consume_sequence() {
+    fn qwen_lifecycle_session_ref_replaces_existing_session_ref() {
+        for session_start_source in ["startup", "clear", "resume", "compact", "branch"] {
+            let mut terminal = test_terminal();
+            terminal.set_detected_state(Some(Agent::Qwen), AgentState::Idle);
+            terminal
+                .set_agent_session_ref(
+                    "herdr:qwen".into(),
+                    "qwen".into(),
+                    crate::agent_resume::AgentSessionRef::id("qwen-session"),
+                    Some(20),
+                )
+                .expect("initial session should be accepted");
+
+            let next_session = format!("qwen-{session_start_source}-session");
+            let mutation = terminal
+                .set_agent_session_ref_for_session_start(
+                    "herdr:qwen".into(),
+                    "qwen".into(),
+                    crate::agent_resume::AgentSessionRef::id(&next_session),
+                    Some(21),
+                    Some(session_start_source.into()),
+                )
+                .unwrap_or_else(|| panic!("{session_start_source} should replace the session"));
+
+            assert!(mutation.session_ref_changed);
+            assert_eq!(
+                terminal
+                    .persisted_agent_session
+                    .as_ref()
+                    .map(|session| session.session_ref.value.as_str()),
+                Some(next_session.as_str())
+            );
+        }
+    }
+
+    #[test]
+    fn qwen_session_ref_does_not_replace_without_foreground_qwen() {
+        let mut terminal = test_terminal();
+        terminal
+            .set_agent_session_ref(
+                "herdr:qwen".into(),
+                "qwen".into(),
+                crate::agent_resume::AgentSessionRef::id("qwen-parent"),
+                Some(20),
+            )
+            .expect("initial session should be accepted");
+
+        let mutation = terminal.set_agent_session_ref_for_session_start(
+            "herdr:qwen".into(),
+            "qwen".into(),
+            crate::agent_resume::AgentSessionRef::id("qwen-branch"),
+            Some(21),
+            Some("branch".into()),
+        );
+
+        assert!(mutation.is_none());
+        assert_eq!(
+            terminal
+                .persisted_agent_session
+                .as_ref()
+                .map(|session| session.session_ref.value.as_str()),
+            Some("qwen-parent")
+        );
+    }
+
+    #[test]
+    fn opencode_server_new_does_not_replace_existing_session_ref() {
         let mut terminal = test_terminal();
         let root_session =
             crate::agent_resume::AgentSessionRef::path(test_session_path("omp-root.jsonl"))

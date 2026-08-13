@@ -64,12 +64,13 @@ pub enum Agent {
     Freebuff,
     Junie,
     OpenClaude,
+    Qwen,
     Maki,
     CommandCode,
 }
 
 impl Agent {
-    pub const ALL: [Self; 25] = [
+    pub const ALL: [Self; 26] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -93,11 +94,12 @@ impl Agent {
         Self::Freebuff,
         Self::Junie,
         Self::OpenClaude,
+        Self::Qwen,
         Self::Maki,
         Self::CommandCode,
     ];
 
-    pub const SCREEN_MANIFEST_AGENTS: [Self; 23] = [
+    pub const SCREEN_MANIFEST_AGENTS: [Self; 24] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -119,6 +121,7 @@ impl Agent {
         Self::Freebuff,
         Self::Junie,
         Self::OpenClaude,
+        Self::Qwen,
         Self::Maki,
         Self::CommandCode,
     ];
@@ -149,6 +152,7 @@ pub fn agent_label(agent: Agent) -> &'static str {
         Agent::Freebuff => "freebuff",
         Agent::Junie => "junie",
         Agent::OpenClaude => "openclaude",
+        Agent::Qwen => "qwen",
         Agent::Maki => "maki",
         Agent::CommandCode => "commandcode",
     }
@@ -185,6 +189,7 @@ pub fn interactive_agent_executable(agent: Agent) -> &'static str {
         Agent::Freebuff => "freebuff",
         Agent::Junie => "junie",
         Agent::OpenClaude => "openclaude",
+        Agent::Qwen => "qwen",
         Agent::Maki => "maki",
         Agent::CommandCode => "cmd",
     }
@@ -225,6 +230,7 @@ fn lookup_agent(name: &str) -> Option<Agent> {
         "freebuff" | "freebuff-cli" => Some(Agent::Freebuff),
         "junie" | "junie-cli" => Some(Agent::Junie),
         "openclaude" | "open-claude" | "openclaude-cli" => Some(Agent::OpenClaude),
+        "qwen" | "qwen-code" | "qwen code" => Some(Agent::Qwen),
         "maki" => Some(Agent::Maki),
         "cmd" | "command-code" | "commandcode" | "commandcode-cli" => Some(Agent::CommandCode),
         "opencode2" | "open-code-2" => Some(Agent::OpenCode),
@@ -324,6 +330,7 @@ pub(crate) fn full_lifecycle_hook_authority(source: &str, agent_label: &str) -> 
     )
 }
 
+>>>>>>> a4d52ab6 (feat: add qwen code detection and restore (#2743))
 // ---------------------------------------------------------------------------
 // Process identification (platform-specific)
 // ---------------------------------------------------------------------------
@@ -362,6 +369,19 @@ fn normalized_process_name(process: &crate::platform::ForegroundProcess) -> Stri
 
     if identify_agent(effective).is_some() {
         return effective.to_string();
+    }
+
+    if let Some(runtime) = process.argv.as_deref().and_then(|argv| argv.first()) {
+        let runtime_name = normalized_agent_lookup_name(path_basename(runtime));
+        if matches!(runtime_name.as_str(), "node" | "bun") {
+            if let Some(wrapped_agent) =
+                wrapped_agent_name_from_runtime_argv(runtime, process.argv.as_deref())
+            {
+                if identify_agent(&wrapped_agent) == Some(Agent::Qwen) {
+                    return wrapped_agent;
+                }
+            }
+        }
     }
 
     if let Some(wrapped_agent) = argv0_agent_name(process.argv.as_deref())
@@ -569,6 +589,9 @@ fn agent_name_from_known_package_path(path: &str) -> Option<String> {
         {
             return Some(agent_label(Agent::Pi).to_string());
         }
+        if window == ["node_modules", "@qwen-code", "qwen-code", "dist", "index"] {
+            return Some(agent_label(Agent::Qwen).to_string());
+        }
     }
     for window in components.windows(4) {
         if window == ["node_modules", "mastracode", "dist", "cli"] {
@@ -717,6 +740,8 @@ mod tests {
         assert_eq!(identify_agent("hermes-agent"), Some(Agent::Hermes));
         assert_eq!(identify_agent("kilo"), Some(Agent::Kilo));
         assert_eq!(identify_agent("kilo-code"), Some(Agent::Kilo));
+        assert_eq!(identify_agent("qwen"), Some(Agent::Qwen));
+        assert_eq!(identify_agent("Qwen Code"), Some(Agent::Qwen));
         assert_eq!(identify_agent("maki"), Some(Agent::Maki));
     }
 
@@ -742,6 +767,7 @@ mod tests {
         assert_eq!(parse_agent_label("kiro-cli"), Some(Agent::Kiro));
         assert_eq!(parse_agent_label("grok-build"), Some(Agent::Grok));
         assert_eq!(parse_agent_label("hermes-agent"), Some(Agent::Hermes));
+        assert_eq!(parse_agent_label("qwen-code"), Some(Agent::Qwen));
         assert_eq!(parse_agent_label("maki"), Some(Agent::Maki));
         assert_eq!(parse_agent_label("kilo-code"), Some(Agent::Kilo));
     }
@@ -788,6 +814,7 @@ mod tests {
             (Agent::Freebuff, "freebuff"),
             (Agent::Junie, "junie"),
             (Agent::OpenClaude, "openclaude"),
+            (Agent::Qwen, "qwen"),
             (Agent::Maki, "maki"),
             (Agent::CommandCode, "cmd"),
         ];
@@ -815,6 +842,7 @@ mod tests {
     }
 
     #[test]
+
     fn identify_unknown_processes() {
         assert_eq!(identify_agent("bash"), None);
         assert_eq!(identify_agent("zsh"), None);
@@ -844,6 +872,27 @@ mod tests {
             identify_agent_in_job(&job),
             Some((Agent::Codex, "codex".to_string()))
         );
+    }
+
+    #[test]
+    fn identify_agent_in_job_detects_node_wrapped_qwen() {
+        for argv in [
+            vec!["node", "/home/user/.fnm/bin/qwen"],
+            vec![
+                "node.exe",
+                r"C:\Users\user\AppData\Roaming\npm\node_modules\@qwen-code\qwen-code\dist\index.js",
+            ],
+        ] {
+            let job = crate::platform::ForegroundJob {
+                process_group_id: 123,
+                processes: vec![foreground_process(123, "MainThread", &argv)],
+            };
+
+            assert_eq!(
+                identify_agent_in_job(&job),
+                Some((Agent::Qwen, "qwen".to_string()))
+            );
+        }
     }
 
     #[test]

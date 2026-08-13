@@ -101,6 +101,7 @@ fn clear_integration_path_env() {
     std::env::remove_var(KIMI_CODE_HOME_ENV_VAR);
     std::env::remove_var("XDG_CONFIG_HOME");
     std::env::remove_var(QODERCLI_CONFIG_DIR_ENV_VAR);
+    std::env::remove_var(QWEN_HOME_ENV_VAR);
     std::env::remove_var(CURSOR_CONFIG_DIR_ENV_VAR);
     std::env::remove_var(ANTIGRAVITY_CLI_CONFIG_DIR_ENV_VAR);
     std::env::remove_var(GROK_CONFIG_DIR_ENV_VAR);
@@ -194,6 +195,7 @@ fn windows_supports_portable_integrations() {
     assert!(integration_target_supported(IntegrationTarget::Droid));
     assert!(integration_target_supported(IntegrationTarget::Kimi));
     assert!(integration_target_supported(IntegrationTarget::Qodercli));
+    assert!(integration_target_supported(IntegrationTarget::Qwen));
 }
 
 #[cfg(windows)]
@@ -3189,6 +3191,108 @@ fn install_qodercli_errors_when_config_dir_missing() {
     );
 
     std::env::remove_var(QODERCLI_CONFIG_DIR_ENV_VAR);
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn install_qwen_writes_session_hook_and_preserves_settings() {
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let qwen_dir = base.join(".qwen");
+    fs::create_dir_all(&qwen_dir).unwrap();
+    fs::write(
+        qwen_dir.join("settings.json"),
+        r#"{"permissions":{"allow":["Read"]},"hooks":{}}"#,
+    )
+    .unwrap();
+    std::env::set_var(QWEN_HOME_ENV_VAR, &qwen_dir);
+
+    let installed = install_qwen().unwrap();
+
+    assert_eq!(
+        installed.hook_path,
+        qwen_dir.join("hooks").join(QWEN_HOOK_INSTALL_NAME)
+    );
+    assert_eq!(installed.settings_path, qwen_dir.join("settings.json"));
+    assert!(installed.hook_path.is_file());
+
+    let settings: Value =
+        serde_json::from_str(&fs::read_to_string(&installed.settings_path).unwrap()).unwrap();
+    let entries = settings["hooks"]["SessionStart"].as_array().unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0]["matcher"], "*");
+    assert_eq!(entries[0]["hooks"][0]["timeout"], 10_000);
+    let command = entries[0]["hooks"][0]["command"].as_str().unwrap();
+    assert!(command.contains(QWEN_HOOK_INSTALL_NAME));
+    assert!(command.ends_with("session"));
+    assert!(settings.get("permissions").is_some());
+    let hook_asset = fs::read_to_string(&installed.hook_path).unwrap();
+    assert!(hook_asset.contains("HERDR_INTEGRATION_ID=qwen"));
+    assert!(hook_asset.contains("HERDR_INTEGRATION_VERSION=1"));
+    assert!(hook_asset.contains("herdr:qwen"));
+
+    install_qwen().unwrap();
+    let settings: Value =
+        serde_json::from_str(&fs::read_to_string(&installed.settings_path).unwrap()).unwrap();
+    assert_eq!(
+        settings["hooks"]["SessionStart"].as_array().unwrap().len(),
+        1
+    );
+
+    std::env::remove_var(QWEN_HOME_ENV_VAR);
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn uninstall_qwen_removes_only_herdr_hook() {
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let qwen_dir = base.join(".qwen");
+    fs::create_dir_all(&qwen_dir).unwrap();
+    std::env::set_var(QWEN_HOME_ENV_VAR, &qwen_dir);
+
+    install_qwen().unwrap();
+    let settings_path = qwen_dir.join("settings.json");
+    let mut settings: Value =
+        serde_json::from_str(&fs::read_to_string(&settings_path).unwrap()).unwrap();
+    settings["hooks"]["SessionStart"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({
+            "matcher": "resume",
+            "hooks": [{"type": "command", "command": "echo user-defined"}],
+        }));
+    fs::write(
+        &settings_path,
+        serde_json::to_string_pretty(&settings).unwrap(),
+    )
+    .unwrap();
+
+    let result = uninstall_qwen().unwrap();
+    assert!(result.removed_hook_file);
+    assert!(result.updated_settings);
+
+    let settings: Value =
+        serde_json::from_str(&fs::read_to_string(&settings_path).unwrap()).unwrap();
+    let remaining = settings["hooks"]["SessionStart"].as_array().unwrap();
+    assert_eq!(remaining.len(), 1);
+    assert_eq!(remaining[0]["hooks"][0]["command"], "echo user-defined");
+
+    std::env::remove_var(QWEN_HOME_ENV_VAR);
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn install_qwen_errors_when_config_dir_missing() {
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let missing = base.join(".qwen");
+    std::env::set_var(QWEN_HOME_ENV_VAR, &missing);
+
+    let err = install_qwen().unwrap_err().to_string();
+    assert!(err.contains("qwen code config directory not found"));
+
+    std::env::remove_var(QWEN_HOME_ENV_VAR);
     let _ = fs::remove_dir_all(base);
 }
 
