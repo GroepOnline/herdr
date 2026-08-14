@@ -1,6 +1,7 @@
 use std::io::Write;
 
 use clap::{Arg, ArgAction, ArgGroup, Command, ValueHint};
+use clap_complete::engine::{ArgValueCompleter, CompletionCandidate};
 
 pub(super) fn command() -> Command {
     let command = Command::new("herdr")
@@ -116,6 +117,10 @@ fn completion_command() -> Command {
                 .required(true)
                 .value_parser(super::completion::SUPPORTED_SHELLS)
                 .help("Shell to generate completions for"),
+        )
+        .after_help(
+            "Dynamic completions (plugin IDs, plugin action IDs, agent names, and pane IDs) \
+             are available via `source <(COMPLETE=bash herdr)` — replace bash with zsh or fish.",
         )
 }
 
@@ -341,7 +346,7 @@ fn agent_command() -> Command {
             Command::new("read")
                 .about("Read agent terminal output")
                 .override_usage("herdr agent read <TARGET> [OPTIONS]")
-                .arg(required("target", "TARGET"))
+                .arg(agent_target_arg())
                 .arg(read_source_option(true))
                 .arg(option("lines", "N"))
                 .arg(text_ansi_format_option())
@@ -350,7 +355,7 @@ fn agent_command() -> Command {
         .subcommand(
             Command::new("send-keys")
                 .about("Send key presses to an agent")
-                .arg(required("target", "TARGET"))
+                .arg(agent_target_arg())
                 .arg(required("key", "KEY").num_args(1..))
                 .after_help("Use esc as the canonical Escape key name; escape is also accepted."),
         )
@@ -358,7 +363,7 @@ fn agent_command() -> Command {
             Command::new("prompt")
                 .about("Submit a prompt to an agent")
                 .override_usage("herdr agent prompt <TARGET> <TEXT> [OPTIONS]")
-                .arg(required("target", "TARGET"))
+                .arg(agent_target_arg())
                 .arg(required("text", "TEXT"))
                 .arg(
                     flag("wait")
@@ -384,7 +389,7 @@ fn agent_command() -> Command {
             Command::new("rename")
                 .about("Rename an agent")
                 .override_usage("herdr agent rename <TARGET> <NAME>|--clear")
-                .arg(required("target", "TARGET"))
+                .arg(agent_target_arg())
                 .arg(Arg::new("name").value_name("NAME"))
                 .arg(flag("clear"))
                 .group(
@@ -398,7 +403,7 @@ fn agent_command() -> Command {
             Command::new("wait")
                 .about("Wait until an agent reaches one of the requested states")
                 .override_usage("herdr agent wait <TARGET> [OPTIONS]")
-                .arg(required("target", "TARGET"))
+                .arg(agent_target_arg())
                 .arg(
                     option("until", "STATUS")
                         .action(ArgAction::Append)
@@ -414,7 +419,7 @@ fn agent_command() -> Command {
             Command::new("attach")
                 .about("Attach directly to an agent terminal")
                 .override_usage("herdr agent attach <TARGET> [OPTIONS]")
-                .arg(required("target", "TARGET"))
+                .arg(agent_target_arg())
                 .arg(flag("takeover")),
         )
         .subcommand(
@@ -454,7 +459,10 @@ fn agent_command() -> Command {
                 .about("Explain agent detection state")
                 .arg(Arg::new("target").value_name("TARGET"))
                 .arg(path_option("file", "PATH"))
-                .arg(option("agent", "LABEL"))
+                .arg(
+                    option("agent", "LABEL")
+                        .add(ArgValueCompleter::new(agent_target_completer)),
+                )
                 .arg(json_flag())
                 .arg(text_json_format_option())
                 .arg(
@@ -473,6 +481,101 @@ pub(super) fn agent_kind_values() -> Vec<&'static str> {
         .collect()
 }
 
+fn known_plugin_ids() -> &'static [&'static str] {
+    &[
+        "com.chefgroep.cloudflare-tunnel",
+        "com.chefgroep.fleet-health",
+        "com.chefgroep.github-status",
+        "com.chefgroep.issue-provision",
+        "com.chefgroep.kater-bridge",
+        "com.chefgroep.linear-context",
+        "com.chefgroep.ops",
+        "com.chefgroep.pane-reaper",
+        "com.chefgroep.session-park",
+        "com.chefgroep.udo-metrics",
+    ]
+}
+
+fn plugin_id_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let Some(current) = current.to_str() else {
+        return Vec::new();
+    };
+    known_plugin_ids()
+        .iter()
+        .filter(|id| id.starts_with(current))
+        .map(|id| CompletionCandidate::new(*id))
+        .collect()
+}
+
+fn agent_target_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let Some(current) = current.to_str() else {
+        return Vec::new();
+    };
+    let mut labels: Vec<String> = crate::detect::Agent::ALL
+        .into_iter()
+        .map(crate::detect::agent_label)
+        .map(str::to_string)
+        .collect();
+    labels.extend(super::live_complete::agent_targets());
+    labels.sort();
+    labels.dedup();
+    labels
+        .into_iter()
+        .filter(|label| label.starts_with(current))
+        .map(CompletionCandidate::new)
+        .collect()
+}
+
+fn pane_id_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let Some(current) = current.to_str() else {
+        return Vec::new();
+    };
+    super::live_complete::pane_ids()
+        .into_iter()
+        .filter(|id| id.starts_with(current))
+        .map(CompletionCandidate::new)
+        .collect()
+}
+
+fn action_id_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let Some(current) = current.to_str() else {
+        return Vec::new();
+    };
+    super::live_complete::plugin_action_ids()
+        .into_iter()
+        .filter(|id| id.starts_with(current))
+        .map(CompletionCandidate::new)
+        .collect()
+}
+
+fn plugin_id_arg(id: &'static str, value_name: &'static str) -> Arg {
+    required(id, value_name).add(ArgValueCompleter::new(plugin_id_completer))
+}
+
+fn pane_id_arg(id: &'static str, value_name: &'static str) -> Arg {
+    required(id, value_name).add(ArgValueCompleter::new(pane_id_completer))
+}
+
+fn optional_pane_id_arg(id: &'static str, value_name: &'static str) -> Arg {
+    Arg::new(id)
+        .value_name(value_name)
+        .add(ArgValueCompleter::new(pane_id_completer))
+}
+
+fn action_id_arg(id: &'static str, value_name: &'static str) -> Arg {
+    required(id, value_name).add(ArgValueCompleter::new(action_id_completer))
+}
+
+fn agent_target_arg() -> Arg {
+    required("target", "TARGET").add(ArgValueCompleter::new(agent_target_completer))
+}
+
+fn pane_id_command(name: &'static str, about: &'static str) -> Command {
+    Command::new(name)
+        .about(about)
+        .arg(pane_id_arg("pane_id", "PANE_ID"))
+}
+
 fn pane_command() -> Command {
     Command::new("pane")
         .about("Control terminal panes")
@@ -486,7 +589,7 @@ fn pane_command() -> Command {
                 .about("Show the current pane")
                 .args(current_pane_args()),
         )
-        .subcommand(id_command("get", "pane_id", "Show a pane"))
+        .subcommand(pane_id_command("get", "Show a pane"))
         .subcommand(
             Command::new("layout")
                 .about("Show pane layout information")
@@ -524,7 +627,7 @@ fn pane_command() -> Command {
         .subcommand(
             Command::new("zoom")
                 .about("Toggle or set pane zoom")
-                .arg(Arg::new("pane_id").value_name("PANE_ID"))
+                .arg(optional_pane_id_arg("pane_id", "PANE_ID"))
                 .args(current_pane_args())
                 .arg(flag("toggle"))
                 .arg(flag("on"))
@@ -533,7 +636,7 @@ fn pane_command() -> Command {
         .subcommand(
             Command::new("read")
                 .about("Read pane terminal output")
-                .arg(required("pane_id", "PANE_ID"))
+                .arg(pane_id_arg("pane_id", "PANE_ID"))
                 .arg(read_source_option(true))
                 .arg(option("lines", "N"))
                 .arg(text_ansi_format_option())
@@ -543,14 +646,14 @@ fn pane_command() -> Command {
         .subcommand(
             Command::new("rename")
                 .about("Rename a pane")
-                .arg(required("pane_id", "PANE_ID"))
+                .arg(pane_id_arg("pane_id", "PANE_ID"))
                 .arg(Arg::new("label").value_name("LABEL").num_args(1..))
                 .arg(flag("clear")),
         )
         .subcommand(
             Command::new("input")
                 .about("Set pane input routing")
-                .arg(Arg::new("pane_id").value_name("PANE_ID"))
+                .arg(optional_pane_id_arg("pane_id", "PANE_ID"))
                 .args(current_pane_args())
                 .arg(
                     option("right-click", "TARGET")
@@ -561,7 +664,7 @@ fn pane_command() -> Command {
         .subcommand(
             Command::new("split")
                 .about("Split a pane")
-                .arg(Arg::new("pane_id").value_name("PANE_ID"))
+                .arg(optional_pane_id_arg("pane_id", "PANE_ID"))
                 .args(current_pane_args())
                 .arg(split_direction_option())
                 .arg(option("ratio", "FLOAT"))
@@ -582,7 +685,7 @@ fn pane_command() -> Command {
         .subcommand(
             Command::new("move")
                 .about("Move a pane")
-                .arg(required("pane_id", "PANE_ID"))
+                .arg(pane_id_arg("pane_id", "PANE_ID"))
                 .arg(option("tab", "TAB_ID"))
                 .arg(option("split", "DIRECTION").value_parser(["right", "down"]))
                 .arg(option("target-pane", "ID"))
@@ -595,11 +698,11 @@ fn pane_command() -> Command {
                 .arg(flag("focus"))
                 .arg(flag("no-focus")),
         )
-        .subcommand(id_command("close", "pane_id", "Close a pane"))
+        .subcommand(pane_id_command("close", "Close a pane"))
         .subcommand(
             Command::new("send-text")
                 .about("Send literal text to a pane")
-                .arg(required("pane_id", "PANE_ID"))
+                .arg(pane_id_arg("pane_id", "PANE_ID"))
                 .arg(required("text", "TEXT"))
                 .after_help(
                     "next: herdr pane run <PANE_ID> <COMMAND> sends text and Enter in one call",
@@ -608,14 +711,14 @@ fn pane_command() -> Command {
         .subcommand(
             Command::new("send-keys")
                 .about("Send key presses to a pane")
-                .arg(required("pane_id", "PANE_ID"))
+                .arg(pane_id_arg("pane_id", "PANE_ID"))
                 .arg(required("key", "KEY").num_args(1..))
                 .after_help("Use esc as the canonical Escape key name; escape is also accepted."),
         )
         .subcommand(
             Command::new("wait-output")
                 .about("Wait for matching pane output")
-                .arg(required("pane_id", "PANE_ID"))
+                .arg(pane_id_arg("pane_id", "PANE_ID"))
                 .arg(
                     option("match", "TEXT")
                         .conflicts_with("regex")
@@ -644,7 +747,7 @@ fn pane_command() -> Command {
         .subcommand(
             Command::new("run")
                 .about("Run a command in a pane")
-                .arg(required("pane_id", "PANE_ID"))
+                .arg(pane_id_arg("pane_id", "PANE_ID"))
                 .arg(required("command", "COMMAND").num_args(1..)),
         )
         .subcommand(report_agent_command())
@@ -656,7 +759,7 @@ fn pane_command() -> Command {
 fn report_agent_command() -> Command {
     Command::new("report-agent")
         .about("Report pane agent lifecycle state")
-        .arg(required("pane_id", "PANE_ID"))
+        .arg(pane_id_arg("pane_id", "PANE_ID"))
         .arg(option("source", "ID").required(true))
         .arg(option("agent", "LABEL").required(true))
         .arg(pane_agent_state_option("state"))
@@ -669,7 +772,7 @@ fn report_agent_command() -> Command {
 fn report_agent_session_command() -> Command {
     Command::new("report-agent-session")
         .about("Report pane agent session identity")
-        .arg(required("pane_id", "PANE_ID"))
+        .arg(pane_id_arg("pane_id", "PANE_ID"))
         .arg(option("source", "ID").required(true))
         .arg(option("agent", "LABEL").required(true))
         .arg(option("seq", "N"))
@@ -681,7 +784,7 @@ fn report_agent_session_command() -> Command {
 fn release_agent_command() -> Command {
     Command::new("release-agent")
         .about("Release pane agent lifecycle authority")
-        .arg(required("pane_id", "PANE_ID"))
+        .arg(pane_id_arg("pane_id", "PANE_ID"))
         .arg(option("source", "ID").required(true))
         .arg(option("agent", "LABEL").required(true))
         .arg(option("seq", "N"))
@@ -692,7 +795,7 @@ fn release_agent_command() -> Command {
 fn report_metadata_command() -> Command {
     Command::new("report-metadata")
         .about("Report display-only pane metadata")
-        .arg(required("pane_id", "PANE_ID"))
+        .arg(pane_id_arg("pane_id", "PANE_ID"))
         .arg(option("source", "ID").required(true))
         .arg(option("agent", "LABEL"))
         .arg(option("applies-to-source", "ID"))
@@ -809,7 +912,7 @@ fn plugin_command() -> Command {
         .subcommand(
             Command::new("uninstall")
                 .about("Uninstall a plugin")
-                .arg(required("plugin", "PLUGIN")),
+                .arg(plugin_id_arg("plugin", "PLUGIN")),
         )
         .subcommand(
             Command::new("link")
@@ -821,17 +924,17 @@ fn plugin_command() -> Command {
         .subcommand(
             Command::new("unlink")
                 .about("Unlink a local plugin")
-                .arg(required("plugin_id", "PLUGIN_ID")),
+                .arg(plugin_id_arg("plugin_id", "PLUGIN_ID")),
         )
         .subcommand(
             Command::new("enable")
                 .about("Enable a plugin")
-                .arg(required("plugin_id", "PLUGIN_ID")),
+                .arg(plugin_id_arg("plugin_id", "PLUGIN_ID")),
         )
         .subcommand(
             Command::new("disable")
                 .about("Disable a plugin")
-                .arg(required("plugin_id", "PLUGIN_ID")),
+                .arg(plugin_id_arg("plugin_id", "PLUGIN_ID")),
         )
         .subcommand(
             Command::new("list")
@@ -842,7 +945,7 @@ fn plugin_command() -> Command {
         .subcommand(
             Command::new("config-dir")
                 .about("Print a plugin config directory")
-                .arg(required("plugin_id", "PLUGIN_ID")),
+                .arg(plugin_id_arg("plugin_id", "PLUGIN_ID")),
         )
         .subcommand(
             Command::new("action")
@@ -855,7 +958,7 @@ fn plugin_command() -> Command {
                 .subcommand(
                     Command::new("invoke")
                         .about("Invoke a plugin action")
-                        .arg(required("action_id", "ACTION_ID"))
+                        .arg(action_id_arg("action_id", "ACTION_ID"))
                         .arg(option("plugin", "ID")),
                 ),
         )
@@ -893,12 +996,12 @@ fn plugin_command() -> Command {
                 .subcommand(
                     Command::new("focus")
                         .about("Focus a plugin pane")
-                        .arg(required("pane_id", "PANE_ID")),
+                        .arg(pane_id_arg("pane_id", "PANE_ID")),
                 )
                 .subcommand(
                     Command::new("close")
                         .about("Close a plugin pane")
-                        .arg(required("pane_id", "PANE_ID")),
+                        .arg(pane_id_arg("pane_id", "PANE_ID")),
                 ),
         )
 }
@@ -1135,6 +1238,67 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(shells.contains(&"zsh".to_string()));
         assert!(shells.contains(&"fish".to_string()));
+    }
+
+    #[test]
+    fn plugin_and_agent_args_expose_dynamic_completers() {
+        let cmd = super::command();
+        let enable = command_path(&cmd, &["plugin", "enable"]);
+        assert!(argument(enable, "plugin_id")
+            .get::<clap_complete::engine::ArgValueCompleter>()
+            .is_some());
+
+        let agent_read = command_path(&cmd, &["agent", "read"]);
+        assert!(argument(agent_read, "target")
+            .get::<clap_complete::engine::ArgValueCompleter>()
+            .is_some());
+    }
+
+    #[test]
+    fn pane_and_action_args_expose_dynamic_completers() {
+        let cmd = super::command();
+        for path in [
+            &["pane", "get"][..],
+            &["pane", "read"][..],
+            &["pane", "close"][..],
+            &["pane", "split"][..],
+            &["plugin", "pane", "focus"][..],
+        ] {
+            let subcommand = command_path(&cmd, path);
+            assert!(
+                argument(subcommand, "pane_id")
+                    .get::<clap_complete::engine::ArgValueCompleter>()
+                    .is_some(),
+                "herdr {} pane_id should expose a dynamic completer",
+                path.join(" ")
+            );
+        }
+
+        let invoke = command_path(&cmd, &["plugin", "action", "invoke"]);
+        assert!(argument(invoke, "action_id")
+            .get::<clap_complete::engine::ArgValueCompleter>()
+            .is_some());
+    }
+
+    #[test]
+    fn plugin_id_completer_filters_known_ids_by_prefix() {
+        let candidates = super::plugin_id_completer(std::ffi::OsStr::new("com.chefgroep.li"));
+        let values: Vec<String> = candidates
+            .iter()
+            .map(|candidate| candidate.get_value().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(values, vec!["com.chefgroep.linear-context".to_string()]);
+        assert!(super::plugin_id_completer(std::ffi::OsStr::new("unknown")).is_empty());
+    }
+
+    #[test]
+    fn agent_target_completer_filters_agent_labels_by_prefix() {
+        let candidates = super::agent_target_completer(std::ffi::OsStr::new("clau"));
+        let values: Vec<String> = candidates
+            .iter()
+            .map(|candidate| candidate.get_value().to_string_lossy().into_owned())
+            .collect();
+        assert!(values.contains(&"claude".to_string()));
     }
 
     #[test]

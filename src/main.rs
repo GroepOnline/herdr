@@ -479,6 +479,7 @@ fn exit_if_nested_disabled(config: &config::Config) {
 }
 
 fn main() -> io::Result<()> {
+    crate::cli::run_completion_env();
     let raw_args: Vec<String> = std::env::args().collect();
     let args = match session::configure_from_args(&raw_args) {
         Ok(args) => args,

@@ -36,6 +36,7 @@ herdr worktree
 herdr terminal
 herdr notification
 herdr integration
+herdr plugin
 herdr session
 ```
 
@@ -182,6 +183,13 @@ Use `--format ansi` when colors and terminal styling are evidence. Otherwise use
 
 Full-screen agents may use the terminal alternate screen. Rows that disappear from that screen do not enter Herdr's host scrollback, so `recent`, `recent-unwrapped`, and larger `--lines` values cannot recover them. Enlarge the pane, request concise output, use the agent's transcript controls, or scroll inside the agent and read `--source visible`.
 
+## Recent capabilities (0.8.x)
+
+- Agent status labels (`working`, `blocked`, `done`, `idle`, `unknown`) use one shared projection across the CLI, socket API, and UI; the same value means the same thing everywhere, and `unknown` is a distinct state that is never displayed as `idle`.
+- Status indicators are configurable via `ui.status_indicators = "dots" | "symbols"`.
+- Pane splits support per-pane right-click routing: `herdr pane split --right-click herdr|pane`.
+- Grok CLI and Antigravity CLI integrations are installable (`herdr integration install grok`, `herdr integration install antigravity-cli`). When native agent session restore is enabled, Herdr resumes Grok panes with `grok --resume <id>`.
+
 ## Safety and coordination rules
 
 - Use `--no-focus` for background work unless the user asked to switch context.
@@ -192,16 +200,28 @@ Full-screen agents may use the terminal alternate screen. Rows that disappear fr
 - Never kill the main Herdr process. Use named test sessions for experiments that need an isolated server.
 - CLI server errors are JSON on stderr with exit status 1. CLI syntax errors exit with status 2.
 
-## CHEF fleet plugins (optional)
+## Plugins
 
-When CHEF fleet plugins are linked, drive them through the plugin action surface — not by inventing a parallel CLI:
+Plugins add installable, workflow-level behavior. Drive them through the plugin command surface — never by inventing a parallel CLI:
 
 ```bash
 herdr plugin list
+herdr plugin install <owner>/<repo>[/subdir...] [--ref REF]
+herdr plugin link <path>
+herdr plugin unlink <plugin-id>
+herdr plugin enable <plugin-id>
+herdr plugin disable <plugin-id>
+herdr plugin uninstall <plugin-id|owner/repo[/subdir...]>
+herdr plugin config-dir <plugin-id>
 herdr plugin action list
-herdr plugin action invoke <plugin-id> <action-id>
+herdr plugin action invoke <action-id> --plugin <plugin-id>
+herdr plugin log list
 ```
 
-Typical CHEF plugin ids: `com.chefgroep.linear-context`, `com.chefgroep.github-status`, `com.chefgroep.kater-bridge`, `com.chefgroep.fleet-health`, `com.chefgroep.cloudflare-tunnel`, `com.chefgroep.session-park`, `com.chefgroep.issue-provision`.
+List installed plugins first and read `plugin_id` from the response; do not guess identifiers. Shell completion for plugin IDs, plugin action IDs, agent names, and pane IDs is available with `source <(COMPLETE=bash herdr)`.
 
-Link a local checkout with `herdr plugin link <path>`. Plugins write `fleet_ops.json` under `$HERDR_PLUGIN_STATE_DIR` for the Fleet Ops Bar; keep secrets in the plugin config `.env` only.
+### CHEF fleet plugins
+
+Typical CHEF plugin ids: `com.chefgroep.linear-context`, `com.chefgroep.github-status`, `com.chefgroep.kater-bridge`, `com.chefgroep.fleet-health`, `com.chefgroep.cloudflare-tunnel`, `com.chefgroep.session-park`, `com.chefgroep.issue-provision`, `com.chefgroep.ops`, `com.chefgroep.udo-metrics`.
+
+Plugins write `fleet_ops.json` under `$HERDR_PLUGIN_STATE_DIR` for the Fleet Ops Bar; keep secrets in the plugin config `.env` only.

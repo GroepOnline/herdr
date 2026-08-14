@@ -14,6 +14,7 @@ mod api;
 mod browser;
 mod completion;
 mod integration;
+mod live_complete;
 mod notification;
 mod pane;
 mod plugin;
@@ -69,6 +70,10 @@ pub(super) fn print_read_response(response: &serde_json::Value) -> std::io::Resu
         print!("{text}");
     }
     Ok(0)
+}
+
+pub(crate) fn run_completion_env() {
+    clap_complete::CompleteEnv::with_factory(spec::command).complete();
 }
 
 pub fn maybe_run(args: &[String]) -> std::io::Result<CommandOutcome> {
