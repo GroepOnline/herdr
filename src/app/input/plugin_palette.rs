@@ -96,7 +96,7 @@ impl App {
         let Some(entry) = self.selected_palette_entry() else {
             return;
         };
-        let result = self.invoke_plugin_action(&entry.plugin_id, &entry.action_id);
+        let result = self.invoke_plugin_action(&entry.plugin_id, &entry.action_id, "palette");
         if let Err(err) = result {
             self.show_palette_toast("plugin action failed", err);
             return;
@@ -174,6 +174,23 @@ impl App {
             self.show_palette_toast(
                 "keybind reserved",
                 "prefix+e opens the plugin palette".into(),
+            );
+            return;
+        }
+        // Built-in prefix actions and existing custom commands resolve before
+        // newly recorded entries, so binding an already-claimed combo would
+        // produce an entry that never fires. Refuse it instead of silently
+        // saving a dead binding.
+        if key.modifiers.is_empty()
+            && super::navigate::prefix_key_is_claimed(
+                &self.state,
+                crate::input::TerminalKey::from(key),
+            )
+        {
+            self.state.plugin_palette.recording_keybind = None;
+            self.show_palette_toast(
+                "keybind in use",
+                format!("{binding} is already bound; pick another key"),
             );
             return;
         }
@@ -264,5 +281,20 @@ mod tests {
         assert_eq!(app.state.mode, Mode::PluginPalette);
         let toast = app.state.toast.as_ref().expect("toast shown");
         assert_eq!(toast.title, "keybind reserved");
+    }
+
+    #[test]
+    fn recording_a_claimed_prefix_key_is_refused() {
+        let mut app = test_app();
+        app.state.mode = Mode::PluginPalette;
+        app.state.plugin_palette.recording_keybind = Some("com.a.one".into());
+
+        // `prefix+h` is the default `focus_pane_left` binding, so a recorded
+        // plugin binding on it would never fire.
+        app.handle_plugin_palette_key(KeyEvent::new(KeyCode::Char('h'), KeyModifiers::NONE));
+
+        assert_eq!(app.state.plugin_palette.recording_keybind, None);
+        let toast = app.state.toast.as_ref().expect("toast shown");
+        assert_eq!(toast.title, "keybind in use");
     }
 }

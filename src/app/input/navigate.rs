@@ -1151,6 +1151,17 @@ pub(crate) fn command_for_key(
         .cloned()
 }
 
+/// Whether a `prefix+<key>` combo is already claimed by a built-in navigation
+/// action or an existing custom command. `handle_prefix_key` resolves those
+/// before newly recorded `[[keys.command]]` entries, so a recorded binding on
+/// an occupied combo would never fire. The palette keybind recorder uses this
+/// to refuse conflicting assignments up front.
+pub(crate) fn prefix_key_is_claimed(state: &AppState, key: TerminalKey) -> bool {
+    non_indexed_action_for_key(state, key, BindingDispatch::Prefix).is_some()
+        || indexed_navigation_action(state, key, BindingDispatch::Prefix).is_some()
+        || command_for_key(state, key, BindingDispatch::Prefix).is_some()
+}
+
 fn unmodified_digit_for_key(key: TerminalKey) -> Option<char> {
     ('1'..='9').find(|digit| {
         crate::config::terminal_key_matches_combo(

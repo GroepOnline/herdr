@@ -124,7 +124,7 @@ impl App {
                 plugin_id,
                 action_id,
             } => {
-                if let Err(err) = self.invoke_plugin_action(&plugin_id, &action_id) {
+                if let Err(err) = self.invoke_plugin_action(&plugin_id, &action_id, "settings") {
                     self.state.plugin_install_messages = vec![err];
                 }
             }
@@ -624,7 +624,13 @@ impl AppState {
                     return activate_row(self, idx);
                 }
 
-                let show_primary = crate::ui::settings_show_primary_action(self);
+                // The plugin detail view renders a single close button (see
+                // render_settings_footer), so it must hit-test the same
+                // single-button geometry regardless of the section's normal
+                // primary action; otherwise the visible "close" overlaps the
+                // two-button layout's "apply" slot and triggers a refresh.
+                let show_primary = self.settings.plugin_detail.is_none()
+                    && crate::ui::settings_show_primary_action(self);
                 let (apply, close) =
                     crate::ui::settings_button_rects(&layout, self.settings.section, show_primary);
                 let mut buttons = vec![(close, super::modal::ModalAction::Close)];
@@ -634,7 +640,14 @@ impl AppState {
                 match super::modal::modal_action_from_buttons(mouse.column, mouse.row, &buttons) {
                     Some(super::modal::ModalAction::Apply) => apply_settings(self),
                     Some(super::modal::ModalAction::Close) => {
-                        cancel_settings(self);
+                        // In the plugin detail view the footer "close" goes back
+                        // to the plugin list (matching the "esc back" hint and
+                        // the keyboard Esc), not out of the whole settings modal.
+                        if self.settings.plugin_detail.is_some() {
+                            close_plugin_detail(self);
+                        } else {
+                            cancel_settings(self);
+                        }
                         None
                     }
                     _ => None,
@@ -1186,5 +1199,38 @@ mod tests {
         assert!(action.is_none());
         assert_eq!(state.settings.plugin_detail, None);
         assert_eq!(state.settings.plugin_detail_cursor, 0);
+    }
+
+    #[test]
+    fn plugin_detail_footer_close_click_returns_to_list_without_refresh() {
+        let mut app = app_for_mouse_test();
+        // Give the synthetic screen room for the 96-wide settings popup.
+        app.state.view.sidebar_rect = ratatui::layout::Rect::new(0, 0, 26, 40);
+        app.state.view.terminal_area = ratatui::layout::Rect::new(26, 0, 80, 40);
+        open_settings_at(&mut app.state, SettingsSection::Plugins);
+        app.state.installed_plugins.clear();
+        app.state.installed_plugins.insert(
+            "com.test.demo".to_string(),
+            test_plugin("com.test.demo", vec![test_action("run")]),
+        );
+        app.state.settings.plugin_detail = Some(0);
+
+        // The detail view renders a single close button; click its center.
+        let layout = app.state.settings_layout().expect("layout");
+        let (_, close_rect) = crate::ui::settings_button_rects(
+            &layout,
+            app.state.settings.section,
+            false,
+        );
+        let action = app.state.handle_settings_mouse(mouse(
+            MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            close_rect.x + close_rect.width / 2,
+            close_rect.y,
+        ));
+
+        // Close goes back to the list, not out of the modal, and never refreshes.
+        assert!(action.is_none());
+        assert_eq!(app.state.settings.plugin_detail, None);
+        assert_eq!(app.state.mode, Mode::Settings);
     }
 }

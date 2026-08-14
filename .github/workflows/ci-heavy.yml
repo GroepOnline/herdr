@@ -22,6 +22,10 @@ on:
       - "flake.*"
       - ".github/workflows/**"
 
+# Least-privilege token: read-only. This workflow has no `pull_request`
+# trigger (only workflow_dispatch/schedule/push), so forks cannot trigger it at
+# all; combined with GitHub-hosted `ubuntu-latest` lanes this keeps the heavy
+# builds off untrusted input.
 permissions:
   contents: read
 
@@ -40,8 +44,7 @@ concurrency:
 jobs:
   lottery:
     name: Canary lottery
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     outputs:
       run: ${{ steps.pick.outputs.run }}
     steps:
@@ -88,8 +91,7 @@ jobs:
     name: Release smoke build
     needs: lottery
     if: needs.lottery.outputs.run == 'true'
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
       LIBGHOSTTY_VT_OPTIMIZE: ReleaseFast
@@ -117,9 +119,8 @@ jobs:
 
   heavy-gate:
     name: Heavy gate
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
-    needs: [lottery, release-smoke]
+    runs-on: ubuntu-latest
+    needs: [lottery, windows-lint, release-smoke]
     if: always()
     steps:
       - name: Aggregate

@@ -403,21 +403,24 @@ impl App {
         self.invoke_plugin_action_inner(None, &action_id, "keybinding", 0, &mut visited)
     }
 
-    /// Invoke a plugin action by its owning plugin id and action id, recording
-    /// the settings UI as the invocation source. Used by the settings plugin
-    /// detail view and the plugin action palette.
+    /// Invoke a plugin action by its owning plugin id and action id. `source`
+    /// is recorded as the invocation source on the plugin context (e.g.
+    /// `"settings"` for the detail view, `"palette"` for the action palette).
     pub(crate) fn invoke_plugin_action(
         &mut self,
         plugin_id: &str,
         action_id: &str,
+        source: &str,
     ) -> Result<(), String> {
         self.refresh_installed_plugins()
             .map_err(|err| format!("failed to load plugin registry: {err}"))?;
         let mut visited = std::collections::HashSet::new();
-        self.invoke_plugin_action_inner(Some(plugin_id), action_id, "settings", 0, &mut visited)
+        self.invoke_plugin_action_inner(Some(plugin_id), action_id, source, 0, &mut visited)
     }
 
-    /// Resolve, run, and follow configured action chains for a single action.
+    /// Resolve and run a single action, deferring any configured chains until
+    /// the spawned command finishes successfully (see
+    /// `resume_plugin_chain_after_finish`).
     fn invoke_plugin_action_inner(
         &mut self,
         plugin_id: Option<&str>,
@@ -449,20 +452,60 @@ impl App {
 
         let mut context = self.current_plugin_context(source);
         context.invocation_source = Some(source.to_string());
-        self.start_plugin_command(
-            &plugin,
-            Some(action.action_id),
-            None,
-            action.command,
-            &context,
-            None,
-        )
-        .map_err(|(_, message)| message)?;
+        let log = self
+            .start_plugin_command(
+                &plugin,
+                Some(action.action_id),
+                None,
+                action.command,
+                &context,
+                None,
+            )
+            .map_err(|(_, message)| message)?;
 
-        // Follow configured chains (config `[plugins].chains`).
-        let targets = self.plugin_chain_targets(&qualified);
+        // Defer configured chains (config `[plugins].chains`) until this
+        // command reports success. Only register when there is something to
+        // run so completions without a chain stay cheap.
+        if !self.plugin_chain_targets(&qualified).is_empty() {
+            self.state.pending_plugin_chains.insert(
+                log.log_id,
+                crate::app::state::PendingPluginChain {
+                    qualified,
+                    source: source.to_string(),
+                    depth,
+                    visited: visited.clone(),
+                },
+            );
+        }
+        Ok(())
+    }
+
+    /// Run the chained `then` actions for a finished trigger command. Called
+    /// from the `PluginCommandFinished` handler: on success, follow every
+    /// configured chain target; on failure, drop the pending chain so nothing
+    /// downstream runs. Returns the target of any chain error for surfacing.
+    pub(crate) fn resume_plugin_chain_after_finish(
+        &mut self,
+        log_id: &str,
+        succeeded: bool,
+    ) -> Result<(), String> {
+        let Some(pending) = self.state.pending_plugin_chains.remove(log_id) else {
+            return Ok(());
+        };
+        if !succeeded {
+            // The trigger failed; chained `then` actions must not run.
+            return Ok(());
+        }
+        let mut visited = pending.visited;
+        let targets = self.plugin_chain_targets(&pending.qualified);
         for target in targets {
-            self.invoke_plugin_action_inner(None, &target, source, depth + 1, visited)?;
+            self.invoke_plugin_action_inner(
+                None,
+                &target,
+                &pending.source,
+                pending.depth + 1,
+                &mut visited,
+            )?;
         }
         Ok(())
     }
@@ -1012,6 +1055,37 @@ mod tests {
         );
         assert!(!toggle_favorite_in_list(&mut favorites, "com.b.two"));
         assert_eq!(favorites, vec!["com.a.one".to_string()]);
+    }
+
+    #[test]
+    fn resume_plugin_chain_skips_targets_when_trigger_failed() {
+        let mut app = test_app();
+        app.state.plugin_chains = vec![crate::config::PluginActionChain {
+            when: "com.a.one".to_string(),
+            then: vec!["com.b.two".to_string()],
+        }];
+        app.state.pending_plugin_chains.insert(
+            "plugin-log-1".to_string(),
+            crate::app::state::PendingPluginChain {
+                qualified: "com.a.one".to_string(),
+                source: "keybinding".to_string(),
+                depth: 0,
+                visited: std::collections::HashSet::from(["com.a.one".to_string()]),
+            },
+        );
+
+        // A failed trigger drops the pending chain without invoking `then`.
+        app.resume_plugin_chain_after_finish("plugin-log-1", false)
+            .expect("failed trigger drops the chain");
+        assert!(app.state.pending_plugin_chains.is_empty());
+    }
+
+    #[test]
+    fn resume_plugin_chain_is_a_noop_without_a_pending_entry() {
+        let mut app = test_app();
+        app.resume_plugin_chain_after_finish("plugin-log-missing", true)
+            .expect("unknown log id is a no-op");
+        assert!(app.state.pending_plugin_chains.is_empty());
     }
 
     fn test_app() -> App {

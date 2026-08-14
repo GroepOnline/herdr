@@ -570,6 +570,7 @@ impl App {
             plugin_palette: state::PluginPaletteState::default(),
             plugin_favorites: config.plugins.favorites.clone(),
             plugin_chains: config.plugins.chains.clone(),
+            pending_plugin_chains: std::collections::HashMap::new(),
             copy_mode: None,
             workspace_scroll: 0,
             agent_panel_scroll: 0,

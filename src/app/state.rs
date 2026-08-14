@@ -975,6 +975,21 @@ pub(crate) struct PluginPaletteState {
     pub recording_keybind: Option<String>,
 }
 
+/// A deferred plugin action chain awaiting the completion of its trigger
+/// command. Keyed by the trigger command's `log_id`; the `then` targets only
+/// run once that command finishes successfully (`[plugins].chains`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PendingPluginChain {
+    /// Qualified id of the action that produced this command.
+    pub qualified: String,
+    /// Invocation source propagated to chained actions (e.g. `"keybinding"`).
+    pub source: String,
+    /// Chain recursion depth, used with the depth limit to break cycles.
+    pub depth: usize,
+    /// Qualified ids already run in this invocation tree (cycle guard).
+    pub visited: std::collections::HashSet<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CopyModeState {
     pub pane_id: PaneId,
@@ -1616,6 +1631,11 @@ pub struct AppState {
     pub plugin_favorites: Vec<String>,
     /// Plugin action chains loaded from config.
     pub plugin_chains: Vec<crate::config::PluginActionChain>,
+    /// Chains deferred until their trigger command finishes, keyed by the
+    /// trigger command's `log_id`. Resolved in the `PluginCommandFinished`
+    /// handler so `then` actions only run after `when` succeeds.
+    pub(crate) pending_plugin_chains:
+        std::collections::HashMap<String, PendingPluginChain>,
     pub copy_mode: Option<CopyModeState>,
     pub workspace_scroll: usize,
     pub agent_panel_scroll: usize,
@@ -2016,6 +2036,7 @@ impl AppState {
             plugin_palette: PluginPaletteState::default(),
             plugin_favorites: Vec::new(),
             plugin_chains: Vec::new(),
+            pending_plugin_chains: std::collections::HashMap::new(),
             copy_mode: None,
             workspace_scroll: 0,
             agent_panel_scroll: 0,

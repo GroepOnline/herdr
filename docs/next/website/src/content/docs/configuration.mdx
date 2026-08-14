@@ -221,9 +221,11 @@ On Windows, custom command strings use `cmd.exe /d /c`, so environment variables
 
 ## Plugins
 
-The plugin action palette (`prefix+e`) lists every installed plugin action,
-favorites first. Pin actions to the top and chain actions together in
-`config.toml`:
+The plugin action palette lists every installed plugin action, favorites first.
+It opens on `prefix+e` unless you bind `prefix+e` to another action (a
+configured `[keys]` action or `[[keys.command]]` entry takes precedence, and
+`edit_scrollback` defaults to `prefix+e`). Pin actions to the top and chain
+actions together in `config.toml`:
 
 ```toml
 [plugins]

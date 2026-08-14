@@ -194,6 +194,7 @@ impl App {
         {
             self.state.plugin_commands_in_flight =
                 self.state.plugin_commands_in_flight.saturating_sub(1);
+            let mut succeeded = false;
             if let Some(log) = self
                 .state
                 .plugin_command_logs
@@ -210,6 +211,15 @@ impl App {
                 } else {
                     crate::api::schema::PluginCommandStatus::Failed
                 };
+                succeeded = matches!(
+                    log.status,
+                    crate::api::schema::PluginCommandStatus::Succeeded
+                );
+            }
+            // Follow configured `[plugins].chains` only after the trigger
+            // command actually finished successfully.
+            if let Err(err) = self.resume_plugin_chain_after_finish(&log_id, succeeded) {
+                tracing::warn!(error = %err, log_id = %log_id, "plugin action chain failed");
             }
             return;
         }

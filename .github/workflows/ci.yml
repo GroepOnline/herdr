@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+# Least-privilege token: read-only. Uses `pull_request` (not
+# `pull_request_target`), so fork PRs run the fork's code WITHOUT access to repo
+# secrets. Because these lanes run on GitHub-hosted `ubuntu-latest`, also set
+# Settings -> Actions -> General -> "Fork pull request workflows from outside
+# collaborators" to "Require approval" so forks cannot spend runner minutes or
+# probe the workflow without maintainer approval. That is a repo setting and
+# cannot be enforced from this file.
 permissions:
   contents: read
 
@@ -24,8 +31,7 @@ concurrency:
 jobs:
   changes:
     name: Changes
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
@@ -47,8 +53,7 @@ jobs:
     name: Format
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
@@ -67,9 +72,13 @@ jobs:
     name: Check
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Link with mold on this lane only; the apt step below installs it. Scoped
+    # per-job so lanes that never install mold (release-smoke, windows-lint)
+    # keep the default linker.
+    env:
+      RUSTFLAGS: "-D warnings -C link-arg=-fuse-ld=mold"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
@@ -89,7 +98,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libdbus-1-dev pkg-config
+          sudo apt-get install -y libdbus-1-dev pkg-config mold
 
       - name: Cargo check
         run: cargo check --all-targets --locked
@@ -98,9 +107,13 @@ jobs:
     name: Clippy
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Link with mold on this lane only; the apt step below installs it. Scoped
+    # per-job so lanes that never install mold (release-smoke, windows-lint)
+    # keep the default linker.
+    env:
+      RUSTFLAGS: "-D warnings -C link-arg=-fuse-ld=mold"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
@@ -121,7 +134,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libdbus-1-dev pkg-config
+          sudo apt-get install -y libdbus-1-dev pkg-config mold
 
       - name: Cargo clippy
         run: cargo clippy --all-targets --locked -- -D warnings
@@ -130,9 +143,13 @@ jobs:
     name: Test
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.rust == 'true'
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Link with mold on this lane only; the apt step below installs it. Scoped
+    # per-job so lanes that never install mold (release-smoke, windows-lint)
+    # keep the default linker.
+    env:
+      RUSTFLAGS: "-D warnings -C link-arg=-fuse-ld=mold"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
@@ -157,7 +174,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libdbus-1-dev pkg-config
+          sudo apt-get install -y libdbus-1-dev pkg-config mold
 
       - name: Cargo nextest
         run: cargo nextest run --locked --status-level fail --final-status-level fail --failure-output final --success-output never
@@ -166,8 +183,7 @@ jobs:
     name: Maintenance (python)
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.maintenance == 'true' || needs.changes.outputs.docs_only == 'true'
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
@@ -181,8 +197,7 @@ jobs:
     name: Maintenance (integration assets)
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.maintenance == 'true'
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
@@ -203,8 +218,7 @@ jobs:
     name: Maintenance (plugin marketplace)
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.maintenance == 'true'
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
@@ -267,8 +281,7 @@ jobs:
     name: Release metadata
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.release_meta == 'true'
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
@@ -365,8 +378,7 @@ jobs:
 
   quality-gate:
     name: Quality gate
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     needs:
       - changes
       - format

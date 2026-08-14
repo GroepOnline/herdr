@@ -10,6 +10,7 @@ const KNOWN_TOP_LEVEL_CONFIG_KEYS: &[&str] = &[
     "experimental",
     "keys",
     "onboarding",
+    "plugins",
     "remote",
     "session",
     "terminal",
@@ -347,6 +348,14 @@ fn load_live_config_from_str(content: &str) -> Result<LoadedConfig, Vec<String>>
         &mut diagnostics,
         &mut invalid_sections,
         |section| config.remote = section,
+    );
+    load_live_section(
+        &table,
+        "plugins",
+        "plugins config",
+        &mut diagnostics,
+        &mut invalid_sections,
+        |section| config.plugins = section,
     );
 
     Ok(LoadedConfig {
@@ -1021,6 +1030,34 @@ resume_agents_on_restore = true
         .unwrap();
 
         assert!(loaded.config.session.resume_agents_on_restore);
+        assert!(loaded.diagnostics.is_empty());
+        assert!(loaded.invalid_sections.is_empty());
+    }
+
+    #[test]
+    fn load_live_config_parses_plugins_section() {
+        let loaded = load_live_config_from_str(
+            r#"
+[plugins]
+favorites = ["com.a.one", "com.b.two"]
+
+[[plugins.chains]]
+when = "com.a.one"
+then = ["com.b.two"]
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            loaded.config.plugins.favorites,
+            vec!["com.a.one".to_string(), "com.b.two".to_string()]
+        );
+        assert_eq!(loaded.config.plugins.chains.len(), 1);
+        assert_eq!(loaded.config.plugins.chains[0].when, "com.a.one");
+        assert_eq!(
+            loaded.config.plugins.chains[0].then,
+            vec!["com.b.two".to_string()]
+        );
         assert!(loaded.diagnostics.is_empty());
         assert!(loaded.invalid_sections.is_empty());
     }
