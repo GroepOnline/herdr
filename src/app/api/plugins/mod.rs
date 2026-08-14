@@ -479,16 +479,17 @@ impl App {
 
     /// Toggle a qualified plugin action id in the favorites list and persist
     /// to config. Returns the new favorite state (`true` = now a favorite).
-    pub(crate) fn toggle_plugin_favorite(&mut self, qualified: String) -> bool {
+    pub(crate) fn toggle_plugin_favorite(&mut self, qualified: String) -> Result<bool, String> {
         let mut favorites = self.state.plugin_favorites.clone();
         let now_favorite = toggle_favorite_in_list(&mut favorites, &qualified);
-        self.state.plugin_favorites = favorites.clone();
-        if self.update_config_file("plugin favorites", |content| {
+        if !self.update_config_file("plugin favorites", |content| {
             crate::config::upsert_section_string_array(content, "plugins", "favorites", &favorites)
         }) {
-            self.apply_config_from_disk(false);
+            return Err("could not write config.toml".to_string());
         }
-        now_favorite
+        self.state.plugin_favorites = favorites;
+        self.apply_config_from_disk(false);
+        Ok(now_favorite)
     }
 
     pub(crate) fn invoke_plugin_link_handler_for_url(
