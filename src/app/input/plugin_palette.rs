@@ -24,7 +24,7 @@ impl App {
         self.state.mode = Mode::PluginPalette;
     }
 
-    fn close_plugin_palette(&mut self) {
+    pub(crate) fn close_plugin_palette(&mut self) {
         self.state.plugin_palette = PluginPaletteState::default();
         super::modal::leave_modal(&mut self.state);
     }
@@ -150,6 +150,16 @@ impl App {
         } else {
             base
         };
+        // The palette opener is hardcoded and runs before custom commands, so a
+        // recorded `prefix+e` binding could never fire; refuse it explicitly.
+        if binding == "prefix+e" {
+            self.state.plugin_palette.recording_keybind = None;
+            self.show_palette_toast(
+                "keybind reserved",
+                "prefix+e opens the plugin palette".into(),
+            );
+            return;
+        }
 
         let description = plugin_palette_entries(&self.state)
             .iter()
@@ -196,14 +206,46 @@ impl AppState {
                     self.plugin_palette.search_focused = true;
                     return None;
                 }
-                if let Some(index) = plugin_palette_entry_index_at(self, area, mouse.column, mouse.row) {
+                if let Some(index) =
+                    plugin_palette_entry_index_at(self, area, mouse.column, mouse.row)
+                {
                     Some(super::mouse::MouseAction::PluginPaletteRun { index })
                 } else {
-                    self.close_plugin_palette();
-                    None
+                    Some(super::mouse::MouseAction::PluginPaletteDismiss)
                 }
             }
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::KeyModifiers;
+
+    fn test_app() -> App {
+        let (_api_tx, api_rx) = tokio::sync::mpsc::unbounded_channel();
+        App::new(
+            &crate::config::Config::default(),
+            true,
+            None,
+            api_rx,
+            crate::api::EventHub::default(),
+        )
+    }
+
+    #[test]
+    fn recording_prefix_e_is_refused() {
+        let mut app = test_app();
+        app.state.mode = Mode::PluginPalette;
+        app.state.plugin_palette.recording_keybind = Some("com.a.one".into());
+
+        app.handle_plugin_palette_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
+
+        assert_eq!(app.state.plugin_palette.recording_keybind, None);
+        assert_eq!(app.state.mode, Mode::PluginPalette);
+        let toast = app.state.toast.as_ref().expect("toast shown");
+        assert_eq!(toast.title, "keybind reserved");
     }
 }
