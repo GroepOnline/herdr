@@ -13,8 +13,7 @@ env:
 
 jobs:
   flake-check:
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
 
@@ -117,8 +116,7 @@ jobs:
           path: ${{ matrix.name }}
 
   validate-release-inputs:
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
 
@@ -132,8 +130,7 @@ jobs:
 
   release:
     needs: [build, flake-check, validate-release-inputs]
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     permissions:
       contents: write
 
@@ -164,8 +161,7 @@ jobs:
 
   close-released-issues:
     needs: release
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
     continue-on-error: true
     permissions:
       contents: read

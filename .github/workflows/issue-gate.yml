@@ -10,8 +10,7 @@ permissions:
 jobs:
   check-template:
     if: ${{ !github.event.issue.pull_request }}
-    # GitHub-hosted runners banned until Actions spending restored (fleet only).
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
+    runs-on: ubuntu-latest
 
     steps:
       - name: Close non-template issues
