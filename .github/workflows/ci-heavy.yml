@@ -59,7 +59,6 @@ jobs:
   windows-lint:
     name: Windows lint
     needs: lottery
-    if: needs.lottery.outputs.run == 'true'
     # BILLING_QUARANTINE: was windows-latest — disabled until spending restored
     if: false
     runs-on: windows-latest
@@ -120,7 +119,7 @@ jobs:
     name: Heavy gate
     # GitHub-hosted runners banned until Actions spending restored (fleet only).
     runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["self-hosted","Linux","X64","pr-isolated"]') || fromJSON('["self-hosted","Linux","X64","heavy"]') }}
-    needs: [lottery, windows-lint, release-smoke]
+    needs: [lottery, release-smoke]
     if: always()
     steps:
       - name: Aggregate
@@ -130,7 +129,7 @@ jobs:
             echo "Canary skipped this schedule; heavy gate OK."
             exit 0
           fi
-          for result in "${{ needs.windows-lint.result }}" "${{ needs.release-smoke.result }}"; do
+          for result in "${{ needs.release-smoke.result }}"; do
             if [ "$result" != "success" ]; then
               echo "Heavy gate failed: $result"
               exit 1
