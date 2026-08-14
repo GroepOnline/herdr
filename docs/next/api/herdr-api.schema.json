@@ -47,6 +47,13 @@
             "kind": {
               "$ref": "#/schemas/event/$defs/AgentSessionRefKind"
             },
+            "session_start_source": {
+              "description": "How the session started (`startup`, `resume`, `clear`, `compact`,\n`new`, or `fork`), when reported by the agent hook.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "source": {
               "type": "string"
             },
@@ -6205,6 +6212,20 @@
             "launch_pending": {
               "type": "boolean"
             },
+            "manifest_source": {
+              "description": "Active screen-detection manifest source label for the detected agent\n(`bundled`, `remote:<path>`, or `override:<path>`).",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "manifest_version": {
+              "description": "Active screen-detection manifest version, when known.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "name": {
               "type": [
                 "string",
@@ -6213,6 +6234,15 @@
             },
             "pane_id": {
               "type": "string"
+            },
+            "pane_number": {
+              "description": "Stable human-facing pane number within the workspace (1, 2, ...).",
+              "format": "uint",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
             },
             "revision": {
               "format": "uint64",
@@ -6267,6 +6297,18 @@
                 "pattern": "^[A-Za-z0-9_-]{1,32}$"
               },
               "type": "object"
+            },
+            "visible_blocker": {
+              "description": "True when the latest screen detection visibly showed a blocking prompt.",
+              "type": "boolean"
+            },
+            "visible_idle": {
+              "description": "True when the latest screen detection visibly showed idle chrome.",
+              "type": "boolean"
+            },
+            "visible_working": {
+              "description": "True when the latest screen detection visibly showed working chrome.",
+              "type": "boolean"
             },
             "workspace_id": {
               "type": "string"
@@ -6351,6 +6393,13 @@
             },
             "kind": {
               "$ref": "#/schemas/success_response/$defs/AgentSessionRefKind"
+            },
+            "session_start_source": {
+              "description": "How the session started (`startup`, `resume`, `clear`, `compact`,\n`new`, or `fork`), when reported by the agent hook.",
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "source": {
               "type": "string"

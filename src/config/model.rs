@@ -944,6 +944,26 @@ pub struct Config {
     pub experimental: ExperimentalConfig,
     pub remote: RemoteConfig,
     pub clipboard: ClipboardConfig,
+    pub plugins: PluginsConfig,
+}
+
+/// Plugin action palette configuration.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(default)]
+pub struct PluginsConfig {
+    /// Qualified plugin action ids (`plugin_id.action_id`) pinned to the top
+    /// of the plugin action palette.
+    pub favorites: Vec<String>,
+    /// Action chains: after `when` runs successfully, also run every id in
+    /// `then` (in order). Targets use the same qualified id format.
+    pub chains: Vec<PluginActionChain>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(default)]
+pub struct PluginActionChain {
+    pub when: String,
+    pub then: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -1804,6 +1824,33 @@ impl Default for AdvancedConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn plugins_config_defaults_and_parses_favorites_and_chains() {
+        let default_config = Config::default();
+        assert!(default_config.plugins.favorites.is_empty());
+        assert!(default_config.plugins.chains.is_empty());
+
+        let toml = r#"
+[plugins]
+favorites = ["com.a.one", "com.b.two"]
+
+[[plugins.chains]]
+when = "com.a.one"
+then = ["com.b.two", "com.c.three"]
+"#;
+        let config: Config = toml::from_str(toml).unwrap();
+        assert_eq!(
+            config.plugins.favorites,
+            vec!["com.a.one".to_string(), "com.b.two".to_string()]
+        );
+        assert_eq!(config.plugins.chains.len(), 1);
+        assert_eq!(config.plugins.chains[0].when, "com.a.one");
+        assert_eq!(
+            config.plugins.chains[0].then,
+            vec!["com.b.two".to_string(), "com.c.three".to_string()]
+        );
+    }
 
     #[test]
     fn update_config_defaults_and_parses() {

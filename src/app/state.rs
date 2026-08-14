@@ -837,6 +837,7 @@ pub enum Mode {
     GlobalMenu,
     KeybindHelp,
     Navigator,
+    PluginPalette,
 }
 
 impl Mode {
@@ -867,6 +868,7 @@ impl Mode {
                 | Mode::ContextMenu
                 | Mode::GlobalMenu
                 | Mode::KeybindHelp
+                | Mode::PluginPalette
         )
     }
 }
@@ -960,6 +962,32 @@ pub(crate) struct NavigatorState {
     pub search_focused: bool,
     pub state_filter: Option<NavigatorStateFilter>,
     pub expanded_workspaces: std::collections::HashSet<String>,
+}
+
+/// State for the plugin action palette (`prefix+e`).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct PluginPaletteState {
+    pub query: String,
+    pub selected: usize,
+    pub search_focused: bool,
+    /// When `Some`, the next key press is captured and bound to this qualified
+    /// plugin action id instead of navigating.
+    pub recording_keybind: Option<String>,
+}
+
+/// A deferred plugin action chain awaiting the completion of its trigger
+/// command. Keyed by the trigger command's `log_id`; the `then` targets only
+/// run once that command finishes successfully (`[plugins].chains`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PendingPluginChain {
+    /// Qualified id of the action that produced this command.
+    pub qualified: String,
+    /// Invocation source propagated to chained actions (e.g. `"keybinding"`).
+    pub source: String,
+    /// Chain recursion depth, used with the depth limit to break cycles.
+    pub depth: usize,
+    /// Qualified ids already run in this invocation tree (cycle guard).
+    pub visited: std::collections::HashSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1307,6 +1335,15 @@ pub struct SettingsState {
     pub plugin_install_job: Option<PluginInstallJob>,
     /// Labels of collapsed groups in the settings content list.
     pub collapsed_groups: std::collections::BTreeSet<String>,
+    /// When `Some`, the Plugins section shows a detail view for the installed
+    /// plugin at this index in the plugin-id-sorted install list, with its
+    /// actions listed. The list row toggle is deferred into the detail view.
+    pub plugin_detail: Option<usize>,
+    /// Selected row within the plugin detail view: `0` is the enable toggle,
+    /// `1..` are the plugin's actions in declaration order.
+    pub plugin_detail_cursor: usize,
+    /// Scroll offset for the plugin detail view action list.
+    pub plugin_detail_scroll: u16,
 }
 
 pub(crate) enum DragTarget {
@@ -1589,6 +1626,15 @@ pub struct AppState {
     pub product_announcement: Option<ProductAnnouncementState>,
     pub keybind_help: KeybindHelpState,
     pub navigator: NavigatorState,
+    pub plugin_palette: PluginPaletteState,
+    /// Qualified plugin action ids pinned to the top of the palette.
+    pub plugin_favorites: Vec<String>,
+    /// Plugin action chains loaded from config.
+    pub plugin_chains: Vec<crate::config::PluginActionChain>,
+    /// Chains deferred until their trigger command finishes, keyed by the
+    /// trigger command's `log_id`. Resolved in the `PluginCommandFinished`
+    /// handler so `then` actions only run after `when` succeeds.
+    pub(crate) pending_plugin_chains: std::collections::HashMap<String, PendingPluginChain>,
     pub copy_mode: Option<CopyModeState>,
     pub workspace_scroll: usize,
     pub agent_panel_scroll: usize,
@@ -1986,6 +2032,10 @@ impl AppState {
             product_announcement: None,
             keybind_help: KeybindHelpState::default(),
             navigator: NavigatorState::default(),
+            plugin_palette: PluginPaletteState::default(),
+            plugin_favorites: Vec::new(),
+            plugin_chains: Vec::new(),
+            pending_plugin_chains: std::collections::HashMap::new(),
             copy_mode: None,
             workspace_scroll: 0,
             agent_panel_scroll: 0,
@@ -2103,6 +2153,9 @@ impl AppState {
                 config_snapshot: SettingsConfigSnapshot::load(),
                 plugin_install_job: None,
                 collapsed_groups: std::collections::BTreeSet::new(),
+                plugin_detail: None,
+                plugin_detail_cursor: 0,
+                plugin_detail_scroll: 0,
             },
             integration_recommendations: Vec::new(),
             agent_manifest_summaries: Vec::new(),

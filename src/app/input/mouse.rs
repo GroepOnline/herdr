@@ -59,6 +59,10 @@ pub(super) enum MouseAction {
         menu: ContextMenuState,
         idx: usize,
     },
+    PluginPaletteRun {
+        index: usize,
+    },
+    PluginPaletteDismiss,
 }
 
 enum MobileMouseResult {
@@ -119,6 +123,10 @@ impl AppState {
 
         if self.mode == Mode::Settings {
             return self.handle_settings_mouse(mouse).map(MouseAction::Settings);
+        }
+
+        if self.mode == Mode::PluginPalette {
+            return self.handle_plugin_palette_mouse(mouse);
         }
 
         let launcher_enabled = self.view.layout != ViewLayout::Mobile

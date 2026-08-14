@@ -93,6 +93,11 @@ impl App {
             return;
         }
 
+        if key.code == KeyCode::Char('e') && key.modifiers.is_empty() {
+            self.open_plugin_palette();
+            return;
+        }
+
         if let Some(action) =
             indexed_navigation_action(&self.state, raw_key, BindingDispatch::Prefix)
         {
@@ -1144,6 +1149,17 @@ pub(crate) fn command_for_key(
             BindingDispatch::Prefix => binding.bindings.matches_prefix_key(key),
         })
         .cloned()
+}
+
+/// Whether a `prefix+<key>` combo is already claimed by a built-in navigation
+/// action or an existing custom command. `handle_prefix_key` resolves those
+/// before newly recorded `[[keys.command]]` entries, so a recorded binding on
+/// an occupied combo would never fire. The palette keybind recorder uses this
+/// to refuse conflicting assignments up front.
+pub(crate) fn prefix_key_is_claimed(state: &AppState, key: TerminalKey) -> bool {
+    non_indexed_action_for_key(state, key, BindingDispatch::Prefix).is_some()
+        || indexed_navigation_action(state, key, BindingDispatch::Prefix).is_some()
+        || command_for_key(state, key, BindingDispatch::Prefix).is_some()
 }
 
 fn unmodified_digit_for_key(key: TerminalKey) -> Option<char> {

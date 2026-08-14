@@ -10,6 +10,7 @@ const KNOWN_TOP_LEVEL_CONFIG_KEYS: &[&str] = &[
     "experimental",
     "keys",
     "onboarding",
+    "plugins",
     "remote",
     "session",
     "terminal",
@@ -348,6 +349,14 @@ fn load_live_config_from_str(content: &str) -> Result<LoadedConfig, Vec<String>>
         &mut invalid_sections,
         |section| config.remote = section,
     );
+    load_live_section(
+        &table,
+        "plugins",
+        "plugins config",
+        &mut diagnostics,
+        &mut invalid_sections,
+        |section| config.plugins = section,
+    );
 
     Ok(LoadedConfig {
         config,
@@ -571,6 +580,60 @@ pub fn upsert_section_bool(content: &str, section: &str, key: &str, value: bool)
     upsert_section_raw(content, section, key, &value.to_string())
 }
 
+/// Append a `[[keys.command]]` table that runs a plugin action.
+fn escape_toml_string(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '\\' => result.push_str("\\\\"),
+            '"' => result.push_str("\\\""),
+            '\n' => result.push_str("\\n"),
+            '\r' => result.push_str("\\r"),
+            '\t' => result.push_str("\\t"),
+            _ => result.push(ch),
+        }
+    }
+    result
+}
+
+pub fn append_keys_plugin_command(
+    content: &str,
+    key: &str,
+    command: &str,
+    description: &str,
+) -> String {
+    let mut lines: Vec<String> = content.lines().map(str::to_string).collect();
+    while lines.last().is_some_and(|line| line.trim().is_empty()) {
+        lines.pop();
+    }
+    lines.push(String::new());
+    lines.push("[[keys.command]]".to_string());
+    lines.push(format!("key = \"{}\"", escape_toml_string(key)));
+    lines.push("type = \"plugin_action\"".to_string());
+    lines.push(format!("command = \"{}\"", escape_toml_string(command)));
+    lines.push(format!(
+        "description = \"{}\"",
+        escape_toml_string(description)
+    ));
+    lines.push(String::new());
+    lines.join("\n") + "\n"
+}
+
+/// Write a TOML array of strings in a section (creates section if missing).
+pub fn upsert_section_string_array(
+    content: &str,
+    section: &str,
+    key: &str,
+    values: &[String],
+) -> String {
+    let rendered = values
+        .iter()
+        .map(|value| format!("\"{}\"", escape_toml_string(value)))
+        .collect::<Vec<_>>()
+        .join(", ");
+    upsert_section_raw(content, section, key, &format!("[{rendered}]"))
+}
+
 pub fn remove_section_key(content: &str, section: &str, key: &str) -> String {
     let header = format!("[{section}]");
     let lines: Vec<&str> = content.lines().collect();
@@ -744,6 +807,89 @@ mod tests {
         assert!(updated.contains("[ui.sound]\nenabled = true"));
     }
 
+    #[test]
+    fn upsert_section_string_array_writes_toml_array() {
+        let updated = upsert_section_string_array(
+            "",
+            "plugins",
+            "favorites",
+            &["com.a.one".to_string(), "com.b.two".to_string()],
+        );
+        assert!(updated.contains("[plugins]"));
+        assert!(updated.contains("favorites = [\"com.a.one\", \"com.b.two\"]"));
+
+        let re_updated = upsert_section_string_array(
+            &updated,
+            "plugins",
+            "favorites",
+            &["com.a.one".to_string()],
+        );
+        assert!(re_updated.contains("favorites = [\"com.a.one\"]"));
+        assert!(!re_updated.contains("com.b.two"));
+    }
+
+    #[test]
+    fn append_keys_plugin_command_appends_a_table() {
+        let content = "onboarding = false\n";
+        let updated = append_keys_plugin_command(content, "prefix+p", "com.a.run", "Run the thing");
+        assert!(updated.contains("[[keys.command]]"));
+        assert!(updated.contains("key = \"prefix+p\""));
+        assert!(updated.contains("type = \"plugin_action\""));
+        assert!(updated.contains("command = \"com.a.run\""));
+        assert!(updated.contains("description = \"Run the thing\""));
+    }
+
+    #[test]
+    fn append_keys_plugin_command_escapes_control_characters() {
+        let content = "onboarding = false\n";
+        let updated = append_keys_plugin_command(
+            content,
+            "prefix+p",
+            "com.a.run\nwith\nnewlines",
+            "Description\twith\ttabs\rand\rreturns",
+        );
+        assert!(updated.contains("command = \"com.a.run\\nwith\\nnewlines\""));
+        assert!(updated.contains("description = \"Description\\twith\\ttabs\\rand\\rreturns\""));
+
+        // Verify it parses back correctly
+        let parsed: toml::Value = toml::from_str(&updated).expect("TOML should parse");
+        let commands = parsed["keys"]["command"]
+            .as_array()
+            .expect("should be array");
+        assert_eq!(
+            commands[0]["command"].as_str(),
+            Some("com.a.run\nwith\nnewlines")
+        );
+        assert_eq!(
+            commands[0]["description"].as_str(),
+            Some("Description\twith\ttabs\rand\rreturns")
+        );
+    }
+
+    #[test]
+    fn upsert_section_string_array_escapes_control_characters() {
+        let values = vec![
+            "normal.value".to_string(),
+            "with\nnewline".to_string(),
+            "with\ttab".to_string(),
+            "with\rreturn".to_string(),
+        ];
+        let updated = upsert_section_string_array("", "plugins", "favorites", &values);
+        assert!(updated.contains(
+            "favorites = [\"normal.value\", \"with\\nnewline\", \"with\\ttab\", \"with\\rreturn\"]"
+        ));
+
+        // Verify it parses back correctly
+        let parsed: toml::Value = toml::from_str(&updated).expect("TOML should parse");
+        let favorites = parsed["plugins"]["favorites"]
+            .as_array()
+            .expect("should be array");
+        assert_eq!(favorites[0].as_str(), Some("normal.value"));
+        assert_eq!(favorites[1].as_str(), Some("with\nnewline"));
+        assert_eq!(favorites[2].as_str(), Some("with\ttab"));
+        assert_eq!(favorites[3].as_str(), Some("with\rreturn"));
+    }
+
     fn with_default_config_path_env<T>(f: impl FnOnce() -> T) -> T {
         let _guard = crate::config::test_config_env_lock().lock().unwrap();
         // Other tests may set CONFIG_PATH_ENV_VAR in this process; summary
@@ -884,6 +1030,34 @@ resume_agents_on_restore = true
         .unwrap();
 
         assert!(loaded.config.session.resume_agents_on_restore);
+        assert!(loaded.diagnostics.is_empty());
+        assert!(loaded.invalid_sections.is_empty());
+    }
+
+    #[test]
+    fn load_live_config_parses_plugins_section() {
+        let loaded = load_live_config_from_str(
+            r#"
+[plugins]
+favorites = ["com.a.one", "com.b.two"]
+
+[[plugins.chains]]
+when = "com.a.one"
+then = ["com.b.two"]
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            loaded.config.plugins.favorites,
+            vec!["com.a.one".to_string(), "com.b.two".to_string()]
+        );
+        assert_eq!(loaded.config.plugins.chains.len(), 1);
+        assert_eq!(loaded.config.plugins.chains[0].when, "com.a.one");
+        assert_eq!(
+            loaded.config.plugins.chains[0].then,
+            vec!["com.b.two".to_string()]
+        );
         assert!(loaded.diagnostics.is_empty());
         assert!(loaded.invalid_sections.is_empty());
     }
