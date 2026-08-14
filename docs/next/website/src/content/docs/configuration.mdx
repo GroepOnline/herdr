@@ -219,6 +219,28 @@ Custom commands receive `HERDR_SOCKET_PATH`, `HERDR_BIN_PATH`, `HERDR_ACTIVE_WOR
 
 On Windows, custom command strings use `cmd.exe /d /c`, so environment variables use `%HERDR_BIN_PATH%` syntax. To run PowerShell syntax, invoke it explicitly, for example `powershell.exe -NoProfile -Command "..."`.
 
+## Plugins
+
+The plugin action palette (`prefix+e`) lists every installed plugin action,
+favorites first. Pin actions to the top and chain actions together in
+`config.toml`:
+
+```toml
+[plugins]
+favorites = ["com.chefgroep.github-status.check-pr"]
+
+[[plugins.chains]]
+when = "com.chefgroep.github-status.check-pr"
+then = ["com.chefgroep.kater-bridge.sync"]
+```
+
+`favorites` lists qualified action ids (`plugin_id.action_id`) shown first in
+the palette. `chains` run every id in `then` after `when` finishes successfully;
+chained ids use the same qualified format and can themselves have chains (cycles
+are detected and skipped). From the palette, `f` toggles a favorite and `b`
+records a keybinding for the selected action (written as a `[[keys.command]]`
+entry with `type = "plugin_action"`).
+
 ## Theme
 
 Choose a built-in theme:
