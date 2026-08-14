@@ -50,19 +50,24 @@ pub(super) fn command() -> Command {
         } else {
             command
         },
-        true,
+        0,
     )
 }
 
-fn configure_help(command: Command, root: bool) -> Command {
-    let command = if root {
+fn configure_help(command: Command, depth: usize) -> Command {
+    let command = if depth == 0 {
         command
     } else {
         command.disable_help_flag(false)
     };
+    let command = if depth == 1 && command.has_subcommands() {
+        command.after_help(super::AGENT_HELP_FOOTER)
+    } else {
+        command
+    };
     command
         .disable_help_subcommand(true)
-        .mut_subcommands(|subcommand| configure_help(subcommand, false))
+        .mut_subcommands(|subcommand| configure_help(subcommand, depth + 1))
 }
 
 pub(super) fn print_requested_help(args: &[String]) -> std::io::Result<bool> {
@@ -1494,6 +1499,23 @@ mod tests {
             path.join(" ")
         );
         String::from_utf8(output).unwrap()
+    }
+
+    #[test]
+    fn agent_resources_appear_on_command_groups_but_not_leaf_commands() {
+        for group in ["agent", "pane", "workspace", "terminal"] {
+            let help = long_help(&[group]);
+            assert!(
+                help.contains(super::super::AGENT_HELP_FOOTER),
+                "herdr {group} is missing agent resources: {help}"
+            );
+        }
+
+        let leaf = long_help(&["agent", "wait"]);
+        assert!(
+            !leaf.contains(super::super::AGENT_HELP_FOOTER),
+            "leaf help should stay focused: {leaf}"
+        );
     }
 
     #[test]
