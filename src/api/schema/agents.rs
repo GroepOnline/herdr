@@ -198,6 +198,22 @@ pub struct AgentInfo {
     pub agent_status: AgentStatus,
     #[serde(default, skip_serializing_if = "super::is_false")]
     pub screen_detection_skipped: bool,
+    /// True when the latest screen detection visibly showed idle chrome.
+    #[serde(default, skip_serializing_if = "super::is_false")]
+    pub visible_idle: bool,
+    /// True when the latest screen detection visibly showed a blocking prompt.
+    #[serde(default, skip_serializing_if = "super::is_false")]
+    pub visible_blocker: bool,
+    /// True when the latest screen detection visibly showed working chrome.
+    #[serde(default, skip_serializing_if = "super::is_false")]
+    pub visible_working: bool,
+    /// Active screen-detection manifest source label for the detected agent
+    /// (`bundled`, `remote:<path>`, or `override:<path>`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_source: Option<String>,
+    /// Active screen-detection manifest version, when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_version: Option<String>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub state_labels: HashMap<String, String>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]

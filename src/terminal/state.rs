@@ -101,7 +101,9 @@ pub struct TerminalState {
     pub cwd: PathBuf,
     pub detected_agent: Option<Agent>,
     pub fallback_state: AgentState,
+    fallback_visible_idle: bool,
     fallback_visible_blocker: bool,
+    fallback_visible_working: bool,
     fallback_observed_at: Option<Instant>,
     pub hook_authority: Option<HookAuthority>,
     pub agent_metadata: HashMap<String, AgentMetadata>,
@@ -133,7 +135,9 @@ impl TerminalState {
             cwd,
             detected_agent: None,
             fallback_state: AgentState::Unknown,
+            fallback_visible_idle: false,
             fallback_visible_blocker: false,
+            fallback_visible_working: false,
             fallback_observed_at: None,
             hook_authority: None,
             agent_metadata: HashMap::new(),
@@ -157,6 +161,18 @@ impl TerminalState {
             recent_agent_process_exit_at: None,
             pending_agent_resume_plan: None,
         }
+    }
+
+    pub(crate) fn fallback_visible_idle(&self) -> bool {
+        self.fallback_visible_idle
+    }
+
+    pub(crate) fn fallback_visible_blocker(&self) -> bool {
+        self.fallback_visible_blocker
+    }
+
+    pub(crate) fn fallback_visible_working(&self) -> bool {
+        self.fallback_visible_working
     }
 
     pub(crate) fn terminal_title_stripped(&self) -> Option<String> {
@@ -237,14 +253,14 @@ impl TerminalState {
         agent: Option<Agent>,
         fallback_state: AgentState,
         visible_blocker: bool,
-        _ignored_screen_idle: bool,
+        visible_idle: bool,
         process_exited: bool,
     ) -> Option<EffectiveStateChange> {
         self.set_detected_state_with_screen_signals_at(
             agent,
             fallback_state,
+            visible_idle,
             visible_blocker,
-            false,
             false,
             process_exited,
             Instant::now(),
@@ -256,9 +272,9 @@ impl TerminalState {
         &mut self,
         agent: Option<Agent>,
         fallback_state: AgentState,
+        visible_idle: bool,
         visible_blocker: bool,
-        _visible_idle: bool,
-        _visible_working: bool,
+        visible_working: bool,
         process_exited: bool,
         now: Instant,
     ) -> TerminalStateMutation {
@@ -319,7 +335,9 @@ impl TerminalState {
             );
         }
         self.fallback_state = fallback_state;
+        self.fallback_visible_idle = visible_idle && fallback_state == AgentState::Idle;
         self.fallback_visible_blocker = visible_blocker && fallback_state == AgentState::Blocked;
+        self.fallback_visible_working = visible_working && fallback_state == AgentState::Working;
         self.fallback_observed_at = Some(now);
         if process_exited && agent.is_some() {
             self.recent_agent_process_exit_at = Some(now);
@@ -1295,7 +1313,9 @@ impl TerminalState {
         );
         self.detected_agent = None;
         self.fallback_state = AgentState::Unknown;
+        self.fallback_visible_idle = false;
         self.fallback_visible_blocker = false;
+        self.fallback_visible_working = false;
         self.fallback_observed_at = None;
         self.hook_authority = None;
         self.clear_agent_name();
@@ -1560,7 +1580,9 @@ impl TerminalState {
     pub fn clear_agent_runtime_identity_after_respawn(&mut self) {
         self.detected_agent = None;
         self.fallback_state = AgentState::Unknown;
+        self.fallback_visible_idle = false;
         self.fallback_visible_blocker = false;
+        self.fallback_visible_working = false;
         self.fallback_observed_at = None;
         self.hook_authority = None;
         self.persisted_agent_session = None;
@@ -2144,8 +2166,8 @@ mod tests {
         let change = terminal.set_detected_state_with_screen_signals_at(
             Some(Agent::Pi),
             AgentState::Idle,
-            false,
             true,
+            false,
             false,
             true,
             now + Duration::from_millis(1),
@@ -2190,8 +2212,8 @@ mod tests {
         terminal.set_detected_state_with_screen_signals_at(
             Some(Agent::Pi),
             AgentState::Idle,
-            false,
             true,
+            false,
             false,
             true,
             now + Duration::from_millis(1),
@@ -2230,8 +2252,8 @@ mod tests {
         terminal.set_detected_state_with_screen_signals_at(
             Some(Agent::Pi),
             AgentState::Idle,
-            false,
             true,
+            false,
             false,
             true,
             now + Duration::from_millis(1),
@@ -2497,8 +2519,8 @@ mod tests {
         terminal.set_detected_state_with_screen_signals_at(
             Some(Agent::Pi),
             AgentState::Idle,
-            false,
             true,
+            false,
             false,
             true,
             process_exit_seen_at,
@@ -2554,8 +2576,8 @@ mod tests {
         terminal.set_detected_state_with_screen_signals_at(
             Some(Agent::Pi),
             AgentState::Idle,
-            false,
             true,
+            false,
             false,
             true,
             process_exit_seen_at,
@@ -2623,8 +2645,8 @@ mod tests {
         terminal.set_detected_state_with_screen_signals_at(
             Some(Agent::Pi),
             AgentState::Idle,
-            false,
             true,
+            false,
             false,
             true,
             now + Duration::from_millis(1),
@@ -2694,8 +2716,8 @@ mod tests {
         terminal.set_detected_state_with_screen_signals_at(
             Some(Agent::Pi),
             AgentState::Idle,
-            false,
             true,
+            false,
             false,
             true,
             now + Duration::from_millis(1),
@@ -2768,8 +2790,8 @@ mod tests {
         terminal.set_detected_state_with_screen_signals_at(
             Some(Agent::Pi),
             AgentState::Idle,
-            false,
             true,
+            false,
             false,
             true,
             now + Duration::from_millis(1),
@@ -2806,8 +2828,8 @@ mod tests {
         terminal.set_detected_state_with_screen_signals_at(
             Some(Agent::Pi),
             AgentState::Idle,
-            false,
             true,
+            false,
             false,
             true,
             now + Duration::from_millis(5),
@@ -3031,8 +3053,8 @@ mod tests {
         terminal.set_detected_state_with_screen_signals_at(
             Some(Agent::Omp),
             AgentState::Idle,
-            false,
             true,
+            false,
             false,
             true,
             now + Duration::from_millis(1),
@@ -3104,6 +3126,51 @@ mod tests {
         assert_eq!(terminal.fallback_state, AgentState::Blocked);
         assert_eq!(terminal.state, AgentState::Blocked);
         assert_eq!(change.unwrap().previous_state, AgentState::Working);
+    }
+
+    #[test]
+    fn screen_visibility_flags_are_stored_and_gated_on_state() {
+        let mut terminal = test_terminal();
+
+        terminal.set_detected_state_with_screen_signals_at(
+            Some(Agent::Pi),
+            AgentState::Idle,
+            true,
+            false,
+            false,
+            false,
+            std::time::Instant::now(),
+        );
+        assert!(terminal.fallback_visible_idle());
+        assert!(!terminal.fallback_visible_blocker());
+        assert!(!terminal.fallback_visible_working());
+
+        // A visible-idle signal only sticks when the detected state is idle.
+        terminal.set_detected_state_with_screen_signals_at(
+            Some(Agent::Pi),
+            AgentState::Working,
+            true,
+            false,
+            true,
+            false,
+            std::time::Instant::now(),
+        );
+        assert!(!terminal.fallback_visible_idle());
+        assert!(!terminal.fallback_visible_blocker());
+        assert!(terminal.fallback_visible_working());
+
+        terminal.set_detected_state_with_screen_signals_at(
+            Some(Agent::Pi),
+            AgentState::Blocked,
+            false,
+            true,
+            false,
+            false,
+            std::time::Instant::now(),
+        );
+        assert!(!terminal.fallback_visible_idle());
+        assert!(terminal.fallback_visible_blocker());
+        assert!(!terminal.fallback_visible_working());
     }
 
     #[test]

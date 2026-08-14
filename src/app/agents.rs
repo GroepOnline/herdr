@@ -369,6 +369,15 @@ impl App {
             return None;
         }
         let pane = self.pane_info(ws_idx, pane_id)?;
+        let (manifest_source, manifest_version) = terminal
+            .detected_agent
+            .and_then(|agent| {
+                crate::detect::manifest::manifest_summaries()
+                    .into_iter()
+                    .find(|summary| summary.agent == agent)
+            })
+            .map(|summary| (Some(summary.active_source.label()), summary.active_version))
+            .unwrap_or((None, None));
         Some(crate::api::schema::AgentInfo {
             terminal_id: pane.terminal_id,
             name: terminal.agent_name.clone(),
@@ -379,6 +388,11 @@ impl App {
             display_agent: pane.display_agent,
             agent_status: pane.agent_status,
             screen_detection_skipped: terminal.full_lifecycle_hook_authority_active(),
+            visible_idle: terminal.fallback_visible_idle(),
+            visible_blocker: terminal.fallback_visible_blocker(),
+            visible_working: terminal.fallback_visible_working(),
+            manifest_source,
+            manifest_version,
             state_labels: pane.state_labels,
             tokens: pane.tokens,
             agent_session: pane.agent_session,

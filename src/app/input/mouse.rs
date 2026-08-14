@@ -2671,6 +2671,7 @@ mod tests {
                 pane_id: target_pane,
                 agent: Some(Agent::Pi),
                 state: AgentState::Idle,
+                visible_idle: false,
                 visible_blocker: false,
                 visible_working: false,
                 process_exited: false,
