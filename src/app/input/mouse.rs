@@ -62,6 +62,7 @@ pub(super) enum MouseAction {
     PluginPaletteRun {
         index: usize,
     },
+    PluginPaletteDismiss,
 }
 
 enum MobileMouseResult {

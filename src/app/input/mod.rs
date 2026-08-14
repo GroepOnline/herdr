@@ -375,6 +375,9 @@ impl App {
                         self.state.plugin_palette.search_focused = false;
                         self.run_selected_palette_action();
                     }
+                    MouseAction::PluginPaletteDismiss => {
+                        self.close_plugin_palette();
+                    }
                 }
             }
             if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
