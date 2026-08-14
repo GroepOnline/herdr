@@ -21,7 +21,11 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 concurrency:
-  group: dev-publish
+  # Namespaced per ref: a legacy un-runnable run can hold the literal
+  # `dev-publish` group forever (0 runners, uncancellable) and block every
+  # later publish. A per-ref key keeps concurrent publishes serialized while
+  # escaping any stuck run.
+  group: dev-publish-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
