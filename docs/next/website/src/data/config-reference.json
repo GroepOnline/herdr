@@ -1316,12 +1316,6 @@
           "type": "list of strings",
           "default": "[]",
           "description": "Qualified plugin action ids (plugin_id.action_id) pinned to the top of the plugin action palette (prefix+e)."
-        },
-        {
-          "key": "plugins.chains",
-          "type": "list of tables",
-          "default": "[]",
-          "description": "Action chains: after the qualified plugin action id in `when` runs successfully, also run every qualified id in the `then` list (in order). Example: [[plugins.chains]]\nwhen = \"git.commit\"\nthen = [\"git.push\"]"
         }
       ]
     }
