@@ -80,15 +80,15 @@ impl App {
             return;
         }
 
-        if key.code == KeyCode::Char('e') && key.modifiers.is_empty() {
-            self.open_plugin_palette();
-            return;
-        }
-
         if let Some(action) =
             non_indexed_action_for_key(&self.state, raw_key, BindingDispatch::Prefix)
         {
             self.execute_prefix_key_action(action);
+            return;
+        }
+
+        if key.code == KeyCode::Char('e') && key.modifiers.is_empty() {
+            self.open_plugin_palette();
             return;
         }
 
