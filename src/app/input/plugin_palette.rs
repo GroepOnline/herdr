@@ -166,8 +166,9 @@ impl App {
             }
             format!("prefix+{base}")
         };
-        // The palette opener is hardcoded and runs before custom commands, so a
-        // recorded `prefix+e` binding could never fire; refuse it explicitly.
+        // `prefix+e` is the palette opener. A recorded binding would shadow it
+        // (custom commands win in prefix dispatch), making the palette
+        // unreachable until the config is hand-edited; refuse it explicitly.
         if binding == "prefix+e" {
             self.state.plugin_palette.recording_keybind = None;
             self.show_palette_toast(

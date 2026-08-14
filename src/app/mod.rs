@@ -675,6 +675,7 @@ impl App {
                 focus: state::SettingsFocus::Content,
                 spinner_category: 0,
                 content_scroll: 0,
+                plugin_detail_scroll: 0,
                 original_palette: None,
                 original_theme: None,
                 preview_tick: 0,
