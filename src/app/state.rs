@@ -1327,6 +1327,8 @@ pub struct SettingsState {
     /// Selected row within the plugin detail view: `0` is the enable toggle,
     /// `1..` are the plugin's actions in declaration order.
     pub plugin_detail_cursor: usize,
+    /// Scroll offset for the plugin detail view action list.
+    pub plugin_detail_scroll: u16,
 }
 
 pub(crate) enum DragTarget {
@@ -2133,6 +2135,7 @@ impl AppState {
                 collapsed_groups: std::collections::BTreeSet::new(),
                 plugin_detail: None,
                 plugin_detail_cursor: 0,
+                plugin_detail_scroll: 0,
             },
             integration_recommendations: Vec::new(),
             agent_manifest_summaries: Vec::new(),

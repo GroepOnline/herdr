@@ -21,7 +21,7 @@ use super::{catalog::installed_plugins_sorted, layout::SettingsLayout};
 const DETAIL_TOGGLE_OFFSET: u16 = 5;
 /// Vertical offset of the first action row. The `actions` header sits one row
 /// above this.
-const DETAIL_ACTIONS_OFFSET: u16 = 7;
+pub(crate) const DETAIL_ACTIONS_OFFSET: u16 = 7;
 
 /// The installed plugin currently shown in the detail view, if any.
 pub(crate) fn detail_plugin(app: &AppState) -> Option<&InstalledPluginInfo> {
@@ -57,9 +57,11 @@ pub(crate) fn index_at(
     if row < first_action_y {
         return None;
     }
+    let scroll = app.settings.plugin_detail_scroll as usize;
     let rel = (row - first_action_y) as usize;
-    if rel < plugin.actions.len() {
-        Some(rel + 1)
+    let action_idx = rel + scroll;
+    if action_idx < plugin.actions.len() {
+        Some(action_idx + 1)
     } else {
         None
     }
@@ -176,7 +178,15 @@ pub(crate) fn render(app: &AppState, frame: &mut Frame, layout: &SettingsLayout)
         ),
     );
 
+    let scroll = app.settings.plugin_detail_scroll as usize;
+    let visible_height = content.height.saturating_sub(DETAIL_ACTIONS_OFFSET + 1) as usize;
+    let visible_end = scroll + visible_height;
+
     for (idx, action) in plugin.actions.iter().enumerate() {
+        if idx < scroll || idx >= visible_end {
+            continue;
+        }
+        let visible_idx = idx - scroll;
         let selected = cursor == idx + 1;
         let style = if selected {
             Style::default()
@@ -202,7 +212,7 @@ pub(crate) fn render(app: &AppState, frame: &mut Frame, layout: &SettingsLayout)
             Paragraph::new(Line::from(spans)),
             Rect::new(
                 content.x,
-                content.y + DETAIL_ACTIONS_OFFSET + idx as u16,
+                content.y + DETAIL_ACTIONS_OFFSET + visible_idx as u16,
                 content.width,
                 1,
             ),

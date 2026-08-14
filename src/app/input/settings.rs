@@ -306,11 +306,13 @@ fn installed_plugin_index_at(state: &AppState, row_index: usize) -> Option<usize
 fn open_plugin_detail(state: &mut AppState, index: usize) {
     state.settings.plugin_detail = Some(index);
     state.settings.plugin_detail_cursor = 0;
+    state.settings.plugin_detail_scroll = 0;
 }
 
 fn close_plugin_detail(state: &mut AppState) {
     state.settings.plugin_detail = None;
     state.settings.plugin_detail_cursor = 0;
+    state.settings.plugin_detail_scroll = 0;
 }
 
 /// Activate the selected row in the plugin detail view: toggle enable for the
@@ -340,6 +342,7 @@ fn handle_plugin_detail_key(state: &mut AppState, key: KeyEvent) -> Option<Setti
         KeyCode::Up | KeyCode::Char('k') => {
             state.settings.plugin_detail_cursor =
                 state.settings.plugin_detail_cursor.saturating_sub(1);
+            sync_plugin_detail_scroll(state);
             None
         }
         KeyCode::Down | KeyCode::Char('j') => {
@@ -348,11 +351,32 @@ fn handle_plugin_detail_key(state: &mut AppState, key: KeyEvent) -> Option<Setti
                 state.settings.plugin_detail_cursor =
                     (state.settings.plugin_detail_cursor + 1).min(count - 1);
             }
+            sync_plugin_detail_scroll(state);
             None
         }
         KeyCode::Enter | KeyCode::Char(' ') => activate_plugin_detail_row(state),
         _ => None,
     }
+}
+
+fn sync_plugin_detail_scroll(state: &mut AppState) {
+    let Some(layout) = state.settings_layout() else {
+        return;
+    };
+    let cursor = state.settings.plugin_detail_cursor;
+    let content_height = layout.content.height.saturating_sub(plugin_detail::DETAIL_ACTIONS_OFFSET + 1);
+    let visible = content_height.max(1) as usize;
+    let scroll = if cursor > 0 {
+        let action_idx = cursor - 1;
+        if action_idx >= visible {
+            (action_idx - visible + 1) as u16
+        } else {
+            0
+        }
+    } else {
+        0
+    };
+    state.settings.plugin_detail_scroll = scroll;
 }
 
 pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Option<SettingsAction> {
@@ -536,6 +560,7 @@ pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
     state.settings.list.selected = default_selection_for_section(state, section);
     state.settings.plugin_detail = None;
     state.settings.plugin_detail_cursor = 0;
+    state.settings.plugin_detail_scroll = 0;
     state.mode = Mode::Settings;
     if section == SettingsSection::Plugins {
         let _ =
@@ -553,7 +578,10 @@ impl AppState {
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) => {
                 if self.settings.plugin_detail.is_some() {
-                    return handle_plugin_detail_mouse(self, mouse);
+                    if let Some(action) = handle_plugin_detail_mouse(self, mouse) {
+                        return Some(action);
+                    }
+                    // Fall through to normal settings handling if click missed detail rows
                 }
 
                 if layout.search_index_at(mouse.column, mouse.row) {
@@ -619,6 +647,7 @@ fn handle_plugin_detail_mouse(state: &mut AppState, mouse: MouseEvent) -> Option
     let idx = plugin_detail::index_at(&layout, state, mouse.column, mouse.row)?;
     state.settings.plugin_detail_cursor = idx;
     state.settings.focus = SettingsFocus::Content;
+    sync_plugin_detail_scroll(state);
     activate_plugin_detail_row(state)
 }
 

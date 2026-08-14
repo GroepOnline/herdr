@@ -87,14 +87,14 @@ impl App {
             return;
         }
 
-        if key.code == KeyCode::Char('e') && key.modifiers.is_empty() {
-            self.open_plugin_palette();
-            return;
-        }
-
         if let Some(binding) = command_for_key(&self.state, raw_key, BindingDispatch::Prefix) {
             self.cancel_copy_mode_if_active();
             self.launch_custom_command(binding, ActionContext::Prefix);
+            return;
+        }
+
+        if key.code == KeyCode::Char('e') && key.modifiers.is_empty() {
+            self.open_plugin_palette();
             return;
         }
 

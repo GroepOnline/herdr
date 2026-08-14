@@ -148,7 +148,19 @@ impl App {
         let binding = if key.modifiers.is_empty() {
             format!("prefix+{base}")
         } else {
-            base
+            // Control-key combinations must use prefix+ to avoid global shadowing
+            if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
+                || key.modifiers.contains(crossterm::event::KeyModifiers::ALT)
+                || key.modifiers.contains(crossterm::event::KeyModifiers::SUPER)
+            {
+                self.state.plugin_palette.recording_keybind = None;
+                self.show_palette_toast(
+                    "invalid keybind",
+                    "use prefix+key or unmodified keys only".into(),
+                );
+                return;
+            }
+            format!("prefix+{base}")
         };
         // The palette opener is hardcoded and runs before custom commands, so a
         // recorded `prefix+e` binding could never fire; refuse it explicitly.

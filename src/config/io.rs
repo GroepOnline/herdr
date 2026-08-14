@@ -572,23 +572,37 @@ pub fn upsert_section_bool(content: &str, section: &str, key: &str, value: bool)
 }
 
 /// Append a `[[keys.command]]` table that runs a plugin action.
+fn escape_toml_string(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '\\' => result.push_str("\\\\"),
+            '"' => result.push_str("\\\""),
+            '\n' => result.push_str("\\n"),
+            '\r' => result.push_str("\\r"),
+            '\t' => result.push_str("\\t"),
+            _ => result.push(ch),
+        }
+    }
+    result
+}
+
 pub fn append_keys_plugin_command(
     content: &str,
     key: &str,
     command: &str,
     description: &str,
 ) -> String {
-    let esc = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
     let mut lines: Vec<String> = content.lines().map(str::to_string).collect();
     while lines.last().is_some_and(|line| line.trim().is_empty()) {
         lines.pop();
     }
     lines.push(String::new());
     lines.push("[[keys.command]]".to_string());
-    lines.push(format!("key = \"{}\"", esc(key)));
+    lines.push(format!("key = \"{}\"", escape_toml_string(key)));
     lines.push("type = \"plugin_action\"".to_string());
-    lines.push(format!("command = \"{}\"", esc(command)));
-    lines.push(format!("description = \"{}\"", esc(description)));
+    lines.push(format!("command = \"{}\"", escape_toml_string(command)));
+    lines.push(format!("description = \"{}\"", escape_toml_string(description)));
     lines.push(String::new());
     lines.join("\n") + "\n"
 }
@@ -602,7 +616,7 @@ pub fn upsert_section_string_array(
 ) -> String {
     let rendered = values
         .iter()
-        .map(|value| format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\"")))
+        .map(|value| format!("\"{}\"", escape_toml_string(value)))
         .collect::<Vec<_>>()
         .join(", ");
     upsert_section_raw(content, section, key, &format!("[{rendered}]"))
@@ -811,6 +825,50 @@ mod tests {
         assert!(updated.contains("type = \"plugin_action\""));
         assert!(updated.contains("command = \"com.a.run\""));
         assert!(updated.contains("description = \"Run the thing\""));
+    }
+
+    #[test]
+    fn append_keys_plugin_command_escapes_control_characters() {
+        let content = "onboarding = false\n";
+        let updated = append_keys_plugin_command(
+            content,
+            "prefix+p",
+            "com.a.run\nwith\nnewlines",
+            "Description\twith\ttabs\rand\rreturns",
+        );
+        assert!(updated.contains("command = \"com.a.run\\nwith\\nnewlines\""));
+        assert!(updated.contains("description = \"Description\\twith\\ttabs\\rand\\rreturns\""));
+
+        // Verify it parses back correctly
+        let parsed: toml::Value = toml::from_str(&updated).expect("TOML should parse");
+        let commands = parsed["keys"]["command"].as_array().expect("should be array");
+        assert_eq!(commands[0]["command"].as_str(), Some("com.a.run\nwith\nnewlines"));
+        assert_eq!(
+            commands[0]["description"].as_str(),
+            Some("Description\twith\ttabs\rand\rreturns")
+        );
+    }
+
+    #[test]
+    fn upsert_section_string_array_escapes_control_characters() {
+        let values = vec![
+            "normal.value".to_string(),
+            "with\nnewline".to_string(),
+            "with\ttab".to_string(),
+            "with\rreturn".to_string(),
+        ];
+        let updated = upsert_section_string_array("", "plugins", "favorites", &values);
+        assert!(updated.contains("favorites = [\"normal.value\", \"with\\nnewline\", \"with\\ttab\", \"with\\rreturn\"]"));
+
+        // Verify it parses back correctly
+        let parsed: toml::Value = toml::from_str(&updated).expect("TOML should parse");
+        let favorites = parsed["plugins"]["favorites"]
+            .as_array()
+            .expect("should be array");
+        assert_eq!(favorites[0].as_str(), Some("normal.value"));
+        assert_eq!(favorites[1].as_str(), Some("with\nnewline"));
+        assert_eq!(favorites[2].as_str(), Some("with\ttab"));
+        assert_eq!(favorites[3].as_str(), Some("with\rreturn"));
     }
 
     fn with_default_config_path_env<T>(f: impl FnOnce() -> T) -> T {
