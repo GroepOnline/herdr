@@ -475,6 +475,7 @@ mod tests {
             panic!("expected agent info response");
         };
         assert_eq!(agent.agent_status, AgentStatus::Idle);
+        assert_eq!(agent.pane_number, Some(1));
     }
 
     #[test]

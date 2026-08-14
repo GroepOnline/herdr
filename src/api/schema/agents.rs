@@ -224,6 +224,9 @@ pub struct AgentInfo {
     pub workspace_id: String,
     pub tab_id: String,
     pub pane_id: String,
+    /// Stable human-facing pane number within the workspace (1, 2, ...).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pane_number: Option<usize>,
     pub focused: bool,
     #[serde(default, skip_serializing_if = "super::is_false")]
     pub launch_pending: bool,

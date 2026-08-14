@@ -399,6 +399,7 @@ impl App {
             workspace_id: pane.workspace_id,
             tab_id: pane.tab_id,
             pane_id: pane.pane_id,
+            pane_number: ws.public_pane_number(pane_id),
             focused: pane.focused,
             launch_pending: terminal.managed_agent_launch_pending(),
             interactive_ready: terminal.managed_agent_interactive_ready(),
