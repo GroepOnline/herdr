@@ -1634,8 +1634,7 @@ pub struct AppState {
     /// Chains deferred until their trigger command finishes, keyed by the
     /// trigger command's `log_id`. Resolved in the `PluginCommandFinished`
     /// handler so `then` actions only run after `when` succeeds.
-    pub(crate) pending_plugin_chains:
-        std::collections::HashMap<String, PendingPluginChain>,
+    pub(crate) pending_plugin_chains: std::collections::HashMap<String, PendingPluginChain>,
     pub copy_mode: Option<CopyModeState>,
     pub workspace_scroll: usize,
     pub agent_panel_scroll: usize,

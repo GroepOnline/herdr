@@ -1217,11 +1217,8 @@ mod tests {
 
         // The detail view renders a single close button; click its center.
         let layout = app.state.settings_layout().expect("layout");
-        let (_, close_rect) = crate::ui::settings_button_rects(
-            &layout,
-            app.state.settings.section,
-            false,
-        );
+        let (_, close_rect) =
+            crate::ui::settings_button_rects(&layout, app.state.settings.section, false);
         let action = app.state.handle_settings_mouse(mouse(
             MouseEventKind::Down(crossterm::event::MouseButton::Left),
             close_rect.x + close_rect.width / 2,
