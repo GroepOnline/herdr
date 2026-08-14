@@ -571,6 +571,43 @@ pub fn upsert_section_bool(content: &str, section: &str, key: &str, value: bool)
     upsert_section_raw(content, section, key, &value.to_string())
 }
 
+/// Append a `[[keys.command]]` table that runs a plugin action.
+pub fn append_keys_plugin_command(
+    content: &str,
+    key: &str,
+    command: &str,
+    description: &str,
+) -> String {
+    let esc = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
+    let mut lines: Vec<String> = content.lines().map(str::to_string).collect();
+    while lines.last().is_some_and(|line| line.trim().is_empty()) {
+        lines.pop();
+    }
+    lines.push(String::new());
+    lines.push("[[keys.command]]".to_string());
+    lines.push(format!("key = \"{}\"", esc(key)));
+    lines.push("type = \"plugin_action\"".to_string());
+    lines.push(format!("command = \"{}\"", esc(command)));
+    lines.push(format!("description = \"{}\"", esc(description)));
+    lines.push(String::new());
+    lines.join("\n") + "\n"
+}
+
+/// Write a TOML array of strings in a section (creates section if missing).
+pub fn upsert_section_string_array(
+    content: &str,
+    section: &str,
+    key: &str,
+    values: &[String],
+) -> String {
+    let rendered = values
+        .iter()
+        .map(|value| format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\"")))
+        .collect::<Vec<_>>()
+        .join(", ");
+    upsert_section_raw(content, section, key, &format!("[{rendered}]"))
+}
+
 pub fn remove_section_key(content: &str, section: &str, key: &str) -> String {
     let header = format!("[{section}]");
     let lines: Vec<&str> = content.lines().collect();
@@ -742,6 +779,38 @@ mod tests {
         assert!(!updated.contains("[ui.toast]\nenabled = true"));
         assert!(updated.contains("delivery = \"herdr\""));
         assert!(updated.contains("[ui.sound]\nenabled = true"));
+    }
+
+    #[test]
+    fn upsert_section_string_array_writes_toml_array() {
+        let updated = upsert_section_string_array(
+            "",
+            "plugins",
+            "favorites",
+            &["com.a.one".to_string(), "com.b.two".to_string()],
+        );
+        assert!(updated.contains("[plugins]"));
+        assert!(updated.contains("favorites = [\"com.a.one\", \"com.b.two\"]"));
+
+        let re_updated = upsert_section_string_array(
+            &updated,
+            "plugins",
+            "favorites",
+            &["com.a.one".to_string()],
+        );
+        assert!(re_updated.contains("favorites = [\"com.a.one\"]"));
+        assert!(!re_updated.contains("com.b.two"));
+    }
+
+    #[test]
+    fn append_keys_plugin_command_appends_a_table() {
+        let content = "onboarding = false\n";
+        let updated = append_keys_plugin_command(content, "prefix+p", "com.a.run", "Run the thing");
+        assert!(updated.contains("[[keys.command]]"));
+        assert!(updated.contains("key = \"prefix+p\""));
+        assert!(updated.contains("type = \"plugin_action\""));
+        assert!(updated.contains("command = \"com.a.run\""));
+        assert!(updated.contains("description = \"Run the thing\""));
     }
 
     fn with_default_config_path_env<T>(f: impl FnOnce() -> T) -> T {

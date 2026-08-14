@@ -24,6 +24,16 @@ pub(crate) use manifest::load_plugin_manifest;
 #[cfg(test)]
 use runtime::{read_capped_plugin_output, MAX_PLUGIN_COMMANDS_IN_FLIGHT};
 
+fn toggle_favorite_in_list(favorites: &mut Vec<String>, qualified: &str) -> bool {
+    if let Some(pos) = favorites.iter().position(|favorite| favorite == qualified) {
+        favorites.remove(pos);
+        false
+    } else {
+        favorites.push(qualified.to_string());
+        true
+    }
+}
+
 impl App {
     fn replace_installed_plugins(&mut self, entries: Vec<InstalledPluginInfo>) {
         let entries =
@@ -389,8 +399,38 @@ impl App {
     ) -> Result<(), String> {
         self.refresh_installed_plugins()
             .map_err(|err| format!("failed to load plugin registry: {err}"))?;
+        let mut visited = std::collections::HashSet::new();
+        self.invoke_plugin_action_inner(None, &action_id, "keybinding", 0, &mut visited)
+    }
+
+    /// Invoke a plugin action by its owning plugin id and action id, recording
+    /// the settings UI as the invocation source. Used by the settings plugin
+    /// detail view and the plugin action palette.
+    pub(crate) fn invoke_plugin_action(
+        &mut self,
+        plugin_id: &str,
+        action_id: &str,
+    ) -> Result<(), String> {
+        self.refresh_installed_plugins()
+            .map_err(|err| format!("failed to load plugin registry: {err}"))?;
+        let mut visited = std::collections::HashSet::new();
+        self.invoke_plugin_action_inner(Some(plugin_id), action_id, "settings", 0, &mut visited)
+    }
+
+    /// Resolve, run, and follow configured action chains for a single action.
+    fn invoke_plugin_action_inner(
+        &mut self,
+        plugin_id: Option<&str>,
+        action_id: &str,
+        source: &str,
+        depth: usize,
+        visited: &mut std::collections::HashSet<String>,
+    ) -> Result<(), String> {
+        if depth > 8 {
+            return Err("plugin action chain too deep (possible cycle)".to_string());
+        }
         let (plugin, action) = self
-            .find_plugin_action(None, &action_id)
+            .find_plugin_action(plugin_id, action_id)
             .map_err(|(_, message)| message)?;
         if !plugin.enabled {
             return Err(format!("plugin {} is disabled", plugin.plugin_id));
@@ -400,8 +440,15 @@ impl App {
             &action.qualified_id(),
         )
         .map_err(|(_, message)| message)?;
-        let mut context = self.current_plugin_context("keybinding");
-        context.invocation_source = Some("keybinding".to_string());
+
+        let qualified = action.qualified_id();
+        if !visited.insert(qualified.clone()) {
+            // Already ran in this invocation tree; break the cycle.
+            return Ok(());
+        }
+
+        let mut context = self.current_plugin_context(source);
+        context.invocation_source = Some(source.to_string());
         self.start_plugin_command(
             &plugin,
             Some(action.action_id),
@@ -410,8 +457,38 @@ impl App {
             &context,
             None,
         )
-        .map(|_| ())
-        .map_err(|(_, message)| message)
+        .map_err(|(_, message)| message)?;
+
+        // Follow configured chains (config `[plugins].chains`).
+        let targets = self.plugin_chain_targets(&qualified);
+        for target in targets {
+            self.invoke_plugin_action_inner(None, &target, source, depth + 1, visited)?;
+        }
+        Ok(())
+    }
+
+    /// Configured chained action targets for a qualified plugin action id.
+    pub(crate) fn plugin_chain_targets(&self, qualified: &str) -> Vec<String> {
+        self.state
+            .plugin_chains
+            .iter()
+            .filter(|chain| chain.when == qualified)
+            .flat_map(|chain| chain.then.iter().cloned())
+            .collect()
+    }
+
+    /// Toggle a qualified plugin action id in the favorites list and persist
+    /// to config. Returns the new favorite state (`true` = now a favorite).
+    pub(crate) fn toggle_plugin_favorite(&mut self, qualified: String) -> bool {
+        let mut favorites = self.state.plugin_favorites.clone();
+        let now_favorite = toggle_favorite_in_list(&mut favorites, &qualified);
+        self.state.plugin_favorites = favorites.clone();
+        if self.update_config_file("plugin favorites", |content| {
+            crate::config::upsert_section_string_array(content, "plugins", "favorites", &favorites)
+        }) {
+            self.apply_config_from_disk(false);
+        }
+        now_favorite
     }
 
     pub(crate) fn invoke_plugin_link_handler_for_url(
@@ -903,6 +980,38 @@ mod tests {
         Method, PaneListParams, PluginSourceInfo, PluginSourceKind, Request, SuccessResponse,
     };
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn plugin_chain_targets_returns_configured_then_list() {
+        let mut app = test_app();
+        app.state.plugin_chains = vec![
+            crate::config::PluginActionChain {
+                when: "com.a.one".to_string(),
+                then: vec!["com.b.two".to_string(), "com.c.three".to_string()],
+            },
+            crate::config::PluginActionChain {
+                when: "com.other".to_string(),
+                then: vec!["com.x".to_string()],
+            },
+        ];
+        assert_eq!(
+            app.plugin_chain_targets("com.a.one"),
+            vec!["com.b.two".to_string(), "com.c.three".to_string()]
+        );
+        assert!(app.plugin_chain_targets("com.missing").is_empty());
+    }
+
+    #[test]
+    fn toggle_favorite_in_list_adds_then_removes() {
+        let mut favorites = vec!["com.a.one".to_string()];
+        assert!(toggle_favorite_in_list(&mut favorites, "com.b.two"));
+        assert_eq!(
+            favorites,
+            vec!["com.a.one".to_string(), "com.b.two".to_string()]
+        );
+        assert!(!toggle_favorite_in_list(&mut favorites, "com.b.two"));
+        assert_eq!(favorites, vec!["com.a.one".to_string()]);
+    }
 
     fn test_app() -> App {
         let (_api_tx, api_rx) = tokio::sync::mpsc::unbounded_channel();

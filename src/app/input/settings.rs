@@ -6,7 +6,8 @@ use crate::{
         App, Mode,
     },
     ui::settings::{
-        catalog::{activate_item, theme_index},
+        catalog::{activate_item, theme_index, SettingsItemId},
+        plugin_detail,
         rows::{section_rows, SettingsRowKind},
         SettingsLayout,
     },
@@ -118,6 +119,14 @@ impl App {
             }
             SettingsAction::RefreshInstalledPlugins => {
                 self.settings_refresh_installed_plugins();
+            }
+            SettingsAction::InvokePluginAction {
+                plugin_id,
+                action_id,
+            } => {
+                if let Err(err) = self.invoke_plugin_action(&plugin_id, &action_id) {
+                    self.state.plugin_install_messages = vec![err];
+                }
             }
         }
         self.state.settings.config_snapshot = SettingsConfigSnapshot::load();
@@ -284,7 +293,73 @@ fn activate_row(state: &AppState, row_index: usize) -> Option<SettingsAction> {
     activate_item(state, row.id)
 }
 
+/// If the row at `row_index` is an installed-plugin row, return that plugin's
+/// index in the plugin-id-sorted install list.
+fn installed_plugin_index_at(state: &AppState, row_index: usize) -> Option<usize> {
+    let rows = section_rows(state, state.settings.section);
+    match rows.get(row_index)?.id {
+        SettingsItemId::InstalledPlugin { index } => Some(index),
+        _ => None,
+    }
+}
+
+fn open_plugin_detail(state: &mut AppState, index: usize) {
+    state.settings.plugin_detail = Some(index);
+    state.settings.plugin_detail_cursor = 0;
+}
+
+fn close_plugin_detail(state: &mut AppState) {
+    state.settings.plugin_detail = None;
+    state.settings.plugin_detail_cursor = 0;
+}
+
+/// Activate the selected row in the plugin detail view: toggle enable for the
+/// first row, otherwise invoke the selected action.
+fn activate_plugin_detail_row(state: &AppState) -> Option<SettingsAction> {
+    let plugin = plugin_detail::detail_plugin(state)?;
+    let cursor = state.settings.plugin_detail_cursor;
+    if cursor == 0 {
+        return Some(SettingsAction::TogglePluginEnabled {
+            plugin_id: plugin.plugin_id.clone(),
+            enabled: !plugin.enabled,
+        });
+    }
+    let action = plugin.actions.get(cursor - 1)?;
+    Some(SettingsAction::InvokePluginAction {
+        plugin_id: plugin.plugin_id.clone(),
+        action_id: action.id.clone(),
+    })
+}
+
+fn handle_plugin_detail_key(state: &mut AppState, key: KeyEvent) -> Option<SettingsAction> {
+    match key.code {
+        KeyCode::Esc | KeyCode::Backspace | KeyCode::Left | KeyCode::Char('q') => {
+            close_plugin_detail(state);
+            None
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            state.settings.plugin_detail_cursor =
+                state.settings.plugin_detail_cursor.saturating_sub(1);
+            None
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            let count = plugin_detail::selectable_count(state);
+            if count > 0 {
+                state.settings.plugin_detail_cursor =
+                    (state.settings.plugin_detail_cursor + 1).min(count - 1);
+            }
+            None
+        }
+        KeyCode::Enter | KeyCode::Char(' ') => activate_plugin_detail_row(state),
+        _ => None,
+    }
+}
+
 pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Option<SettingsAction> {
+    if state.settings.plugin_detail.is_some() {
+        return handle_plugin_detail_key(state, key);
+    }
+
     if matches!(key.code, KeyCode::Char('/')) && key.modifiers.is_empty() {
         state.settings.focus = SettingsFocus::Search;
         state.settings.search.clear();
@@ -361,16 +436,22 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             state.settings.section = next;
             state.settings.list.selected = default_selection_for_section(state, next);
             state.settings.content_scroll = 0;
+            close_plugin_detail(state);
         }
         KeyCode::BackTab => {
             let prev = prev_section(state.settings.section);
             state.settings.section = prev;
             state.settings.list.selected = default_selection_for_section(state, prev);
             state.settings.content_scroll = 0;
+            close_plugin_detail(state);
         }
         KeyCode::Enter | KeyCode::Char(' ') => {
             let idx = state.settings.list.selected;
             if toggle_collapse_at(state, idx) {
+                return None;
+            }
+            if let Some(plugin_idx) = installed_plugin_index_at(state, idx) {
+                open_plugin_detail(state, plugin_idx);
                 return None;
             }
             return activate_row(state, idx);
@@ -453,6 +534,8 @@ pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
     state.settings.spinner_category = 0;
     state.settings.content_scroll = 0;
     state.settings.list.selected = default_selection_for_section(state, section);
+    state.settings.plugin_detail = None;
+    state.settings.plugin_detail_cursor = 0;
     state.mode = Mode::Settings;
     if section == SettingsSection::Plugins {
         let _ =
@@ -469,6 +552,10 @@ impl AppState {
         let layout = self.settings_layout()?;
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) => {
+                if self.settings.plugin_detail.is_some() {
+                    return handle_plugin_detail_mouse(self, mouse);
+                }
+
                 if layout.search_index_at(mouse.column, mouse.row) {
                     self.settings.focus = SettingsFocus::Search;
                     return None;
@@ -479,6 +566,7 @@ impl AppState {
                     self.settings.section = section;
                     self.settings.list.selected = default_selection_for_section(self, section);
                     self.settings.focus = SettingsFocus::Nav;
+                    close_plugin_detail(self);
                     return None;
                 }
 
@@ -493,6 +581,10 @@ impl AppState {
                     self.settings.list.select(idx);
                     self.settings.focus = SettingsFocus::Content;
                     if toggle_collapse_at(self, idx) {
+                        return None;
+                    }
+                    if let Some(plugin_idx) = installed_plugin_index_at(self, idx) {
+                        open_plugin_detail(self, plugin_idx);
                         return None;
                     }
                     if self.settings.section == SettingsSection::Appearance {
@@ -520,6 +612,14 @@ impl AppState {
             _ => None,
         }
     }
+}
+
+fn handle_plugin_detail_mouse(state: &mut AppState, mouse: MouseEvent) -> Option<SettingsAction> {
+    let layout = state.settings_layout()?;
+    let idx = plugin_detail::index_at(&layout, state, mouse.column, mouse.row)?;
+    state.settings.plugin_detail_cursor = idx;
+    state.settings.focus = SettingsFocus::Content;
+    activate_plugin_detail_row(state)
 }
 
 #[cfg(test)]
@@ -934,5 +1034,125 @@ mod tests {
 
         let rows = section_rows(&state, SettingsSection::Plugins);
         assert!(rows.iter().any(|row| row.label == "Linear issues"));
+    }
+
+    fn test_action(id: &str) -> crate::api::schema::PluginManifestAction {
+        crate::api::schema::PluginManifestAction {
+            id: id.to_string(),
+            title: format!("{id} title"),
+            description: None,
+            contexts: Vec::new(),
+            platforms: None,
+            command: vec!["echo".to_string(), id.to_string()],
+        }
+    }
+
+    fn test_plugin(
+        plugin_id: &str,
+        actions: Vec<crate::api::schema::PluginManifestAction>,
+    ) -> crate::api::schema::InstalledPluginInfo {
+        crate::api::schema::InstalledPluginInfo {
+            plugin_id: plugin_id.to_string(),
+            name: format!("{plugin_id} name"),
+            version: "0.1.0".to_string(),
+            min_herdr_version: String::new(),
+            description: Some("a test plugin".to_string()),
+            manifest_path: "/tmp/herdr-plugin.toml".to_string(),
+            plugin_root: "/tmp".to_string(),
+            enabled: true,
+            platforms: None,
+            build: Vec::new(),
+            startup: Vec::new(),
+            actions,
+            events: Vec::new(),
+            panes: Vec::new(),
+            link_handlers: Vec::new(),
+            source: Default::default(),
+            warnings: Vec::new(),
+        }
+    }
+
+    fn open_plugins_with_demo_plugin(
+        actions: Vec<crate::api::schema::PluginManifestAction>,
+    ) -> AppState {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::Plugins);
+        // The section open reloads the registry from disk; replace it with the
+        // deterministic test plugin so row indices are stable.
+        state.installed_plugins.clear();
+        state.installed_plugins.insert(
+            "com.test.demo".to_string(),
+            test_plugin("com.test.demo", actions),
+        );
+        state
+    }
+
+    #[test]
+    fn plugins_enter_on_installed_plugin_opens_detail() {
+        let mut state = open_plugins_with_demo_plugin(vec![test_action("run")]);
+
+        let row = section_rows(&state, SettingsSection::Plugins)
+            .iter()
+            .position(|r| matches!(r.id, SettingsItemId::InstalledPlugin { .. }))
+            .expect("installed plugin row");
+        state.settings.list.selected = row;
+
+        let action = update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
+        );
+
+        assert!(action.is_none());
+        assert_eq!(state.settings.plugin_detail, Some(0));
+        assert_eq!(state.settings.plugin_detail_cursor, 0);
+    }
+
+    #[test]
+    fn plugin_detail_enter_toggles_enable_then_invokes_action() {
+        let mut state = open_plugins_with_demo_plugin(vec![test_action("run")]);
+        state.settings.plugin_detail = Some(0);
+        state.settings.plugin_detail_cursor = 0;
+
+        // Enter on the enable toggle row flips the plugin off.
+        let action = update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
+        );
+        assert!(matches!(
+            action,
+            Some(SettingsAction::TogglePluginEnabled { enabled: false, .. })
+        ));
+
+        // Down to the first action, Enter invokes it.
+        update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Down, KeyModifiers::empty()),
+        );
+        let action = update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
+        );
+        assert_eq!(
+            action,
+            Some(SettingsAction::InvokePluginAction {
+                plugin_id: "com.test.demo".to_string(),
+                action_id: "run".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn plugin_detail_esc_closes_back_to_list() {
+        let mut state = open_plugins_with_demo_plugin(vec![]);
+        state.settings.plugin_detail = Some(0);
+
+        let action = update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Esc, KeyModifiers::empty()),
+        );
+
+        assert!(action.is_none());
+        assert_eq!(state.settings.plugin_detail, None);
+        assert_eq!(state.settings.plugin_detail_cursor, 0);
     }
 }

@@ -567,6 +567,9 @@ impl App {
             }),
             keybind_help: state::KeybindHelpState::default(),
             navigator: state::NavigatorState::default(),
+            plugin_palette: state::PluginPaletteState::default(),
+            plugin_favorites: config.plugins.favorites.clone(),
+            plugin_chains: config.plugins.chains.clone(),
             copy_mode: None,
             workspace_scroll: 0,
             agent_panel_scroll: 0,
@@ -678,6 +681,8 @@ impl App {
                 config_snapshot: state::SettingsConfigSnapshot::load(),
                 plugin_install_job: None,
                 collapsed_groups: std::collections::BTreeSet::new(),
+                plugin_detail: None,
+                plugin_detail_cursor: 0,
             },
             integration_recommendations: crate::integration::integration_recommendations(),
             agent_manifest_summaries,
@@ -1544,6 +1549,11 @@ impl App {
                 crate::worktree::expand_tilde_absolute_path(&config.worktrees.directory);
         }
 
+        if !invalid_section("plugins") {
+            self.state.plugin_favorites = config.plugins.favorites.clone();
+            self.state.plugin_chains = config.plugins.chains.clone();
+        }
+
         if !invalid_section("theme") {
             self.state.theme_runtime = theme_runtime_config(config, !invalid_section("ui"));
             self.refresh_effective_app_theme();
@@ -1761,6 +1771,9 @@ impl App {
             }
             Mode::Navigator => {
                 input::handle_navigator_key(&mut self.state, &self.terminal_runtimes, key_event);
+            }
+            Mode::PluginPalette => {
+                self.handle_plugin_palette_key(key_event);
             }
             Mode::Terminal => {
                 // Should not be called in terminal mode.
