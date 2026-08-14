@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -196,6 +196,40 @@ impl DerefMut for Workspace {
         self.active_tab_mut()
             .expect("workspace must always have at least one active tab")
     }
+}
+
+/// Compute display names for every workspace, disambiguating colliding
+/// auto-derived names with a numeric suffix (`herdr`, `herdr 2`, ...).
+///
+/// Custom (user-renamed) workspaces keep their name verbatim and reserve it,
+/// so a later auto-named workspace that would collide gets the next free
+/// suffix instead. Order is stable: the first occurrence of a name keeps it.
+pub fn unique_display_names(workspaces: &[Workspace]) -> Vec<String> {
+    let mut taken: HashSet<String> = HashSet::new();
+    workspaces
+        .iter()
+        .map(|ws| {
+            if let Some(custom) = &ws.custom_name {
+                taken.insert(custom.clone());
+                return custom.clone();
+            }
+            let base = ws.cached_auto_name.clone();
+            if base.is_empty() {
+                return base;
+            }
+            if taken.insert(base.clone()) {
+                return base;
+            }
+            let mut n = 2;
+            loop {
+                let candidate = format!("{base} {n}");
+                if taken.insert(candidate.clone()) {
+                    return candidate;
+                }
+                n += 1;
+            }
+        })
+        .collect()
 }
 
 impl Workspace {
@@ -1455,6 +1489,40 @@ impl Workspace {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unique_display_names_disambiguates_colliding_auto_names() {
+        let mut a = Workspace::test_new("a");
+        a.custom_name = None;
+        a.cached_auto_name = "herdr".to_string();
+        let mut b = Workspace::test_new("b");
+        b.custom_name = None;
+        b.cached_auto_name = "herdr".to_string();
+        let mut c = Workspace::test_new("c");
+        c.custom_name = None;
+        c.cached_auto_name = "herdr".to_string();
+        let mut d = Workspace::test_new("d");
+        d.custom_name = None;
+        d.cached_auto_name = "other".to_string();
+
+        let names = unique_display_names(&[a, b, c, d]);
+        assert_eq!(names, vec!["herdr", "herdr 2", "herdr 3", "other"]);
+    }
+
+    #[test]
+    fn unique_display_names_reserves_custom_names() {
+        let mut custom = Workspace::test_new("custom");
+        custom.custom_name = Some("herdr".to_string());
+        let mut auto = Workspace::test_new("auto");
+        auto.custom_name = None;
+        auto.cached_auto_name = "herdr".to_string();
+        let mut auto2 = Workspace::test_new("auto2");
+        auto2.custom_name = None;
+        auto2.cached_auto_name = "herdr".to_string();
+
+        let names = unique_display_names(&[custom, auto, auto2]);
+        assert_eq!(names, vec!["herdr", "herdr 2", "herdr 3"]);
+    }
 
     #[test]
     fn generated_workspace_ids_are_short_base32_handles() {

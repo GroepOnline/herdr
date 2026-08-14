@@ -420,7 +420,7 @@ fn workspace_detail(
     let Some(ws) = app.workspaces.get(ws_idx) else {
         return String::new();
     };
-    let label = ws.display_name_from(&app.terminals, terminal_runtimes);
+    let label = crate::workspace::unique_display_names(&app.workspaces)[ws_idx].clone();
     let pane_count = ws.tabs.iter().map(|tab| tab.panes.len()).sum::<usize>();
     let mut parts = vec![label, format!("{pane_count} panes")];
     if !rowless_workspace_activity(app, terminal_runtimes, ws_idx).is_empty() {
@@ -442,7 +442,7 @@ fn tab_detail(
         return String::new();
     };
     let mut parts = vec![
-        ws.display_name_from(&app.terminals, terminal_runtimes),
+        crate::workspace::unique_display_names(&app.workspaces)[ws_idx].clone(),
         format!(
             "tab: {}",
             ws.tab_display_name(tab_idx)
@@ -464,7 +464,7 @@ fn tab_detail(
 
 fn pane_detail(
     app: &AppState,
-    terminal_runtimes: &TerminalRuntimeRegistry,
+    _terminal_runtimes: &TerminalRuntimeRegistry,
     ws_idx: usize,
     tab_idx: usize,
     pane_id: crate::layout::PaneId,
@@ -475,7 +475,7 @@ fn pane_detail(
     let Some(tab) = ws.tabs.get(tab_idx) else {
         return String::new();
     };
-    let mut parts = vec![ws.display_name_from(&app.terminals, terminal_runtimes)];
+    let mut parts = vec![crate::workspace::unique_display_names(&app.workspaces)[ws_idx].clone()];
     if ws.tabs.len() > 1 {
         parts.push(format!(
             "tab: {}",

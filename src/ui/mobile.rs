@@ -312,7 +312,7 @@ pub(crate) fn render_mobile_panel(
 
 fn render_header_status(
     app: &AppState,
-    terminal_runtimes: &TerminalRuntimeRegistry,
+    _terminal_runtimes: &TerminalRuntimeRegistry,
     frame: &mut Frame,
     area: Rect,
 ) {
@@ -320,10 +320,11 @@ fn render_header_status(
         return;
     }
     let p = &app.palette;
-    let Some(ws) = app.active.and_then(|idx| app.workspaces.get(idx)) else {
+    let Some(active_idx) = app.active.filter(|idx| app.workspaces.get(*idx).is_some()) else {
         frame.render_widget(Paragraph::new(" no workspace"), area);
         return;
     };
+    let ws = &app.workspaces[active_idx];
 
     let (state, seen) = ws.aggregate_state(&app.terminals);
     let (dot, dot_style) = if matches!(state, AgentState::Working) {
@@ -353,7 +354,7 @@ fn render_header_status(
             Span::raw(" "),
             Span::styled(
                 truncate_end(
-                    &ws.display_name_from(&app.terminals, terminal_runtimes),
+                    &crate::workspace::unique_display_names(&app.workspaces)[active_idx],
                     name_w.saturating_sub(4) as usize,
                 ),
                 Style::default()
@@ -637,7 +638,7 @@ fn render_mobile_switcher_content(
 
         title_spans.push(Span::styled(dot, dot_style.bg(bg)));
         title_spans.push(Span::styled(" ", Style::default().bg(bg)));
-        let raw_label = ws.display_name_from(&app.terminals, terminal_runtimes);
+        let raw_label = crate::workspace::unique_display_names(&app.workspaces)[*ws_idx].clone();
         let name = if *indented {
             grouped_child_display_label(
                 &raw_label,

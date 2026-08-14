@@ -135,23 +135,16 @@ fn agent_panel_entries_with_runtimes(
 
 fn collect_agent_panel_entries_with_runtimes(
     app: &AppState,
-    terminal_runtimes: Option<&TerminalRuntimeRegistry>,
+    _terminal_runtimes: Option<&TerminalRuntimeRegistry>,
 ) -> Vec<AgentPanelEntry> {
-    let empty_runtimes;
-    let terminal_runtimes = match terminal_runtimes {
-        Some(terminal_runtimes) => terminal_runtimes,
-        None => {
-            empty_runtimes = TerminalRuntimeRegistry::new();
-            &empty_runtimes
-        }
-    };
+    let workspace_names = crate::workspace::unique_display_names(&app.workspaces);
 
     app.workspaces
         .iter()
         .enumerate()
         .flat_map(|(ws_idx, ws)| {
             let multi_tab = ws.tabs.len() > 1;
-            let workspace_label = ws.display_name_from(&app.terminals, terminal_runtimes);
+            let workspace_label = workspace_names[ws_idx].clone();
             ws.pane_details(&app.terminals)
                 .into_iter()
                 .map(move |detail| {
@@ -187,16 +180,18 @@ pub(super) fn agent_panel_status_key(state: AgentState, seen: bool) -> &'static 
     crate::status::label(state, seen)
 }
 
-fn workspace_row_height(app: &AppState, ws: &crate::workspace::Workspace, indented: bool) -> u16 {
+fn workspace_row_height(
+    app: &AppState,
+    ws: &crate::workspace::Workspace,
+    ws_idx: usize,
+    indented: bool,
+) -> u16 {
+    let name = crate::workspace::unique_display_names(&app.workspaces)[ws_idx].clone();
     let (state, seen) = ws.aggregate_state(&app.terminals);
     let label = if indented {
-        grouped_child_display_label(
-            &ws.display_name(),
-            ws.branch().as_deref(),
-            ws.custom_name.is_some(),
-        )
+        grouped_child_display_label(&name, ws.branch().as_deref(), ws.custom_name.is_some())
     } else {
-        ws.display_name()
+        name
     };
     let token_values = ws.metadata_tokens.values();
     tokens::space_rows(
@@ -218,10 +213,11 @@ fn workspace_row_height(app: &AppState, ws: &crate::workspace::Workspace, indent
 fn workspace_row_height_in_body(
     app: &AppState,
     workspace: &crate::workspace::Workspace,
+    ws_idx: usize,
     indented: bool,
     body_height: u16,
 ) -> u16 {
-    workspace_row_height(app, workspace, indented).min(body_height)
+    workspace_row_height(app, workspace, ws_idx, indented).min(body_height)
 }
 
 fn workspace_entry_gap(
@@ -463,7 +459,7 @@ fn workspace_list_visible_count(app: &AppState, area: Rect, scroll: usize) -> us
                     continue;
                 };
                 (
-                    workspace_row_height_in_body(app, ws, *indented, body.height),
+                    workspace_row_height_in_body(app, ws, *ws_idx, *indented, body.height),
                     workspace_entry_gap(app, &entries, entry_idx, *indented),
                 )
             }
@@ -489,7 +485,7 @@ fn workspace_list_bottom_start(app: &AppState, area: Rect) -> usize {
             continue;
         };
         let gap = workspace_entry_gap(app, &entries, entry_idx, *indented);
-        let needed = workspace_row_height_in_body(app, workspace, *indented, body.height)
+        let needed = workspace_row_height_in_body(app, workspace, *ws_idx, *indented, body.height)
             .saturating_add(gap);
         if used_rows.saturating_add(needed) > body.height {
             break;
@@ -678,7 +674,8 @@ pub(crate) fn compute_workspace_list_areas(
                 let Some(ws) = app.workspaces.get(*ws_idx) else {
                     continue;
                 };
-                let row_height = workspace_row_height_in_body(app, ws, *indented, body.height);
+                let row_height =
+                    workspace_row_height_in_body(app, ws, *ws_idx, *indented, body.height);
                 let gap = workspace_entry_gap(app, &entries, entry_idx, *indented);
                 if row_y.saturating_add(row_height) > body_bottom {
                     break;
@@ -1113,7 +1110,7 @@ fn apply_token_style(mut style: Style, patch: crate::config::SidebarTokenStyle) 
 
 fn render_workspace_list(
     app: &AppState,
-    terminal_runtimes: &TerminalRuntimeRegistry,
+    _terminal_runtimes: &TerminalRuntimeRegistry,
     frame: &mut Frame,
     area: Rect,
     is_navigating: bool,
@@ -1184,7 +1181,7 @@ fn render_workspace_list(
             Style::default().fg(p.subtext0)
         };
 
-        let label = ws.display_name_from(&app.terminals, terminal_runtimes);
+        let label = crate::workspace::unique_display_names(&app.workspaces)[i].clone();
         let display_label = if card.indented {
             grouped_child_display_label(&label, ws.branch().as_deref(), ws.custom_name.is_some())
         } else {
