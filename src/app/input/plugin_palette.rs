@@ -108,11 +108,23 @@ impl App {
         let Some(entry) = self.selected_palette_entry() else {
             return;
         };
-        let now_favorite = self.toggle_plugin_favorite(entry.qualified.clone());
-        if now_favorite {
-            self.show_palette_toast("added favorite", entry.title);
-        } else {
-            self.show_palette_toast("removed favorite", entry.title);
+        let qualified = entry.qualified.clone();
+        match self.toggle_plugin_favorite(qualified.clone()) {
+            Ok(now_favorite) => {
+                // Sorting changes the numeric position; retain the action identity.
+                if let Some(index) = plugin_palette_entries(&self.state)
+                    .iter()
+                    .position(|entry| entry.qualified == qualified)
+                {
+                    self.state.plugin_palette.selected = index;
+                }
+                if now_favorite {
+                    self.show_palette_toast("added favorite", entry.title);
+                } else {
+                    self.show_palette_toast("removed favorite", entry.title);
+                }
+            }
+            Err(err) => self.show_palette_toast("favorite failed", err),
         }
     }
 
@@ -184,8 +196,12 @@ impl AppState {
                     self.plugin_palette.search_focused = true;
                     return None;
                 }
-                plugin_palette_entry_index_at(self, area, mouse.column, mouse.row)
-                    .map(|index| super::mouse::MouseAction::PluginPaletteRun { index })
+                if let Some(index) = plugin_palette_entry_index_at(self, area, mouse.column, mouse.row) {
+                    Some(super::mouse::MouseAction::PluginPaletteRun { index })
+                } else {
+                    self.close_plugin_palette();
+                    None
+                }
             }
             _ => None,
         }
