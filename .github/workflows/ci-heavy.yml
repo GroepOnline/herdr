@@ -62,7 +62,9 @@ jobs:
   windows-lint:
     name: Windows lint
     needs: lottery
-    # BILLING_QUARANTINE: was windows-latest — disabled until spending restored
+    # BILLING_QUARANTINE: disabled until Windows-hosted spending is restored.
+    # When re-enabling, restore the trigger condition below:
+    #   if: needs.lottery.outputs.run == 'true'
     if: false
     runs-on: windows-latest
     timeout-minutes: 45

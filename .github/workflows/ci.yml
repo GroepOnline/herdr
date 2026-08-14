@@ -237,11 +237,12 @@ jobs:
     name: Windows lint
     needs: changes
     # Heavy: native windows clippy. PR docs-only skips; force with label ci-heavy.
-    if: >
-      github.event_name == 'push' ||
-      needs.changes.outputs.platform_heavy == 'true' ||
-      contains(github.event.pull_request.labels.*.name, 'ci-heavy')
-    # BILLING_QUARANTINE: was windows-latest — disabled until spending restored
+    # BILLING_QUARANTINE: disabled until Windows-hosted spending is restored.
+    # When re-enabling, restore the trigger condition below:
+    #   if: >
+    #     github.event_name == 'push' ||
+    #     needs.changes.outputs.platform_heavy == 'true' ||
+    #     contains(github.event.pull_request.labels.*.name, 'ci-heavy')
     if: false
     runs-on: windows-latest
     timeout-minutes: 45
