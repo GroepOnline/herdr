@@ -244,4 +244,8 @@ pub struct AgentSessionInfo {
     pub agent: String,
     pub kind: crate::agent_resume::AgentSessionRefKind,
     pub value: String,
+    /// How the session started (`startup`, `resume`, `clear`, `compact`,
+    /// `new`, or `fork`), when reported by the agent hook.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_start_source: Option<String>,
 }

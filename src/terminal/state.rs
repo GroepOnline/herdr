@@ -109,6 +109,7 @@ pub struct TerminalState {
     pub agent_metadata: HashMap<String, AgentMetadata>,
     pub metadata_tokens: crate::metadata_tokens::MetadataTokens,
     pub persisted_agent_session: Option<crate::agent_resume::PersistedAgentSession>,
+    persisted_session_start_source: Option<String>,
     pub terminal_title: Option<String>,
     pub manual_label: Option<String>,
     pub agent_name: Option<String>,
@@ -143,6 +144,7 @@ impl TerminalState {
             agent_metadata: HashMap::new(),
             metadata_tokens: crate::metadata_tokens::MetadataTokens::default(),
             persisted_agent_session: None,
+            persisted_session_start_source: None,
             terminal_title: None,
             manual_label: None,
             agent_name: None,
@@ -173,6 +175,10 @@ impl TerminalState {
 
     pub(crate) fn fallback_visible_working(&self) -> bool {
         self.fallback_visible_working
+    }
+
+    pub(crate) fn persisted_session_start_source(&self) -> Option<String> {
+        self.persisted_session_start_source.clone()
     }
 
     pub(crate) fn terminal_title_stripped(&self) -> Option<String> {
@@ -393,6 +399,7 @@ impl TerminalState {
             );
             self.hook_authority = None;
             self.persisted_agent_session = durable_session;
+            self.persisted_session_start_source = None;
         }
         if agent_released {
             self.clear_agent_name();
@@ -1032,6 +1039,7 @@ impl TerminalState {
         session: crate::agent_resume::PersistedAgentSession,
     ) {
         self.persisted_agent_session = Some(session);
+        self.persisted_session_start_source = None;
     }
 
     pub fn set_agent_session_ref(
@@ -1123,6 +1131,7 @@ impl TerminalState {
             agent: agent_label,
             session_ref,
         });
+        self.persisted_session_start_source = session_start_source;
         let current_session = self.current_session_identity_for_persistence();
         Some(TerminalStateMutation {
             effective_state_change: self.recompute_effective_state(
@@ -2040,6 +2049,37 @@ mod tests {
                 new_session,
             ))
         );
+    }
+
+    #[test]
+    fn session_start_source_is_persisted_with_the_session_ref() {
+        let mut terminal = test_terminal();
+        terminal.set_detected_state(Some(Agent::Pi), AgentState::Idle);
+
+        let accepted = terminal.set_agent_session_ref_for_session_start(
+            "herdr:pi".into(),
+            "pi".into(),
+            crate::agent_resume::AgentSessionRef::path(test_session_path("pi-start.jsonl")),
+            Some(1),
+            Some("resume".into()),
+        );
+
+        assert!(accepted.is_some());
+        assert_eq!(
+            terminal.persisted_session_start_source(),
+            Some("resume".into())
+        );
+
+        // A direct session set (restore path) clears any stale start source.
+        terminal.set_persisted_agent_session(crate::agent_resume::PersistedAgentSession {
+            source: "herdr:pi".into(),
+            agent: "pi".into(),
+            session_ref: crate::agent_resume::AgentSessionRef::path(test_session_path(
+                "pi-restored.jsonl",
+            ))
+            .expect("test session path should be valid"),
+        });
+        assert_eq!(terminal.persisted_session_start_source(), None);
     }
 
     #[test]
