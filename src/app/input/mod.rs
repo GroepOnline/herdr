@@ -41,6 +41,7 @@ mod modal;
 mod mouse;
 mod navigate;
 mod overlays;
+mod plugin_palette;
 mod selection;
 mod settings;
 mod sidebar;
@@ -111,6 +112,7 @@ impl App {
                 Mode::Navigator => {
                     handle_navigator_key(&mut self.state, &self.terminal_runtimes, key_event)
                 }
+                Mode::PluginPalette => self.handle_plugin_palette_key(key_event),
                 Mode::Terminal => unreachable!(),
             },
         }
@@ -367,6 +369,11 @@ impl App {
                     MouseAction::ConfirmCloseAccept => self.confirm_close_accept_via_api(),
                     MouseAction::ContextMenu { menu, idx } => {
                         self.apply_context_menu_action_via_api(menu, idx)
+                    }
+                    MouseAction::PluginPaletteRun { index } => {
+                        self.state.plugin_palette.selected = index;
+                        self.state.plugin_palette.search_focused = false;
+                        self.run_selected_palette_action();
                     }
                 }
             }

@@ -12,6 +12,7 @@ mod mobile;
 mod navigator;
 mod onboarding;
 mod panes;
+mod plugin_palette;
 mod release_notes;
 mod scrollbar;
 pub(crate) mod settings;
@@ -41,6 +42,10 @@ pub(crate) use self::onboarding::onboarding_welcome_continue_rect;
 use self::onboarding::render_onboarding_overlay;
 pub(crate) use self::panes::popup_pane_rects;
 use self::panes::{render_empty, render_popup_pane, resize_popup_pane};
+pub(crate) use self::plugin_palette::{
+    entry_index_at as plugin_palette_entry_index_at, filtered_entries as plugin_palette_entries,
+    render_plugin_palette_overlay, search_index_at as plugin_palette_search_index_at, PaletteEntry,
+};
 pub(crate) use self::release_notes::{
     product_announcement_display_lines, release_notes_close_button_rect,
     release_notes_display_lines, release_notes_wrapped_line_count, PRODUCT_ANNOUNCEMENT_MODAL_SIZE,
@@ -485,6 +490,7 @@ pub fn render_with_runtime_registry(
         Mode::GlobalMenu => render_global_launcher_menu(app, frame),
         Mode::KeybindHelp => render_keybind_help_overlay(app, frame),
         Mode::Navigator => render_navigator_overlay(app, terminal_runtimes, frame),
+        Mode::PluginPalette => render_plugin_palette_overlay(app, frame, frame.area()),
         Mode::Terminal => {}
     }
 }

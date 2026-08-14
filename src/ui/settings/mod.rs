@@ -1,5 +1,6 @@
 pub(crate) mod catalog;
 mod layout;
+pub(crate) mod plugin_detail;
 pub(crate) mod rows;
 mod sections;
 pub(crate) mod spinner;

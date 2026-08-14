@@ -87,6 +87,11 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
         render_spinner_hero(app, frame, layout);
     }
 
+    if app.settings.plugin_detail.is_some() {
+        super::plugin_detail::render(app, frame, layout);
+        return;
+    }
+
     let rows = section_rows(app, section);
     let (scroll, visible) = layout.visible_row_range(app);
     let selected = app.settings.list.selected.min(rows.len().saturating_sub(1));
@@ -349,7 +354,7 @@ fn render_plugins_footer(app: &AppState, frame: &mut Frame, layout: &SettingsLay
     } else if super::catalog::catalog_entries_available(app).is_empty() {
         "you're caught up — every listed plugin is installed".to_string()
     } else {
-        "enter installs · space toggles on/off · ↵ refresh".to_string()
+        "enter opens a plugin · enter installs new ones · ↵ refresh".to_string()
     };
     frame.render_widget(
         Paragraph::new(Span::styled(hint, Style::default().fg(p.overlay1))),
@@ -438,6 +443,35 @@ pub(crate) fn render_settings_header(app: &AppState, frame: &mut Frame, layout: 
 
 pub(crate) fn render_settings_footer(app: &AppState, frame: &mut Frame, layout: &SettingsLayout) {
     let p = &app.palette;
+
+    if app.settings.plugin_detail.is_some() {
+        frame.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled(" ↑↓", Style::default().fg(p.overlay0)),
+                Span::styled(" select  ", Style::default().fg(p.overlay1)),
+                Span::styled("↵", Style::default().fg(p.overlay0)),
+                Span::styled(" run/toggle  ", Style::default().fg(p.overlay1)),
+                Span::styled("esc", Style::default().fg(p.overlay0)),
+                Span::styled(" back", Style::default().fg(p.overlay1)),
+            ])),
+            layout.footer_hints,
+        );
+
+        let (_, close_rect) =
+            super::layout::settings_button_rects(layout, app.settings.section, false);
+        super::super::widgets::render_action_button(
+            frame,
+            close_rect,
+            Some("esc"),
+            "close",
+            Style::default()
+                .fg(p.text)
+                .bg(p.surface0)
+                .add_modifier(Modifier::BOLD),
+        );
+        return;
+    }
+
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(" ↑↓", Style::default().fg(p.overlay0)),

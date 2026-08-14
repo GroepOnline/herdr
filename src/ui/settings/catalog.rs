@@ -113,9 +113,18 @@ pub(crate) enum SettingsAction {
     SaveRevealHiddenCursorForCjkIme(bool),
     SaveThemeAutoSwitch(bool),
     SaveFleetOpsBar(bool),
-    TogglePluginEnabled { plugin_id: String, enabled: bool },
-    InstallCatalogPlugin { source: String },
+    TogglePluginEnabled {
+        plugin_id: String,
+        enabled: bool,
+    },
+    InstallCatalogPlugin {
+        source: String,
+    },
     RefreshInstalledPlugins,
+    InvokePluginAction {
+        plugin_id: String,
+        action_id: String,
+    },
 }
 
 const TOAST_DELAY_PRESETS: &[u64] = &[0, 1, 2, 5];
