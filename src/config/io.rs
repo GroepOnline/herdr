@@ -602,7 +602,10 @@ pub fn append_keys_plugin_command(
     lines.push(format!("key = \"{}\"", escape_toml_string(key)));
     lines.push("type = \"plugin_action\"".to_string());
     lines.push(format!("command = \"{}\"", escape_toml_string(command)));
-    lines.push(format!("description = \"{}\"", escape_toml_string(description)));
+    lines.push(format!(
+        "description = \"{}\"",
+        escape_toml_string(description)
+    ));
     lines.push(String::new());
     lines.join("\n") + "\n"
 }
@@ -841,8 +844,13 @@ mod tests {
 
         // Verify it parses back correctly
         let parsed: toml::Value = toml::from_str(&updated).expect("TOML should parse");
-        let commands = parsed["keys"]["command"].as_array().expect("should be array");
-        assert_eq!(commands[0]["command"].as_str(), Some("com.a.run\nwith\nnewlines"));
+        let commands = parsed["keys"]["command"]
+            .as_array()
+            .expect("should be array");
+        assert_eq!(
+            commands[0]["command"].as_str(),
+            Some("com.a.run\nwith\nnewlines")
+        );
         assert_eq!(
             commands[0]["description"].as_str(),
             Some("Description\twith\ttabs\rand\rreturns")
@@ -858,7 +866,9 @@ mod tests {
             "with\rreturn".to_string(),
         ];
         let updated = upsert_section_string_array("", "plugins", "favorites", &values);
-        assert!(updated.contains("favorites = [\"normal.value\", \"with\\nnewline\", \"with\\ttab\", \"with\\rreturn\"]"));
+        assert!(updated.contains(
+            "favorites = [\"normal.value\", \"with\\nnewline\", \"with\\ttab\", \"with\\rreturn\"]"
+        ));
 
         // Verify it parses back correctly
         let parsed: toml::Value = toml::from_str(&updated).expect("TOML should parse");

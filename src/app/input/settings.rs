@@ -364,7 +364,10 @@ fn sync_plugin_detail_scroll(state: &mut AppState) {
         return;
     };
     let cursor = state.settings.plugin_detail_cursor;
-    let content_height = layout.content.height.saturating_sub(plugin_detail::DETAIL_ACTIONS_OFFSET + 1);
+    let content_height = layout
+        .content
+        .height
+        .saturating_sub(plugin_detail::DETAIL_ACTIONS_OFFSET + 1);
     let visible = content_height.max(1) as usize;
     let scroll = if cursor > 0 {
         let action_idx = cursor - 1;

@@ -149,9 +149,13 @@ impl App {
             format!("prefix+{base}")
         } else {
             // Control-key combinations must use prefix+ to avoid global shadowing
-            if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
+            if key
+                .modifiers
+                .contains(crossterm::event::KeyModifiers::CONTROL)
                 || key.modifiers.contains(crossterm::event::KeyModifiers::ALT)
-                || key.modifiers.contains(crossterm::event::KeyModifiers::SUPER)
+                || key
+                    .modifiers
+                    .contains(crossterm::event::KeyModifiers::SUPER)
             {
                 self.state.plugin_palette.recording_keybind = None;
                 self.show_palette_toast(
