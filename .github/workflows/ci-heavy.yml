@@ -37,8 +37,11 @@ env:
   ZIG_VERSION: 0.15.2
   BUN_VERSION: 1.3.14
 
+# Group key is namespaced by event: an un-runnable legacy run (pre-`ubuntu-latest`)
+# can hold `ci-heavy-refs/heads/<branch>` in the queue forever and block every
+# later run on that ref. A per-event key keeps each run independent.
 concurrency:
-  group: ci-heavy-${{ github.ref }}
+  group: ci-heavy-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
