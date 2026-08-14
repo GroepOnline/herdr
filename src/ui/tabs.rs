@@ -29,9 +29,16 @@ fn tab_width(ws: &crate::workspace::Workspace, tab_idx: usize) -> u16 {
 }
 
 fn tab_chrome_label(ws: &crate::workspace::Workspace, tab_idx: usize) -> String {
-    let name = ws
-        .tab_display_name(tab_idx)
-        .unwrap_or_else(|| (tab_idx + 1).to_string());
+    // Keep the stable numeric reference visible even after a rename so tabs
+    // can still be addressed by number while carrying a custom name.
+    let name = match ws
+        .tabs
+        .get(tab_idx)
+        .and_then(|tab| tab.custom_name.as_deref())
+    {
+        Some(custom) => format!("{}:{custom}", tab_idx + 1),
+        None => (tab_idx + 1).to_string(),
+    };
     if ws.tabs.get(tab_idx).is_some_and(|tab| tab.zoomed) {
         format!("{name} Z")
     } else {
@@ -430,7 +437,7 @@ mod tests {
 
         let row = buffer_row_text(terminal.backend().buffer(), app.view.tab_bar_rect, 0);
         assert!(row.contains(" 1 Z"), "tab row: {row:?}");
-        assert!(row.contains(" test Z"), "tab row: {row:?}");
+        assert!(row.contains("2:test Z"), "tab row: {row:?}");
         assert_eq!(app.workspaces[0].tab_display_name(0).as_deref(), Some("1"));
         assert_eq!(
             app.workspaces[0].tab_display_name(custom_tab).as_deref(),
@@ -469,7 +476,7 @@ mod tests {
         ws.tabs[0].set_custom_name("abcdefgh".into());
         ws.tabs[0].zoomed = true;
 
-        assert_eq!(tab_width(&ws, 0), 14);
+        assert_eq!(tab_width(&ws, 0), 16);
     }
 
     #[test]
@@ -479,7 +486,7 @@ mod tests {
 
         assert_eq!(
             tab_width(&ws, 0),
-            display_width_u16("提交 herdr 的反馈") + 4
+            display_width_u16("1:提交 herdr 的反馈") + 4
         );
     }
 
