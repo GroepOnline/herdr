@@ -54,6 +54,18 @@ You can also open the global menu in Herdr and choose `reload config`.
 
 Reload applies most UI settings without restarting panes. Startup-only settings still need a restart.
 
+## Headless terminal size
+
+When no client is attached, the server uses a 120×40 virtual terminal for layout and newly created panes. Change that fallback for headless orchestration with:
+
+```toml
+[server]
+headless_cols = 160
+headless_rows = 50
+```
+
+An attached client remains authoritative for the shared runtime size. After it detaches, existing pane PTYs retain their last attached size while new headless layout uses the configured fallback.
+
 ## Terminal defaults
 
 Set the executable Herdr uses for newly created interactive panes:

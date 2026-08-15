@@ -611,6 +611,7 @@ impl App {
             outer_terminal_focus: None,
             prefix_code,
             prefix_mods,
+            headless_size: config.headless_size(),
             default_sidebar_width: config.ui.sidebar_width,
             sidebar_width,
             sidebar_min_width,
@@ -1502,6 +1503,14 @@ impl App {
             self.state.pane_history_persistence = config.experimental.pane_history;
             if !self.persist_pane_history {
                 crate::persist::clear_history();
+            }
+        }
+
+        if !invalid_section("server") {
+            if let Some(diagnostic) = config.invalid_headless_size_diagnostic() {
+                diagnostics.push(format!("{diagnostic}; keeping current [server] settings"));
+            } else {
+                self.state.headless_size = config.headless_size();
             }
         }
 
@@ -2738,7 +2747,7 @@ mod tests {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(
             &path,
-            "[terminal]\ndefault_shell = \"nu\"\nshell_mode = \"non_login\"\nnew_cwd = \"home\"\n[keys]\nnew_workspace = \"prefix+m\"\nprefix = \"ctrl+a\"\n[update]\nversion_check = false\nmanifest_check = false\n[ui]\nagent_panel_sort = \"priority\"\nredraw_on_focus_gained = false\ncopy_on_select = false\nright_click_passthrough_modifier = \"ctrl\"\nprompt_new_workspace_name = true\n[ui.toast]\ndelivery = \"herdr\"\n[experimental]\nswitch_ascii_input_source_in_prefix = true\n",
+            "[terminal]\ndefault_shell = \"nu\"\nshell_mode = \"non_login\"\nnew_cwd = \"home\"\n[keys]\nnew_workspace = \"prefix+m\"\nprefix = \"ctrl+a\"\n[update]\nversion_check = false\nmanifest_check = false\n[server]\nheadless_cols = 160\nheadless_rows = 50\n[ui]\nagent_panel_sort = \"priority\"\nredraw_on_focus_gained = false\ncopy_on_select = false\nright_click_passthrough_modifier = \"ctrl\"\nprompt_new_workspace_name = true\n[ui.toast]\ndelivery = \"herdr\"\n[experimental]\nswitch_ascii_input_source_in_prefix = true\n",
         )
         .unwrap();
         std::env::set_var(crate::config::CONFIG_PATH_ENV_VAR, &path);
@@ -2772,6 +2781,7 @@ mod tests {
         let report = app.reload_config();
 
         assert_eq!(report.status, crate::config::ConfigReloadStatus::Applied);
+        assert_eq!(app.state.headless_size, (160, 50));
         assert_eq!(app.state.prefix_code, KeyCode::Char('a'));
         assert_eq!(app.state.prefix_mods, KeyModifiers::CONTROL);
         assert!(app

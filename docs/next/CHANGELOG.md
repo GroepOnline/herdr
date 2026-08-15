@@ -25,6 +25,7 @@
 - The plugin marketplace now discovers valid manifests at repository roots and subdirectories, groups multiple plugins under each repository, and publishes their versions and exact default-branch commits.
 
 ### Changed
+- Headless servers now use a configurable 120×40 virtual terminal instead of 80×24 when no client is attached, giving newly created panes a practical default size. (#2828)
 - Desktop tab labels are now centered in their tabs, so the active-tab highlight has symmetric padding.
 - Bumped the client/server protocol version to 20 for pane terminal bell forwarding.
 - Experimental pane graphics now support bounded named layers, acknowledged full-RGBA primary-layer direct file frames on audited local terminals, owned BGRA fallback, exact pixel mouse input, and placement-only resize replay.
