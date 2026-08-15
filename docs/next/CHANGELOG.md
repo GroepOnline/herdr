@@ -2,19 +2,26 @@
 
 ## Unreleased
 
-## [0.8.1] - 2026-08-13
+## [0.8.1] - 2026-08-15
 
-### 0.8.1 foundation
-- Added one shared status projection for the sidebar, navigator, agent views, API helpers, and fleet presentation.
-- Added explicit `unknown` status presentation so insufficient evidence is no longer displayed as `idle`.
-- Documented the existing configurable sidebar row layouts, semantic status indicators, spinner catalog, per-agent layouts, and live Settings preview as the 0.8.1 UI foundation.
+### Added
+- Plugin action palette: `prefix+e` opens a launcher listing every installed plugin action, favorites first, with search, favorite toggling, keybind recording, and direct invocation. Pin actions with `[plugins].favorites` and record keybindings from the palette (`f` toggles a favorite, `b` records a keybinding as a `[[keys.command]]` entry with `type = "plugin_action"`). The palette stays reachable unless `prefix+e` is explicitly bound to another action. (#29)
+- Plugin action chaining: `[[plugins.chains]]` runs every id in `then` after `when` finishes successfully; chained ids use the same qualified `plugin_id.action_id` format and can themselves have chains (cycles are detected and skipped). Chains only fire after a successful action run, and plugin actions are invoked with their source (keybind, palette, chain, API) recorded. (#29)
+- Settings detail view: clicking a plugin in the Plugins tab opens a detail view with the footer close button working from keyboard and mouse, and plugin install runs off the event loop. (#29)
+- Settings menu rework: rows are grouped under collapsible subheaders with search highlighting, so the settings surface is easier to scan and navigate.
+- Dynamic shell completions: `herdr plugin enable/disable/action`, agent names, and pane ids now complete live against the running session instead of static word lists.
+- Agent metadata: `AgentInfo` now exposes the stable workspace-relative pane number, session start source (`startup`/`resume`/`compact`/etc.), and screen-detection evidence (visible idle/blocker/working signals plus the active manifest source and version) so socket consumers can see why a status was determined without a separate explain call.
+- Tab and workspace addressing: renamed tabs render as `N:name` so the stable numeric reference stays visible, and auto-named workspaces that share a cwd label get a numeric suffix (`herdr`, `herdr 2`) in the sidebar, navigator, and mobile switcher while custom names stay verbatim.
+- Shared status projection: one status model now drives the sidebar, navigator, agent views, API helpers, and fleet presentation, with explicit `unknown` presentation so insufficient evidence is never shown as `idle`.
 
 ### Fixed
-- Fixed inconsistent status labels across UI surfaces: `working`, `blocked`, `done`, `idle`, and `unknown` now use the same projection.
-- Fixed agent-aware documentation that described only four states and could imply that every non-working pane was idle.
+- Plugin palette: refused persisting a dead `prefix+e` keybind (a bare `e` binding can never fire because the palette opener runs before custom commands), fixed the outside-click dismiss path, preserved palette selection after favorite re-sorting, and propagated favorite persistence failures as toasts instead of silently ignoring them. (#29)
+- CI: removed a duplicate `if` key on the windows-lint job that broke workflow parsing, namespaced the CI-heavy concurrency group per event so stale runs could no longer block fresh ones, and unblocked the dev-publish manifest push and contributor-approval push. (#31, #32, #34)
+- Agent status presentation: `working`, `blocked`, `done`, `idle`, and `unknown` now use the same projection across UI surfaces.
 
-### Scope
-- The full settings/menu/sidebar editor rewrite remains a follow-up slice. 0.8.1 establishes the shared contracts first so the editor cannot diverge from server-owned runtime state.
+### Changed
+- CI: lint split into separate format/clippy lanes with fanned-out maintenance lanes, and every workflow routed off self-hosted runners onto `ubuntu-latest`, restoring healthy CI after the billing quarantine. (#27, #28, #33)
+- Docs: agent-aware documentation now covers all five status states instead of implying every non-working pane was idle.
 
 ## [0.8.0] - 2026-08-09
 
