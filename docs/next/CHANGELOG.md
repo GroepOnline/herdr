@@ -36,20 +36,34 @@
 
 ## [0.7.7] - 2026-08-01
 
+GroepOnline fork release — 256 commits (92 fixes, 12 features, 32 docs, 32 CI, 15 tests, 10 dist).
+
 ### Added
+- Added a machine-readable design-system contract (`.github/design-system.json`) pinning the UI design tokens so automated quality checks can verify the TUI against the intended contract.
+- Added the `maintain-herdr` fork ops project skill for cursor agents. (#110)
+- Added an opt-in dev update channel (`herdr channel set dev`) with automated dev manifests, so builds from `main` can be installed and updated independently of stable and preview.
+- Added Pi memory lifecycle hooks that track Pi memory files alongside session JSONL state.
 - Added a checksum-backed four-platform distribution contract for Linux and macOS on x86_64 and ARM64, including npm and Homebrew publication.
-- Added plugin catalog settings and install UX for managing Herdr plugins from the settings surface.
+- Added plugin catalog settings and install UX for managing Herdr plugins from the settings surface, including monitor templates, the spinner hero preview, and the CHEF fleet ops plugin scaffold.
+- Added Fleet and Plugins settings tabs with a fleet ops bar, unified overlay dismissal, cached hot view paths, and a left-nav settings customization shell with expanded input actions, config saves, and row handlers.
 
 ### Changed
 - Stable release metadata is now promoted atomically only after all four native assets and `SHA256SUMS` have been downloaded and verified.
 - Homebrew, npm, mise, and Nix installs are detected as package-managed and update through their owning package manager.
 - Preview builds now publish from `main` under the GroepOnline release namespace with mandatory checksums and explicit ownership.
+- CI: quality autofix now uses the release metadata as its single source of truth with derived npm version alignment, and the design-system contract YAML is aligned to the pinned tokens.
+- CHANGELOG restored after being emptied by the v0.7.7 squash merge. (#6)
 
 ### Fixed
 - Direct, npm, self-update, and remote-bootstrap downloads now fail closed when SHA-256 metadata is missing, malformed, or mismatched.
-- npm reinstalls now verify an existing native binary instead of trusting stale or corrupted package contents.
+- npm reinstalls now verify an existing native binary instead of trusting stale or corrupted package contents, and SHA256SUMS and repository-slug parsing no longer use regex backtracking.
 - The Windows lint lane now avoids restoring fragile Zig build caches and removes generated Zig outputs before clippy.
 - Corrected release metadata, documentation, product URLs, and the four-target Homebrew formula generation path.
+- Terminal shrink repaints now erase the overhang and removed rows/columns without a full CSI 2J, and kitty graphics survive host repaints.
+- Call sites adapted for the `toml`, `png`, `ratatui`, and `sha2` dependency bumps (TOML 1.x parses as `Table`; `sha2` digest `AsRef` disambiguation).
+- Settings: plugin install output summaries and catalog match arms fixed, catalog aligned with `herdr-plugins` main, and installs run off the event loop.
+- Update: checksum grammar compiles on Windows and the raw string delimiter is escaped in the checksum-rejection test.
+- Dist: release token scoped, checksum matrix count fixed, stable docs restored, and Linux release targets aligned with musl builds.
 
 ## [0.7.6] - 2026-07-23
 
@@ -58,6 +72,8 @@
 - Exposed `pi.session.ended` in `PLUGIN_HOOK_EVENT_KINDS` so plugin `on = "pi.session.ended"` hooks fire for any opted-in plugin.
 
 ## [0.7.5] - 2026-07-21
+
+GroepOnline fork release — 232 commits (109 fixes, 28 features, 23 docs, 16 chores, 11 CI).
 
 ### Breaking Changes
 - Installed and linked plugins, including their enabled state, are now global to the current user instead of isolated by Herdr session. Plugins installed only in a named session on Herdr 0.7.3 must be installed or linked again. (#1174)
@@ -70,10 +86,18 @@
 - Added `ui.sidebar_start_collapsed` to launch Herdr with the sidebar collapsed. (#1463)
 - Added `ui.prompt_new_workspace_name` to ask for a workspace name before interactive TUI creation.
 - Added macOS support for the `HERDR_AGENT=<agent>` foreground-process hint, allowing agents hidden behind host-visible wrappers such as `nono` to use the named agent's screen manifest. (#679)
+- Added GitHub integration phase 2 with native async fetching via `reqwest`.
+- Added a native terminal browser integration (`herdr browser <url>`) using headless Chrome and `viuer` to render web pages in a pane.
+- Added optional command execution when splitting panes or creating tabs/workspaces with `--argv` / `-- command`.
+- Added UI phase 1 + 2 "ultra premium" upgrades: shadows, dynamic borders, powerline badges, glassmorphism, gradients, and animated pulsing.
+- Added a clipboard manager with persistent clipboard history, copy-on-select, and `clipboard.list` / `clipboard.clear` API handlers.
+- Added Utrecht-specific agent detection patterns for all major agents plus opencode integration.
 
 ### Changed
 - Agent commands now accept only a unique live agent name or the pane ID currently hosting that agent. Names are cleared when the occupant exits, is released, or is replaced. The old top-level `wait` commands were replaced by `agent wait` and `pane wait-output`, and `agent send` was replaced by `agent send-keys`.
 - The session navigator now uses connected tree glyphs, groups matches by workspace, and automatically selects the first result when a search begins. (#1611)
+- Browser CLI hardened and `Cargo.toml` kept aligned with locked deps.
+- Tests isolated from the config diagnostic summary path environment.
 
 ### Fixed
 - CLI requests now return a machine-readable `protocol_mismatch` error when the client and server protocols differ, while recovery commands remain available. (#1435)
@@ -103,6 +127,15 @@
 - Live handoff now preserves installed plugins and no longer lets the next plugin installation overwrite the existing registry. (#893)
 - `herdr agent wait` now returns `agent_not_running` promptly when its target pane closes instead of waiting for the full timeout. (#1439)
 - Pane graphics streams now shut down cleanly when a client disconnect races stream teardown.
+- Clipboard: prefer the Wayland clipboard on Linux; bounded clipboard child timeouts.
+- GitHub status refresh auth and batching hardened; open items counted via the link last page.
+- CLI: tab/workspace create `--argv` and `-- command` wired end to end.
+- Pane split command no longer missing from `MainSidebar` params.
+- Copy-on-select gating no longer blocks selection or explicit copy.
+- Single-template collapse to focused pane; settings hit-testing aligned; stale hook TTL relaxed.
+- Clipboard history persistence hardened on the server.
+- Opaque modal chrome and fleet ops bar fields restored.
+- Up-navigation edge case + apply button for the templates tab.
 
 ## [0.7.4] - 2026-07-15
 
