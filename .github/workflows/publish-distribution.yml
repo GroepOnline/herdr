@@ -116,6 +116,7 @@ jobs:
       - name: Generate and validate Homebrew formula
         env:
           VERSION: ${{ steps.release.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           python3 scripts/homebrew_formula.py \
