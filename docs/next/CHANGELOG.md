@@ -7,11 +7,14 @@
 - Freebuff integration target: `herdr integration install freebuff` stages a session-state hook in `~/.freebuff/hooks/` (freebuff has no hook lifecycle yet, so state stays screen-detected) and adds native resume support via `freebuff --continue <id>`. (#43)
 - `opencode2` / `open-code-2` now resolve to the opencode agent for CLI and API compatibility with the OpenCode v2 line. (#43)
 
+### Changed
+- Headless servers now use a configurable 120×40 virtual terminal instead of 80×24 when no client is attached, giving newly created panes a practical default size. (#2828)
+
 ### Fixed
 - `agent prompt` now rejects agents already waiting at approval or question dialogs with `agent_blocked`, without sending text or Enter. (upstream #2790)
+- Remote clients now continue redrawing at very large terminal sizes instead of freezing when a full ANSI frame exceeds the transport limit. (#2675)
 
 ## [0.8.1] - 2026-08-15
-||||||| parent of 9351b058 (fix: reject prompts to blocked agents (#2790))
 ### Added
 - Added Qwen Code detection for idle, working, and user-confirmation states, plus optional native session restore.
 - Herdr now keeps the outer terminal window title in sync with the session through `ui.window_title`, so window managers and terminal tab bars show the active workspace and the host the panes actually run on.
@@ -25,7 +28,6 @@
 - The plugin marketplace now discovers valid manifests at repository roots and subdirectories, groups multiple plugins under each repository, and publishes their versions and exact default-branch commits.
 
 ### Changed
-- Headless servers now use a configurable 120×40 virtual terminal instead of 80×24 when no client is attached, giving newly created panes a practical default size. (#2828)
 - Desktop tab labels are now centered in their tabs, so the active-tab highlight has symmetric padding.
 - Bumped the client/server protocol version to 20 for pane terminal bell forwarding.
 - Experimental pane graphics now support bounded named layers, acknowledged full-RGBA primary-layer direct file frames on audited local terminals, owned BGRA fallback, exact pixel mouse input, and placement-only resize replay.
@@ -34,7 +36,6 @@
 - `prefix+e` now preserves logical lines when opening soft-wrapped scrollback in an editor. (#2733)
 - Tab bar clicks are now properly registered when using Ghostty in native fullscreen. (#796, #2736, thanks @HackAttack)
 - Prefix keybindings now disambiguate layout-aware shifted punctuation, so a shifted `\` no longer triggers `prefix+|` on keyboard layouts where the same key produces both characters. (#2674)
-||||||| parent of 36074530 (fix(render): compact large terminal redraws (#2675))
 - Remote clients now continue redrawing at very large terminal sizes instead of freezing when a full ANSI frame exceeds the transport limit. (#2670)
 - OpenCode panes now track the root conversation selected in their own TUI for native restore without adopting activity from attached clients. (#2450)
 - Server stop requests now bypass pane and API traffic, preventing busy sessions from blocking shutdown or admitting a client while shutdown is pending. (#2612)
