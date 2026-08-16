@@ -1031,9 +1031,7 @@ impl AppState {
                 }
             }
 
-            MouseEventKind::Moved
-                if matches!(self.mode, Mode::Terminal | Mode::Navigate) =>
-            {
+            MouseEventKind::Moved if matches!(self.mode, Mode::Terminal | Mode::Navigate) => {
                 self.update_sidebar_hover(mouse.column, mouse.row, in_sidebar);
                 if self.mode == Mode::Terminal && !in_sidebar {
                     if let Some(info) = self.pane_at(mouse.column, mouse.row).cloned() {
@@ -3989,11 +3987,7 @@ mod tests {
         assert!(app.state.view.sidebar_hover.is_some());
 
         let terminal = app.state.view.terminal_area;
-        app.handle_mouse(mouse(
-            MouseEventKind::Moved,
-            terminal.x + 5,
-            terminal.y + 5,
-        ));
+        app.handle_mouse(mouse(MouseEventKind::Moved, terminal.x + 5, terminal.y + 5));
         assert_eq!(app.state.view.sidebar_hover, None);
     }
 
