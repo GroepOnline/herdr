@@ -190,7 +190,7 @@ impl Default for AgentSoundOverrides {
             junie: AgentSoundSetting::Default,
             open_claude: AgentSoundSetting::Default,
             maki: AgentSoundSetting::Default,
-              aider: AgentSoundSetting::Default,
+            aider: AgentSoundSetting::Default,
         }
     }
 }
@@ -230,7 +230,7 @@ aider = "off"
         assert_eq!(config.ui.sound.agents.droid, AgentSoundSetting::Off);
         assert_eq!(config.ui.sound.agents.claude, AgentSoundSetting::On);
         assert_eq!(config.ui.sound.agents.aider, AgentSoundSetting::Off);
-          assert_eq!(config.ui.sound.agents.pi, AgentSoundSetting::Default);
+        assert_eq!(config.ui.sound.agents.pi, AgentSoundSetting::Default);
     }
 
     #[test]
