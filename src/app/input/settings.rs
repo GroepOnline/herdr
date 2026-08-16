@@ -439,8 +439,7 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             expand_all_groups(state);
         }
         KeyCode::Char('<') => {
-            if state.settings.section == SettingsSection::Ui
-                && state.settings.spinner_category > 0
+            if state.settings.section == SettingsSection::Ui && state.settings.spinner_category > 0
             {
                 state.settings.spinner_category -= 1;
             }
@@ -1053,10 +1052,11 @@ mod tests {
             .iter()
             .position(|section| *section == SettingsSection::Integrations)
             .expect("integrations section");
-        let rect = layout
-            .nav_item_rect(integrations_idx)
-            .expect("nav rect");
-        assert_eq!(layout.nav_index_at(rect.x + 2, rect.y), Some(integrations_idx));
+        let rect = layout.nav_item_rect(integrations_idx).expect("nav rect");
+        assert_eq!(
+            layout.nav_index_at(rect.x + 2, rect.y),
+            Some(integrations_idx)
+        );
     }
 
     fn integration_recommendation(

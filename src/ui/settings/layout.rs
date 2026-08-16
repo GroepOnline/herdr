@@ -129,13 +129,13 @@ impl SettingsLayout {
             x: self.content.x,
             y,
             width: self.content.width,
-            height: height
-                .saturating_sub(y - self.content.y)
-                .saturating_sub(if app.settings.section == SettingsSection::Integrations {
+            height: height.saturating_sub(y - self.content.y).saturating_sub(
+                if app.settings.section == SettingsSection::Integrations {
                     2
                 } else {
                     0
-                }),
+                },
+            ),
         }
     }
 
@@ -255,7 +255,8 @@ pub(crate) fn settings_popup_height(app: &AppState) -> u16 {
             let installed = super::catalog::installed_plugins_sorted(app).len();
             let catalog = super::catalog::catalog_entries_available(app).len();
             let plugins = installed.saturating_add(catalog).saturating_add(2) as u16;
-            base.saturating_add(integrations.min(8)).saturating_add(plugins.min(10))
+            base.saturating_add(integrations.min(8))
+                .saturating_add(plugins.min(10))
         }
         _ => base,
     }
