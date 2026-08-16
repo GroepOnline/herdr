@@ -1070,7 +1070,7 @@ mod tests {
         );
         app.state.workspaces.push(Workspace::test_new("test"));
         let now = Instant::now();
-        app.last_git_remote_status_refresh = now - super::super::GIT_REMOTE_STATUS_REFRESH_INTERVAL;
+        app.last_git_remote_status_refresh = now.checked_sub(super::super::GIT_REMOTE_STATUS_REFRESH_INTERVAL).unwrap();
 
         assert_eq!(
             app.next_headless_loop_deadline_with_git_refresh(now, false, false),
@@ -1094,7 +1094,7 @@ mod tests {
         app.state.workspaces.push(Workspace::test_new("test"));
         let now = Instant::now();
         app.last_github_remote_status_refresh =
-            now - super::super::GITHUB_REMOTE_STATUS_REFRESH_INTERVAL;
+            now.checked_sub(super::super::GITHUB_REMOTE_STATUS_REFRESH_INTERVAL).unwrap();
 
         // Ensure env tokens are unset for this process for the duration of the check.
         let previous_gh = std::env::var_os("GH_TOKEN");
@@ -1403,7 +1403,7 @@ mod tests {
             argv: vec!["/bin/sh".into(), "-c".into(), "sleep 5".into()],
             dedupe_key: "herdr:codex\0codex\0Id\0codex-session".into(),
         });
-        app.pending_agent_resume_deadline = Some(Instant::now() - Duration::from_millis(1));
+        app.pending_agent_resume_deadline = Some(Instant::now().checked_sub(Duration::from_millis(1)).unwrap());
         let now = Instant::now();
         app.next_fleet_ops_cache_refresh = now + Duration::from_secs(3600);
         app.next_resize_poll = now + Duration::from_secs(3600);

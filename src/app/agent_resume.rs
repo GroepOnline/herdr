@@ -513,7 +513,7 @@ mod tests {
             });
         }
         app.pending_agent_resume_deadline =
-            Some(std::time::Instant::now() - std::time::Duration::from_millis(1));
+            Some(std::time::Instant::now().checked_sub(std::time::Duration::from_millis(1)).unwrap());
 
         assert!(app.start_pending_agent_resumes(false));
         assert!(app.terminal_runtimes.get(&active_terminal).is_some());
