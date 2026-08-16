@@ -39,9 +39,8 @@ use super::{
     CURSOR_HOOK_ASSET, CURSOR_HOOK_INSTALL_NAME, DEVIN_HOOK_ASSET, DEVIN_HOOK_EVENTS,
     DEVIN_HOOK_INSTALL_NAME, DEVIN_REMOVED_LIFECYCLE_HOOK_EVENTS, DROID_HOOK_ASSET,
     DROID_HOOK_EVENTS, DROID_HOOK_INSTALL_NAME, DROID_REMOVED_LIFECYCLE_HOOK_EVENTS,
-    COMMANDCODE_HOOK_ASSET, COMMANDCODE_HOOK_INSTALL_NAME, COMMANDCODE_SETTINGS_INSTALL_NAME,
-    FREEBUFF_HOOK_ASSET, FREEBUFF_HOOK_INSTALL_NAME, GROK_HOOK_ASSET,
-    GROK_HOOK_CONFIG_INSTALL_NAME, GROK_HOOK_INSTALL_NAME, HERMES_PLUGIN_INIT_ASSET,
+    GROK_HOOK_ASSET, GROK_HOOK_CONFIG_INSTALL_NAME, GROK_HOOK_INSTALL_NAME,
+    HERMES_PLUGIN_INIT_ASSET,
     HERMES_PLUGIN_INIT_INSTALL_NAME, HERMES_PLUGIN_MANIFEST_ASSET,
     HERMES_PLUGIN_MANIFEST_INSTALL_NAME, KILO_PLUGIN_ASSET, KILO_PLUGIN_INSTALL_NAME,
     KIMI_HOOK_ASSET, KIMI_HOOK_INSTALL_NAME, MASTRACODE_HOOK_ASSET, MASTRACODE_HOOK_EVENTS,
@@ -1468,7 +1467,7 @@ pub(crate) fn uninstall_commandcode() -> io::Result<CommandCodeUninstallResult> 
         if let Ok(mut settings) = serde_json::from_str::<Value>(&content) {
             if let Some(hooks) = settings.get_mut("hooks").and_then(Value::as_object_mut) {
                 if remove_hook_commands(hooks, "SessionStart", &hook_path, Some("session"))? {
-                    write_json_pretty(&settings_path, &settings)?;
+                    fs::write(&settings_path, serde_json::to_string_pretty(&settings)?)?;
                     removed_config_file = true;
                 }
             }
