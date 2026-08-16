@@ -399,7 +399,10 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
     if let KeyCode::Char(ch) = key.code {
         if key.modifiers.is_empty()
             && ch.is_ascii()
-            && !matches!(ch, ' ' | '\t' | '\x1b' | '\n' | '\r' | '/' | '[' | ']' | '<' | '>')
+            && !matches!(
+                ch,
+                ' ' | '\t' | '\x1b' | '\n' | '\r' | '/' | '[' | ']' | '<' | '>'
+            )
         {
             state.settings.focus = SettingsFocus::Search;
             state.settings.search.push(ch);
