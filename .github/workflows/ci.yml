@@ -116,6 +116,11 @@ jobs:
       - name: Cargo check
         run: cargo check --all-targets --locked
         env:
+          # CARGO_INCREMENTAL=0 is required: sccache refuses to cache
+          # incremental rustc invocations, so the dev profile's default
+          # `incremental = true` would silently disable caching for our
+          # workspace crates.
+          CARGO_INCREMENTAL: "0"
           RUSTC_WRAPPER: sccache
           SCCACHE_GHA_ENABLED: "true"
 
@@ -171,6 +176,11 @@ jobs:
       - name: Cargo clippy
         run: cargo clippy --all-targets --locked -- -D warnings
         env:
+          # CARGO_INCREMENTAL=0 is required: sccache refuses to cache
+          # incremental rustc invocations, so the dev profile's default
+          # `incremental = true` would silently disable caching for our
+          # workspace crates.
+          CARGO_INCREMENTAL: "0"
           RUSTC_WRAPPER: sccache
           SCCACHE_GHA_ENABLED: "true"
 
@@ -230,6 +240,11 @@ jobs:
       - name: Cargo nextest
         run: cargo nextest run --locked --status-level fail --final-status-level fail --failure-output final --success-output never
         env:
+          # CARGO_INCREMENTAL=0 is required: sccache refuses to cache
+          # incremental rustc invocations, so the dev profile's default
+          # `incremental = true` would silently disable caching for our
+          # workspace crates.
+          CARGO_INCREMENTAL: "0"
           RUSTC_WRAPPER: sccache
           SCCACHE_GHA_ENABLED: "true"
 
