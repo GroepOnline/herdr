@@ -1631,7 +1631,7 @@ mod tests {
         let buffer = terminal.backend().buffer();
 
         for x in card0.x..card0.x + card0.width {
-            let cell = buffer[(x, card0.y)];
+            let cell = &buffer[(x, card0.y)];
             assert_eq!(cell.style().bg, Some(app.palette.surface0));
             assert_eq!(cell.style().fg, Some(app.palette.text));
         }
@@ -1668,7 +1668,7 @@ mod tests {
             .unwrap();
         let buffer = terminal.backend().buffer();
 
-        let cell = buffer[(1, body.y + 1)];
+        let cell = &buffer[(1, body.y + 1)];
         assert_eq!(cell.style().bg, Some(app.palette.surface0));
         assert_eq!(cell.style().fg, Some(app.palette.text));
     }
