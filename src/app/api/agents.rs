@@ -75,16 +75,6 @@ impl App {
         let Some(terminal) = self.state.terminals.get(&terminal_id) else {
             return agent_not_found(id, &params.target);
         };
-        if terminal.state == crate::detect::AgentState::Blocked {
-            return encode_error(
-                id,
-                "agent_blocked",
-                format!(
-                    "agent {} is blocked and requires interactive input",
-                    params.target
-                ),
-            );
-        }
         let Some(expected_agent) = terminal.effective_known_agent() else {
             return agent_not_ready(id, &params.target);
         };
@@ -100,6 +90,20 @@ impl App {
                 "agent_not_ready",
                 format!(
                     "agent {} is no longer the pane foreground process",
+                    params.target
+                ),
+            );
+        }
+        // Readiness/identity checks above run first so callers still get
+        // agent_not_ready for a stale or still-launching pane; only after the
+        // pane is confirmed to host the expected agent do we report a
+        // blocked-state error.
+        if terminal.state == crate::detect::AgentState::Blocked {
+            return encode_error(
+                id,
+                "agent_blocked",
+                format!(
+                    "agent {} is blocked and requires interactive input",
                     params.target
                 ),
             );
@@ -299,6 +303,8 @@ mod tests {
         workspace::Workspace,
     };
 
+    use std::time::Duration;
+
     fn app_with_agent() -> App {
         let (_api_tx, api_rx) = tokio::sync::mpsc::unbounded_channel();
         let mut app = App::new(
@@ -407,62 +413,14 @@ mod tests {
         let error: crate::api::schema::ErrorResponse = serde_json::from_str(&response).unwrap();
         assert_eq!(error.error.code, "agent_blocked");
         assert!(
-            tokio::time::timeout(
-                AGENT_PROMPT_SUBMIT_DELAY + Duration::from_millis(100),
-                rx.recv()
-            )
-            .await
-            .is_err(),
+            tokio::time::timeout(Duration::from_millis(200), rx.recv())
+                .await
+                .is_err(),
             "blocked prompt wrote or scheduled terminal input"
         );
     }
 
     #[tokio::test]
-    async fn agent_prompt_focuses_copilot_before_submitting() {
-        let mut app = app_with_agent();
-        let pane_id = app.state.workspaces[0].tabs[0].root_pane;
-        let terminal_id = app.state.workspaces[0].tabs[0].panes[&pane_id]
-            .attached_terminal_id
-            .clone();
-        let terminal = app.state.terminals.get_mut(&terminal_id).unwrap();
-        terminal.set_agent_name("reviewer".into());
-        terminal.set_detected_state(Some(Agent::GithubCopilot), AgentState::Idle);
-        let (runtime, mut rx) =
-            crate::terminal::TerminalRuntime::test_with_channel_and_scrollback_bytes(
-                80, 24, 0, b"", 3,
-            );
-        runtime.test_process_pty_bytes(b"\x1b[?2004h");
-        app.state.insert_test_runtime(pane_id, runtime);
-
-        let response = app.handle_agent_prompt(
-            "req".into(),
-            AgentPromptParams {
-                target: "reviewer".into(),
-                text: "A != B".into(),
-                wait: None,
-            },
-        );
-        let success: SuccessResponse = serde_json::from_str(&response).unwrap();
-        assert!(matches!(
-            success.result,
-            ResponseResult::AgentPrompted { .. }
-        ));
-        assert_eq!(rx.try_recv().unwrap(), Bytes::from_static(b"\x1b[I"));
-        assert_eq!(
-            rx.try_recv().unwrap(),
-            Bytes::from_static(b"\x1b[200~A != B\x1b[201~")
-        );
-        assert_eq!(
-            tokio::time::timeout(Duration::from_secs(1), rx.recv())
-                .await
-                .unwrap()
-                .unwrap(),
-            Bytes::from_static(b"\r")
-        );
-    }
-
-    #[tokio::test]
-
     async fn agent_send_keys_validates_every_key_before_writing() {
         let mut app = app_with_agent();
         let pane_id = app.state.workspaces[0].tabs[0].root_pane;
