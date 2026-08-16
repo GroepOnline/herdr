@@ -25,9 +25,9 @@ use super::{
     ScrollbarClickTarget, TAB_DRAG_THRESHOLD, WORKSPACE_DRAG_THRESHOLD,
 };
 
-/// Touch drags starting within this many columns of the left edge count as
-/// potential edge-swipes on mobile layouts.
-const MOBILE_SWIPE_EDGE: u16 = 2;
+/// Touch drags starting within the first `MOBILE_SWIPE_EDGE + 1` columns
+/// (0..=MOBILE_SWIPE_EDGE) of the left edge count as potential edge-swipes.
+const MOBILE_SWIPE_EDGE: u16 = 1;
 /// Horizontal distance a swipe must cover before the switcher opens.
 const MOBILE_SWIPE_DISTANCE: u16 = 12;
 
@@ -1157,6 +1157,11 @@ impl AppState {
     }
 
     fn handle_mobile_mouse(&mut self, mouse: MouseEvent) -> MobileMouseResult {
+        // Edge-swipe / mobile-menu handling only applies to a normal terminal
+        // or resize view. If the user is in any other mode (Copy, Rename,
+        // ConfirmClose, ContextMenu, etc.) the down/up/drag events must NOT
+        // be intercepted, otherwise a left-edge drag would silently dismiss
+        // an open dialog or a text selection.
         if self.mode == Mode::Navigate {
             match mouse.kind {
                 MouseEventKind::ScrollUp => {
@@ -1173,9 +1178,30 @@ impl AppState {
         } else {
             // Edge-swipe: a touch drag that starts at the left edge of the
             // screen opens the switcher, mirroring the header button.
+            //
+            // The initial press is consumed (we don't fall through to the
+            // pane-forwarding path) so the pane app never sees a Down without
+            // a matching Up when the swipe is recognised mid-drag. If the
+            // gesture turns out not to be a swipe (vertical or short drag,
+            // or a quick tap), we never forward a phantom Down either —
+            // terminals that dropped the button-release report simply lose
+            // the would-be gesture, which is preferable to leaving the pane
+            // app in a stuck-pressed state.
+            if !matches!(self.mode, Mode::Terminal | Mode::Resize) {
+                self.mobile_swipe_start = None;
+                return MobileMouseResult::Ignored;
+            }
             match mouse.kind {
                 MouseEventKind::Down(MouseButton::Left) if mouse.column <= MOBILE_SWIPE_EDGE => {
                     self.mobile_swipe_start = Some((mouse.column, mouse.row));
+                    return MobileMouseResult::Consumed;
+                }
+                MouseEventKind::Down(_) if self.mobile_swipe_start.is_some() => {
+                    // A non-edge Down while a swipe is armed means the user
+                    // started a different gesture; drop the swipe so a stale
+                    // start position can't fire later.
+                    self.mobile_swipe_start = None;
+                    return MobileMouseResult::Ignored;
                 }
                 MouseEventKind::Drag(MouseButton::Left) => {
                     if let Some((start_col, start_row)) = self.mobile_swipe_start {
@@ -1187,22 +1213,26 @@ impl AppState {
                             self.mode = Mode::Navigate;
                             return MobileMouseResult::Consumed;
                         }
+                        // The gesture is no longer a clean horizontal
+                        // edge-swipe (vertical or too short); disarm it so a
+                        // later unrelated drag can't be measured against a
+                        // stale start position.
+                        self.mobile_swipe_start = None;
                     }
                 }
                 MouseEventKind::Up(MouseButton::Left) => {
                     self.mobile_swipe_start = None;
+                    return MobileMouseResult::Ignored;
                 }
                 _ => {}
             }
-            if !matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
-                return MobileMouseResult::Ignored;
-            }
+            return MobileMouseResult::Ignored;
         }
 
         if self.mode != Mode::Navigate {
-            if !matches!(self.mode, Mode::Terminal | Mode::Resize) {
-                return MobileMouseResult::Ignored;
-            }
+            // Navigation-header click handling is the only remaining branch
+            // below; the edge-swipe and press-forwarding concerns above
+            // already gated the terminal / resize non-switcher paths.
             if rect_contains(self.view.mobile_menu_hit_area, mouse.column, mouse.row) {
                 self.mobile_switcher_scroll = 0;
                 self.mode = Mode::Navigate;
@@ -4035,6 +4065,47 @@ mod tests {
         assert_eq!(app.state.mode, Mode::Terminal);
         app.handle_mouse(mouse(MouseEventKind::Drag(MouseButton::Left), 15, 5));
         assert_eq!(app.state.mode, Mode::Navigate);
+    }
+
+    #[test]
+    fn mobile_edge_swipe_does_not_dismiss_dialog_modes() {
+        let mut app = app_for_mouse_test();
+        app.state.workspaces = vec![Workspace::test_new("one")];
+        app.state.active = Some(0);
+        app.state.selected = 0;
+        app.state.mode = Mode::Copy;
+
+        crate::ui::compute_view(&mut app.state, Rect::new(0, 0, 44, 20));
+        assert_eq!(app.state.view.layout, ViewLayout::Mobile);
+
+        // A left-edge drag while a modal (Copy here) is open must NOT switch
+        // to the workspace switcher; the down/drag are ignored for the swipe
+        // path and forwarded to the pane selection handling instead.
+        app.handle_mouse(mouse(MouseEventKind::Down(MouseButton::Left), 0, 5));
+        app.handle_mouse(mouse(MouseEventKind::Drag(MouseButton::Left), 15, 5));
+        assert_eq!(app.state.mode, Mode::Copy);
+        assert_eq!(app.state.mobile_swipe_start, None);
+    }
+
+    #[test]
+    fn sidebar_hover_survives_view_recompute() {
+        let mut app = app_for_mouse_test();
+        app.state.workspaces = vec![Workspace::test_new("one")];
+        app.state.active = Some(0);
+        app.state.selected = 0;
+
+        crate::ui::compute_view(&mut app.state, Rect::new(0, 0, 120, 30));
+        let card = app.state.view.workspace_card_areas[0].rect;
+        app.handle_mouse(mouse(MouseEventKind::Moved, card.x + 2, card.y + 1));
+        assert!(app.state.view.sidebar_hover.is_some());
+
+        // A full recompute happens before every rendered frame; the hover
+        // must survive it or the highlight never becomes visible.
+        crate::ui::compute_view(&mut app.state, Rect::new(0, 0, 120, 30));
+        assert_eq!(
+            app.state.view.sidebar_hover,
+            Some(crate::app::state::SidebarHoverTarget::Workspace(0))
+        );
     }
 
     #[test]

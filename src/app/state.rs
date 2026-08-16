@@ -855,12 +855,16 @@ pub enum Mode {
 
 impl Mode {
     pub(crate) fn mouse_motion_changes_view(self) -> bool {
+        // Terminal mode intentionally excluded: pane applications render their
+        // own motion responses through PTY output, and unconditional full
+        // repaints on every Moved event are a CPU/network waste. Sidebar or
+        // overlay hover updates still trigger repaints via the explicit
+        // overlay modes (GlobalMenu / ContextMenu / Navigator / Navigate).
         matches!(
             self,
             Self::GlobalMenu
                 | Self::ContextMenu
                 | Self::Navigator
-                | Self::Terminal
                 | Self::Navigate
         )
     }

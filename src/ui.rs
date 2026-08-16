@@ -320,6 +320,12 @@ fn compute_view_internal(
         Vec::new()
     };
 
+    // Preserve sidebar_hover across recompute: it is owned by input events
+    // and must stay visible through the per-frame ViewState rebuild, otherwise
+    // any workspace/agent row hovered by the pointer is reset before render
+    // (every frame). Take it out with std::mem::replace so we don't borrow
+    // app.view while constructing the new value.
+    let prev_sidebar_hover = std::mem::replace(&mut app.view.sidebar_hover, None);
     app.view = crate::app::ViewState {
         layout: ViewLayout::Desktop,
         sidebar_rect: sidebar_area,
@@ -336,7 +342,7 @@ fn compute_view_internal(
         toast_hit_area,
         pane_infos,
         split_borders,
-        sidebar_hover: None,
+        sidebar_hover: prev_sidebar_hover,
     };
     app.sync_copy_mode_search_geometry();
 }
@@ -391,6 +397,10 @@ fn compute_mobile_view(
         Vec::new()
     };
 
+    // Preserve sidebar_hover across the mobile recompute as well (see desktop
+    // path for the rationale — without this the per-frame ViewState rebuild
+    // discards any pointer-driven hover before render reads it).
+    let prev_sidebar_hover = std::mem::replace(&mut app.view.sidebar_hover, None);
     app.view = crate::app::ViewState {
         layout: ViewLayout::Mobile,
         sidebar_rect: Rect::default(),
@@ -407,7 +417,7 @@ fn compute_mobile_view(
         toast_hit_area,
         pane_infos,
         split_borders,
-        sidebar_hover: None,
+        sidebar_hover: prev_sidebar_hover,
     };
     app.sync_copy_mode_search_geometry();
 }
