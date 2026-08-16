@@ -825,7 +825,7 @@ pub struct ViewState {
     pub toast_hit_area: Rect,
     pub pane_infos: Vec<PaneInfo>,
     pub split_borders: Vec<SplitBorder>,
-    pub sidebar_hover: Option<SidebarHoverTarget>,
+    pub(crate) sidebar_hover: Option<SidebarHoverTarget>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -855,7 +855,10 @@ pub enum Mode {
 
 impl Mode {
     pub(crate) fn mouse_motion_changes_view(self) -> bool {
-        matches!(self, Self::GlobalMenu | Self::ContextMenu | Self::Navigator)
+        matches!(
+                self,
+                Self::GlobalMenu | Self::ContextMenu | Self::Navigator | Self::Terminal | Self::Navigate
+            )
     }
 
     /// Whether keys in this mode are commands/navigation (an ASCII input source is wanted) rather
