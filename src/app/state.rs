@@ -856,9 +856,13 @@ pub enum Mode {
 impl Mode {
     pub(crate) fn mouse_motion_changes_view(self) -> bool {
         matches!(
-                self,
-                Self::GlobalMenu | Self::ContextMenu | Self::Navigator | Self::Terminal | Self::Navigate
-            )
+            self,
+            Self::GlobalMenu
+                | Self::ContextMenu
+                | Self::Navigator
+                | Self::Terminal
+                | Self::Navigate
+        )
     }
 
     /// Whether keys in this mode are commands/navigation (an ASCII input source is wanted) rather
