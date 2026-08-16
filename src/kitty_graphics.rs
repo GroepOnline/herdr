@@ -560,7 +560,8 @@ fn collect_visible_placements(
             ));
         }
 
-        let Some(runtime) = app.runtime_for_pane_in_workspace(terminal_runtimes, ws_idx, info.id) else {
+        let Some(runtime) = app.runtime_for_pane_in_workspace(terminal_runtimes, ws_idx, info.id)
+        else {
             tracing::debug!(pane_id = ?info.id, "collect_visible_placements: runtime not found");
             continue;
         };
