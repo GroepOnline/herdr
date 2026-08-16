@@ -862,10 +862,7 @@ impl Mode {
         // overlay modes (GlobalMenu / ContextMenu / Navigator / Navigate).
         matches!(
             self,
-            Self::GlobalMenu
-                | Self::ContextMenu
-                | Self::Navigator
-                | Self::Navigate
+            Self::GlobalMenu | Self::ContextMenu | Self::Navigator | Self::Navigate
         )
     }
 
