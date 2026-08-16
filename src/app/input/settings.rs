@@ -433,15 +433,19 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             state.settings.focus = SettingsFocus::Nav;
         }
         KeyCode::Char('[') => {
-            if state.settings.section == SettingsSection::Ui {
-                if state.settings.spinner_category > 0 {
-                    state.settings.spinner_category -= 1;
-                }
-            } else {
-                collapse_all_groups(state);
-            }
+            collapse_all_groups(state);
         }
         KeyCode::Char(']') => {
+            expand_all_groups(state);
+        }
+        KeyCode::Char('<') => {
+            if state.settings.section == SettingsSection::Ui
+                && state.settings.spinner_category > 0
+            {
+                state.settings.spinner_category -= 1;
+            }
+        }
+        KeyCode::Char('>') => {
             if state.settings.section == SettingsSection::Ui {
                 let max = crate::ui::settings::spinner::SPINNER_CATEGORIES
                     .len()
@@ -449,8 +453,6 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
                 if state.settings.spinner_category < max {
                     state.settings.spinner_category += 1;
                 }
-            } else {
-                expand_all_groups(state);
             }
         }
         KeyCode::Tab => {
@@ -1051,11 +1053,10 @@ mod tests {
             .iter()
             .position(|section| *section == SettingsSection::Integrations)
             .expect("integrations section");
-        let rect = layout.nav_item_rect(integrations_idx).expect("nav rect");
-        assert_eq!(
-            layout.nav_index_at(rect.x + 2, rect.y),
-            Some(integrations_idx)
-        );
+        let rect = layout
+            .nav_item_rect(integrations_idx)
+            .expect("nav rect");
+        assert_eq!(layout.nav_index_at(rect.x + 2, rect.y), Some(integrations_idx));
     }
 
     fn integration_recommendation(

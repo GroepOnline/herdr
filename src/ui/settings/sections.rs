@@ -275,7 +275,7 @@ fn render_spinner_hero(app: &AppState, frame: &mut Frame, layout: &SettingsLayou
     );
     frame.render_widget(
         Paragraph::new(Span::styled(
-            "  [ and ] cycle packs · enter picks this style",
+            "  < and > cycle packs · enter picks this style",
             Style::default().fg(p.overlay0),
         )),
         Rect::new(rect.x, rect.y + 2, rect.width, 1),
@@ -341,7 +341,7 @@ fn render_agents_footer(app: &AppState, frame: &mut Frame, layout: &SettingsLayo
 
 fn render_plugins_footer(app: &AppState, frame: &mut Frame, layout: &SettingsLayout) {
     let p = &app.palette;
-    let y = layout.content.y + layout.content.height.saturating_sub(1);
+    let y = layout.content.y + layout.content.height.saturating_sub(2);
     if y <= layout.content.y {
         return;
     }
