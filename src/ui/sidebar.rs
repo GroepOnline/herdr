@@ -1196,23 +1196,6 @@ fn render_workspace_list(
         } else {
             Style::default().fg(p.subtext0)
         };
-            let buf = frame.buffer_mut();
-            for y in row_y..row_y + row_height {
-                if y >= list_bottom {
-                    break;
-                }
-                for x in card.rect.x..card.rect.x + card.rect.width {
-                    buf[(x, y)].set_style(Style::default().bg(bg));
-                }
-            }
-        }
-
-        let name_style = if selected || is_active || is_dragged {
-            Style::default().fg(p.text).add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(p.subtext0)
-        };
-
         let label = crate::workspace::unique_display_names(&app.workspaces)[i].clone();
         let display_label = if card.indented {
             grouped_child_display_label(&label, ws.branch().as_deref(), ws.custom_name.is_some())
