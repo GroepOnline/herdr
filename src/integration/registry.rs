@@ -371,10 +371,8 @@ fn integration_specs() -> [(
         ),
         (
             crate::api::schema::IntegrationTarget::CommandCode,
-            commandcode_dir().map(|dir| {
-                dir.join("hooks")
-                    .join(super::COMMANDCODE_HOOK_INSTALL_NAME)
-            }),
+            commandcode_dir()
+                .map(|dir| dir.join("hooks").join(super::COMMANDCODE_HOOK_INSTALL_NAME)),
             super::COMMANDCODE_INTEGRATION_VERSION,
         ),
         (
@@ -451,18 +449,20 @@ fn commandcode_hook_config_is_valid(hook_path: &Path) -> bool {
         .ok()
         .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).ok())
         .is_some_and(|config| {
-            config["hooks"]["SessionStart"].as_array().is_some_and(|entries| {
-                entries.iter().any(|entry| {
-                    entry["hooks"].as_array().is_some_and(|hooks| {
-                        hooks.iter().any(|hook| {
-                            hook["type"] == "command"
-                                && hook["command"]
-                                    .as_str()
-                                    .is_some_and(|command| command.contains("herdr-agent-state"))
+            config["hooks"]["SessionStart"]
+                .as_array()
+                .is_some_and(|entries| {
+                    entries.iter().any(|entry| {
+                        entry["hooks"].as_array().is_some_and(|hooks| {
+                            hooks.iter().any(|hook| {
+                                hook["type"] == "command"
+                                    && hook["command"].as_str().is_some_and(|command| {
+                                        command.contains("herdr-agent-state")
+                                    })
+                            })
                         })
                     })
                 })
-            })
         })
 }
 

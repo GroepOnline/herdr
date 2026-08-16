@@ -209,7 +209,11 @@ pub fn plan(source: &str, agent: &str, session_ref: &AgentSessionRef) -> Option<
             vec!["cmd".into(), "--resume".into(), session_ref.value.clone()]
         }
         ("herdr:freebuff", "freebuff", AgentSessionRefKind::Id) => {
-            vec!["freebuff".into(), "--continue".into(), session_ref.value.clone()]
+            vec![
+                "freebuff".into(),
+                "--continue".into(),
+                session_ref.value.clone(),
+            ]
         }
         _ => return None,
     };
