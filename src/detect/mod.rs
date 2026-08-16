@@ -65,10 +65,11 @@ pub enum Agent {
     Junie,
     OpenClaude,
     Maki,
+    CommandCode,
 }
 
 impl Agent {
-    pub const ALL: [Self; 24] = [
+    pub const ALL: [Self; 25] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -93,9 +94,10 @@ impl Agent {
         Self::Junie,
         Self::OpenClaude,
         Self::Maki,
+        Self::CommandCode,
     ];
 
-    pub const SCREEN_MANIFEST_AGENTS: [Self; 22] = [
+    pub const SCREEN_MANIFEST_AGENTS: [Self; 23] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -118,6 +120,7 @@ impl Agent {
         Self::Junie,
         Self::OpenClaude,
         Self::Maki,
+        Self::CommandCode,
     ];
 }
 
@@ -147,6 +150,7 @@ pub fn agent_label(agent: Agent) -> &'static str {
         Agent::Junie => "junie",
         Agent::OpenClaude => "openclaude",
         Agent::Maki => "maki",
+        Agent::CommandCode => "commandcode",
     }
 }
 
@@ -182,6 +186,7 @@ pub fn interactive_agent_executable(agent: Agent) -> &'static str {
         Agent::Junie => "junie",
         Agent::OpenClaude => "openclaude",
         Agent::Maki => "maki",
+        Agent::CommandCode => "cmd",
     }
 }
 
@@ -207,7 +212,7 @@ fn lookup_agent(name: &str) -> Option<Agent> {
         "cline" => Some(Agent::Cline),
         "omp" => Some(Agent::Omp),
         "mastracode" | "mastra-code" | "mastra code" => Some(Agent::Mastracode),
-        "opencode" | "open-code" => Some(Agent::OpenCode),
+        "opencode" | "opencode2" | "open-code" | "open-code-2" => Some(Agent::OpenCode),
         "copilot" | "github-copilot" | "ghcs" => Some(Agent::GithubCopilot),
         "kimi" | "kimi-code" | "kimi code" => Some(Agent::Kimi),
         "kiro" | "kiro-cli" => Some(Agent::Kiro),
@@ -221,6 +226,7 @@ fn lookup_agent(name: &str) -> Option<Agent> {
         "junie" | "junie-cli" => Some(Agent::Junie),
         "openclaude" | "open-claude" | "openclaude-cli" => Some(Agent::OpenClaude),
         "maki" => Some(Agent::Maki),
+        "cmd" | "command-code" | "commandcode" | "commandcode-cli" => Some(Agent::CommandCode),
         _ => None,
     }
 }
@@ -698,6 +704,9 @@ mod tests {
         assert_eq!(identify_agent("mastra-code"), Some(Agent::Mastracode));
         assert_eq!(identify_agent("opencode"), Some(Agent::OpenCode));
         assert_eq!(identify_agent("opencode.exe"), Some(Agent::OpenCode));
+        assert_eq!(identify_agent("opencode2"), Some(Agent::OpenCode));
+        assert_eq!(identify_agent("opencode2.exe"), Some(Agent::OpenCode));
+        assert_eq!(identify_agent("open-code-2"), Some(Agent::OpenCode));
         assert_eq!(identify_agent("kimi"), Some(Agent::Kimi));
         assert_eq!(identify_agent("Kimi Code"), Some(Agent::Kimi));
         assert_eq!(identify_agent("kiro"), Some(Agent::Kiro));
@@ -782,6 +791,7 @@ mod tests {
             (Agent::Junie, "junie"),
             (Agent::OpenClaude, "openclaude"),
             (Agent::Maki, "maki"),
+            (Agent::CommandCode, "cmd"),
         ];
         assert_eq!(expected.len(), Agent::ALL.len());
         for (agent, executable) in expected {
@@ -1093,6 +1103,23 @@ mod tests {
         assert_eq!(
             identify_agent_in_job(&job),
             Some((Agent::OpenCode, "opencode".to_string()))
+        );
+    }
+
+    #[test]
+    fn identify_agent_in_job_detects_opencode2_as_opencode() {
+        let job = crate::platform::ForegroundJob {
+            process_group_id: 123,
+            processes: vec![foreground_process(
+                123,
+                "opencode2",
+                &["opencode2", "--standalone"],
+            )],
+        };
+
+        assert_eq!(
+            identify_agent_in_job(&job),
+            Some((Agent::OpenCode, "opencode2".to_string()))
         );
     }
 

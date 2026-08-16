@@ -47,6 +47,7 @@ pub struct AgentSoundOverrides {
     pub junie: AgentSoundSetting,
     pub open_claude: AgentSoundSetting,
     pub maki: AgentSoundSetting,
+    pub command_code: AgentSoundSetting,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
@@ -146,6 +147,7 @@ impl AgentSoundOverrides {
             Some(Agent::Junie) => self.junie,
             Some(Agent::OpenClaude) => self.open_claude,
             Some(Agent::Maki) => self.maki,
+            Some(Agent::CommandCode) => self.command_code,
             None => AgentSoundSetting::Default,
         }
     }
@@ -188,6 +190,7 @@ impl Default for AgentSoundOverrides {
             junie: AgentSoundSetting::Default,
             open_claude: AgentSoundSetting::Default,
             maki: AgentSoundSetting::Default,
+            command_code: AgentSoundSetting::Default,
         }
     }
 }
