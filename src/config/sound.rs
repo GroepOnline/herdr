@@ -47,6 +47,7 @@ pub struct AgentSoundOverrides {
     pub junie: AgentSoundSetting,
     pub open_claude: AgentSoundSetting,
     pub maki: AgentSoundSetting,
+    pub aider: AgentSoundSetting,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
@@ -146,7 +147,7 @@ impl AgentSoundOverrides {
             Some(Agent::Junie) => self.junie,
             Some(Agent::OpenClaude) => self.open_claude,
             Some(Agent::Maki) => self.maki,
-            Some(Agent::Aider) => AgentSoundSetting::Default,
+            Some(Agent::Aider) => self.aider,
             None => AgentSoundSetting::Default,
         }
     }
@@ -189,6 +190,7 @@ impl Default for AgentSoundOverrides {
             junie: AgentSoundSetting::Default,
             open_claude: AgentSoundSetting::Default,
             maki: AgentSoundSetting::Default,
+              aider: AgentSoundSetting::Default,
         }
     }
 }
@@ -212,6 +214,7 @@ request_path = "/tmp/request.mp3"
 [ui.sound.agents]
 droid = "off"
 claude = "on"
+aider = "off"
 "#;
         let config: Config = toml::from_str(toml).unwrap();
         assert!(config.ui.sound.enabled);
@@ -226,7 +229,8 @@ claude = "on"
         );
         assert_eq!(config.ui.sound.agents.droid, AgentSoundSetting::Off);
         assert_eq!(config.ui.sound.agents.claude, AgentSoundSetting::On);
-        assert_eq!(config.ui.sound.agents.pi, AgentSoundSetting::Default);
+        assert_eq!(config.ui.sound.agents.aider, AgentSoundSetting::Off);
+          assert_eq!(config.ui.sound.agents.pi, AgentSoundSetting::Default);
     }
 
     #[test]
