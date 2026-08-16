@@ -701,9 +701,7 @@ fn write_all_cells(writer: &mut impl Write, frame: &FrameData) {
             let remaining = (frame.width - col) as usize;
             next_inline_col =
                 (cell.symbol.is_ascii() && width == 1).then_some(col.saturating_add(1));
-            to_skip = width
-                .saturating_sub(1)
-                .min(remaining.saturating_sub(1));
+            to_skip = width.saturating_sub(1).min(remaining.saturating_sub(1));
         }
     }
 
