@@ -330,7 +330,6 @@ pub(crate) fn full_lifecycle_hook_authority(source: &str, agent_label: &str) -> 
     )
 }
 
->>>>>>> a4d52ab6 (feat: add qwen code detection and restore (#2743))
 // ---------------------------------------------------------------------------
 // Process identification (platform-specific)
 // ---------------------------------------------------------------------------

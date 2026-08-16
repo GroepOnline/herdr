@@ -285,7 +285,6 @@ fn integration_specs() -> [(
     io::Result<PathBuf>,
     u32,
 ); 18] {
-); 17] {
     [
         (
             crate::api::schema::IntegrationTarget::Pi,
