@@ -31,6 +31,7 @@ state = "working"
 priority = 900
 region = "bottom_non_empty_lines(4)"
 visible_working = true
+any = [{ contains = ["working"] }, { contains = ["streaming"] }]
 line_regex = ['^❯cmd\b']
 
 [[rules]]
