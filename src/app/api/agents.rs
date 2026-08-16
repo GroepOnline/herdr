@@ -383,7 +383,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn agent_prompt_rejects_blocked_agent_without_writing() {    async fn agent_prompt_rejects_blocked_agent_without_writing() {
+    async fn agent_prompt_rejects_blocked_agent_without_writing() {
         let mut app = app_with_agent();
         let pane_id = app.state.workspaces[0].tabs[0].root_pane;
         let terminal_id = app.state.workspaces[0].tabs[0].panes[&pane_id]
