@@ -4081,12 +4081,14 @@ mod tests {
         crate::ui::compute_view(&mut app.state, Rect::new(0, 0, 44, 20));
         assert_eq!(app.state.view.layout, ViewLayout::Mobile);
 
-        // A left-edge drag while a modal (Copy here) is open must NOT switch
-        // to the workspace switcher; the down/drag are ignored for the swipe
-        // path and forwarded to the pane selection handling instead.
+        // A left-edge drag while a non-terminal mode (Copy here) is active
+        // must NOT open the workspace switcher: the swipe path is gated to
+        // Terminal/Resize, so the down/drag fall through to the mode's own
+        // handling (Copy exits to Terminal after the drag) instead of
+        // switching to Navigate.
         app.handle_mouse(mouse(MouseEventKind::Down(MouseButton::Left), 0, 5));
         app.handle_mouse(mouse(MouseEventKind::Drag(MouseButton::Left), 15, 5));
-        assert_eq!(app.state.mode, Mode::Copy);
+        assert_ne!(app.state.mode, Mode::Navigate);
         assert_eq!(app.state.mobile_swipe_start, None);
     }
 

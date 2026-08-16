@@ -1413,9 +1413,7 @@ fn render_agent_detail(
         } else {
             Style::default()
         };
-        let name_style = if is_active {
-            Style::default().fg(p.text).add_modifier(Modifier::BOLD)
-        } else if hovered {
+        let name_style = if is_active || hovered {
             Style::default().fg(p.text).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(p.subtext0).add_modifier(Modifier::BOLD)
