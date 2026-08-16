@@ -1024,11 +1024,6 @@ impl TerminalState {
                 // Only intentional lifecycle replacements may overwrite a bound root.
                 | ("herdr:omp", "omp", Some("new" | "resume" | "fork"))
                 | (
-                    "herdr:omp",
-                    "omp",
-                    Some("startup" | "new" | "resume" | "fork")
-                )
-                | (
                     "herdr:qwen",
                     "qwen",
                     Some("startup" | "clear" | "resume" | "compact" | "branch")
@@ -4465,6 +4460,36 @@ mod tests {
 
     #[test]
     fn nested_omp_startup_does_not_replace_root_or_consume_sequence() {
+        let mut terminal = test_terminal();
+        terminal.set_detected_state(Some(Agent::Omp), AgentState::Idle);
+        terminal
+            .set_agent_session_ref(
+                "herdr:omp".into(),
+                "omp".into(),
+                crate::agent_resume::AgentSessionRef::id("omp-root"),
+                Some(20),
+            )
+            .expect("initial session should be accepted");
+
+        let mutation = terminal.set_agent_session_ref_for_session_start(
+            "herdr:omp".into(),
+            "omp".into(),
+            crate::agent_resume::AgentSessionRef::id("omp-child"),
+            Some(21),
+            Some("startup".into()),
+        );
+
+        assert!(mutation.is_none());
+        assert_eq!(
+            terminal
+                .persisted_agent_session
+                .as_ref()
+                .map(|session| session.session_ref.value.as_str()),
+            Some("omp-root")
+        );
+    }
+
+    #[test]
     fn qwen_lifecycle_session_ref_replaces_existing_session_ref() {
         for session_start_source in ["startup", "clear", "resume", "compact", "branch"] {
             let mut terminal = test_terminal();
