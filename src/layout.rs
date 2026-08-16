@@ -168,7 +168,10 @@ impl TileLayout {
         }
         let target = self.focus;
         let ids = self.pane_ids();
-        let pos = ids.iter().position(|id| *id == target).unwrap();
+        let pos = match ids.iter().position(|id| *id == target) {
+            Some(p) => p,
+            None => return false,
+        };
         let new_focus = if pos + 1 < ids.len() {
             ids[pos + 1]
         } else {
@@ -207,7 +210,7 @@ impl TileLayout {
 
     /// Set the ratio of a split node at the given path.
     pub fn set_ratio_at(&mut self, path: &[bool], ratio: f32) -> bool {
-        set_ratio_at(&mut self.root, path, ratio.clamp(0.1, 0.9))
+        set_ratio_at(&mut self.root, path, valid_split_ratio(ratio))
     }
 
     /// Adjust the nearest split in the given direction for the focused pane.
@@ -292,26 +295,26 @@ pub fn find_in_direction(
             let r = p.rect;
             match direction {
                 NavDirection::Left => {
-                    r.x + r.width <= fr.x && ranges_overlap(r.y, r.height, fr.y, fr.height)
+                    r.x.saturating_add(r.width) <= fr.x && ranges_overlap(r.y, r.height, fr.y, fr.height)
                 }
                 NavDirection::Right => {
-                    r.x >= fr.x + fr.width && ranges_overlap(r.y, r.height, fr.y, fr.height)
+                    r.x >= fr.x.saturating_add(fr.width) && ranges_overlap(r.y, r.height, fr.y, fr.height)
                 }
                 NavDirection::Up => {
-                    r.y + r.height <= fr.y && ranges_overlap(r.x, r.width, fr.x, fr.width)
+                    r.y.saturating_add(r.height) <= fr.y && ranges_overlap(r.x, r.width, fr.x, fr.width)
                 }
                 NavDirection::Down => {
-                    r.y >= fr.y + fr.height && ranges_overlap(r.x, r.width, fr.x, fr.width)
+                    r.y >= fr.y.saturating_add(fr.height) && ranges_overlap(r.x, r.width, fr.x, fr.width)
                 }
             }
         })
         .min_by_key(|(index, p)| {
             let r = p.rect;
             let edge_distance = match direction {
-                NavDirection::Left => fr.x.saturating_sub(r.x + r.width),
-                NavDirection::Right => r.x.saturating_sub(fr.x + fr.width),
-                NavDirection::Up => fr.y.saturating_sub(r.y + r.height),
-                NavDirection::Down => r.y.saturating_sub(fr.y + fr.height),
+                NavDirection::Left => fr.x.saturating_sub(r.x.saturating_add(r.width)),
+                NavDirection::Right => r.x.saturating_sub(fr.x.saturating_add(fr.width)),
+                NavDirection::Up => fr.y.saturating_sub(r.y.saturating_add(r.height)),
+                NavDirection::Down => r.y.saturating_sub(fr.y.saturating_add(fr.height)),
             };
             let overlap = match direction {
                 NavDirection::Left | NavDirection::Right => {
@@ -335,7 +338,7 @@ pub fn find_in_direction(
 }
 
 fn ranges_overlap(a_start: u16, a_len: u16, b_start: u16, b_len: u16) -> bool {
-    a_start < b_start + b_len && a_start + a_len > b_start
+    a_start < b_start.saturating_add(b_len) && a_start.saturating_add(a_len) > b_start
 }
 
 fn split_on_requested_edge(split: &SplitBorder, focused: Rect, nav: NavDirection) -> bool {
@@ -380,11 +383,11 @@ fn split_edge_distance(split: &SplitBorder, focused: Rect, nav: NavDirection) ->
     match nav {
         NavDirection::Left => (split.pos as i32 - focused.x as i32).unsigned_abs(),
         NavDirection::Right => {
-            (split.pos as i32 - (focused.x + focused.width) as i32).unsigned_abs()
+            (split.pos as i32 - (focused.x as i32 + focused.width as i32)).unsigned_abs()
         }
         NavDirection::Up => (split.pos as i32 - focused.y as i32).unsigned_abs(),
         NavDirection::Down => {
-            (split.pos as i32 - (focused.y + focused.height) as i32).unsigned_abs()
+            (split.pos as i32 - (focused.y as i32 + focused.height as i32)).unsigned_abs()
         }
     }
 }
@@ -446,8 +449,8 @@ fn collect_splits(node: &Node, area: Rect, path: Vec<bool>, result: &mut Vec<Spl
     {
         let (a, b) = split_rect(area, *direction, *ratio);
         let pos = match direction {
-            Direction::Horizontal => a.x + a.width,
-            Direction::Vertical => a.y + a.height,
+            Direction::Horizontal => a.x.saturating_add(a.width),
+            Direction::Vertical => a.y.saturating_add(a.height),
         };
         result.push(SplitBorder {
             pos,
@@ -625,7 +628,7 @@ fn split_rect(area: Rect, direction: Direction, ratio: f32) -> (Rect, Rect) {
             let second_w = area.width.saturating_sub(first_w);
             (
                 Rect::new(area.x, area.y, first_w, area.height),
-                Rect::new(area.x + first_w, area.y, second_w, area.height),
+                Rect::new(area.x.saturating_add(first_w), area.y, second_w, area.height),
             )
         }
         Direction::Vertical => {
@@ -633,7 +636,7 @@ fn split_rect(area: Rect, direction: Direction, ratio: f32) -> (Rect, Rect) {
             let second_h = area.height.saturating_sub(first_h);
             (
                 Rect::new(area.x, area.y, area.width, first_h),
-                Rect::new(area.x, area.y + first_h, area.width, second_h),
+                Rect::new(area.x, area.y.saturating_add(first_h), area.width, second_h),
             )
         }
     }
