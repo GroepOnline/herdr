@@ -79,6 +79,10 @@ jobs:
     # keep the default linker.
     env:
       RUSTFLAGS: "-D warnings -C link-arg=-fuse-ld=mold"
+      # Shared compile cache across lanes and runs (GitHub Actions cache
+      # backend). Post-run uploads happen automatically via the action.
+      RUSTC_WRAPPER: sccache
+      SCCACHE_GHA_ENABLED: "true"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
@@ -89,6 +93,8 @@ jobs:
           toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+
+      - uses: Mozilla-Actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Install Zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
@@ -103,6 +109,9 @@ jobs:
       - name: Cargo check
         run: cargo check --all-targets --locked
 
+      - name: sccache stats
+        run: sccache --show-stats
+
   clippy:
     name: Clippy
     needs: changes
@@ -114,6 +123,10 @@ jobs:
     # keep the default linker.
     env:
       RUSTFLAGS: "-D warnings -C link-arg=-fuse-ld=mold"
+      # Shared compile cache across lanes and runs (GitHub Actions cache
+      # backend). Post-run uploads happen automatically via the action.
+      RUSTC_WRAPPER: sccache
+      SCCACHE_GHA_ENABLED: "true"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
@@ -125,6 +138,8 @@ jobs:
           components: clippy
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+
+      - uses: Mozilla-Actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Install Zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
@@ -139,6 +154,9 @@ jobs:
       - name: Cargo clippy
         run: cargo clippy --all-targets --locked -- -D warnings
 
+      - name: sccache stats
+        run: sccache --show-stats
+
   test:
     name: Test
     needs: changes
@@ -150,6 +168,10 @@ jobs:
     # keep the default linker.
     env:
       RUSTFLAGS: "-D warnings -C link-arg=-fuse-ld=mold"
+      # Shared compile cache across lanes and runs (GitHub Actions cache
+      # backend). Post-run uploads happen automatically via the action.
+      RUSTC_WRAPPER: sccache
+      SCCACHE_GHA_ENABLED: "true"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
@@ -160,6 +182,8 @@ jobs:
           toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+
+      - uses: Mozilla-Actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: Install Rust tools
         uses: taiki-e/install-action@1beb33eee6d086258184383af9a538940be190ed # v2.85.6
@@ -178,6 +202,9 @@ jobs:
 
       - name: Cargo nextest
         run: cargo nextest run --locked --status-level fail --final-status-level fail --failure-output final --success-output never
+
+      - name: sccache stats
+        run: sccache --show-stats
 
   maintenance-python:
     name: Maintenance (python)
