@@ -1121,15 +1121,19 @@ mod tests {
         // Also neutralize XDG_CONFIG_HOME / GH_CONFIG_DIR: `gh auth token`
         // reads hosts.yml from there when set, which made this test fail on
         // developer machines with a logged-in gh CLI (CI has none).
-        let env_names = ["GH_TOKEN", "GITHUB_TOKEN", "HOME", "XDG_CONFIG_HOME", "GH_CONFIG_DIR"];
+        let env_names = [
+            "GH_TOKEN",
+            "GITHUB_TOKEN",
+            "HOME",
+            "XDG_CONFIG_HOME",
+            "GH_CONFIG_DIR",
+        ];
         let previous_env = env_names
             .iter()
             .map(|name| (*name, std::env::var_os(name)))
             .collect();
-        let temp_home = std::env::temp_dir().join(format!(
-            "herdr-github-no-token-home-{}",
-            std::process::id()
-        ));
+        let temp_home =
+            std::env::temp_dir().join(format!("herdr-github-no-token-home-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&temp_home);
         let _env_guard = EnvGuard {
             values: previous_env,
