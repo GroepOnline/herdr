@@ -16,9 +16,7 @@ use super::env::{
     antigravity_cli_dir, claude_dir, codex_dir, commandcode_dir, copilot_dir, cursor_dir,
     devin_dir, droid_dir, freebuff_dir, grok_dir, hermes_dir, hermes_plugin_dir, kilo_dir,
     kimi_dir, mastracode_dir, omp_extension_dir, opencode_dir, pi_extension_dir, qodercli_dir,
-    antigravity_cli_dir, claude_dir, codex_dir, copilot_dir, cursor_dir, devin_dir, droid_dir,
-    grok_dir, hermes_dir, hermes_plugin_dir, kilo_dir, kimi_dir, mastracode_dir, omp_extension_dir,
-    opencode_dir, pi_extension_dir, qodercli_dir, qwen_dir,
+    qwen_dir,
 };
 use super::file_ops::{
     make_executable, remove_dir_all_if_exists, remove_file_if_exists, remove_legacy_bash_hook_file,
@@ -51,12 +49,8 @@ use super::{
     OMP_EXTENSION_INSTALL_NAME, OPENCODE_PLUGIN_ASSET, OPENCODE_PLUGIN_INSTALL_NAME,
     PI_EXTENSION_ASSET, PI_EXTENSION_INSTALL_NAME, QODERCLI_HOOK_ASSET, QODERCLI_HOOK_EVENTS,
     QODERCLI_HOOK_INSTALL_NAME, QODERCLI_REMOVED_LIFECYCLE_HOOK_EVENTS,
-    MASTRACODE_HOOK_INSTALL_NAME, MASTRACODE_HOOK_TIMEOUT_MS, MASTRACODE_REMOVED_HOOK_EVENTS,
-    OMP_EXTENSION_ASSET, OMP_EXTENSION_INSTALL_NAME, OPENCODE_PLUGIN_ASSET,
-    OPENCODE_PLUGIN_INSTALL_NAME, OPENCODE_TUI_PLUGIN_ASSET, OPENCODE_TUI_PLUGIN_INSTALL_NAME,
-    OPENCODE_TUI_PLUGIN_SPEC, PI_EXTENSION_ASSET, PI_EXTENSION_INSTALL_NAME, QODERCLI_HOOK_ASSET,
-    QODERCLI_HOOK_EVENTS, QODERCLI_HOOK_INSTALL_NAME, QODERCLI_REMOVED_LIFECYCLE_HOOK_EVENTS,
-    QWEN_HOOK_ASSET, QWEN_HOOK_EVENTS, QWEN_HOOK_INSTALL_NAME,
+    MASTRACODE_REMOVED_HOOK_EVENTS, OPENCODE_TUI_PLUGIN_ASSET, OPENCODE_TUI_PLUGIN_INSTALL_NAME,
+    OPENCODE_TUI_PLUGIN_SPEC, QWEN_HOOK_ASSET, QWEN_HOOK_EVENTS, QWEN_HOOK_INSTALL_NAME,
 };
 
 fn ensure_extension_dir(dir: &Path, agent: &str) -> io::Result<()> {
