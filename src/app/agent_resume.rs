@@ -512,8 +512,11 @@ mod tests {
                 dedupe_key: format!("herdr:codex\0codex\0Id\0{terminal_id}"),
             });
         }
-        app.pending_agent_resume_deadline =
-            Some(std::time::Instant::now().checked_sub(std::time::Duration::from_millis(1)).unwrap());
+        app.pending_agent_resume_deadline = Some(
+            std::time::Instant::now()
+                .checked_sub(std::time::Duration::from_millis(1))
+                .unwrap(),
+        );
 
         assert!(app.start_pending_agent_resumes(false));
         assert!(app.terminal_runtimes.get(&active_terminal).is_some());

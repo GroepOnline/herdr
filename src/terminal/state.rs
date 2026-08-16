@@ -3683,8 +3683,9 @@ mod tests {
             Instant::now(),
         );
         terminal.set_hook_authority("herdr:pi".into(), "pi".into(), AgentState::Idle, None, None);
-        terminal.hook_authority.as_mut().unwrap().reported_at =
-            Instant::now().checked_sub(Duration::from_secs(3600)).unwrap();
+        terminal.hook_authority.as_mut().unwrap().reported_at = Instant::now()
+            .checked_sub(Duration::from_secs(3600))
+            .unwrap();
 
         assert!(terminal.full_lifecycle_hook_authority_active());
         terminal.set_detected_state_with_screen_signals_at(

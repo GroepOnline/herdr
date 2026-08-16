@@ -750,7 +750,9 @@ impl App {
             terminal_runtimes: restored_terminal_runtimes,
             event_tx,
             event_rx,
-            last_git_remote_status_refresh: Instant::now().checked_sub(GIT_REMOTE_STATUS_REFRESH_INTERVAL).unwrap(),
+            last_git_remote_status_refresh: Instant::now()
+                .checked_sub(GIT_REMOTE_STATUS_REFRESH_INTERVAL)
+                .unwrap(),
             git_refresh_in_flight: false,
             git_refresh_due_after_in_flight: false,
             github_refresh_in_flight: false,
@@ -4756,7 +4758,8 @@ mod tests {
     #[test]
     fn due_session_save_deadline_is_cleared() {
         let mut app = test_app();
-        app.session_save_deadline = Some(Instant::now().checked_sub(Duration::from_secs(1)).unwrap());
+        app.session_save_deadline =
+            Some(Instant::now().checked_sub(Duration::from_secs(1)).unwrap());
 
         app.handle_scheduled_tasks(Instant::now(), false);
 
@@ -4774,7 +4777,8 @@ mod tests {
         app.no_session = false;
         app.state.workspaces = vec![Workspace::test_new("autosave")];
         app.state.ensure_test_terminals();
-        app.session_save_deadline = Some(Instant::now().checked_sub(Duration::from_secs(1)).unwrap());
+        app.session_save_deadline =
+            Some(Instant::now().checked_sub(Duration::from_secs(1)).unwrap());
 
         app.handle_scheduled_tasks(Instant::now(), false);
 

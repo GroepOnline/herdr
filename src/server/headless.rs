@@ -6507,7 +6507,11 @@ next_tab = ""
             argv: vec!["/bin/sh".into(), "-c".into(), "sleep 5".into()],
             dedupe_key: "herdr:codex\0codex\0Id\0codex-session".into(),
         });
-        server.app.pending_agent_resume_deadline = Some(Instant::now().checked_sub(Duration::from_millis(1)).unwrap());
+        server.app.pending_agent_resume_deadline = Some(
+            Instant::now()
+                .checked_sub(Duration::from_millis(1))
+                .unwrap(),
+        );
 
         assert!(!server.handle_scheduled_tasks_headless(Instant::now(), true));
         assert!(server.app.terminal_runtimes.get(&terminal_id).is_none());
@@ -6617,7 +6621,11 @@ next_tab = ""
             argv: vec!["/bin/sh".into(), "-c".into(), "sleep 5".into()],
             dedupe_key: "herdr:codex\0codex\0Id\0codex-session".into(),
         });
-        server.app.pending_agent_resume_deadline = Some(Instant::now().checked_sub(Duration::from_millis(1)).unwrap());
+        server.app.pending_agent_resume_deadline = Some(
+            Instant::now()
+                .checked_sub(Duration::from_millis(1))
+                .unwrap(),
+        );
 
         server.resize_shared_runtime_to_effective_size_before_input();
 
@@ -9301,7 +9309,9 @@ next_tab = ""
             .pending_host_palette_queries
             .get_mut(&request_id)
             .unwrap()
-            .deadline = Instant::now().checked_sub(Duration::from_millis(1)).unwrap();
+            .deadline = Instant::now()
+            .checked_sub(Duration::from_millis(1))
+            .unwrap();
 
         assert!(
             !server.handle_server_event(ServerEvent::ClientHostPaletteResponse {
