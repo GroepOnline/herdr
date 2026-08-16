@@ -3993,14 +3993,14 @@ mod tests {
         assert!(app.state.view.workspace_card_areas.len() >= 2);
 
         let card0 = app.state.view.workspace_card_areas[0].rect;
-        app.handle_mouse(mouse(MouseEventKind::Moved, card0.x + 2, card0.y + 1));
+        app.handle_mouse(mouse(MouseEventKind::Moved, card0.x + 2, card0.y));
         assert_eq!(
             app.state.view.sidebar_hover,
             Some(crate::app::state::SidebarHoverTarget::Workspace(0))
         );
 
         let card1 = app.state.view.workspace_card_areas[1].rect;
-        app.handle_mouse(mouse(MouseEventKind::Moved, card1.x + 2, card1.y + 1));
+        app.handle_mouse(mouse(MouseEventKind::Moved, card1.x + 2, card1.y));
         assert_eq!(
             app.state.view.sidebar_hover,
             Some(crate::app::state::SidebarHoverTarget::Workspace(1))
@@ -4016,7 +4016,7 @@ mod tests {
 
         crate::ui::compute_view(&mut app.state, Rect::new(0, 0, 120, 30));
         let card = app.state.view.workspace_card_areas[0].rect;
-        app.handle_mouse(mouse(MouseEventKind::Moved, card.x + 2, card.y + 1));
+        app.handle_mouse(mouse(MouseEventKind::Moved, card.x + 2, card.y));
         assert!(app.state.view.sidebar_hover.is_some());
 
         let terminal = app.state.view.terminal_area;
@@ -4101,7 +4101,7 @@ mod tests {
 
         crate::ui::compute_view(&mut app.state, Rect::new(0, 0, 120, 30));
         let card = app.state.view.workspace_card_areas[0].rect;
-        app.handle_mouse(mouse(MouseEventKind::Moved, card.x + 2, card.y + 1));
+        app.handle_mouse(mouse(MouseEventKind::Moved, card.x + 2, card.y));
         assert!(app.state.view.sidebar_hover.is_some());
 
         // A full recompute happens before every rendered frame; the hover
