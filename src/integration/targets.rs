@@ -22,10 +22,10 @@ use super::file_ops::{
 };
 use super::types::{
     AntigravityCliInstallPaths, AntigravityCliUninstallResult, ClaudeInstallPaths,
-    ClaudeUninstallResult, CodexInstallPaths, CodexUninstallResult, CommandCodeInstallPaths,
-    CommandCodeUninstallResult, CopilotInstallPaths, CopilotUninstallResult, CursorInstallPaths,
-    CursorUninstallResult, DevinInstallPaths, DevinUninstallResult, DroidInstallPaths,
-    DroidUninstallResult, FreebuffInstallPaths, FreebuffUninstallResult, GrokInstallPaths,
+    ClaudeUninstallResult, CodexInstallPaths, CodexUninstallResult, CopilotInstallPaths,
+    CopilotUninstallResult, CursorInstallPaths, CursorUninstallResult, DevinInstallPaths,
+    DevinUninstallResult, DroidInstallPaths, DroidUninstallResult, CommandCodeInstallPaths,
+    CommandCodeUninstallResult, FreebuffInstallPaths, FreebuffUninstallResult, GrokInstallPaths,
     GrokUninstallResult, HermesInstallPaths, HermesUninstallResult, KiloInstallPaths,
     KiloUninstallResult, KimiInstallPaths, KimiUninstallResult, MastracodeInstallPaths,
     MastracodeUninstallResult, OmpInstallPaths, OmpUninstallResult, OpenCodeInstallPaths,
@@ -40,7 +40,8 @@ use super::{
     DEVIN_HOOK_INSTALL_NAME, DEVIN_REMOVED_LIFECYCLE_HOOK_EVENTS, DROID_HOOK_ASSET,
     DROID_HOOK_EVENTS, DROID_HOOK_INSTALL_NAME, DROID_REMOVED_LIFECYCLE_HOOK_EVENTS,
     GROK_HOOK_ASSET, GROK_HOOK_CONFIG_INSTALL_NAME, GROK_HOOK_INSTALL_NAME,
-    HERMES_PLUGIN_INIT_ASSET, HERMES_PLUGIN_INIT_INSTALL_NAME, HERMES_PLUGIN_MANIFEST_ASSET,
+    HERMES_PLUGIN_INIT_ASSET,
+    HERMES_PLUGIN_INIT_INSTALL_NAME, HERMES_PLUGIN_MANIFEST_ASSET,
     HERMES_PLUGIN_MANIFEST_INSTALL_NAME, KILO_PLUGIN_ASSET, KILO_PLUGIN_INSTALL_NAME,
     KIMI_HOOK_ASSET, KIMI_HOOK_INSTALL_NAME, MASTRACODE_HOOK_ASSET, MASTRACODE_HOOK_EVENTS,
     MASTRACODE_HOOK_INSTALL_NAME, MASTRACODE_HOOK_TIMEOUT_MS, OMP_EXTENSION_ASSET,
@@ -1401,12 +1402,17 @@ pub(crate) fn uninstall_grok() -> io::Result<GrokUninstallResult> {
 /// own entry under `hooks.SessionStart` next to the user's other entries and
 /// never rewrites unrelated keys.
 pub(crate) fn commandcode_hook_command(hook_path: &Path) -> String {
-    let quoted_hook_path = shell_single_quote(&hook_path.display().to_string());
-    format!("sh {quoted_hook_path} session")
+    hook_command(hook_path, Some("session"))
 }
 
 pub(crate) fn install_commandcode() -> io::Result<CommandCodeInstallPaths> {
     let dir = commandcode_dir()?;
+    if !dir.is_dir() {
+        return Err(io::Error::other(format!(
+            "Command Code config directory not found at {}. install commandcode cli first",
+            dir.display()
+        )));
+    }
     let hooks_dir = dir.join("hooks");
     fs::create_dir_all(&hooks_dir)?;
 
@@ -1483,6 +1489,12 @@ pub(crate) fn uninstall_commandcode() -> io::Result<CommandCodeUninstallResult> 
 
 pub(crate) fn install_freebuff() -> io::Result<FreebuffInstallPaths> {
     let dir = freebuff_dir()?;
+    if !dir.is_dir() {
+        return Err(io::Error::other(format!(
+            "Freebuff config directory not found at {}. install freebuff cli first",
+            dir.display()
+        )));
+    }
     let hooks_dir = dir.join("hooks");
     fs::create_dir_all(&hooks_dir)?;
 
@@ -1498,7 +1510,7 @@ pub(crate) fn uninstall_freebuff() -> io::Result<FreebuffUninstallResult> {
     let hooks_dir = dir.join("hooks");
     let hook_path = hooks_dir.join(super::FREEBUFF_HOOK_INSTALL_NAME);
     let removed_hook_file = remove_file_if_exists(&hook_path)?;
-    let _ = remove_dir_all_if_exists(&hooks_dir);
+    let _ = hooks_dir;
     let _ = dir;
 
     Ok(FreebuffUninstallResult {
