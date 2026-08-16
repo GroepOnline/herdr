@@ -301,7 +301,7 @@ impl AppState {
 
     /// Updates the hovered sidebar row from a mouse-move position. Outside the
     /// sidebar (or with a collapsed sidebar) the hover is cleared.
-    pub(super) fn update_sidebar_hover(&mut self, col: u16, row: u16, in_sidebar: bool) {
+    pub(super) fn update_sidebar_hover(&mut self, row: u16, in_sidebar: bool) {
         let hover = if !in_sidebar || self.sidebar_collapsed {
             None
         } else if let Some(idx) = self.workspace_at_row(row) {
