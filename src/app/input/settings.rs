@@ -872,20 +872,20 @@ mod tests {
     }
 
     #[test]
-    fn settings_brackets_cycle_spinner_categories_in_ui() {
+    fn settings_angle_brackets_cycle_spinner_categories_in_ui() {
         let mut state = state_with_workspaces(&["test"]);
         open_settings_at(&mut state, SettingsSection::Ui);
         state.settings.spinner_category = 1;
 
         update_settings_state(
             &mut state,
-            KeyEvent::new(KeyCode::Char('['), KeyModifiers::empty()),
+            KeyEvent::new(KeyCode::Char('<'), KeyModifiers::empty()),
         );
         assert_eq!(state.settings.spinner_category, 0);
 
         update_settings_state(
             &mut state,
-            KeyEvent::new(KeyCode::Char(']'), KeyModifiers::empty()),
+            KeyEvent::new(KeyCode::Char('>'), KeyModifiers::empty()),
         );
         assert_eq!(state.settings.spinner_category, 1);
     }
