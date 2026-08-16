@@ -1032,7 +1032,7 @@ impl AppState {
             }
 
             MouseEventKind::Moved if matches!(self.mode, Mode::Terminal | Mode::Navigate) => {
-                self.update_sidebar_hover(mouse.row, in_sidebar);
+                self.update_sidebar_hover(mouse.column, mouse.row, in_sidebar);
                 if self.mode == Mode::Terminal && !in_sidebar {
                     if let Some(info) = self.pane_at(mouse.column, mouse.row).cloned() {
                         let _ = self.forward_pane_mouse_motion(terminal_runtimes, &info, mouse);
