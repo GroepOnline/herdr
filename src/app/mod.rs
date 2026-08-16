@@ -5253,7 +5253,10 @@ last_pane = "prefix+tab"
         app.route_client_input(b"\r".to_vec());
 
         assert_eq!(app.state.mode, Mode::Settings);
-        assert_eq!(app.state.settings.section, state::SettingsSection::Integrations);
+        assert_eq!(
+            app.state.settings.section,
+            state::SettingsSection::Integrations
+        );
     }
 
     #[test]

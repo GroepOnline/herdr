@@ -295,16 +295,20 @@ pub fn find_in_direction(
             let r = p.rect;
             match direction {
                 NavDirection::Left => {
-                    r.x.saturating_add(r.width) <= fr.x && ranges_overlap(r.y, r.height, fr.y, fr.height)
+                    r.x.saturating_add(r.width) <= fr.x
+                        && ranges_overlap(r.y, r.height, fr.y, fr.height)
                 }
                 NavDirection::Right => {
-                    r.x >= fr.x.saturating_add(fr.width) && ranges_overlap(r.y, r.height, fr.y, fr.height)
+                    r.x >= fr.x.saturating_add(fr.width)
+                        && ranges_overlap(r.y, r.height, fr.y, fr.height)
                 }
                 NavDirection::Up => {
-                    r.y.saturating_add(r.height) <= fr.y && ranges_overlap(r.x, r.width, fr.x, fr.width)
+                    r.y.saturating_add(r.height) <= fr.y
+                        && ranges_overlap(r.x, r.width, fr.x, fr.width)
                 }
                 NavDirection::Down => {
-                    r.y >= fr.y.saturating_add(fr.height) && ranges_overlap(r.x, r.width, fr.x, fr.width)
+                    r.y >= fr.y.saturating_add(fr.height)
+                        && ranges_overlap(r.x, r.width, fr.x, fr.width)
                 }
             }
         })
@@ -628,7 +632,12 @@ fn split_rect(area: Rect, direction: Direction, ratio: f32) -> (Rect, Rect) {
             let second_w = area.width.saturating_sub(first_w);
             (
                 Rect::new(area.x, area.y, first_w, area.height),
-                Rect::new(area.x.saturating_add(first_w), area.y, second_w, area.height),
+                Rect::new(
+                    area.x.saturating_add(first_w),
+                    area.y,
+                    second_w,
+                    area.height,
+                ),
             )
         }
         Direction::Vertical => {

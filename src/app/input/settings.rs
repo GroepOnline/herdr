@@ -1051,10 +1051,11 @@ mod tests {
             .iter()
             .position(|section| *section == SettingsSection::Integrations)
             .expect("integrations section");
-        let rect = layout
-            .nav_item_rect(integrations_idx)
-            .expect("nav rect");
-        assert_eq!(layout.nav_index_at(rect.x + 2, rect.y), Some(integrations_idx));
+        let rect = layout.nav_item_rect(integrations_idx).expect("nav rect");
+        assert_eq!(
+            layout.nav_index_at(rect.x + 2, rect.y),
+            Some(integrations_idx)
+        );
     }
 
     fn integration_recommendation(
