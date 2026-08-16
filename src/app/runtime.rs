@@ -1084,6 +1084,10 @@ mod tests {
 
     #[test]
     fn github_refresh_skips_when_no_token_available() {
+        let _env_lock = crate::config::test_config_env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
         let mut app = super::super::App::new(
             &crate::config::Config::default(),
             true,
@@ -1096,22 +1100,43 @@ mod tests {
         app.last_github_remote_status_refresh =
             now - super::super::GITHUB_REMOTE_STATUS_REFRESH_INTERVAL;
 
-        // Ensure env tokens are unset for this process for the duration of the check.
-        let previous_gh = std::env::var_os("GH_TOKEN");
-        let previous_github = std::env::var_os("GITHUB_TOKEN");
-        std::env::remove_var("GH_TOKEN");
-        std::env::remove_var("GITHUB_TOKEN");
+        struct EnvGuard {
+            values: Vec<(&'static str, Option<std::ffi::OsString>)>,
+            temp_dir: std::path::PathBuf,
+        }
+
+        impl Drop for EnvGuard {
+            fn drop(&mut self) {
+                for (name, value) in &self.values {
+                    match value {
+                        Some(value) => std::env::set_var(name, value),
+                        None => std::env::remove_var(name),
+                    }
+                }
+                let _ = std::fs::remove_dir_all(&self.temp_dir);
+            }
+        }
 
         // Point HOME at an empty temp dir so hosts.yml / gh config cannot supply a token.
         // Also neutralize XDG_CONFIG_HOME / GH_CONFIG_DIR: `gh auth token`
         // reads hosts.yml from there when set, which made this test fail on
         // developer machines with a logged-in gh CLI (CI has none).
-        let previous_home = std::env::var_os("HOME");
-        let previous_xdg_config = std::env::var_os("XDG_CONFIG_HOME");
-        let previous_gh_config_dir = std::env::var_os("GH_CONFIG_DIR");
-        let temp_home =
-            std::env::temp_dir().join(format!("herdr-github-no-token-home-{}", std::process::id()));
+        let env_names = ["GH_TOKEN", "GITHUB_TOKEN", "HOME", "XDG_CONFIG_HOME", "GH_CONFIG_DIR"];
+        let previous_env = env_names
+            .iter()
+            .map(|name| (*name, std::env::var_os(name)))
+            .collect();
+        let temp_home = std::env::temp_dir().join(format!(
+            "herdr-github-no-token-home-{}",
+            std::process::id()
+        ));
         let _ = std::fs::create_dir_all(&temp_home);
+        let _env_guard = EnvGuard {
+            values: previous_env,
+            temp_dir: temp_home.clone(),
+        };
+        std::env::remove_var("GH_TOKEN");
+        std::env::remove_var("GITHUB_TOKEN");
         std::env::set_var("HOME", &temp_home);
         std::env::remove_var("XDG_CONFIG_HOME");
         std::env::remove_var("GH_CONFIG_DIR");
@@ -1120,26 +1145,6 @@ mod tests {
 
         assert!(!app.github_refresh_in_flight);
         assert_eq!(app.last_github_remote_status_refresh, now);
-
-        if let Some(value) = previous_gh {
-            std::env::set_var("GH_TOKEN", value);
-        }
-        if let Some(value) = previous_github {
-            std::env::set_var("GITHUB_TOKEN", value);
-        }
-        match previous_home {
-            Some(value) => std::env::set_var("HOME", value),
-            None => std::env::remove_var("HOME"),
-        }
-        match previous_xdg_config {
-            Some(value) => std::env::set_var("XDG_CONFIG_HOME", value),
-            None => std::env::remove_var("XDG_CONFIG_HOME"),
-        }
-        match previous_gh_config_dir {
-            Some(value) => std::env::set_var("GH_CONFIG_DIR", value),
-            None => std::env::remove_var("GH_CONFIG_DIR"),
-        }
-        let _ = std::fs::remove_dir_all(temp_home);
     }
 
     #[test]
