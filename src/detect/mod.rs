@@ -227,7 +227,6 @@ fn lookup_agent(name: &str) -> Option<Agent> {
         "openclaude" | "open-claude" | "openclaude-cli" => Some(Agent::OpenClaude),
         "maki" => Some(Agent::Maki),
         "cmd" | "command-code" | "commandcode" | "commandcode-cli" => Some(Agent::CommandCode),
-        "opencode2" | "open-code-2" => Some(Agent::OpenCode),
         _ => None,
     }
 }
