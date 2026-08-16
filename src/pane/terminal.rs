@@ -2031,27 +2031,23 @@ impl GhosttyPaneTerminal {
         let resolved_bg = colors.map(|c| ghostty_color(c.background));
         let hide_kitty_placeholders = crate::kitty_graphics::is_enabled();
 
-        let mut row_iterator = match crate::ghostty::RowIterator::new() {
-            Ok(iterator) => iterator,
-            Err(_) => return,
+        let Ok(mut row_iterator) = crate::ghostty::RowIterator::new() else {
+            return;
         };
-        let mut row_cells = match crate::ghostty::RowCells::new() {
-            Ok(cells) => cells,
-            Err(_) => return,
+        let Ok(mut row_cells) = crate::ghostty::RowCells::new() else {
+            return;
         };
         {
             let buf = frame.buffer_mut();
-            let mut rows = match render_state.populate_row_iterator(&mut row_iterator) {
-                Ok(rows) => rows,
-                Err(_) => return,
+            let Ok(mut rows) = render_state.populate_row_iterator(&mut row_iterator) else {
+                return;
             };
             let mut grapheme_bytes = Vec::new();
             let mut symbol_scratch = String::new();
             let mut y = 0u16;
             while y < area.height && rows.next() {
-                let mut cells = match rows.populate_cells(&mut row_cells) {
-                    Ok(cells) => cells,
-                    Err(_) => break,
+                let Ok(mut cells) = rows.populate_cells(&mut row_cells) else {
+                    break;
                 };
                 let mut x = 0u16;
                 while x < area.width && cells.next() {

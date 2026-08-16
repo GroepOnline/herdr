@@ -109,9 +109,8 @@ pub(crate) fn scrollbar_offset_from_row(
     track: Rect,
     row: u16,
 ) -> usize {
-    let thumb = match scrollbar_thumb(metrics, track) {
-        Some(thumb) => thumb,
-        None => return 0,
+    let Some(thumb) = scrollbar_thumb(metrics, track) else {
+        return 0;
     };
     let clamped_row = row.clamp(track.y, track.y + track.height.saturating_sub(1));
     let row_offset = clamped_row.saturating_sub(track.y) as usize;

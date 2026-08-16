@@ -528,12 +528,9 @@ fn collect_visible_placements(
     cell_size: HostCellSize,
     uploaded_images: &HashMap<u32, ImageSignature>,
 ) -> Vec<HostPlacement> {
-    let ws_idx = match app.active {
-        Some(idx) => idx,
-        None => {
-            tracing::debug!("collect_visible_placements: no active workspace");
-            return Vec::new();
-        }
+    let Some(ws_idx) = app.active else {
+        tracing::debug!("collect_visible_placements: no active workspace");
+        return Vec::new();
     };
     if app
         .workspaces
@@ -563,12 +560,9 @@ fn collect_visible_placements(
             ));
         }
 
-        let runtime = match app.runtime_for_pane_in_workspace(terminal_runtimes, ws_idx, info.id) {
-            Some(rt) => rt,
-            None => {
-                tracing::debug!(pane_id = ?info.id, "collect_visible_placements: runtime not found");
-                continue;
-            }
+        let Some(runtime) = app.runtime_for_pane_in_workspace(terminal_runtimes, ws_idx, info.id) else {
+            tracing::debug!(pane_id = ?info.id, "collect_visible_placements: runtime not found");
+            continue;
         };
         for placement in runtime.kitty_image_placements_with_data_filter(|descriptor| {
             let format_code = kitty_format_code(descriptor.format);

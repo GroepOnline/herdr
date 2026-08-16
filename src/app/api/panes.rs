@@ -832,14 +832,13 @@ impl App {
         };
 
         let previous_focus = self.state.current_pane_focus_target();
-        let taken = match self
+        let Some(taken) = self
             .state
             .workspaces
             .get_mut(source_ws_idx)
             .and_then(|ws| ws.take_pane_for_move(source_pane_id))
-        {
-            Some(taken) => taken,
-            None => return encode_error(id, "pane_move_failed", "source pane could not be moved"),
+        else {
+            return encode_error(id, "pane_move_failed", "source pane could not be moved");
         };
         let source_removed_tab_id = taken.removed_tab_idx.map(|_| previous_tab_id.clone());
         let source_workspace_empty = taken.workspace_empty;
