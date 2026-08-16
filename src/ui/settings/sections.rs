@@ -82,7 +82,7 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
         ),
     );
 
-    if section == SettingsSection::Appearance {
+    if section == SettingsSection::Ui {
         render_spinner_categories(app, frame, layout);
         render_spinner_hero(app, frame, layout);
     }
@@ -211,10 +211,8 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
         frame.render_widget(Paragraph::new(Line::from(spans)), rect);
     }
 
-    if section == SettingsSection::Agents {
+    if section == SettingsSection::Integrations {
         render_agents_footer(app, frame, layout);
-    }
-    if section == SettingsSection::Plugins {
         render_plugins_footer(app, frame, layout);
     }
 }
@@ -285,7 +283,7 @@ fn render_spinner_hero(app: &AppState, frame: &mut Frame, layout: &SettingsLayou
 }
 
 fn focused_spinner_style(app: &AppState) -> crate::config::SpinnerStyle {
-    let rows = section_rows(app, SettingsSection::Appearance);
+    let rows = section_rows(app, SettingsSection::Ui);
     if let Some(row) = rows.get(app.settings.list.selected) {
         if row.kind == SettingsRowKind::Spinner {
             if let Some(idx) = spinner_index(row.id) {
@@ -457,8 +455,7 @@ pub(crate) fn render_settings_footer(app: &AppState, frame: &mut Frame, layout: 
             layout.footer_hints,
         );
 
-        let (_, close_rect) =
-            super::layout::settings_button_rects(layout, app.settings.section, false);
+        let (_, close_rect) = super::layout::settings_button_rects(layout, app, false);
         super::super::widgets::render_action_button(
             frame,
             close_rect,
@@ -488,14 +485,13 @@ pub(crate) fn render_settings_footer(app: &AppState, frame: &mut Frame, layout: 
     );
 
     let show_primary = super::layout::settings_show_primary_action(app);
-    let (apply_rect, close_rect) =
-        super::layout::settings_button_rects(layout, app.settings.section, show_primary);
+    let (apply_rect, close_rect) = super::layout::settings_button_rects(layout, app, show_primary);
     if let Some(apply_rect) = apply_rect {
         super::super::widgets::render_action_button(
             frame,
             apply_rect,
             Some("↵"),
-            super::layout::settings_primary_button_label(app.settings.section),
+            super::layout::settings_primary_button_label(app),
             Style::default()
                 .fg(super::super::widgets::panel_contrast_fg(p))
                 .bg(p.accent)

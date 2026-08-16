@@ -44,10 +44,10 @@ mod tests {
     use ratatui::{backend::TestBackend, Terminal};
 
     #[test]
-    fn settings_overlay_renders_left_nav_sections() {
+    fn settings_overlay_renders_left_nav_tabs() {
         let mut app = AppState::test_new();
         app.mode = Mode::Settings;
-        app.settings.section = SettingsSection::Advanced;
+        app.settings.section = SettingsSection::System;
 
         let mut terminal =
             Terminal::new(TestBackend::new(120, 40)).expect("test terminal should initialize");
@@ -63,17 +63,28 @@ mod tests {
             .map(|cell| cell.symbol())
             .collect::<String>();
 
-        assert!(rendered.contains("appearance"));
-        assert!(rendered.contains("advanced"));
+        assert!(rendered.contains("theme"));
+        assert!(rendered.contains("system"));
         assert!(rendered.contains("customize herdr"));
     }
 
     #[test]
-    fn advanced_section_renders_experiment_rows() {
+    fn system_section_renders_experiment_rows() {
         let mut app = AppState::test_new();
         app.pane_history_persistence = true;
-        app.settings.section = SettingsSection::Advanced;
-        app.settings.list.selected = 0;
+        app.settings.section = SettingsSection::System;
+        let pane_history_row = super::rows::section_rows(&app, SettingsSection::System)
+            .iter()
+            .position(|row| {
+                matches!(
+                    row.id,
+                    crate::ui::settings::catalog::SettingsItemId::Experiment(
+                        crate::app::state::ExperimentSetting::PaneHistory
+                    )
+                )
+            })
+            .expect("pane history row");
+        app.settings.list.selected = pane_history_row;
         app.mode = Mode::Settings;
 
         let mut terminal =

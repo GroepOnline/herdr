@@ -670,7 +670,7 @@ impl App {
             host_terminal_appearance: None,
             host_terminal_appearance_explicit: false,
             settings: state::SettingsState {
-                section: state::SettingsSection::Appearance,
+                section: state::SettingsSection::Theme,
                 list: state::SelectionListState::new(0),
                 search: String::new(),
                 focus: state::SettingsFocus::Content,
@@ -1300,7 +1300,7 @@ impl App {
     pub(crate) fn open_settings_from_onboarding(&mut self) {
         self.mark_onboarding_complete();
         self.refresh_integration_recommendations();
-        crate::app::input::open_settings_at(&mut self.state, state::SettingsSection::Agents);
+        crate::app::input::open_settings_at(&mut self.state, state::SettingsSection::Integrations);
     }
 
     pub(crate) fn refresh_integration_recommendations(&mut self) {
@@ -5253,7 +5253,7 @@ last_pane = "prefix+tab"
         app.route_client_input(b"\r".to_vec());
 
         assert_eq!(app.state.mode, Mode::Settings);
-        assert_eq!(app.state.settings.section, state::SettingsSection::Agents);
+        assert_eq!(app.state.settings.section, state::SettingsSection::Integrations);
     }
 
     #[test]

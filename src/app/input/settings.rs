@@ -21,14 +21,10 @@ impl App {
         if let Some(action) = update_settings_state(&mut self.state, key) {
             self.apply_settings_action(action);
         }
-        if previous_section != SettingsSection::Agents
-            && self.state.settings.section == SettingsSection::Agents
+        if previous_section != SettingsSection::Integrations
+            && self.state.settings.section == SettingsSection::Integrations
         {
             self.refresh_integration_recommendations();
-        }
-        if previous_section != SettingsSection::Plugins
-            && self.state.settings.section == SettingsSection::Plugins
-        {
             self.reload_plugins_for_settings();
         }
     }
@@ -150,7 +146,7 @@ fn current_theme_index(theme_name: &str) -> usize {
 fn preview_selected_theme(state: &mut AppState) {
     use crate::app::state::Palette;
 
-    let rows = section_rows(state, SettingsSection::Appearance);
+    let rows = section_rows(state, SettingsSection::Theme);
     let Some(row) = rows.get(state.settings.list.selected) else {
         return;
     };
@@ -194,18 +190,17 @@ fn integrations_need_install(state: &AppState) -> bool {
 
 fn apply_settings(state: &mut AppState) -> Option<SettingsAction> {
     match state.settings.section {
-        SettingsSection::Appearance => {
+        SettingsSection::Theme => {
             let theme_name = state.theme_name.clone();
             state.settings.original_palette = None;
             state.settings.original_theme = None;
             super::modal::leave_modal(state);
             Some(SettingsAction::SaveTheme(theme_name))
         }
-        SettingsSection::Agents if integrations_need_install(state) => {
+        SettingsSection::Integrations if integrations_need_install(state) => {
             Some(SettingsAction::InstallRecommendedIntegrations)
         }
-        SettingsSection::Agents => None,
-        SettingsSection::Plugins => Some(SettingsAction::RefreshInstalledPlugins),
+        SettingsSection::Integrations => Some(SettingsAction::RefreshInstalledPlugins),
         _ => {
             super::modal::leave_modal(state);
             None
@@ -231,14 +226,14 @@ fn first_selectable(state: &AppState, section: SettingsSection) -> usize {
 fn default_selection_for_section(state: &AppState, section: SettingsSection) -> usize {
     let fallback = || first_selectable(state, section);
     match section {
-        SettingsSection::Appearance => {
+        SettingsSection::Theme => {
             let theme_idx = current_theme_index(&state.theme_name);
             section_rows(state, section)
                 .iter()
                 .position(|row| theme_index(row.id) == Some(theme_idx))
                 .unwrap_or_else(fallback)
         }
-        SettingsSection::Notifications => section_rows(state, section)
+        SettingsSection::Sound => section_rows(state, section)
             .iter()
             .position(|row| row.label == "sound alerts")
             .unwrap_or_else(fallback),
@@ -424,13 +419,13 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
     match key.code {
         KeyCode::Up | KeyCode::Char('k') => {
             move_selection_prev(state);
-            if state.settings.section == SettingsSection::Appearance {
+            if state.settings.section == SettingsSection::Theme {
                 preview_selected_theme(state);
             }
         }
         KeyCode::Down | KeyCode::Char('j') => {
             move_selection_next(state);
-            if state.settings.section == SettingsSection::Appearance {
+            if state.settings.section == SettingsSection::Theme {
                 preview_selected_theme(state);
             }
         }
@@ -438,7 +433,7 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             state.settings.focus = SettingsFocus::Nav;
         }
         KeyCode::Char('[') => {
-            if state.settings.section == SettingsSection::Appearance {
+            if state.settings.section == SettingsSection::Ui {
                 if state.settings.spinner_category > 0 {
                     state.settings.spinner_category -= 1;
                 }
@@ -447,7 +442,7 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             }
         }
         KeyCode::Char(']') => {
-            if state.settings.section == SettingsSection::Appearance {
+            if state.settings.section == SettingsSection::Ui {
                 let max = crate::ui::settings::spinner::SPINNER_CATEGORIES
                     .len()
                     .saturating_sub(1);
@@ -545,7 +540,7 @@ fn handle_settings_nav_key(state: &mut AppState, key: KeyEvent) -> Option<Settin
 }
 
 pub(crate) fn open_settings(state: &mut AppState) {
-    open_settings_at(state, SettingsSection::Appearance);
+    open_settings_at(state, SettingsSection::Theme);
 }
 
 pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
@@ -565,7 +560,7 @@ pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
     state.settings.plugin_detail_cursor = 0;
     state.settings.plugin_detail_scroll = 0;
     state.mode = Mode::Settings;
-    if section == SettingsSection::Plugins {
+    if section == SettingsSection::Integrations {
         let _ =
             crate::app::api::plugins::reload_installed_plugins_state(&mut state.installed_plugins);
     }
@@ -618,7 +613,7 @@ impl AppState {
                         open_plugin_detail(self, plugin_idx);
                         return None;
                     }
-                    if self.settings.section == SettingsSection::Appearance {
+                    if self.settings.section == SettingsSection::Theme {
                         preview_selected_theme(self);
                     }
                     return activate_row(self, idx);
@@ -631,8 +626,7 @@ impl AppState {
                 // two-button layout's "apply" slot and triggers a refresh.
                 let show_primary = self.settings.plugin_detail.is_none()
                     && crate::ui::settings_show_primary_action(self);
-                let (apply, close) =
-                    crate::ui::settings_button_rects(&layout, self.settings.section, show_primary);
+                let (apply, close) = crate::ui::settings_button_rects(&layout, self, show_primary);
                 let mut buttons = vec![(close, super::modal::ModalAction::Close)];
                 if let Some(apply) = apply {
                     buttons.insert(0, (apply, super::modal::ModalAction::Apply));
@@ -673,6 +667,7 @@ mod tests {
 
     use super::super::{app_for_mouse_test, mouse, state_with_workspaces};
     use super::*;
+    use crate::app::state::ExperimentSetting;
     use crate::ui::settings::catalog::SettingsItemId;
 
     #[test]
@@ -692,7 +687,7 @@ mod tests {
             &mut state,
             KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::Sidebar);
+        assert_eq!(state.settings.section, SettingsSection::Ui);
 
         update_settings_state(
             &mut state,
@@ -708,20 +703,20 @@ mod tests {
     #[test]
     fn settings_nav_cycle_forward_and_back() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Appearance);
+        open_settings_at(&mut state, SettingsSection::Theme);
         state.settings.focus = SettingsFocus::Nav;
 
         update_settings_state(
             &mut state,
             KeyEvent::new(KeyCode::Down, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::Sidebar);
+        assert_eq!(state.settings.section, SettingsSection::Ui);
 
         update_settings_state(
             &mut state,
             KeyEvent::new(KeyCode::Up, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::Appearance);
+        assert_eq!(state.settings.section, SettingsSection::Theme);
     }
 
     #[test]
@@ -750,10 +745,10 @@ mod tests {
     }
 
     #[test]
-    fn settings_notifications_toggle_returns_save_action() {
+    fn settings_sound_toggle_returns_save_action() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Notifications);
-        let sound_row = section_rows(&state, SettingsSection::Notifications)
+        open_settings_at(&mut state, SettingsSection::Sound);
+        let sound_row = section_rows(&state, SettingsSection::Sound)
             .iter()
             .position(|row| row.id == SettingsItemId::SoundAlerts)
             .expect("sound row");
@@ -770,10 +765,15 @@ mod tests {
     }
 
     #[test]
-    fn settings_advanced_toggles_pane_history() {
+    fn settings_system_toggles_pane_history() {
         let mut state = state_with_workspaces(&["test"]);
         state.pane_history_persistence = false;
-        open_settings_at(&mut state, SettingsSection::Advanced);
+        open_settings_at(&mut state, SettingsSection::System);
+        let pane_history_row = section_rows(&state, SettingsSection::System)
+            .iter()
+            .position(|row| row.id == SettingsItemId::Experiment(ExperimentSetting::PaneHistory))
+            .expect("pane history row");
+        state.settings.list.selected = pane_history_row;
 
         let action = update_settings_state(
             &mut state,
@@ -787,12 +787,12 @@ mod tests {
     #[test]
     fn settings_enter_on_header_toggles_group_collapse() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Appearance);
+        open_settings_at(&mut state, SettingsSection::Theme);
 
         // Land on the "theme" header (index 0).
         state.settings.list.selected = 0;
         assert_eq!(
-            section_rows(&state, SettingsSection::Appearance)[0].kind,
+            section_rows(&state, SettingsSection::Theme)[0].kind,
             SettingsRowKind::Header
         );
 
@@ -803,7 +803,7 @@ mod tests {
         );
         assert!(action.is_none());
         assert!(state.settings.collapsed_groups.contains("theme"));
-        assert!(!section_rows(&state, SettingsSection::Appearance)
+        assert!(!section_rows(&state, SettingsSection::Theme)
             .iter()
             .any(|row| row.label == "auto-switch theme with host"));
 
@@ -815,7 +815,7 @@ mod tests {
         );
         assert!(action.is_none());
         assert!(!state.settings.collapsed_groups.contains("theme"));
-        assert!(section_rows(&state, SettingsSection::Appearance)
+        assert!(section_rows(&state, SettingsSection::Theme)
             .iter()
             .any(|row| row.label == "auto-switch theme with host"));
     }
@@ -823,21 +823,21 @@ mod tests {
     #[test]
     fn settings_navigation_can_land_on_headers() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Advanced);
+        open_settings_at(&mut state, SettingsSection::System);
 
-        // Default selection is the first non-header row (first experiment).
-        let rows = section_rows(&state, SettingsSection::Advanced);
+        // Default selection is the first non-header row (default shell).
+        let rows = section_rows(&state, SettingsSection::System);
         assert_ne!(
             rows[state.settings.list.selected].kind,
             SettingsRowKind::Header
         );
 
-        // Arrow-up lands on the "experiments" header.
+        // Arrow-up lands on the "shell" header.
         update_settings_state(
             &mut state,
             KeyEvent::new(KeyCode::Up, KeyModifiers::empty()),
         );
-        let rows = section_rows(&state, SettingsSection::Advanced);
+        let rows = section_rows(&state, SettingsSection::System);
         assert_eq!(
             rows[state.settings.list.selected].kind,
             SettingsRowKind::Header
@@ -847,32 +847,33 @@ mod tests {
     #[test]
     fn settings_brackets_collapse_and_expand_all_groups() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Advanced);
+        open_settings_at(&mut state, SettingsSection::System);
 
         update_settings_state(
             &mut state,
             KeyEvent::new(KeyCode::Char('['), KeyModifiers::empty()),
         );
-        let collapsed = section_rows(&state, SettingsSection::Advanced);
+        let collapsed = section_rows(&state, SettingsSection::System);
         assert!(collapsed
             .iter()
             .all(|row| row.kind == SettingsRowKind::Header));
-        assert_eq!(collapsed.len(), 3); // experiments, system, paths & config
+        // shell, scrollback, updates, experiments, system, paths & config
+        assert_eq!(collapsed.len(), 6);
 
         update_settings_state(
             &mut state,
             KeyEvent::new(KeyCode::Char(']'), KeyModifiers::empty()),
         );
         assert!(state.settings.collapsed_groups.is_empty());
-        assert!(section_rows(&state, SettingsSection::Advanced)
+        assert!(section_rows(&state, SettingsSection::System)
             .iter()
             .any(|row| row.label == "fleet ops bar"));
     }
 
     #[test]
-    fn settings_brackets_cycle_spinner_categories_in_appearance() {
+    fn settings_brackets_cycle_spinner_categories_in_ui() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Appearance);
+        open_settings_at(&mut state, SettingsSection::Ui);
         state.settings.spinner_category = 1;
 
         update_settings_state(
@@ -891,18 +892,18 @@ mod tests {
     #[test]
     fn settings_tab_advances_sections() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Appearance);
+        open_settings_at(&mut state, SettingsSection::Theme);
         update_settings_state(
             &mut state,
             KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::Sidebar);
+        assert_eq!(state.settings.section, SettingsSection::Ui);
     }
 
     #[test]
-    fn sidebar_rows_expose_existing_layout_config_without_token_reimplementation() {
+    fn ui_rows_expose_sidebar_layout_config_without_token_reimplementation() {
         let state = state_with_workspaces(&["test"]);
-        let rows = section_rows(&state, SettingsSection::Sidebar);
+        let rows = section_rows(&state, SettingsSection::Ui);
 
         assert!(rows.iter().any(|row| row.label == "sidebar width"));
         assert!(rows.iter().any(|row| row.label == "collapsed mode"));
@@ -912,9 +913,9 @@ mod tests {
     }
 
     #[test]
-    fn sidebar_choice_ids_map_to_existing_persistence_actions() {
+    fn ui_sidebar_choice_ids_map_to_existing_persistence_actions() {
         let state = state_with_workspaces(&["test"]);
-        let rows = section_rows(&state, SettingsSection::Sidebar);
+        let rows = section_rows(&state, SettingsSection::Ui);
 
         for row in rows.iter().filter(|row| {
             matches!(
@@ -931,10 +932,10 @@ mod tests {
     }
 
     #[test]
-    fn terminal_choice_ids_map_to_distinct_actions() {
+    fn system_choice_ids_map_to_distinct_actions() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Terminal);
-        let rows = section_rows(&state, SettingsSection::Terminal);
+        open_settings_at(&mut state, SettingsSection::System);
+        let rows = section_rows(&state, SettingsSection::System);
 
         let shell_mode_idx = rows
             .iter()
@@ -967,9 +968,9 @@ mod tests {
     }
 
     #[test]
-    fn agents_enter_toggles_resume_when_no_install_needed() {
+    fn integrations_enter_toggles_resume_when_no_install_needed() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Agents);
+        open_settings_at(&mut state, SettingsSection::Integrations);
 
         let enter_action = update_settings_state(
             &mut state,
@@ -999,19 +1000,27 @@ mod tests {
     fn settings_mouse_click_toggles_pane_history() {
         let mut app = app_for_mouse_test();
         app.state.pane_history_persistence = false;
-        open_settings_at(&mut app.state, SettingsSection::Advanced);
+        open_settings_at(&mut app.state, SettingsSection::System);
 
-        let area = app.state.settings_layout().expect("layout").content;
-        // First list row (content.y + 3) is the "experiments" header; the first
-        // selectable row (pane history) sits one row below.
+        let layout = app.state.settings_layout().expect("layout");
+        let rows = section_rows(&app.state, SettingsSection::System);
+        let pane_history_row = rows
+            .iter()
+            .position(|row| row.id == SettingsItemId::Experiment(ExperimentSetting::PaneHistory))
+            .expect("pane history row");
+        // Select the row first so the content viewport scrolls it into view.
+        app.state.settings.list.selected = pane_history_row;
+        let rect = layout
+            .content_row_rect(&app.state, pane_history_row)
+            .expect("pane history rect");
         let action = app.state.handle_settings_mouse(mouse(
             MouseEventKind::Down(crossterm::event::MouseButton::Left),
-            area.x + 2,
-            area.y + 4,
+            rect.x + 2,
+            rect.y,
         ));
 
         assert_eq!(action, Some(SettingsAction::SavePaneHistory(true)));
-        assert_eq!(app.state.settings.list.selected, 1);
+        assert_eq!(app.state.settings.list.selected, pane_history_row);
     }
 
     #[test]
@@ -1022,7 +1031,7 @@ mod tests {
             true,
         )];
         assert!(state.integration_updates_available());
-        assert!(state.settings_section_has_badge(SettingsSection::Agents));
+        assert!(state.settings_section_has_badge(SettingsSection::Integrations));
     }
 
     #[test]
@@ -1038,12 +1047,14 @@ mod tests {
         open_settings(&mut state);
 
         let layout = state.settings_layout().expect("layout");
-        let agents_idx = SettingsSection::ALL
+        let integrations_idx = SettingsSection::ALL
             .iter()
-            .position(|section| *section == SettingsSection::Agents)
-            .expect("agents section");
-        let rect = layout.nav_item_rect(agents_idx).expect("nav rect");
-        assert_eq!(layout.nav_index_at(rect.x + 2, rect.y), Some(agents_idx));
+            .position(|section| *section == SettingsSection::Integrations)
+            .expect("integrations section");
+        let rect = layout
+            .nav_item_rect(integrations_idx)
+            .expect("nav rect");
+        assert_eq!(layout.nav_index_at(rect.x + 2, rect.y), Some(integrations_idx));
     }
 
     fn integration_recommendation(
@@ -1061,9 +1072,9 @@ mod tests {
     }
 
     #[test]
-    fn plugins_apply_action_refreshes_installed_plugins() {
+    fn integrations_apply_action_refreshes_installed_plugins() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Plugins);
+        open_settings_at(&mut state, SettingsSection::Integrations);
 
         let action = apply_settings(&mut state);
 
@@ -1072,12 +1083,12 @@ mod tests {
     }
 
     #[test]
-    fn plugins_search_matches_catalog_source_and_plugin_id() {
+    fn integrations_search_matches_catalog_source_and_plugin_id() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Plugins);
+        open_settings_at(&mut state, SettingsSection::Integrations);
         state.settings.search = "chef-linear-context".to_string();
 
-        let rows = section_rows(&state, SettingsSection::Plugins);
+        let rows = section_rows(&state, SettingsSection::Integrations);
         assert!(rows.iter().any(|row| row.label == "Linear issues"));
     }
 
@@ -1121,7 +1132,7 @@ mod tests {
         actions: Vec<crate::api::schema::PluginManifestAction>,
     ) -> AppState {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Plugins);
+        open_settings_at(&mut state, SettingsSection::Integrations);
         // The section open reloads the registry from disk; replace it with the
         // deterministic test plugin so row indices are stable.
         state.installed_plugins.clear();
@@ -1133,10 +1144,10 @@ mod tests {
     }
 
     #[test]
-    fn plugins_enter_on_installed_plugin_opens_detail() {
+    fn integrations_enter_on_installed_plugin_opens_detail() {
         let mut state = open_plugins_with_demo_plugin(vec![test_action("run")]);
 
-        let row = section_rows(&state, SettingsSection::Plugins)
+        let row = section_rows(&state, SettingsSection::Integrations)
             .iter()
             .position(|r| matches!(r.id, SettingsItemId::InstalledPlugin { .. }))
             .expect("installed plugin row");
@@ -1207,7 +1218,7 @@ mod tests {
         // Give the synthetic screen room for the 96-wide settings popup.
         app.state.view.sidebar_rect = ratatui::layout::Rect::new(0, 0, 26, 40);
         app.state.view.terminal_area = ratatui::layout::Rect::new(26, 0, 80, 40);
-        open_settings_at(&mut app.state, SettingsSection::Plugins);
+        open_settings_at(&mut app.state, SettingsSection::Integrations);
         app.state.installed_plugins.clear();
         app.state.installed_plugins.insert(
             "com.test.demo".to_string(),
@@ -1217,8 +1228,7 @@ mod tests {
 
         // The detail view renders a single close button; click its center.
         let layout = app.state.settings_layout().expect("layout");
-        let (_, close_rect) =
-            crate::ui::settings_button_rects(&layout, app.state.settings.section, false);
+        let (_, close_rect) = crate::ui::settings_button_rects(&layout, &app.state, false);
         let action = app.state.handle_settings_mouse(mouse(
             MouseEventKind::Down(crossterm::event::MouseButton::Left),
             close_rect.x + close_rect.width / 2,
