@@ -1153,6 +1153,10 @@ fn render_workspace_list(
         let selected = i == app.selected && is_navigating;
         let is_active = Some(i) == app.active;
         let is_dragged = dragged_ws_idx == Some(i);
+        let hovered = matches!(
+            app.view.sidebar_hover,
+            Some(crate::app::state::SidebarHoverTarget::Workspace(h)) if h == i
+        );
         let highlighted = selected || is_active || is_dragged;
         let (agg_state, agg_seen) = ws.aggregate_state(&app.terminals);
 
@@ -1164,6 +1168,34 @@ fn render_workspace_list(
             } else {
                 p.surface_dim
             };
+            let buf = frame.buffer_mut();
+            for y in row_y..row_y + row_height {
+                if y >= list_bottom {
+                    break;
+                }
+                for x in card.rect.x..card.rect.x + card.rect.width {
+                    buf[(x, y)].set_style(Style::default().bg(bg));
+                }
+            }
+        } else if hovered {
+            let buf = frame.buffer_mut();
+            for y in row_y..row_y + row_height {
+                if y >= list_bottom {
+                    break;
+                }
+                for x in card.rect.x..card.rect.x + card.rect.width {
+                    buf[(x, y)].set_style(Style::default().bg(p.surface0));
+                }
+            }
+        }
+
+        let name_style = if selected || is_active || is_dragged {
+            Style::default().fg(p.text).add_modifier(Modifier::BOLD)
+        } else if hovered {
+            Style::default().fg(p.text)
+        } else {
+            Style::default().fg(p.subtext0)
+        };
             let buf = frame.buffer_mut();
             for y in row_y..row_y + row_height {
                 if y >= list_bottom {
@@ -1380,13 +1412,27 @@ fn render_agent_detail(
         }
 
         let is_active = app.is_active_pane(detail.ws_idx, detail.tab_idx, detail.pane_id);
+        let hovered = matches!(
+            app.view.sidebar_hover,
+            Some(crate::app::state::SidebarHoverTarget::Agent {
+                ws_idx,
+                tab_idx,
+                pane_id,
+            }) if ws_idx == detail.ws_idx
+                && tab_idx == detail.tab_idx
+                && pane_id == detail.pane_id
+        );
 
         let row_style = if is_active {
             Style::default().bg(p.surface_dim)
+        } else if hovered {
+            Style::default().bg(p.surface0)
         } else {
             Style::default()
         };
         let name_style = if is_active {
+            Style::default().fg(p.text).add_modifier(Modifier::BOLD)
+        } else if hovered {
             Style::default().fg(p.text).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(p.subtext0).add_modifier(Modifier::BOLD)
@@ -1581,6 +1627,67 @@ mod tests {
         assert!(agent_style.add_modifier.contains(Modifier::DIM));
         assert!(!agent_style.add_modifier.contains(Modifier::BOLD));
         assert_eq!(agent_style.bg, Some(app.palette.surface_dim));
+    }
+
+    #[test]
+    fn hovered_workspace_row_renders_hover_surface() {
+        let mut app = crate::app::state::AppState::test_new();
+        app.workspaces = vec![Workspace::test_new("one"), Workspace::test_new("two")];
+        app.ensure_test_terminals();
+        app.active = Some(0);
+
+        let area = Rect::new(0, 0, 26, 20);
+        crate::ui::compute_view(&mut app, area);
+        let card0 = app.view.workspace_card_areas[0].rect;
+        app.view.sidebar_hover = Some(crate::app::state::SidebarHoverTarget::Workspace(0));
+
+        let mut terminal = Terminal::new(TestBackend::new(26, 20)).unwrap();
+        terminal
+            .draw(|frame| render_sidebar(&app, &TerminalRuntimeRegistry::new(), frame, area))
+            .unwrap();
+        let buffer = terminal.backend().buffer();
+
+        for x in card0.x..card0.x + card0.width {
+            let cell = buffer[(x, card0.y)];
+            assert_eq!(cell.bg, Some(app.palette.surface0));
+            assert_eq!(cell.fg, Some(app.palette.text));
+        }
+    }
+
+    #[test]
+    fn hovered_agent_row_renders_hover_surface() {
+        let mut app = crate::app::state::AppState::test_new();
+        let workspace = Workspace::test_new("one");
+        let pane_id = workspace.tabs[0].root_pane;
+        app.workspaces = vec![workspace];
+        app.ensure_test_terminals();
+        app.active = Some(0);
+        let terminal_id = app.workspaces[0].tabs[0].panes[&pane_id]
+            .attached_terminal_id
+            .clone();
+        let terminal_state = app.terminals.get_mut(&terminal_id).unwrap();
+        terminal_state.detected_agent = Some(Agent::Pi);
+        terminal_state.state = AgentState::Working;
+
+        let area = Rect::new(0, 0, 26, 20);
+        crate::ui::compute_view(&mut app, area);
+        let (_, agent_area) = expanded_sidebar_sections(area, app.sidebar_section_split);
+        let body = agent_panel_body_rect(agent_area, false);
+        app.view.sidebar_hover = Some(crate::app::state::SidebarHoverTarget::Agent {
+            ws_idx: 0,
+            tab_idx: 0,
+            pane_id,
+        });
+
+        let mut terminal = Terminal::new(TestBackend::new(26, 20)).unwrap();
+        terminal
+            .draw(|frame| render_sidebar(&app, &TerminalRuntimeRegistry::new(), frame, area))
+            .unwrap();
+        let buffer = terminal.backend().buffer();
+
+        let cell = buffer[(1, body.y + 1)];
+        assert_eq!(cell.bg, Some(app.palette.surface0));
+        assert_eq!(cell.fg, Some(app.palette.text));
     }
 
     #[test]

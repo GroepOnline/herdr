@@ -1,6 +1,6 @@
 use ratatui::layout::Rect;
 
-use crate::app::state::{AppState, ViewLayout};
+use crate::app::state::{AppState, SidebarHoverTarget, ViewLayout};
 
 use super::ScrollbarClickTarget;
 
@@ -297,6 +297,25 @@ impl AppState {
         let ratio = (relative_y as f32) / (content_height as f32);
         self.sidebar_section_split = ratio.clamp(0.1, 0.9);
         self.mark_session_dirty();
+    }
+
+    /// Updates the hovered sidebar row from a mouse-move position. Outside the
+    /// sidebar (or with a collapsed sidebar) the hover is cleared.
+    pub(super) fn update_sidebar_hover(&mut self, col: u16, row: u16, in_sidebar: bool) {
+        let hover = if !in_sidebar || self.sidebar_collapsed {
+            None
+        } else if let Some(idx) = self.workspace_at_row(row) {
+            Some(SidebarHoverTarget::Workspace(idx))
+        } else if let Some((ws_idx, tab_idx, pane_id)) = self.agent_detail_target_at(row) {
+            Some(SidebarHoverTarget::Agent {
+                ws_idx,
+                tab_idx,
+                pane_id,
+            })
+        } else {
+            None
+        };
+        self.view.sidebar_hover = hover;
     }
 
     pub(super) fn workspace_at_row(&self, row: u16) -> Option<usize> {

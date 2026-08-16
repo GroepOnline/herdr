@@ -797,6 +797,18 @@ pub enum ViewLayout {
     Mobile,
 }
 
+/// Sidebar row the mouse currently hovers over, used to render a subtle
+/// hover highlight. Pure TUI presentation state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SidebarHoverTarget {
+    Workspace(usize),
+    Agent {
+        ws_idx: usize,
+        tab_idx: usize,
+        pane_id: crate::layout::PaneId,
+    },
+}
+
 pub struct ViewState {
     pub layout: ViewLayout,
     pub sidebar_rect: Rect,
@@ -813,6 +825,7 @@ pub struct ViewState {
     pub toast_hit_area: Rect,
     pub pane_infos: Vec<PaneInfo>,
     pub split_borders: Vec<SplitBorder>,
+    pub sidebar_hover: Option<SidebarHoverTarget>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1641,6 +1654,8 @@ pub struct AppState {
     pub tab_scroll: usize,
     pub tab_scroll_follow_active: bool,
     pub mobile_switcher_scroll: usize,
+    /// Start position of a touch drag on mobile (edge-swipe detection).
+    pub mobile_swipe_start: Option<(u16, u16)>,
     // View geometry (computed before render, consumed by render + mouse)
     pub view: ViewState,
     pub(crate) drag: Option<DragState>,
@@ -2042,6 +2057,7 @@ impl AppState {
             tab_scroll: 0,
             tab_scroll_follow_active: true,
             mobile_switcher_scroll: 0,
+            mobile_swipe_start: None,
             view: ViewState {
                 layout: ViewLayout::Desktop,
                 sidebar_rect: Rect::default(),
@@ -2058,6 +2074,7 @@ impl AppState {
                 toast_hit_area: Rect::default(),
                 pane_infos: Vec::new(),
                 split_borders: Vec::new(),
+                sidebar_hover: None,
             },
             drag: None,
             workspace_press: None,
