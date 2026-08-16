@@ -1224,9 +1224,12 @@ impl AppState {
                     self.mobile_swipe_start = None;
                     return MobileMouseResult::Ignored;
                 }
-                _ => {}
+                MouseEventKind::Down(MouseButton::Left) => {
+                    // Non-edge press: fall through to the header-button check
+                    // below so the switcher button keeps working.
+                }
+                _ => return MobileMouseResult::Ignored,
             }
-            return MobileMouseResult::Ignored;
         }
 
         if self.mode != Mode::Navigate {
