@@ -13,9 +13,9 @@ use super::config_edit::{
     remove_hook_commands, remove_kimi_config_block, remove_simple_command_hook,
 };
 use super::env::{
-    antigravity_cli_dir, claude_dir, codex_dir, copilot_dir, cursor_dir, devin_dir, droid_dir,
-    grok_dir, hermes_dir, hermes_plugin_dir, kilo_dir, kimi_dir, mastracode_dir, omp_extension_dir,
-    opencode_dir, pi_extension_dir, qodercli_dir,
+    antigravity_cli_dir, claude_dir, codex_dir, commandcode_dir, copilot_dir, cursor_dir,
+    devin_dir, droid_dir, freebuff_dir, grok_dir, hermes_dir, hermes_plugin_dir, kilo_dir,
+    kimi_dir, mastracode_dir, omp_extension_dir, opencode_dir, pi_extension_dir, qodercli_dir,
 };
 use super::file_ops::{
     make_executable, remove_dir_all_if_exists, remove_file_if_exists, remove_legacy_bash_hook_file,
@@ -24,7 +24,8 @@ use super::types::{
     AntigravityCliInstallPaths, AntigravityCliUninstallResult, ClaudeInstallPaths,
     ClaudeUninstallResult, CodexInstallPaths, CodexUninstallResult, CopilotInstallPaths,
     CopilotUninstallResult, CursorInstallPaths, CursorUninstallResult, DevinInstallPaths,
-    DevinUninstallResult, DroidInstallPaths, DroidUninstallResult, GrokInstallPaths,
+    DevinUninstallResult, DroidInstallPaths, DroidUninstallResult, CommandCodeInstallPaths,
+    CommandCodeUninstallResult, FreebuffInstallPaths, FreebuffUninstallResult, GrokInstallPaths,
     GrokUninstallResult, HermesInstallPaths, HermesUninstallResult, KiloInstallPaths,
     KiloUninstallResult, KimiInstallPaths, KimiUninstallResult, MastracodeInstallPaths,
     MastracodeUninstallResult, OmpInstallPaths, OmpUninstallResult, OpenCodeInstallPaths,
@@ -38,8 +39,10 @@ use super::{
     CURSOR_HOOK_ASSET, CURSOR_HOOK_INSTALL_NAME, DEVIN_HOOK_ASSET, DEVIN_HOOK_EVENTS,
     DEVIN_HOOK_INSTALL_NAME, DEVIN_REMOVED_LIFECYCLE_HOOK_EVENTS, DROID_HOOK_ASSET,
     DROID_HOOK_EVENTS, DROID_HOOK_INSTALL_NAME, DROID_REMOVED_LIFECYCLE_HOOK_EVENTS,
-    GROK_HOOK_ASSET, GROK_HOOK_CONFIG_INSTALL_NAME, GROK_HOOK_INSTALL_NAME,
-    HERMES_PLUGIN_INIT_ASSET, HERMES_PLUGIN_INIT_INSTALL_NAME, HERMES_PLUGIN_MANIFEST_ASSET,
+    COMMANDCODE_HOOK_ASSET, COMMANDCODE_HOOK_INSTALL_NAME, COMMANDCODE_SETTINGS_INSTALL_NAME,
+    FREEBUFF_HOOK_ASSET, FREEBUFF_HOOK_INSTALL_NAME, GROK_HOOK_ASSET,
+    GROK_HOOK_CONFIG_INSTALL_NAME, GROK_HOOK_INSTALL_NAME, HERMES_PLUGIN_INIT_ASSET,
+    HERMES_PLUGIN_INIT_INSTALL_NAME, HERMES_PLUGIN_MANIFEST_ASSET,
     HERMES_PLUGIN_MANIFEST_INSTALL_NAME, KILO_PLUGIN_ASSET, KILO_PLUGIN_INSTALL_NAME,
     KIMI_HOOK_ASSET, KIMI_HOOK_INSTALL_NAME, MASTRACODE_HOOK_ASSET, MASTRACODE_HOOK_EVENTS,
     MASTRACODE_HOOK_INSTALL_NAME, MASTRACODE_HOOK_TIMEOUT_MS, OMP_EXTENSION_ASSET,
@@ -1392,5 +1395,116 @@ pub(crate) fn uninstall_grok() -> io::Result<GrokUninstallResult> {
         config_path,
         removed_hook_file,
         removed_config_file,
+    })
+}
+
+/// The Herdr-owned Command Code SessionStart hook command. Command Code merges
+/// every hook entry in the single user settings.json, so herdr registers its
+/// own entry under `hooks.SessionStart` next to the user's other entries and
+/// never rewrites unrelated keys.
+pub(crate) fn commandcode_hook_command(hook_path: &Path) -> String {
+    let quoted_hook_path = shell_single_quote(&hook_path.display().to_string());
+    format!("sh {quoted_hook_path} session")
+}
+
+pub(crate) fn install_commandcode() -> io::Result<CommandCodeInstallPaths> {
+    let dir = commandcode_dir()?;
+    let hooks_dir = dir.join("hooks");
+    fs::create_dir_all(&hooks_dir)?;
+
+    let hook_path = hooks_dir.join(super::COMMANDCODE_HOOK_INSTALL_NAME);
+    fs::write(&hook_path, super::COMMANDCODE_HOOK_ASSET)?;
+    make_executable(&hook_path)?;
+
+    // Merge (never replace) the user's settings.json so custom hooks, MCP
+    // servers, and other keys survive. The file is created when absent.
+    let settings_path = dir.join(super::COMMANDCODE_SETTINGS_INSTALL_NAME);
+    let mut settings: Value = match fs::read_to_string(&settings_path) {
+        Ok(content) if !content.trim().is_empty() => {
+            serde_json::from_str(&content).map_err(|err| {
+                io::Error::other(format!(
+                    "Command Code settings at {} are not valid JSON: {err}",
+                    settings_path.display()
+                ))
+            })?
+        }
+        _ => json!({}),
+    };
+    {
+        let hooks = ensure_hooks_object(
+            &mut settings,
+            &settings_path,
+            "Command Code settings",
+            "Command Code hooks",
+        )?;
+        ensure_command_hook(
+            hooks,
+            "SessionStart",
+            commandcode_hook_command(&hook_path),
+            10,
+            None,
+        )?;
+    }
+    fs::write(&settings_path, serde_json::to_string_pretty(&settings)?)?;
+
+    Ok(CommandCodeInstallPaths {
+        hook_path,
+        config_path: settings_path,
+    })
+}
+
+pub(crate) fn uninstall_commandcode() -> io::Result<CommandCodeUninstallResult> {
+    let dir = commandcode_dir()?;
+    let hooks_dir = dir.join("hooks");
+    let hook_path = hooks_dir.join(super::COMMANDCODE_HOOK_INSTALL_NAME);
+    let settings_path = dir.join(super::COMMANDCODE_SETTINGS_INSTALL_NAME);
+
+    let removed_hook_file = remove_file_if_exists(&hook_path)?;
+
+    // Remove only the herdr-owned SessionStart entry, preserving the rest of
+    // the user's settings.
+    let mut removed_config_file = false;
+    if let Ok(content) = fs::read_to_string(&settings_path) {
+        if let Ok(mut settings) = serde_json::from_str::<Value>(&content) {
+            if let Some(hooks) = settings.get_mut("hooks").and_then(Value::as_object_mut) {
+                if remove_hook_commands(hooks, "SessionStart", &hook_path, Some("session"))? {
+                    write_json_pretty(&settings_path, &settings)?;
+                    removed_config_file = true;
+                }
+            }
+        }
+    }
+
+    Ok(CommandCodeUninstallResult {
+        hook_path,
+        config_path: settings_path,
+        removed_hook_file,
+        removed_config_file,
+    })
+}
+
+pub(crate) fn install_freebuff() -> io::Result<FreebuffInstallPaths> {
+    let dir = freebuff_dir()?;
+    let hooks_dir = dir.join("hooks");
+    fs::create_dir_all(&hooks_dir)?;
+
+    let hook_path = hooks_dir.join(super::FREEBUFF_HOOK_INSTALL_NAME);
+    fs::write(&hook_path, super::FREEBUFF_HOOK_ASSET)?;
+    make_executable(&hook_path)?;
+
+    Ok(FreebuffInstallPaths { hook_path })
+}
+
+pub(crate) fn uninstall_freebuff() -> io::Result<FreebuffUninstallResult> {
+    let dir = freebuff_dir()?;
+    let hooks_dir = dir.join("hooks");
+    let hook_path = hooks_dir.join(super::FREEBUFF_HOOK_INSTALL_NAME);
+    let removed_hook_file = remove_file_if_exists(&hook_path)?;
+    let _ = remove_dir_all_if_exists(&hooks_dir);
+    let _ = dir;
+
+    Ok(FreebuffUninstallResult {
+        hook_path,
+        removed_hook_file,
     })
 }

@@ -90,6 +90,8 @@ pub fn is_reserved_native_state_source(source: &str, agent: &str) -> bool {
             | ("herdr:cursor", "cursor")
             | ("herdr:opencode", "opencode")
             | ("herdr:grok", "grok")
+            | ("herdr:commandcode", "commandcode")
+            | ("herdr:freebuff", "freebuff")
     )
 }
 
@@ -203,6 +205,12 @@ pub fn plan(source: &str, agent: &str, session_ref: &AgentSessionRef) -> Option<
         ("herdr:grok", "grok", AgentSessionRefKind::Id) => {
             vec!["grok".into(), "--resume".into(), session_ref.value.clone()]
         }
+        ("herdr:commandcode", "commandcode", AgentSessionRefKind::Id) => {
+            vec!["cmd".into(), "--resume".into(), session_ref.value.clone()]
+        }
+        ("herdr:freebuff", "freebuff", AgentSessionRefKind::Id) => {
+            vec!["freebuff".into(), "--continue".into(), session_ref.value.clone()]
+        }
         _ => return None,
     };
 
@@ -287,6 +295,8 @@ fn is_official_agent_source(source: &str, agent: &str) -> bool {
             | ("herdr:cursor", "cursor")
             | ("herdr:antigravity_cli", "agy")
             | ("herdr:grok", "grok")
+            | ("herdr:commandcode", "commandcode")
+            | ("herdr:freebuff", "freebuff")
     )
 }
 
