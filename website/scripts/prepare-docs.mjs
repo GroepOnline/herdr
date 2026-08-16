@@ -117,6 +117,7 @@ async function preparePublicAssets() {
     'install.sh',
     'install.ps1',
     'agent-guide.md',
+    'llms.txt',
     'latest.json',
     'preview.json',
     'dev.json',
