@@ -1465,7 +1465,9 @@ fn run_client_with_mode(
     });
 
     // Restore the terminal before printing any final status message.
-    let terminal_restore_failed = terminal_guard.restore().is_err();
+    // A failed restore is not evidence of hangup: ioctl/restore errors can
+    // happen while the real client error is an unrelated connection loss.
+    let _ = terminal_guard.restore();
 
     if let Err(err) = result {
         let _ = writeln!(io::stderr(), "herdr: {err}");
@@ -1478,9 +1480,7 @@ fn run_client_with_mode(
                 reason: Some(reason)
             } if reason == "detached"
         );
-        let connection_lost_during_terminal_hangup =
-            terminal_restore_failed && matches!(&err, ClientError::ConnectionLost(_));
-        if detached || connection_lost_during_terminal_hangup {
+        if detached {
             return Ok(());
         }
 
