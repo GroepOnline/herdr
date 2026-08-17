@@ -2076,23 +2076,29 @@ fn path_install_shadow(current_exe: &Path, path_binaries: &[PathBuf]) -> Option<
         return None;
     }
 
-    let mut saw_current = false;
+    let mut leftover = None;
     for candidate in path_binaries {
-        if !saw_current {
+        if leftover.is_none() {
             if paths_match(candidate, current_exe) {
-                saw_current = true;
+                leftover = Some(candidate.clone());
             }
             continue;
         }
 
         let kind = install_kind_for_exe_path(candidate);
-        if kind.is_package_managed() {
-            return Some(PathInstallShadow {
-                leftover: current_exe.to_path_buf(),
-                managed: candidate.clone(),
-                managed_kind: kind,
-            });
+        if !kind.is_package_managed() {
+            continue;
         }
+        // A raw /nix/store path is usually a transient `nix shell`. Do not
+        // retire a leftover just because one appeared later on PATH.
+        if kind == InstallKind::Nix && is_nix_store_exe_path(candidate) {
+            continue;
+        }
+        return Some(PathInstallShadow {
+            leftover: leftover?,
+            managed: candidate.clone(),
+            managed_kind: kind,
+        });
     }
 
     None
@@ -2156,29 +2162,36 @@ fn retire_shadowed_direct_install(shadow: &PathInstallShadow) -> Result<Version,
     apply_package_manager_update(action)
 }
 
-fn package_manager_update_command(kind: InstallKind) -> Option<&'static str> {
-    package_manager_update_command_for_path(kind, None)
-}
-
 fn package_manager_update_command_for_path(
     kind: InstallKind,
     path: Option<&Path>,
 ) -> Option<&'static str> {
     match kind {
         InstallKind::Direct => None,
-        InstallKind::Homebrew => Some(
-            if path.is_some_and(|path| {
-                path.components()
-                    .any(|component| component.as_os_str() == "herdr")
-            }) {
-                HOMEBREW_UPSTREAM_UPDATE_COMMAND
-            } else {
-                HOMEBREW_UPDATE_COMMAND
-            },
-        ),
+        InstallKind::Homebrew => Some(homebrew_update_command_for_path(path)),
         InstallKind::Npm => Some(NPM_UPDATE_COMMAND),
         InstallKind::Mise => Some(MISE_UPDATE_COMMAND),
         InstallKind::Nix => Some(NIX_UPDATE_COMMAND),
+    }
+}
+
+fn homebrew_update_command_for_path(path: Option<&Path>) -> &'static str {
+    match path.and_then(homebrew_formula_name) {
+        Some("herdr") => HOMEBREW_UPSTREAM_UPDATE_COMMAND,
+        _ => HOMEBREW_UPDATE_COMMAND,
+    }
+}
+
+fn homebrew_formula_name(path: &Path) -> Option<&'static str> {
+    let version_dir = homebrew_cellar_keg_root(path).or_else(|| {
+        path.canonicalize()
+            .ok()
+            .and_then(|canonical| homebrew_cellar_keg_root(&canonical))
+    })?;
+    match version_dir.parent()?.file_name()?.to_str()? {
+        "herdr" => Some("herdr"),
+        "groeponline-herdr" => Some("groeponline-herdr"),
+        _ => None,
     }
 }
 
@@ -2900,10 +2913,79 @@ mod tests {
             path_install_shadow(&managed, &[leftover.clone(), managed.clone()]),
             None
         );
-        assert_eq!(path_install_shadow(&leftover, &[leftover.clone()]), None);
+        assert_eq!(
+            path_install_shadow(&leftover, std::slice::from_ref(&leftover)),
+            None
+        );
         assert_eq!(
             path_install_shadow(&leftover, &[managed, leftover.clone()]),
             None
+        );
+    }
+
+    #[test]
+    fn path_install_shadow_keeps_the_path_entry_not_the_resolved_exe() {
+        let dir = std::env::temp_dir().join(format!(
+            "herdr-update-shadow-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("herdr-target");
+        let leftover = dir.join("herdr");
+        fs::write(&target, b"").unwrap();
+        std::os::unix::fs::symlink(&target, &leftover).unwrap();
+        let managed =
+            PathBuf::from("/opt/homebrew/Cellar/groeponline-herdr/0.8.1/bin/herdr");
+
+        assert_eq!(
+            path_install_shadow(&target, &[leftover.clone(), managed.clone()]),
+            Some(PathInstallShadow {
+                leftover,
+                managed,
+                managed_kind: InstallKind::Homebrew,
+            })
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn path_install_shadow_ignores_transient_nix_store_binaries() {
+        let leftover = PathBuf::from("/home/joep/.local/bin/herdr");
+        let nix_store = PathBuf::from("/nix/store/aaaa-herdr-0.8.1/bin/herdr");
+
+        assert_eq!(
+            path_install_shadow(&leftover, &[leftover.clone(), nix_store]),
+            None
+        );
+    }
+
+    #[test]
+    fn homebrew_update_command_uses_cellar_formula_not_binary_name() {
+        assert_eq!(
+            homebrew_update_command_for_path(Some(Path::new(
+                "/opt/homebrew/Cellar/groeponline-herdr/0.8.1/bin/herdr"
+            ))),
+            HOMEBREW_UPDATE_COMMAND
+        );
+        assert_eq!(
+            homebrew_update_command_for_path(Some(Path::new(
+                "/opt/homebrew/Cellar/herdr/0.8.1/bin/herdr"
+            ))),
+            HOMEBREW_UPSTREAM_UPDATE_COMMAND
+        );
+        assert_eq!(
+            homebrew_update_command_for_path(Some(Path::new(
+                "/home/linuxbrew/.linuxbrew/bin/herdr"
+            ))),
+            HOMEBREW_UPDATE_COMMAND
+        );
+        assert_eq!(
+            homebrew_update_command_for_path(None),
+            HOMEBREW_UPDATE_COMMAND
         );
     }
 
