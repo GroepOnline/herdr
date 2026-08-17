@@ -2052,16 +2052,21 @@ fn herdr_binaries_on_path_var(path_var: impl AsRef<std::ffi::OsStr>) -> Vec<Path
     env::split_paths(path_var.as_ref())
         .filter_map(|dir| {
             let candidate = dir.join(herdr_exe_file_name());
-            candidate.is_file().then(|| {
-                #[cfg(unix)]
-                {
-                    use std::os::unix::fs::PermissionsExt;
-                    return (candidate.metadata().ok()?.permissions().mode() & 0o111 != 0)
-                        .then_some(candidate);
-                }
-                #[cfg(not(unix))]
-                { Some(candidate) }
-            }).flatten()
+            candidate
+                .is_file()
+                .then(|| {
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        return (candidate.metadata().ok()?.permissions().mode() & 0o111 != 0)
+                            .then_some(candidate);
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        Some(candidate)
+                    }
+                })
+                .flatten()
         })
         .collect()
 }
@@ -2146,7 +2151,8 @@ fn retire_shadowed_direct_install(shadow: &PathInstallShadow) -> Result<Version,
         shadow.managed_kind,
         UpdateChannel::configured(),
         Some(&shadow.managed),
-    ).ok_or_else(|| "managed install has no update action".to_string())?;
+    )
+    .ok_or_else(|| "managed install has no update action".to_string())?;
     apply_package_manager_update(action)
 }
 
@@ -2160,9 +2166,16 @@ fn package_manager_update_command_for_path(
 ) -> Option<&'static str> {
     match kind {
         InstallKind::Direct => None,
-        InstallKind::Homebrew => Some(if path.is_some_and(|path| {
-            path.components().any(|component| component.as_os_str() == "herdr")
-        }) { HOMEBREW_UPSTREAM_UPDATE_COMMAND } else { HOMEBREW_UPDATE_COMMAND }),
+        InstallKind::Homebrew => Some(
+            if path.is_some_and(|path| {
+                path.components()
+                    .any(|component| component.as_os_str() == "herdr")
+            }) {
+                HOMEBREW_UPSTREAM_UPDATE_COMMAND
+            } else {
+                HOMEBREW_UPDATE_COMMAND
+            },
+        ),
         InstallKind::Npm => Some(NPM_UPDATE_COMMAND),
         InstallKind::Mise => Some(MISE_UPDATE_COMMAND),
         InstallKind::Nix => Some(NIX_UPDATE_COMMAND),
@@ -2172,9 +2185,9 @@ fn package_manager_update_command_for_path(
 fn package_manager_prerelease_note(kind: InstallKind) -> Option<&'static str> {
     match kind {
         InstallKind::Direct => None,
-        InstallKind::Homebrew => Some(
-            "preview and dev channels are only for direct installs; Homebrew stays on stable",
-        ),
+        InstallKind::Homebrew => {
+            Some("preview and dev channels are only for direct installs; Homebrew stays on stable")
+        }
         InstallKind::Npm => {
             Some("preview and dev channels are only for direct installs; npm stays on stable")
         }
