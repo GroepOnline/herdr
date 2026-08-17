@@ -623,10 +623,7 @@ fn main() -> io::Result<()> {
                 "herdr server stop",
                 "Stop the running server via the API socket",
             ),
-            (
-                "herdr channel",
-                "Print the configured update channel",
-            ),
+            ("herdr channel", "Print the configured update channel"),
             (
                 "herdr channel set <stable|preview|dev>",
                 "Choose the stable, preview, or dev update channel",

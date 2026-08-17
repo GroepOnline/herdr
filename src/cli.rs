@@ -1057,7 +1057,10 @@ fn _print_json<T: Serialize>(value: &T) {
 mod tests {
     #[test]
     fn channel_without_args_shows_configured_channel() {
-        assert_eq!(super::channel_command_kind(&[]), super::ChannelCommandKind::Show);
+        assert_eq!(
+            super::channel_command_kind(&[]),
+            super::ChannelCommandKind::Show
+        );
         assert_eq!(
             super::channel_command_kind(&["show".to_string()]),
             super::ChannelCommandKind::Show

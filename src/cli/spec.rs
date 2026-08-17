@@ -145,11 +145,9 @@ fn update_command() -> Command {
     Command::new("update")
         .about("Update this install from the configured channel or its package manager")
         .arg(flag("handoff").help("Try live handoff after installing"))
-        .arg(
-            flag("force-direct").help(
-                "Update a leftover direct install even when a package-manager herdr is later on PATH",
-            ),
-        )
+        .arg(flag("force-direct").help(
+            "Update a leftover direct install even when a package-manager herdr is later on PATH",
+        ))
 }
 
 fn status_command() -> Command {

@@ -2151,9 +2151,9 @@ fn package_manager_update_command(kind: InstallKind) -> Option<&'static str> {
 fn package_manager_prerelease_note(kind: InstallKind) -> Option<&'static str> {
     match kind {
         InstallKind::Direct => None,
-        InstallKind::Homebrew => Some(
-            "preview and dev channels are only for direct installs; Homebrew stays on stable",
-        ),
+        InstallKind::Homebrew => {
+            Some("preview and dev channels are only for direct installs; Homebrew stays on stable")
+        }
         InstallKind::Npm => {
             Some("preview and dev channels are only for direct installs; npm stays on stable")
         }
