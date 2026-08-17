@@ -68,6 +68,7 @@ Process:
    - Compare English next-release website docs against `docs/next/website/src/content/docs/ja/` and `docs/next/website/src/content/docs/zh-cn/`. Flag missing localized files, stale localized files, and heading-outline drift where translated docs do not have the same section structure as English.
    - Compare `docs/next/README.md` against root `README.md`, and compare the staged website-doc mirror against `website/src/content/docs/`. Flag each difference as intended to ship in this release, stale, or needing user decision.
    - Also audit example config snippets for release readiness.
+   - Audit root `SKILL.md` (the file `herdr --skill` embeds) against shipped changes to the CLI, public IDs, pane and agent workflows, lifecycle semantics, and safety guidance. Flag stale commands, options, examples, or behavioral claims. The binary bundles this exact file, so review semantic freshness rather than file synchronization.
 
 8. Verify finalization state.
    - Before `just release`, approved `docs/next/README.md` must be copied to root `README.md`, approved staged website docs must be copied from `docs/next/website/src/content/docs/` to `website/src/content/docs/`, and the deleted root doc files must stay deleted.
@@ -114,8 +115,14 @@ Accepted/no action:
 Root docs finalized: YES | NO
 <result of just release-docs-check or why it was not run>
 
+Agent skill: UP TO DATE | NEEDS UPDATE | NOT CHECKED
+<whether root SKILL.md matches the shipped CLI and agent-control behavior>
+
 Nix cargoHash: OK | NEEDS UPDATE | NOT CHECKED
 <result of nix flake check or the hash-refresh status>
+
+Render scaling: NOT CHECKED
+This fork has no `just bench-render-scale` recipe or equivalent benchmark. Leave this block as NOT CHECKED unless the operator has separately collected 1/15/50-count numbers. Do not invent a benchmark to satisfy this field.
 
 Required before release:
 1. <short action>

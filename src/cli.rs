@@ -33,6 +33,22 @@ const TERMINAL_SESSION_OBSERVE_USAGE: &str =
 const TERMINAL_SESSION_CONTROL_USAGE: &str =
     "usage: herdr terminal session control <target> [--takeover] [--cols N] [--rows N]";
 
+pub(crate) fn agent_help_footer() -> String {
+    format!(
+        concat!(
+            "Are you an AI? Use these resources ONLY IF your task specifically asks you to:\n",
+            "  Help a human understand or set up Herdr for the first time:\n",
+            "    {}\n",
+            "  Debug or investigate a problem with Herdr:\n",
+            "    {}\n",
+            "  Control Herdr panes, agents, or workspaces:\n",
+            "    SKIP if a Herdr skill is already in your context. Otherwise run: herdr --skill",
+        ),
+        crate::product_urls::AGENT_GUIDE_URL,
+        crate::product_urls::LLMS_TXT_URL,
+    )
+}
+
 pub(crate) fn parse_token_assignment(raw: &str) -> Result<(String, Option<String>), String> {
     let Some((key, value)) = raw.split_once('=') else {
         return Err("token must use NAME=VALUE".into());
