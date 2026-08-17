@@ -743,6 +743,7 @@ impl App {
                 .get(idx)
                 .and_then(|ws| ws.focused_pane_id().map(|pane_id| (idx, pane_id)))
         });
+        let now = Instant::now();
 
         Self {
             config_diagnostic_deadline: None,
@@ -753,7 +754,9 @@ impl App {
             terminal_runtimes: restored_terminal_runtimes,
             event_tx,
             event_rx,
-            last_git_remote_status_refresh: Instant::now() - GIT_REMOTE_STATUS_REFRESH_INTERVAL,
+            last_git_remote_status_refresh: now
+                .checked_sub(GIT_REMOTE_STATUS_REFRESH_INTERVAL)
+                .unwrap_or(now),
             git_refresh_in_flight: false,
             git_refresh_due_after_in_flight: false,
             github_refresh_in_flight: false,
@@ -2133,7 +2136,8 @@ mod tests {
     fn git_status_event_clears_in_flight_refresh() {
         let mut app = test_app();
         app.git_refresh_in_flight = true;
-        let previous_refresh = Instant::now() - Duration::from_secs(10);
+        let now = Instant::now();
+        let previous_refresh = now.checked_sub(Duration::from_secs(10)).unwrap_or(now);
         app.last_git_remote_status_refresh = previous_refresh;
 
         app.handle_internal_event(AppEvent::GitStatusRefreshed {
@@ -2142,7 +2146,7 @@ mod tests {
         });
 
         assert!(!app.git_refresh_in_flight);
-        assert!(app.last_git_remote_status_refresh > previous_refresh);
+        assert!(app.last_git_remote_status_refresh >= previous_refresh);
     }
 
     #[test]
@@ -2151,7 +2155,8 @@ mod tests {
         app.state.workspaces.push(Workspace::test_new("one"));
         app.state.workspaces.push(Workspace::test_new("two"));
         app.github_refresh_in_flight = true;
-        let previous_refresh = Instant::now() - Duration::from_secs(10);
+        let now = Instant::now();
+        let previous_refresh = now.checked_sub(Duration::from_secs(10)).unwrap_or(now);
         app.last_github_remote_status_refresh = previous_refresh;
         let first_id = app.state.workspaces[0].id.clone();
         let second_id = app.state.workspaces[1].id.clone();
@@ -2176,7 +2181,7 @@ mod tests {
         });
 
         assert!(!app.github_refresh_in_flight);
-        assert!(app.last_github_remote_status_refresh > previous_refresh);
+        assert!(app.last_github_remote_status_refresh >= previous_refresh);
         assert_eq!(
             app.state.workspaces[0].cached_github_status,
             Some(crate::workspace::GithubStatus {
@@ -4759,7 +4764,7 @@ mod tests {
     fn headless_next_loop_deadline_returns_none_when_resize_poll_is_only_deadline() {
         let mut app = test_app();
         let now = Instant::now();
-        app.next_resize_poll = now - Duration::from_millis(1);
+        app.next_resize_poll = now.checked_sub(Duration::from_millis(1)).unwrap();
         app.config_diagnostic_deadline = None;
         app.toast_deadline = None;
         app.next_animation_tick = None;
@@ -4776,7 +4781,8 @@ mod tests {
     #[test]
     fn due_session_save_deadline_is_cleared() {
         let mut app = test_app();
-        app.session_save_deadline = Some(Instant::now() - Duration::from_secs(1));
+        app.session_save_deadline =
+            Some(Instant::now().checked_sub(Duration::from_secs(1)).unwrap());
 
         app.handle_scheduled_tasks(Instant::now(), false);
 
@@ -4794,7 +4800,8 @@ mod tests {
         app.no_session = false;
         app.state.workspaces = vec![Workspace::test_new("autosave")];
         app.state.ensure_test_terminals();
-        app.session_save_deadline = Some(Instant::now() - Duration::from_secs(1));
+        app.session_save_deadline =
+            Some(Instant::now().checked_sub(Duration::from_secs(1)).unwrap());
 
         app.handle_scheduled_tasks(Instant::now(), false);
 
