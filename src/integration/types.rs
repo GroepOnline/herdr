@@ -110,6 +110,31 @@ pub(crate) struct GrokUninstallResult {
 }
 
 #[derive(Debug)]
+pub(crate) struct CommandCodeInstallPaths {
+    pub hook_path: PathBuf,
+    pub config_path: PathBuf,
+}
+
+#[derive(Debug)]
+pub(crate) struct CommandCodeUninstallResult {
+    pub hook_path: PathBuf,
+    pub config_path: PathBuf,
+    pub removed_hook_file: bool,
+    pub removed_config_file: bool,
+}
+
+#[derive(Debug)]
+pub(crate) struct FreebuffInstallPaths {
+    pub hook_path: PathBuf,
+}
+
+#[derive(Debug)]
+pub(crate) struct FreebuffUninstallResult {
+    pub hook_path: PathBuf,
+    pub removed_hook_file: bool,
+}
+
+#[derive(Debug)]
 pub(crate) struct QodercliUninstallResult {
     pub hook_path: PathBuf,
     pub settings_path: PathBuf,

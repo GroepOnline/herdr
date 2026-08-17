@@ -13,18 +13,19 @@ use super::config_edit::{
     remove_hook_commands, remove_kimi_config_block, remove_simple_command_hook,
 };
 use super::env::{
-    antigravity_cli_dir, claude_dir, codex_dir, copilot_dir, cursor_dir, devin_dir, droid_dir,
-    grok_dir, hermes_dir, hermes_plugin_dir, kilo_dir, kimi_dir, mastracode_dir, omp_extension_dir,
-    opencode_dir, pi_extension_dir, qodercli_dir,
+    antigravity_cli_dir, claude_dir, codex_dir, commandcode_dir, copilot_dir, cursor_dir,
+    devin_dir, droid_dir, freebuff_dir, grok_dir, hermes_dir, hermes_plugin_dir, kilo_dir,
+    kimi_dir, mastracode_dir, omp_extension_dir, opencode_dir, pi_extension_dir, qodercli_dir,
 };
 use super::file_ops::{
     make_executable, remove_dir_all_if_exists, remove_file_if_exists, remove_legacy_bash_hook_file,
 };
 use super::types::{
     AntigravityCliInstallPaths, AntigravityCliUninstallResult, ClaudeInstallPaths,
-    ClaudeUninstallResult, CodexInstallPaths, CodexUninstallResult, CopilotInstallPaths,
-    CopilotUninstallResult, CursorInstallPaths, CursorUninstallResult, DevinInstallPaths,
-    DevinUninstallResult, DroidInstallPaths, DroidUninstallResult, GrokInstallPaths,
+    ClaudeUninstallResult, CodexInstallPaths, CodexUninstallResult, CommandCodeInstallPaths,
+    CommandCodeUninstallResult, CopilotInstallPaths, CopilotUninstallResult, CursorInstallPaths,
+    CursorUninstallResult, DevinInstallPaths, DevinUninstallResult, DroidInstallPaths,
+    DroidUninstallResult, FreebuffInstallPaths, FreebuffUninstallResult, GrokInstallPaths,
     GrokUninstallResult, HermesInstallPaths, HermesUninstallResult, KiloInstallPaths,
     KiloUninstallResult, KimiInstallPaths, KimiUninstallResult, MastracodeInstallPaths,
     MastracodeUninstallResult, OmpInstallPaths, OmpUninstallResult, OpenCodeInstallPaths,
@@ -1392,5 +1393,127 @@ pub(crate) fn uninstall_grok() -> io::Result<GrokUninstallResult> {
         config_path,
         removed_hook_file,
         removed_config_file,
+    })
+}
+
+/// The Herdr-owned Command Code SessionStart hook command. Command Code merges
+/// every hook entry in the single user settings.json, so herdr registers its
+/// own entry under `hooks.SessionStart` next to the user's other entries and
+/// never rewrites unrelated keys.
+pub(crate) fn commandcode_hook_command(hook_path: &Path) -> String {
+    hook_command(hook_path, Some("session"))
+}
+
+pub(crate) fn install_commandcode() -> io::Result<CommandCodeInstallPaths> {
+    let dir = commandcode_dir()?;
+    if !dir.is_dir() {
+        return Err(io::Error::other(format!(
+            "Command Code config directory not found at {}. install commandcode cli first",
+            dir.display()
+        )));
+    }
+    let hooks_dir = dir.join("hooks");
+    fs::create_dir_all(&hooks_dir)?;
+
+    let hook_path = hooks_dir.join(super::COMMANDCODE_HOOK_INSTALL_NAME);
+    fs::write(&hook_path, super::COMMANDCODE_HOOK_ASSET)?;
+    make_executable(&hook_path)?;
+
+    // Merge (never replace) the user's settings.json so custom hooks, MCP
+    // servers, and other keys survive. The file is created when absent.
+    let settings_path = dir.join(super::COMMANDCODE_SETTINGS_INSTALL_NAME);
+    let mut settings: Value = match fs::read_to_string(&settings_path) {
+        Ok(content) if !content.trim().is_empty() => {
+            serde_json::from_str(&content).map_err(|err| {
+                io::Error::other(format!(
+                    "Command Code settings at {} are not valid JSON: {err}",
+                    settings_path.display()
+                ))
+            })?
+        }
+        _ => json!({}),
+    };
+    {
+        let hooks = ensure_hooks_object(
+            &mut settings,
+            &settings_path,
+            "Command Code settings",
+            "Command Code hooks",
+        )?;
+        ensure_command_hook(
+            hooks,
+            "SessionStart",
+            commandcode_hook_command(&hook_path),
+            10,
+            None,
+        )?;
+    }
+    fs::write(&settings_path, serde_json::to_string_pretty(&settings)?)?;
+
+    Ok(CommandCodeInstallPaths {
+        hook_path,
+        config_path: settings_path,
+    })
+}
+
+pub(crate) fn uninstall_commandcode() -> io::Result<CommandCodeUninstallResult> {
+    let dir = commandcode_dir()?;
+    let hooks_dir = dir.join("hooks");
+    let hook_path = hooks_dir.join(super::COMMANDCODE_HOOK_INSTALL_NAME);
+    let settings_path = dir.join(super::COMMANDCODE_SETTINGS_INSTALL_NAME);
+
+    let removed_hook_file = remove_file_if_exists(&hook_path)?;
+
+    // Remove only the herdr-owned SessionStart entry, preserving the rest of
+    // the user's settings.
+    let mut removed_config_file = false;
+    if let Ok(content) = fs::read_to_string(&settings_path) {
+        if let Ok(mut settings) = serde_json::from_str::<Value>(&content) {
+            if let Some(hooks) = settings.get_mut("hooks").and_then(Value::as_object_mut) {
+                if remove_hook_commands(hooks, "SessionStart", &hook_path, Some("session"))? {
+                    fs::write(&settings_path, serde_json::to_string_pretty(&settings)?)?;
+                    removed_config_file = true;
+                }
+            }
+        }
+    }
+
+    Ok(CommandCodeUninstallResult {
+        hook_path,
+        config_path: settings_path,
+        removed_hook_file,
+        removed_config_file,
+    })
+}
+
+pub(crate) fn install_freebuff() -> io::Result<FreebuffInstallPaths> {
+    let dir = freebuff_dir()?;
+    if !dir.is_dir() {
+        return Err(io::Error::other(format!(
+            "Freebuff config directory not found at {}. install freebuff cli first",
+            dir.display()
+        )));
+    }
+    let hooks_dir = dir.join("hooks");
+    fs::create_dir_all(&hooks_dir)?;
+
+    let hook_path = hooks_dir.join(super::FREEBUFF_HOOK_INSTALL_NAME);
+    fs::write(&hook_path, super::FREEBUFF_HOOK_ASSET)?;
+    make_executable(&hook_path)?;
+
+    Ok(FreebuffInstallPaths { hook_path })
+}
+
+pub(crate) fn uninstall_freebuff() -> io::Result<FreebuffUninstallResult> {
+    let dir = freebuff_dir()?;
+    let hooks_dir = dir.join("hooks");
+    let hook_path = hooks_dir.join(super::FREEBUFF_HOOK_INSTALL_NAME);
+    let removed_hook_file = remove_file_if_exists(&hook_path)?;
+    let _ = hooks_dir;
+    let _ = dir;
+
+    Ok(FreebuffUninstallResult {
+        hook_path,
+        removed_hook_file,
     })
 }

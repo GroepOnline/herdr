@@ -2,13 +2,13 @@ use std::io;
 
 use super::registry::{integration_target_label, integration_target_supported};
 use super::targets::{
-    install_antigravity_cli, install_claude, install_codex, install_copilot, install_cursor,
-    install_devin, install_droid, install_grok, install_hermes, install_kilo, install_kimi,
-    install_mastracode, install_omp, install_opencode, install_pi, install_qodercli,
-    uninstall_antigravity_cli, uninstall_claude, uninstall_codex, uninstall_copilot,
-    uninstall_cursor, uninstall_devin, uninstall_droid, uninstall_grok, uninstall_hermes,
-    uninstall_kilo, uninstall_kimi, uninstall_mastracode, uninstall_omp, uninstall_opencode,
-    uninstall_pi, uninstall_qodercli,
+    install_antigravity_cli, install_claude, install_codex, install_commandcode, install_copilot,
+    install_cursor, install_devin, install_droid, install_freebuff, install_grok, install_hermes,
+    install_kilo, install_kimi, install_mastracode, install_omp, install_opencode, install_pi,
+    install_qodercli, uninstall_antigravity_cli, uninstall_claude, uninstall_codex,
+    uninstall_commandcode, uninstall_copilot, uninstall_cursor, uninstall_devin, uninstall_droid,
+    uninstall_freebuff, uninstall_grok, uninstall_hermes, uninstall_kilo, uninstall_kimi,
+    uninstall_mastracode, uninstall_omp, uninstall_opencode, uninstall_pi, uninstall_qodercli,
 };
 use super::version::{agent_version_requirement, enforce_agent_version};
 use super::{KIMI_MIN_VERSION, PI_EXTENSION_INSTALL_NAME};
@@ -229,6 +229,31 @@ fn install_target_inner(target: crate::api::schema::IntegrationTarget) -> io::Re
                     "registered grok hook config at {}",
                     installed.config_path.display()
                 ),
+            ]
+        }
+        crate::api::schema::IntegrationTarget::CommandCode => {
+            let installed = install_commandcode()?;
+            vec![
+                format!(
+                    "installed commandcode integration hook to {}",
+                    installed.hook_path.display()
+                ),
+                format!(
+                    "registered commandcode SessionStart hook in {}",
+                    installed.config_path.display()
+                ),
+            ]
+        }
+        crate::api::schema::IntegrationTarget::Freebuff => {
+            let installed = install_freebuff()?;
+            vec![
+                format!(
+                    "installed freebuff integration hook to {}",
+                    installed.hook_path.display()
+                ),
+                "freebuff is screen-detected until freebuff supports hooks; \
+                 this staged hook will report session ids the moment it does"
+                    .to_string(),
             ]
         }
     };
@@ -638,6 +663,47 @@ pub(crate) fn uninstall_target(
                 ));
             }
             messages
+        }
+        crate::api::schema::IntegrationTarget::CommandCode => {
+            let result = uninstall_commandcode()?;
+            let mut messages = Vec::new();
+            if result.removed_hook_file {
+                messages.push(format!(
+                    "removed commandcode hook at {}",
+                    result.hook_path.display()
+                ));
+            } else {
+                messages.push(format!(
+                    "no commandcode hook found at {}",
+                    result.hook_path.display()
+                ));
+            }
+            if result.removed_config_file {
+                messages.push(format!(
+                    "removed herdr commandcode hook entry from {}",
+                    result.config_path.display()
+                ));
+            } else {
+                messages.push(format!(
+                    "no herdr commandcode hook entry found in {}",
+                    result.config_path.display()
+                ));
+            }
+            messages
+        }
+        crate::api::schema::IntegrationTarget::Freebuff => {
+            let result = uninstall_freebuff()?;
+            if result.removed_hook_file {
+                vec![format!(
+                    "removed freebuff hook at {}",
+                    result.hook_path.display()
+                )]
+            } else {
+                vec![format!(
+                    "no freebuff hook found at {}",
+                    result.hook_path.display()
+                )]
+            }
         }
     };
 
