@@ -146,6 +146,15 @@ fn spawn_herdr_with_options(
     cmd.env_remove("HERDR_CLIENT_SOCKET_PATH");
     cmd.env("SHELL", shell);
     cmd.env_remove("HERDR_ENV");
+    // Isolate pane shells from the developer machine's interactive dotfiles:
+    // a real ~/.bashrc (starship/zoxide eval, ssh-agent, PATH rewrites) can
+    // corrupt the pane environment (observed: PATH mangled to `\/bin:\` on a
+    // dev box), making pane commands like `touch` unresolvable and these
+    // tests machine-dependent. CI runners have no dotfiles, so CI stayed
+    // green while local machines went red.
+    cmd.env("HOME", config_home);
+    cmd.env_remove("BASH_ENV");
+    cmd.env_remove("ENV");
     if let Some(path) = path_override {
         cmd.env("PATH", path);
     }

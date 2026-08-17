@@ -5010,7 +5010,11 @@ mod tests {
             next_client_id: 1,
             foreground_client_id: None,
             server_keybindings,
-            pi_session_watcher: crate::pi_sessions::PiSessionWatcher::new(),
+            // Pin the pi-session watcher to an empty temp root so the real
+            // ~/.pi/agent/sessions of the developer machine cannot leak
+            // envelopes into headless scheduled-task tests (CI has no such
+            // dir, local machines do).
+            pi_session_watcher: crate::pi_sessions::PiSessionWatcher::for_root(dir.clone()),
             server_config_diagnostic: None,
             server_config_diagnostic_without_keybindings: None,
             terminal_attach_owners: HashMap::new(),
