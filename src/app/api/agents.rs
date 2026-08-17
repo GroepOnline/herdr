@@ -94,6 +94,41 @@ impl App {
                 ),
             );
         }
+        // Readiness/identity checks above run first so callers still get
+        // agent_not_ready for a stale or still-launching pane; only after the
+        // pane is confirmed to host the expected agent do we report a
+        // blocked-state error. Cached `terminal.state` is the last detector
+        // poll; re-evaluate from a live bottom-buffer snapshot so an approval
+        // dialog painted between polls cannot receive prompt+Enter.
+        let cached_state = terminal.state;
+        let (detection_screen, osc_title, osc_progress) =
+            if terminal.full_lifecycle_hook_authority_active() {
+                // Hook-owned lifecycle skips screen detection, matching
+                // `agent explain`. Empty evidence keeps the cached check.
+                (String::new(), String::new(), String::new())
+            } else {
+                (
+                    runtime.detection_text(),
+                    runtime.agent_osc_title(),
+                    runtime.agent_osc_progress(),
+                )
+            };
+        if terminal_is_blocked_for_prompt(
+            cached_state,
+            Some(expected_agent),
+            &detection_screen,
+            &osc_title,
+            &osc_progress,
+        ) {
+            return encode_error(
+                id,
+                "agent_blocked",
+                format!(
+                    "agent {} is blocked and requires interactive input",
+                    params.target
+                ),
+            );
+        }
         let bytes = crate::app::api_helpers::encode_api_submission(runtime, &params.text);
         if let Err(err) = runtime.try_send_bytes(Bytes::from(bytes)) {
             return encode_error(id, "agent_prompt_failed", err.to_string());
@@ -262,6 +297,37 @@ impl App {
     }
 }
 
+/// Cached detector-poll state OR live bottom-buffer/OSC detect.
+/// Empty snapshots keep the cached Blocked check only. Viewer screens
+/// (`skip_state_update`) are not treated as live-blocked.
+fn terminal_is_blocked_for_prompt(
+    cached_state: crate::detect::AgentState,
+    agent: Option<crate::detect::Agent>,
+    detection_screen: &str,
+    osc_title: &str,
+    osc_progress: &str,
+) -> bool {
+    cached_state == crate::detect::AgentState::Blocked
+        || live_detection_shows_blocked(agent, detection_screen, osc_title, osc_progress)
+}
+
+fn live_detection_shows_blocked(
+    agent: Option<crate::detect::Agent>,
+    detection_screen: &str,
+    osc_title: &str,
+    osc_progress: &str,
+) -> bool {
+    if detection_screen.trim().is_empty()
+        && osc_title.trim().is_empty()
+        && osc_progress.trim().is_empty()
+    {
+        return false;
+    }
+    let detection =
+        crate::detect::detect_agent_with_osc(agent, detection_screen, osc_title, osc_progress);
+    !detection.skip_state_update && detection.state == crate::detect::AgentState::Blocked
+}
+
 fn agent_not_ready(id: String, target: &str) -> String {
     encode_error(
         id,
@@ -288,6 +354,8 @@ mod tests {
         detect::{Agent, AgentState},
         workspace::Workspace,
     };
+
+    use std::time::Duration;
 
     fn app_with_agent() -> App {
         let (_api_tx, api_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -370,6 +438,159 @@ mod tests {
         let error: crate::api::schema::ErrorResponse = serde_json::from_str(&rejected).unwrap();
         assert_eq!(error.error.code, "agent_not_found");
         assert!(rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn agent_prompt_rejects_blocked_agent_without_writing() {
+        let mut app = app_with_agent();
+        let pane_id = app.state.workspaces[0].tabs[0].root_pane;
+        let terminal_id = app.state.workspaces[0].tabs[0].panes[&pane_id]
+            .attached_terminal_id
+            .clone();
+        let terminal = app.state.terminals.get_mut(&terminal_id).unwrap();
+        terminal.set_agent_name("reviewer".into());
+        terminal.set_detected_state(Some(Agent::GithubCopilot), AgentState::Blocked);
+        let (runtime, mut rx) = crate::terminal::TerminalRuntime::test_with_channel(80, 24);
+        app.state.insert_test_runtime(pane_id, runtime);
+
+        let response = app.handle_agent_prompt(
+            "req".into(),
+            AgentPromptParams {
+                target: "reviewer".into(),
+                text: "unrelated prompt".into(),
+                wait: None,
+            },
+        );
+
+        let error: crate::api::schema::ErrorResponse = serde_json::from_str(&response).unwrap();
+        assert_eq!(error.error.code, "agent_blocked");
+        assert!(
+            tokio::time::timeout(Duration::from_millis(200), rx.recv())
+                .await
+                .is_err(),
+            "blocked prompt wrote or scheduled terminal input"
+        );
+    }
+
+    #[tokio::test]
+    async fn agent_prompt_rejects_stale_cache_when_live_detection_is_blocked() {
+        let mut app = app_with_agent();
+        let pane_id = app.state.workspaces[0].tabs[0].root_pane;
+        let terminal_id = app.state.workspaces[0].tabs[0].panes[&pane_id]
+            .attached_terminal_id
+            .clone();
+        let terminal = app.state.terminals.get_mut(&terminal_id).unwrap();
+        terminal.set_agent_name("reviewer".into());
+        // Last detector poll still says Working; the approval dialog is only
+        // on the live detection snapshot.
+        terminal.set_detected_state(Some(Agent::GithubCopilot), AgentState::Working);
+        let blocked_screen = b"esc to cancel\r\nenter to confirm\r\n";
+        let (runtime, mut rx) =
+            crate::terminal::TerminalRuntime::test_with_channel_and_scrollback_bytes(
+                80,
+                24,
+                0,
+                blocked_screen,
+                1,
+            );
+        let snapshot = runtime.detection_text();
+        assert!(
+            snapshot.to_ascii_lowercase().contains("enter to confirm"),
+            "fixture must land in detection source, got {snapshot:?}"
+        );
+        assert!(
+            terminal_is_blocked_for_prompt(
+                AgentState::Working,
+                Some(Agent::GithubCopilot),
+                &snapshot,
+                &runtime.agent_osc_title(),
+                &runtime.agent_osc_progress(),
+            ),
+            "new path must consult live detect, not only terminal.state"
+        );
+        app.state.insert_test_runtime(pane_id, runtime);
+
+        let response = app.handle_agent_prompt(
+            "req-live-blocked".into(),
+            AgentPromptParams {
+                target: "reviewer".into(),
+                text: "approve this".into(),
+                wait: None,
+            },
+        );
+
+        let error: crate::api::schema::ErrorResponse = serde_json::from_str(&response).unwrap();
+        assert_eq!(error.error.code, "agent_blocked");
+        assert!(
+            tokio::time::timeout(Duration::from_millis(200), rx.recv())
+                .await
+                .is_err(),
+            "live-blocked prompt wrote or scheduled terminal input"
+        );
+    }
+
+    #[test]
+    fn terminal_is_blocked_for_prompt_ors_cache_and_live_detect() {
+        let blocked_screen = "esc to cancel\nenter to confirm\n";
+        assert!(terminal_is_blocked_for_prompt(
+            AgentState::Blocked,
+            Some(Agent::GithubCopilot),
+            "",
+            "",
+            "",
+        ));
+        assert!(!terminal_is_blocked_for_prompt(
+            AgentState::Idle,
+            Some(Agent::GithubCopilot),
+            "",
+            "",
+            "",
+        ));
+        assert!(!terminal_is_blocked_for_prompt(
+            AgentState::Working,
+            Some(Agent::GithubCopilot),
+            "",
+            "",
+            "",
+        ));
+        assert!(terminal_is_blocked_for_prompt(
+            AgentState::Working,
+            Some(Agent::GithubCopilot),
+            blocked_screen,
+            "",
+            "",
+        ));
+        assert!(terminal_is_blocked_for_prompt(
+            AgentState::Idle,
+            Some(Agent::GithubCopilot),
+            blocked_screen,
+            "",
+            "",
+        ));
+        assert!(!terminal_is_blocked_for_prompt(
+            AgentState::Idle,
+            Some(Agent::GithubCopilot),
+            "ordinary prompt text",
+            "",
+            "",
+        ));
+        assert!(terminal_is_blocked_for_prompt(
+            AgentState::Working,
+            Some(Agent::Codex),
+            "",
+            "Action Required",
+            "",
+        ));
+        let viewer =
+            "↑/↓ to scroll · pgup/pgdn to move · home/end to jump · q to quit · esc to edit prev\n\
+            Press enter to confirm or esc to cancel\n";
+        assert!(!terminal_is_blocked_for_prompt(
+            AgentState::Idle,
+            Some(Agent::Codex),
+            viewer,
+            "",
+            "",
+        ));
     }
 
     #[tokio::test]

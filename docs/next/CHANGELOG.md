@@ -7,6 +7,11 @@
 - Command Code (cmd) integration: `herdr integration install commandcode` installs a SessionStart hook that reports `COMMANDCODE_SESSION_ID` to Herdr's socket API (native session restore with `cmd --resume <id>`), merges its hook entry into `~/.commandcode/settings.json` without touching user entries, and adds screen detection for the cmd TUI. (#43)
 - Freebuff integration target: `herdr integration install freebuff` stages a session-state hook in `~/.freebuff/hooks/` (freebuff has no hook lifecycle yet, so state stays screen-detected) and adds native resume support via `freebuff --continue <id>`. (#43)
 - `opencode2` / `open-code-2` now resolve to the opencode agent for CLI and API compatibility with the OpenCode v2 line. (#43)
+- Headless servers now use a configurable 120×40 virtual terminal instead of 80×24 when no client is attached, giving newly created panes a practical default size. (#2828)
+
+### Fixed
+- `agent prompt` now rejects agents already waiting at approval or question dialogs with `agent_blocked`, without sending text or Enter. The check uses the last detector-poll cache and a live bottom-buffer detection snapshot so a dialog painted between polls cannot receive prompt+Enter. (#2790)
+- Remote clients now continue redrawing at very large terminal sizes instead of freezing when a full ANSI frame exceeds the transport limit. (#2675)
 
 ## [0.8.1] - 2026-08-15
 
