@@ -7,6 +7,9 @@
 - Freebuff integration target: `herdr integration install freebuff` stages a session-state hook in `~/.freebuff/hooks/` (freebuff has no hook lifecycle yet, so state stays screen-detected) and adds native resume support via `freebuff --continue <id>`. (#43)
 - `opencode2` / `open-code-2` now resolve to the opencode agent for CLI and API compatibility with the OpenCode v2 line. (#43)
 
+### Fixed
+- Command Code no longer treats Windows `cmd.exe` as the installed CLI, and uninstall now fails closed on malformed `settings.json` instead of deleting the hook while leaving the SessionStart registration behind.
+
 ## [0.8.1] - 2026-08-15
 
 ### Added

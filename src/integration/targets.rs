@@ -1462,21 +1462,41 @@ pub(crate) fn uninstall_commandcode() -> io::Result<CommandCodeUninstallResult> 
     let hook_path = hooks_dir.join(super::COMMANDCODE_HOOK_INSTALL_NAME);
     let settings_path = dir.join(super::COMMANDCODE_SETTINGS_INSTALL_NAME);
 
-    let removed_hook_file = remove_file_if_exists(&hook_path)?;
-
-    // Remove only the herdr-owned SessionStart entry, preserving the rest of
-    // the user's settings.
+    // Parse settings before deleting the hook. A malformed file must fail
+    // closed so we do not leave the SessionStart entry pointing at a
+    // missing script.
     let mut removed_config_file = false;
-    if let Ok(content) = fs::read_to_string(&settings_path) {
-        if let Ok(mut settings) = serde_json::from_str::<Value>(&content) {
-            if let Some(hooks) = settings.get_mut("hooks").and_then(Value::as_object_mut) {
-                if remove_hook_commands(hooks, "SessionStart", &hook_path, Some("session"))? {
-                    fs::write(&settings_path, serde_json::to_string_pretty(&settings)?)?;
-                    removed_config_file = true;
-                }
+    if settings_path.is_file() {
+        let content = fs::read_to_string(&settings_path).map_err(|err| {
+            io::Error::new(
+                err.kind(),
+                format!(
+                    "failed to read Command Code settings at {}: {err}",
+                    settings_path.display()
+                ),
+            )
+        })?;
+        let mut settings = serde_json::from_str::<Value>(&content).map_err(|err| {
+            io::Error::other(format!(
+                "Command Code settings at {} are not valid JSON: {err}",
+                settings_path.display()
+            ))
+        })?;
+
+        if let Some(hooks) = hooks_object_if_present(
+            &mut settings,
+            &settings_path,
+            "Command Code settings",
+            "Command Code hooks",
+        )? {
+            if remove_hook_commands(hooks, "SessionStart", &hook_path, Some("session"))? {
+                fs::write(&settings_path, serde_json::to_string_pretty(&settings)?)?;
+                removed_config_file = true;
             }
         }
     }
+
+    let removed_hook_file = remove_file_if_exists(&hook_path)?;
 
     Ok(CommandCodeUninstallResult {
         hook_path,
