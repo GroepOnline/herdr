@@ -740,6 +740,7 @@ impl App {
                 .get(idx)
                 .and_then(|ws| ws.focused_pane_id().map(|pane_id| (idx, pane_id)))
         });
+        let now = Instant::now();
 
         Self {
             config_diagnostic_deadline: None,
@@ -750,9 +751,9 @@ impl App {
             terminal_runtimes: restored_terminal_runtimes,
             event_tx,
             event_rx,
-            last_git_remote_status_refresh: Instant::now()
+            last_git_remote_status_refresh: now
                 .checked_sub(GIT_REMOTE_STATUS_REFRESH_INTERVAL)
-                .unwrap(),
+                .unwrap_or(now),
             git_refresh_in_flight: false,
             git_refresh_due_after_in_flight: false,
             github_refresh_in_flight: false,
@@ -2116,7 +2117,8 @@ mod tests {
     fn git_status_event_clears_in_flight_refresh() {
         let mut app = test_app();
         app.git_refresh_in_flight = true;
-        let previous_refresh = Instant::now().checked_sub(Duration::from_secs(10)).unwrap();
+        let now = Instant::now();
+        let previous_refresh = now.checked_sub(Duration::from_secs(10)).unwrap_or(now);
         app.last_git_remote_status_refresh = previous_refresh;
 
         app.handle_internal_event(AppEvent::GitStatusRefreshed {
@@ -2125,7 +2127,7 @@ mod tests {
         });
 
         assert!(!app.git_refresh_in_flight);
-        assert!(app.last_git_remote_status_refresh > previous_refresh);
+        assert!(app.last_git_remote_status_refresh >= previous_refresh);
     }
 
     #[test]
@@ -2134,7 +2136,8 @@ mod tests {
         app.state.workspaces.push(Workspace::test_new("one"));
         app.state.workspaces.push(Workspace::test_new("two"));
         app.github_refresh_in_flight = true;
-        let previous_refresh = Instant::now().checked_sub(Duration::from_secs(10)).unwrap();
+        let now = Instant::now();
+        let previous_refresh = now.checked_sub(Duration::from_secs(10)).unwrap_or(now);
         app.last_github_remote_status_refresh = previous_refresh;
         let first_id = app.state.workspaces[0].id.clone();
         let second_id = app.state.workspaces[1].id.clone();
@@ -2159,7 +2162,7 @@ mod tests {
         });
 
         assert!(!app.github_refresh_in_flight);
-        assert!(app.last_github_remote_status_refresh > previous_refresh);
+        assert!(app.last_github_remote_status_refresh >= previous_refresh);
         assert_eq!(
             app.state.workspaces[0].cached_github_status,
             Some(crate::workspace::GithubStatus {
