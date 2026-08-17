@@ -19,7 +19,7 @@ SITE_URL_MIRRORS = [
 ]
 
 # Rust modules that import the shared constants instead of mirroring them.
-RUST_IMPORTERS = ["src/update.rs", "src/remote/attach.rs"]
+RUST_IMPORTERS = ["src/update.rs", "src/remote/attach.rs", "src/cli.rs"]
 
 # The update-chain surface. None of these may reference an upstream (herdr.dev
 # / herdr.pages.dev / herdrdev) deployment, which would silently break
@@ -28,6 +28,7 @@ UPDATE_CHAIN_FILES = [
     "src/product_urls.rs",
     "src/update.rs",
     "src/remote/attach.rs",
+    "src/cli.rs",
     "website/src/config/product.ts",
     "scripts/product_config.py",
     "website/install.sh",
@@ -71,6 +72,11 @@ class ProductUrlSyncTests(unittest.TestCase):
         self.assertIn("crate::product_urls", attach_text)
         for name in ("STABLE_UPDATE_MANIFEST_URL", "PREVIEW_UPDATE_MANIFEST_URL", "DEV_UPDATE_MANIFEST_URL"):
             self.assertIn(name, attach_text, f"attach.rs missing {name}")
+        cli_text = (ROOT / "src/cli.rs").read_text(encoding="utf-8")
+        self.assertIn("crate::product_urls::AGENT_GUIDE_URL", cli_text)
+        self.assertIn("crate::product_urls::LLMS_TXT_URL", cli_text)
+        self.assertNotIn("https://herdr.chefgroep.nl/agent-guide.md", cli_text)
+        self.assertNotIn("https://herdr.chefgroep.nl/llms.txt", cli_text)
 
     def test_update_chain_never_references_upstream_domains(self):
         for rel in UPDATE_CHAIN_FILES:
@@ -105,7 +111,7 @@ class ProductUrlSyncTests(unittest.TestCase):
     def test_channel_manifests_derive_from_site_url(self):
         expected = site_url()
         source = (ROOT / "src" / "product_urls.rs").read_text(encoding="utf-8")
-        for suffix in ("latest.json", "preview.json", "dev.json"):
+        for suffix in ("latest.json", "preview.json", "dev.json", "agent-guide.md", "llms.txt"):
             self.assertIn(
                 f"{expected}/{suffix}",
                 source,
