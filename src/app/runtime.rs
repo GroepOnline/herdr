@@ -1121,12 +1121,17 @@ mod tests {
         // Also neutralize XDG_CONFIG_HOME / GH_CONFIG_DIR: `gh auth token`
         // reads hosts.yml from there when set, which made this test fail on
         // developer machines with a logged-in gh CLI (CI has none).
+        // Finally pin PATH to the empty temp dir so the `gh` binary is
+        // unresolvable: `gh auth token` can otherwise return a token from the
+        // OS keyring / secure storage even with HOME/XDG neutralized, and the
+        // resulting refresh would `tokio::spawn` outside a runtime and panic.
         let env_names = [
             "GH_TOKEN",
             "GITHUB_TOKEN",
             "HOME",
             "XDG_CONFIG_HOME",
             "GH_CONFIG_DIR",
+            "PATH",
         ];
         let previous_env = env_names
             .iter()
@@ -1144,6 +1149,7 @@ mod tests {
         std::env::set_var("HOME", &temp_home);
         std::env::remove_var("XDG_CONFIG_HOME");
         std::env::remove_var("GH_CONFIG_DIR");
+        std::env::set_var("PATH", &temp_home);
 
         app.start_github_status_refresh_if_due(now);
 
