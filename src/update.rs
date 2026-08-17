@@ -2938,8 +2938,7 @@ mod tests {
         let leftover = dir.join("herdr");
         fs::write(&target, b"").unwrap();
         std::os::unix::fs::symlink(&target, &leftover).unwrap();
-        let managed =
-            PathBuf::from("/opt/homebrew/Cellar/groeponline-herdr/0.8.1/bin/herdr");
+        let managed = PathBuf::from("/opt/homebrew/Cellar/groeponline-herdr/0.8.1/bin/herdr");
 
         assert_eq!(
             path_install_shadow(&target, &[leftover.clone(), managed.clone()]),
