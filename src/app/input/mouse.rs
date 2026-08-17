@@ -1179,29 +1179,30 @@ impl AppState {
             // Edge-swipe: a touch drag that starts at the left edge of the
             // screen opens the switcher, mirroring the header button.
             //
-            // The initial press is consumed (we don't fall through to the
-            // pane-forwarding path) so the pane app never sees a Down without
-            // a matching Up when the swipe is recognised mid-drag. If the
-            // gesture turns out not to be a swipe (vertical or short drag,
-            // or a quick tap), we never forward a phantom Down either —
-            // terminals that dropped the button-release report simply lose
-            // the would-be gesture, which is preferable to leaving the pane
-            // app in a stuck-pressed state.
+            // Arming the swipe does NOT consume the press: the Down still
+            // falls through to the normal pane-forwarding path so a tap or a
+            // short drag that starts in the leftmost columns still reaches the
+            // pane app. Only the drag event that actually crosses the swipe
+            // threshold is consumed (to open the switcher). Terminals report a
+            // Drag per cell crossed, so the start position is preserved across
+            // short horizontal drags and disarmed only when the gesture turns
+            // contradictory (vertical-dominant), on release, or on a new press.
             if !matches!(self.mode, Mode::Terminal | Mode::Resize) {
                 self.mobile_swipe_start = None;
                 return MobileMouseResult::Ignored;
             }
             match mouse.kind {
                 MouseEventKind::Down(MouseButton::Left) if mouse.column <= MOBILE_SWIPE_EDGE => {
+                    // Arm the swipe but let the press reach the pane app below
+                    // (Ignored, not Consumed) so leftmost-column taps/clicks
+                    // and short drag-selections still work.
                     self.mobile_swipe_start = Some((mouse.column, mouse.row));
-                    return MobileMouseResult::Consumed;
                 }
                 MouseEventKind::Down(_) if self.mobile_swipe_start.is_some() => {
                     // A non-edge Down while a swipe is armed means the user
                     // started a different gesture; drop the swipe so a stale
                     // start position can't fire later.
                     self.mobile_swipe_start = None;
-                    return MobileMouseResult::Ignored;
                 }
                 MouseEventKind::Drag(MouseButton::Left) => {
                     if let Some((start_col, start_row)) = self.mobile_swipe_start {
@@ -1213,22 +1214,24 @@ impl AppState {
                             self.mode = Mode::Navigate;
                             return MobileMouseResult::Consumed;
                         }
-                        // The gesture is no longer a clean horizontal
-                        // edge-swipe (vertical or too short); disarm it so a
-                        // later unrelated drag can't be measured against a
-                        // stale start position.
-                        self.mobile_swipe_start = None;
+                        // Disarm only when the gesture is no longer a clean
+                        // horizontal edge-swipe (vertical-dominant movement).
+                        // A short but still-horizontal drag keeps the start
+                        // position so the swipe can accumulate across the
+                        // per-cell Drag reports that real terminals emit.
+                        if dy >= dx {
+                            self.mobile_swipe_start = None;
+                        }
                     }
+                    // A drag is never a header-button press; don't fall
+                    // through to the header hit-test below.
+                    return MobileMouseResult::Ignored;
                 }
                 MouseEventKind::Up(MouseButton::Left) => {
                     self.mobile_swipe_start = None;
                     return MobileMouseResult::Ignored;
                 }
-                MouseEventKind::Down(MouseButton::Left) => {
-                    // Non-edge press: fall through to the header-button check
-                    // below so the switcher button keeps working.
-                }
-                _ => return MobileMouseResult::Ignored,
+                _ => {}
             }
         }
 
