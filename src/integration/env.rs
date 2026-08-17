@@ -24,6 +24,12 @@ pub(crate) const GROK_CONFIG_DIR_ENV_VAR: &str = "GROK_CONFIG_DIR";
 /// `$GROK_HOME/config.toml` and `$GROK_HOME/auth.json`).
 pub(crate) const GROK_HOME_ENV_VAR: &str = "GROK_HOME";
 pub(crate) const HERMES_HOME_ENV_VAR: &str = "HERMES_HOME";
+/// Herdr-level config-dir override for the Command Code CLI (test seam; the
+/// cmd CLI itself does not honor it).
+pub(crate) const COMMANDCODE_CONFIG_DIR_ENV_VAR: &str = "COMMANDCODE_CONFIG_DIR";
+/// Herdr-level config-dir override for the Freebuff CLI (test seam; the
+/// freebuff CLI itself does not honor it).
+pub(crate) const FREEBUFF_CONFIG_DIR_ENV_VAR: &str = "FREEBUFF_CONFIG_DIR";
 
 pub(crate) fn apply_pane_base_env(cmd: &mut CommandBuilder) {
     cmd.env(crate::api::SOCKET_PATH_ENV_VAR, crate::api::socket_path());
@@ -171,6 +177,14 @@ pub(crate) fn antigravity_cli_dir() -> io::Result<PathBuf> {
     // from ~/.gemini/config; ~/.gemini/antigravity-cli holds runtime data and
     // is never read for hooks.
     config_dir_from_env_or_home(ANTIGRAVITY_CLI_CONFIG_DIR_ENV_VAR, &[".gemini", "config"])
+}
+
+pub(crate) fn commandcode_dir() -> io::Result<PathBuf> {
+    config_dir_from_env_or_home(COMMANDCODE_CONFIG_DIR_ENV_VAR, &[".commandcode"])
+}
+
+pub(crate) fn freebuff_dir() -> io::Result<PathBuf> {
+    config_dir_from_env_or_home(FREEBUFF_CONFIG_DIR_ENV_VAR, &[".freebuff"])
 }
 
 pub(crate) fn grok_dir() -> io::Result<PathBuf> {
