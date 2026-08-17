@@ -1,0 +1,34 @@
+# Herdr
+
+Herdr is a terminal workspace manager for AI coding agents: a background server owns real terminal processes (panes, tabs, workspaces), clients attach to render them, and panes survive detach. It is mouse-first and agent-aware.
+
+## Use these resources only if your task asks for them
+
+- Help a human understand or set up Herdr for the first time:
+  https://herdr.chefgroep.nl/agent-guide.md
+- Debug or investigate a problem with Herdr:
+  https://herdr.chefgroep.nl/docs/troubleshooting/
+- Control Herdr panes, agents, or workspaces programmatically:
+  Run `herdr --skill` (if a Herdr skill is not already in your context) or read
+  https://herdr.chefgroep.nl/docs/socket-api/
+
+## Canonical documentation
+
+- Docs: https://herdr.chefgroep.nl/docs/
+- CLI reference: https://herdr.chefgroep.nl/docs/cli-reference/
+- Configuration: https://herdr.chefgroep.nl/docs/configuration/
+- Socket API: https://herdr.chefgroep.nl/docs/socket-api/
+
+## Detecting the runtime
+
+- `HERDR_ENV=1` is set inside a Herdr pane.
+- The `herdr` CLI talks to the running server over a local socket. Clear
+  `HERDR_SOCKET_PATH` / `HERDR_CLIENT_SOCKET_PATH` when driving a fresh build.
+
+## Key facts for agents
+
+- Panes keep running when the client detaches or the terminal closes.
+- Agent state (`working`, `blocked`, `done`, `idle`, `unknown`) is detected
+  from process and terminal evidence, not reported by the pane app.
+- Prefer `herdr pane ...` / `herdr workspace ...` / `herdr agent ...` over
+  guessing public ids; use `herdr workspace list` / `herdr pane list` first.

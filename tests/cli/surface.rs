@@ -273,6 +273,61 @@ fn help_commands_exit_successfully() {
     }
 }
 
+fn product_url_const(name: &str) -> &'static str {
+    let source = include_str!("../../src/product_urls.rs");
+    for line in source.lines() {
+        let line = line.trim();
+        let Some(rest) = line.strip_prefix("pub const ") else {
+            continue;
+        };
+        let Some((ident, after)) = rest.split_once(": &str = \"") else {
+            continue;
+        };
+        if ident == name {
+            return after
+                .strip_suffix("\";")
+                .unwrap_or_else(|| panic!("{name} is not a closed string literal"));
+        }
+    }
+    panic!("{name} not found in src/product_urls.rs");
+}
+
+#[test]
+fn root_and_command_group_help_point_agents_to_plain_text_docs() {
+    let site = product_url_const("PRODUCT_SITE_URL");
+    let guide = product_url_const("AGENT_GUIDE_URL");
+    let llms = product_url_const("LLMS_TXT_URL");
+    assert!(
+        guide.starts_with(site),
+        "{guide} does not start with {site}"
+    );
+    assert!(llms.starts_with(site), "{llms} does not start with {site}");
+
+    for args in [&["--help"][..], &["agent", "--help"][..]] {
+        let output = Command::new(env!("CARGO_BIN_EXE_herdr"))
+            .args(args)
+            .env_remove("HERDR_SOCKET_PATH")
+            .env_remove("HERDR_CLIENT_SOCKET_PATH")
+            .env_remove("HERDR_ENV")
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "herdr {} failed", args.join(" "));
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for expected in [
+            "Are you an AI? Use these resources ONLY IF your task specifically asks you to:",
+            guide,
+            llms,
+            "herdr --skill",
+        ] {
+            assert!(
+                stdout.contains(expected),
+                "herdr {} help did not contain {expected:?}: {stdout}",
+                args.join(" ")
+            );
+        }
+    }
+}
+
 #[test]
 fn subcommand_help_explains_automation_semantics_without_a_server() {
     let cases: &[(&[&str], &str)] = &[
