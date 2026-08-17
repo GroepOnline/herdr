@@ -63,7 +63,10 @@ pub(crate) fn integration_target_command_names(
 pub(crate) fn commandcode_command_names() -> &'static [&'static str] {
     #[cfg(windows)]
     {
-        &["cmd.cmd", "cmd", "command-code"]
+        // Bare "cmd" expands to cmd.exe via PATHEXT and would look installed
+        // on every Windows machine. Keep the Command Code shim and the
+        // explicit binary name only.
+        &["cmd.cmd", "command-code"]
     }
     #[cfg(not(windows))]
     {
@@ -534,4 +537,22 @@ pub(crate) fn parse_integration_version(content: &str) -> Option<u32> {
             .parse()
             .ok()
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::commandcode_command_names;
+
+    #[test]
+    fn commandcode_command_names_do_not_treat_cmd_exe_as_the_cli() {
+        let names = commandcode_command_names();
+        assert!(names.contains(&"command-code"));
+        #[cfg(windows)]
+        {
+            assert!(names.contains(&"cmd.cmd"));
+            assert!(!names.contains(&"cmd"));
+        }
+        #[cfg(not(windows))]
+        assert!(names.contains(&"cmd"));
+    }
 }

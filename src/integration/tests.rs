@@ -105,6 +105,7 @@ fn clear_integration_path_env() {
     std::env::remove_var(ANTIGRAVITY_CLI_CONFIG_DIR_ENV_VAR);
     std::env::remove_var(GROK_CONFIG_DIR_ENV_VAR);
     std::env::remove_var(GROK_HOME_ENV_VAR);
+    std::env::remove_var(COMMANDCODE_CONFIG_DIR_ENV_VAR);
 }
 
 fn kimi_hook_command(hook_path: &Path, action: &str) -> String {
@@ -314,6 +315,85 @@ fn command_available_finds_windows_command_shims_on_path() {
     assert!(command_available("codex"));
 
     assert!(!command_available("missing-agent"));
+
+    if let Some(path) = original_path {
+        std::env::set_var("PATH", path);
+    } else {
+        std::env::remove_var("PATH");
+    }
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+#[cfg(windows)]
+fn commandcode_availability_ignores_system_cmd_exe() {
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let bin = base.join("bin");
+    fs::create_dir_all(&bin).unwrap();
+    let original_path = std::env::var_os("PATH");
+    std::env::set_var("PATH", &bin);
+
+    fs::write(bin.join("cmd.exe"), "").unwrap();
+    assert!(!integration_target_available(
+        crate::api::schema::IntegrationTarget::CommandCode
+    ));
+    for name in commandcode_command_names() {
+        assert!(
+            !command_available(name),
+            "{name} must not treat cmd.exe as Command Code"
+        );
+    }
+
+    fs::write(bin.join("cmd.cmd"), "@echo off\r\n").unwrap();
+    assert!(integration_target_available(
+        crate::api::schema::IntegrationTarget::CommandCode
+    ));
+    assert!(command_available("cmd.cmd"));
+
+    fs::remove_file(bin.join("cmd.cmd")).unwrap();
+    assert!(!integration_target_available(
+        crate::api::schema::IntegrationTarget::CommandCode
+    ));
+
+    fs::write(bin.join("command-code.cmd"), "@echo off\r\n").unwrap();
+    assert!(integration_target_available(
+        crate::api::schema::IntegrationTarget::CommandCode
+    ));
+    assert!(command_available("command-code"));
+
+    if let Some(path) = original_path {
+        std::env::set_var("PATH", path);
+    } else {
+        std::env::remove_var("PATH");
+    }
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+#[cfg(unix)]
+fn commandcode_availability_ignores_cmd_exe_on_unix() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let bin = base.join("bin");
+    fs::create_dir_all(&bin).unwrap();
+    let original_path = std::env::var_os("PATH");
+    std::env::set_var("PATH", &bin);
+
+    let cmd_exe = bin.join("cmd.exe");
+    fs::write(&cmd_exe, "#!/bin/sh\n").unwrap();
+    fs::set_permissions(&cmd_exe, fs::Permissions::from_mode(0o755)).unwrap();
+    assert!(!integration_target_available(
+        crate::api::schema::IntegrationTarget::CommandCode
+    ));
+    for name in commandcode_command_names() {
+        assert!(
+            !command_available(name),
+            "{name} must not treat a file named cmd.exe as the CLI"
+        );
+    }
 
     if let Some(path) = original_path {
         std::env::set_var("PATH", path);
@@ -4005,5 +4085,92 @@ fn grok_dir_honors_grok_home_after_config_dir_seam() {
 
     std::env::remove_var(GROK_HOME_ENV_VAR);
     clear_integration_path_env();
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn uninstall_commandcode_removes_hook_and_session_start_entry() {
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let dir = base.join(".commandcode");
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(
+        dir.join(COMMANDCODE_SETTINGS_INSTALL_NAME),
+        r#"{"model":"keep-me","hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"echo keep","timeout":10}]}]}}"#,
+    )
+    .unwrap();
+    std::env::set_var(COMMANDCODE_CONFIG_DIR_ENV_VAR, &dir);
+
+    let installed = install_commandcode().unwrap();
+    assert!(installed.hook_path.is_file());
+
+    let result = uninstall_commandcode().unwrap();
+    assert!(result.removed_hook_file);
+    assert!(result.removed_config_file);
+    assert!(!installed.hook_path.is_file());
+    assert!(result.config_path.is_file());
+
+    let settings_text = fs::read_to_string(dir.join(COMMANDCODE_SETTINGS_INSTALL_NAME)).unwrap();
+    let settings: Value = serde_json::from_str(&settings_text).unwrap();
+    assert_eq!(settings["model"], "keep-me");
+    assert_eq!(
+        settings["hooks"]["SessionStart"][0]["hooks"][0]["command"],
+        "echo keep"
+    );
+
+    std::env::remove_var(COMMANDCODE_CONFIG_DIR_ENV_VAR);
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn uninstall_commandcode_errors_on_malformed_settings_and_keeps_hook() {
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let dir = base.join(".commandcode");
+    let hooks_dir = dir.join("hooks");
+    fs::create_dir_all(&hooks_dir).unwrap();
+    let hook_path = hooks_dir.join(COMMANDCODE_HOOK_INSTALL_NAME);
+    fs::write(&hook_path, COMMANDCODE_HOOK_ASSET).unwrap();
+    let settings_path = dir.join(COMMANDCODE_SETTINGS_INSTALL_NAME);
+    fs::write(&settings_path, "{ not json").unwrap();
+    std::env::set_var(COMMANDCODE_CONFIG_DIR_ENV_VAR, &dir);
+
+    let err = uninstall_commandcode().unwrap_err().to_string();
+    assert!(
+        err.contains(&settings_path.display().to_string()),
+        "error must name the settings path, got: {err}"
+    );
+    assert!(
+        err.contains("failed to parse"),
+        "error must report the parse failure, got: {err}"
+    );
+    assert!(
+        hook_path.is_file(),
+        "malformed settings must not delete the hook"
+    );
+    assert_eq!(fs::read_to_string(&settings_path).unwrap(), "{ not json");
+
+    std::env::remove_var(COMMANDCODE_CONFIG_DIR_ENV_VAR);
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn uninstall_commandcode_deletes_leftover_hook_when_settings_missing() {
+    let _lock = integration_env_lock();
+    let base = unique_base();
+    let dir = base.join(".commandcode");
+    let hooks_dir = dir.join("hooks");
+    fs::create_dir_all(&hooks_dir).unwrap();
+    let hook_path = hooks_dir.join(COMMANDCODE_HOOK_INSTALL_NAME);
+    fs::write(&hook_path, COMMANDCODE_HOOK_ASSET).unwrap();
+    std::env::set_var(COMMANDCODE_CONFIG_DIR_ENV_VAR, &dir);
+
+    let result = uninstall_commandcode().unwrap();
+    assert!(result.removed_hook_file);
+    assert!(!result.removed_config_file);
+    assert!(!hook_path.is_file());
+    assert!(!result.config_path.is_file());
+
+    std::env::remove_var(COMMANDCODE_CONFIG_DIR_ENV_VAR);
     let _ = fs::remove_dir_all(base);
 }

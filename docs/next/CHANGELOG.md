@@ -29,6 +29,9 @@
 ### Fixed
 - Headless scheduled-task and api_ping tests no longer read developer-machine state: the pi-session watcher is pinned to a temp root, the github-refresh skip test neutralizes `XDG_CONFIG_HOME`/`GH_CONFIG_DIR` next to the token env vars, and spawned panes get an isolated `HOME` without `BASH_ENV`/`ENV` so machine dotfiles (starship/zoxide/PATH rewrites) cannot break pane commands. (#42)
 
+### Fixed
+- Command Code no longer treats Windows `cmd.exe` as the installed CLI, and uninstall now fails closed on malformed `settings.json` instead of deleting the hook while leaving the SessionStart registration behind.
+
 ## [0.8.1] - 2026-08-15
 
 ### Added
