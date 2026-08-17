@@ -565,13 +565,10 @@ fn read_clipboard_image_with_spawned_command_max(
     run_clipboard_child_with_timeout(command, CLIPBOARD_CHILD_TIMEOUT, move |mut child| {
         let stdout = child.stdout.take()?;
 
-        let read = match read_limited_reader(stdout, max_bytes) {
-            Ok(read) => read,
-            Err(_) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return None;
-            }
+        let Ok(read) = read_limited_reader(stdout, max_bytes) else {
+            let _ = child.kill();
+            let _ = child.wait();
+            return None;
         };
 
         if read == LimitedRead::Oversized {

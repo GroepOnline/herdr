@@ -2611,10 +2611,6 @@ impl PaneRuntime {
         self.terminal.agent_osc_progress()
     }
 
-    pub fn recent_text(&self, lines: usize) -> String {
-        self.terminal.recent_text(lines)
-    }
-
     pub(crate) fn recent_text_snapshot(&self, lines: usize) -> TerminalReadSnapshot {
         self.terminal.recent_text_snapshot(lines)
     }
