@@ -13,7 +13,7 @@ Read `references/pre-release-audit.md` and follow its workflow. Treat it as the 
 - inspecting first-parent history and merged PRs
 - auditing `docs/next/CHANGELOG.md`
 - auditing `docs/next/README.md` and staged website docs
-- checking `skills/herdr/SKILL.md` against shipped CLI and agent-control behavior
+- checking root `SKILL.md` against shipped CLI and agent-control behavior
 - checking issue reference lines
 - deciding when to run `just release-docs-check`
 - producing the final release-readiness report

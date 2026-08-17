@@ -90,14 +90,13 @@ release-docs-check:
     done
     @test -d docs/next/website/src/content/docs
     just website-build
-    cd website && bun run build:draft
 
-# Validate release docs and review full-render scaling before release preparation
+# Validate release docs and review reminders before release preparation
 pre-release-check:
     just release-docs-check
-    just bench-render-scale
     @echo "release review required: investigate material render-scaling regressions before publishing."
-    @echo "release review required: verify skills/herdr/SKILL.md matches the current CLI, IDs, agent lifecycle semantics, and safety guidance."
+    @echo "render scaling: NOT CHECKED (this fork has no bench-render-scale recipe)."
+    @echo "release review required: verify SKILL.md matches the current CLI, IDs, agent lifecycle semantics, and safety guidance."
 
 
 # Prepare the release commit without tagging or pushing (usage: just release-prepare 0.1.1)
@@ -218,6 +217,5 @@ default-config:
 
 # Pre-release audit (upstream #2790, adapted for fork)
 pre-release-audit:
-    python3 scripts/release_notes.py --current "$(git describe --tags --abbrev=0)" --release-path "$(pwd)"
     python3 -m unittest scripts.test_release_manifest_hardening scripts.test_changelog
 

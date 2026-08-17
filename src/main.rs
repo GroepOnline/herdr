@@ -681,7 +681,7 @@ fn main() -> io::Result<()> {
         println!("Home:   https://herdr.chefgroep.nl");
         println!("Skill:  herdr --skill prints agent instructions for driving herdr from a pane");
         println!();
-        println!("{}", cli::AGENT_HELP_FOOTER);
+        println!("{}", cli::agent_help_footer());
         return Ok(());
     }
 

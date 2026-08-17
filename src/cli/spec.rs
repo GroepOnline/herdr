@@ -61,7 +61,7 @@ fn configure_help(command: Command, depth: usize) -> Command {
         command.disable_help_flag(false)
     };
     let command = if depth == 1 && command.has_subcommands() {
-        command.after_help(super::AGENT_HELP_FOOTER)
+        command.after_help(super::agent_help_footer())
     } else {
         command
     };
@@ -1506,14 +1506,14 @@ mod tests {
         for group in ["agent", "pane", "workspace", "terminal"] {
             let help = long_help(&[group]);
             assert!(
-                help.contains(super::super::AGENT_HELP_FOOTER),
+                help.contains(&super::super::agent_help_footer()),
                 "herdr {group} is missing agent resources: {help}"
             );
         }
 
         let leaf = long_help(&["agent", "wait"]);
         assert!(
-            !leaf.contains(super::super::AGENT_HELP_FOOTER),
+            !leaf.contains(&super::super::agent_help_footer()),
             "leaf help should stay focused: {leaf}"
         );
     }
