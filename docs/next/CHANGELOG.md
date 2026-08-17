@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+- Command Code (cmd) integration: `herdr integration install commandcode` installs a SessionStart hook that reports `COMMANDCODE_SESSION_ID` to Herdr's socket API (native session restore with `cmd --resume <id>`), merges its hook entry into `~/.commandcode/settings.json` without touching user entries, and adds screen detection for the cmd TUI. (#43)
+- Freebuff integration target: `herdr integration install freebuff` stages a session-state hook in `~/.freebuff/hooks/` (freebuff has no hook lifecycle yet, so state stays screen-detected) and adds native resume support via `freebuff --continue <id>`. (#43)
+- `opencode2` / `open-code-2` now resolve to the opencode agent for CLI and API compatibility with the OpenCode v2 line. (#43)
+
 ### Changed
 - Settings panel consolidated from ten sections into six tabs (Theme, UI, Sound, System, Templates, Integrations) with collapsible groups per tab; every existing setting row is preserved, just regrouped for easier scanning.
 

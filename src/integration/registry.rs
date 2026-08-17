@@ -24,6 +24,8 @@ pub(crate) fn integration_target_label(
         crate::api::schema::IntegrationTarget::Mastracode => "mastracode",
         crate::api::schema::IntegrationTarget::AntigravityCli => "antigravity-cli",
         crate::api::schema::IntegrationTarget::Grok => "grok",
+        crate::api::schema::IntegrationTarget::CommandCode => "commandcode",
+        crate::api::schema::IntegrationTarget::Freebuff => "freebuff",
     }
 }
 
@@ -53,6 +55,19 @@ pub(crate) fn integration_target_command_names(
         crate::api::schema::IntegrationTarget::Mastracode => &["mastracode"],
         crate::api::schema::IntegrationTarget::AntigravityCli => &["agy"],
         crate::api::schema::IntegrationTarget::Grok => &["grok"],
+        crate::api::schema::IntegrationTarget::CommandCode => commandcode_command_names(),
+        crate::api::schema::IntegrationTarget::Freebuff => &["freebuff"],
+    }
+}
+
+pub(crate) fn commandcode_command_names() -> &'static [&'static str] {
+    #[cfg(windows)]
+    {
+        &["cmd.cmd", "cmd", "command-code"]
+    }
+    #[cfg(not(windows))]
+    {
+        &["cmd", "command-code"]
     }
 }
 
@@ -81,6 +96,8 @@ pub(crate) fn integration_target_supported(target: crate::api::schema::Integrati
                 | crate::api::schema::IntegrationTarget::Cursor
                 | crate::api::schema::IntegrationTarget::Mastracode
                 | crate::api::schema::IntegrationTarget::Grok
+                | crate::api::schema::IntegrationTarget::CommandCode
+                | crate::api::schema::IntegrationTarget::Freebuff
         )
     }
 
@@ -264,7 +281,7 @@ fn integration_specs() -> [(
     crate::api::schema::IntegrationTarget,
     io::Result<PathBuf>,
     u32,
-); 16] {
+); 18] {
     [
         (
             crate::api::schema::IntegrationTarget::Pi,
@@ -352,6 +369,17 @@ fn integration_specs() -> [(
             grok_dir().map(|dir| dir.join("hooks").join(super::GROK_HOOK_INSTALL_NAME)),
             super::GROK_INTEGRATION_VERSION,
         ),
+        (
+            crate::api::schema::IntegrationTarget::CommandCode,
+            commandcode_dir()
+                .map(|dir| dir.join("hooks").join(super::COMMANDCODE_HOOK_INSTALL_NAME)),
+            super::COMMANDCODE_INTEGRATION_VERSION,
+        ),
+        (
+            crate::api::schema::IntegrationTarget::Freebuff,
+            freebuff_dir().map(|dir| dir.join("hooks").join(super::FREEBUFF_HOOK_INSTALL_NAME)),
+            super::FREEBUFF_INTEGRATION_VERSION,
+        ),
     ]
 }
 
@@ -405,6 +433,40 @@ fn grok_hook_config_is_valid(hook_path: &Path) -> bool {
         .is_some_and(|config| config == super::targets::grok_hook_config(hook_path))
 }
 
+/// Whether the Herdr-owned Command Code hook entry survives inside the user's
+/// settings.json. Command Code uses a single user settings file (unlike Grok's
+/// per-hook files), so herdr merges its SessionStart entry instead of owning
+/// the file. Outdated means the merged entry is missing or drifted.
+fn commandcode_hook_config_is_valid(hook_path: &Path) -> bool {
+    let Some(hooks_dir) = hook_path.parent() else {
+        return false;
+    };
+    let config_path = hooks_dir
+        .parent()
+        .map(|dir| dir.join(super::COMMANDCODE_SETTINGS_INSTALL_NAME))
+        .unwrap_or_else(|| PathBuf::from(super::COMMANDCODE_SETTINGS_INSTALL_NAME));
+    fs::read_to_string(config_path)
+        .ok()
+        .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).ok())
+        .is_some_and(|config| {
+            config["hooks"]["SessionStart"]
+                .as_array()
+                .is_some_and(|entries| {
+                    entries.iter().any(|entry| {
+                        entry["hooks"].as_array().is_some_and(|hooks| {
+                            hooks.iter().any(|hook| {
+                                hook["type"] == "command"
+                                    && hook["command"].as_str().is_some_and(|command| {
+                                        command
+                                            == super::targets::commandcode_hook_command(hook_path)
+                                    })
+                            })
+                        })
+                    })
+                })
+        })
+}
+
 pub(crate) fn integration_status_at(
     target: crate::api::schema::IntegrationTarget,
     path: PathBuf,
@@ -436,6 +498,16 @@ pub(crate) fn integration_status_at(
     if target == crate::api::schema::IntegrationTarget::Grok
         && state == super::IntegrationStatusKind::Current
         && !grok_hook_config_is_valid(&path)
+    {
+        state = super::IntegrationStatusKind::Outdated;
+    }
+
+    // Command Code only invokes the hook when the merged SessionStart entry
+    // survives in the user's settings.json; a current hook script with a
+    // missing or drifted entry is a nonfunctional install.
+    if target == crate::api::schema::IntegrationTarget::CommandCode
+        && state == super::IntegrationStatusKind::Current
+        && !commandcode_hook_config_is_valid(&path)
     {
         state = super::IntegrationStatusKind::Outdated;
     }
