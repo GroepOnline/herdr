@@ -317,22 +317,20 @@ impl AppState {
         if !matches!(self.mode, Mode::Terminal | Mode::Navigate) {
             return self.clear_sidebar_hover();
         }
-        let hover = if !in_sidebar
-            || self.sidebar_collapsed
-            || self.sidebar_hover_chrome_at(col, row)
-        {
-            None
-        } else if let Some(idx) = self.workspace_card_at(col, row) {
-            Some(SidebarHoverTarget::Workspace(idx))
-        } else if let Some((ws_idx, tab_idx, pane_id)) = self.agent_detail_target_at(row) {
-            Some(SidebarHoverTarget::Agent {
-                ws_idx,
-                tab_idx,
-                pane_id,
-            })
-        } else {
-            None
-        };
+        let hover =
+            if !in_sidebar || self.sidebar_collapsed || self.sidebar_hover_chrome_at(col, row) {
+                None
+            } else if let Some(idx) = self.workspace_card_at(col, row) {
+                Some(SidebarHoverTarget::Workspace(idx))
+            } else if let Some((ws_idx, tab_idx, pane_id)) = self.agent_detail_target_at(row) {
+                Some(SidebarHoverTarget::Agent {
+                    ws_idx,
+                    tab_idx,
+                    pane_id,
+                })
+            } else {
+                None
+            };
         self.set_sidebar_hover(hover)
     }
 

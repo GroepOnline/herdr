@@ -4230,11 +4230,7 @@ mod tests {
 
         // Pane-only Terminal motion (no hover write) stays render-neutral.
         assert!(!app.state.mode.mouse_motion_requires_view_update(false));
-        assert!(!app.handle_mouse(mouse(
-            MouseEventKind::Moved,
-            terminal.x + 5,
-            terminal.y + 5,
-        )));
+        assert!(!app.handle_mouse(mouse(MouseEventKind::Moved, terminal.x + 5, terminal.y + 5,)));
 
         // Navigate uses the same change-detecting path; unchanged motion
         // must not force a full repaint.
