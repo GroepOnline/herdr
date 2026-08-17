@@ -60,6 +60,24 @@ pub(crate) fn integration_target_command_names(
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::commandcode_command_names;
+
+    #[test]
+    fn commandcode_command_names_do_not_treat_cmd_exe_as_the_cli() {
+        let names = commandcode_command_names();
+        assert!(names.contains(&"command-code"));
+        #[cfg(windows)]
+        {
+            assert!(names.contains(&"cmd.cmd"));
+            assert!(!names.contains(&"cmd"));
+        }
+        #[cfg(not(windows))]
+        assert!(names.contains(&"cmd"));
+    }
+}
+
 pub(crate) fn commandcode_command_names() -> &'static [&'static str] {
     #[cfg(windows)]
     {

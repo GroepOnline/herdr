@@ -325,24 +325,6 @@ fn command_available_finds_windows_command_shims_on_path() {
 }
 
 #[test]
-fn commandcode_command_names_do_not_treat_cmd_exe_as_the_cli() {
-    let names = commandcode_command_names();
-    assert!(names.contains(&"command-code"));
-    #[cfg(windows)]
-    {
-        assert!(names.contains(&"cmd.cmd"));
-        assert!(
-            !names.contains(&"cmd"),
-            "bare cmd expands to cmd.exe on Windows"
-        );
-    }
-    #[cfg(not(windows))]
-    {
-        assert!(names.contains(&"cmd"));
-    }
-}
-
-#[test]
 #[cfg(windows)]
 fn commandcode_availability_ignores_system_cmd_exe() {
     let _lock = integration_env_lock();
@@ -4159,7 +4141,7 @@ fn uninstall_commandcode_errors_on_malformed_settings_and_keeps_hook() {
         "error must name the settings path, got: {err}"
     );
     assert!(
-        err.contains("not valid JSON"),
+        err.contains("failed to parse"),
         "error must report the parse failure, got: {err}"
     );
     assert!(

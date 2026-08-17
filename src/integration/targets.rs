@@ -1426,7 +1426,7 @@ pub(crate) fn install_commandcode() -> io::Result<CommandCodeInstallPaths> {
         Ok(content) if !content.trim().is_empty() => {
             serde_json::from_str(&content).map_err(|err| {
                 io::Error::other(format!(
-                    "Command Code settings at {} are not valid JSON: {err}",
+                    "failed to parse Command Code settings at {}: {err}",
                     settings_path.display()
                 ))
             })?
@@ -1478,7 +1478,7 @@ pub(crate) fn uninstall_commandcode() -> io::Result<CommandCodeUninstallResult> 
         })?;
         let mut settings = serde_json::from_str::<Value>(&content).map_err(|err| {
             io::Error::other(format!(
-                "Command Code settings at {} are not valid JSON: {err}",
+                "failed to parse Command Code settings at {}: {err}",
                 settings_path.display()
             ))
         })?;
@@ -1504,6 +1504,57 @@ pub(crate) fn uninstall_commandcode() -> io::Result<CommandCodeUninstallResult> 
         removed_hook_file,
         removed_config_file,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::integration::env::{integration_env_lock, COMMANDCODE_CONFIG_DIR_ENV_VAR};
+    use crate::integration::{COMMANDCODE_HOOK_INSTALL_NAME, COMMANDCODE_HOOK_ASSET, COMMANDCODE_SETTINGS_INSTALL_NAME};
+    use serde_json::Value;
+    use std::fs;
+
+    fn temp_dir() -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!("herdr-commandcode-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&path);
+        path
+    }
+
+    #[test]
+    fn uninstall_commandcode_errors_on_malformed_settings_and_keeps_hook() {
+        let _lock = integration_env_lock();
+        let dir = temp_dir();
+        let hooks = dir.join("hooks");
+        fs::create_dir_all(&hooks).unwrap();
+        let hook = hooks.join(COMMANDCODE_HOOK_INSTALL_NAME);
+        fs::write(&hook, COMMANDCODE_HOOK_ASSET).unwrap();
+        let settings = dir.join(COMMANDCODE_SETTINGS_INSTALL_NAME);
+        fs::write(&settings, "{ not json").unwrap();
+        std::env::set_var(COMMANDCODE_CONFIG_DIR_ENV_VAR, &dir);
+        let err = uninstall_commandcode().unwrap_err().to_string();
+        assert!(err.contains(&settings.display().to_string()));
+        assert!(err.contains("failed to parse"));
+        assert!(hook.is_file());
+        std::env::remove_var(COMMANDCODE_CONFIG_DIR_ENV_VAR);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn uninstall_commandcode_removes_hook_and_session_start_entry() {
+        let _lock = integration_env_lock();
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join(COMMANDCODE_SETTINGS_INSTALL_NAME), r#"{"model":"keep-me","hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"echo keep","timeout":10}]}]}}"#).unwrap();
+        std::env::set_var(COMMANDCODE_CONFIG_DIR_ENV_VAR, &dir);
+        let installed = install_commandcode().unwrap();
+        let result = uninstall_commandcode().unwrap();
+        assert!(result.removed_hook_file && result.removed_config_file);
+        assert!(!installed.hook_path.is_file());
+        let settings: Value = serde_json::from_str(&fs::read_to_string(result.config_path).unwrap()).unwrap();
+        assert_eq!(settings["model"], "keep-me");
+        std::env::remove_var(COMMANDCODE_CONFIG_DIR_ENV_VAR);
+        let _ = fs::remove_dir_all(dir);
+    }
 }
 
 pub(crate) fn install_freebuff() -> io::Result<FreebuffInstallPaths> {
