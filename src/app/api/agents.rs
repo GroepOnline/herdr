@@ -97,8 +97,21 @@ impl App {
         // Readiness/identity checks above run first so callers still get
         // agent_not_ready for a stale or still-launching pane; only after the
         // pane is confirmed to host the expected agent do we report a
-        // blocked-state error.
-        if terminal.state == crate::detect::AgentState::Blocked {
+        // blocked-state error. Cached `terminal.state` is the last detector
+        // poll; re-evaluate from a live bottom-buffer snapshot so an approval
+        // dialog painted between polls cannot receive prompt+Enter.
+        let cached_state = terminal.state;
+        let live_blocked = if terminal.full_lifecycle_hook_authority_active() {
+            false
+        } else {
+            live_detection_shows_blocked(
+                Some(expected_agent),
+                &runtime.detection_text(),
+                &runtime.agent_osc_title(),
+                &runtime.agent_osc_progress(),
+            )
+        };
+        if terminal_is_blocked_for_prompt(cached_state, live_blocked) {
             return encode_error(
                 id,
                 "agent_blocked",
@@ -276,6 +289,34 @@ impl App {
     }
 }
 
+fn terminal_is_blocked_for_prompt(
+    cached_state: crate::detect::AgentState,
+    live_blocked: bool,
+) -> bool {
+    cached_state == crate::detect::AgentState::Blocked || live_blocked
+}
+
+/// Live blocked-ness from the same evidence `agent explain` / the detector
+/// poll uses: bottom-buffer detection text plus OSC title/progress, run
+/// through `detect_agent_with_osc`. Empty snapshots keep the cached check
+/// only. Viewer screens (`skip_state_update`) are not treated as blocked.
+fn live_detection_shows_blocked(
+    agent: Option<crate::detect::Agent>,
+    detection_screen: &str,
+    osc_title: &str,
+    osc_progress: &str,
+) -> bool {
+    if detection_screen.trim().is_empty()
+        && osc_title.trim().is_empty()
+        && osc_progress.trim().is_empty()
+    {
+        return false;
+    }
+    let detection =
+        crate::detect::detect_agent_with_osc(agent, detection_screen, osc_title, osc_progress);
+    !detection.skip_state_update && detection.state == crate::detect::AgentState::Blocked
+}
+
 fn agent_not_ready(id: String, target: &str) -> String {
     encode_error(
         id,
@@ -418,6 +459,55 @@ mod tests {
                 .is_err(),
             "blocked prompt wrote or scheduled terminal input"
         );
+    }
+
+    #[tokio::test]
+    async fn agent_prompt_rejects_live_blocked_screen_when_cache_is_idle() {
+        let mut app = app_with_agent();
+        let pane_id = app.state.workspaces[0].tabs[0].root_pane;
+        let terminal_id = app.state.workspaces[0].tabs[0].panes[&pane_id]
+            .attached_terminal_id
+            .clone();
+        let terminal = app.state.terminals.get_mut(&terminal_id).unwrap();
+        terminal.set_agent_name("reviewer".into());
+        terminal.set_detected_state(Some(Agent::GithubCopilot), AgentState::Idle);
+        let (runtime, mut rx) = crate::terminal::TerminalRuntime::test_with_channel(80, 24);
+        runtime.test_process_pty_bytes(b"esc to cancel\r\nenter to select\r\n");
+        app.state.insert_test_runtime(pane_id, runtime);
+
+        let response = app.handle_agent_prompt(
+            "req-live-blocked".into(),
+            AgentPromptParams {
+                target: "reviewer".into(),
+                text: "approve this".into(),
+                wait: None,
+            },
+        );
+
+        let error: crate::api::schema::ErrorResponse = serde_json::from_str(&response).unwrap();
+        assert_eq!(error.error.code, "agent_blocked");
+        assert!(
+            tokio::time::timeout(Duration::from_millis(200), rx.recv())
+                .await
+                .is_err(),
+            "live-blocked prompt wrote or scheduled terminal input"
+        );
+    }
+
+    #[test]
+    fn live_detection_treats_copilot_approval_dialog_as_blocked() {
+        assert!(live_detection_shows_blocked(
+            Some(Agent::GithubCopilot),
+            "esc to cancel\nenter to select\n",
+            "",
+            "",
+        ));
+        assert!(!live_detection_shows_blocked(
+            Some(Agent::GithubCopilot),
+            "",
+            "",
+            "",
+        ));
     }
 
     #[tokio::test]
