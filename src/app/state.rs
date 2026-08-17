@@ -1039,77 +1039,63 @@ pub enum AgentPanelSort {
 // Settings UI state
 // ---------------------------------------------------------------------------
 
-/// Which section of the settings panel is focused.
+/// Which tab of the settings panel is focused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsSection {
-    Appearance,
-    Sidebar,
-    Layout,
-    Input,
-    Terminal,
-    Notifications,
-    Agents,
-    Plugins,
-    Updates,
-    Advanced,
+    /// Theme picker.
+    Theme,
+    /// Spinner grid, status indicators, pane chrome, sidebar, and input.
+    Ui,
+    /// Sound alerts and toast delivery.
+    Sound,
+    /// Shell, updates, experiments, and system config.
+    System,
+    /// Pane layout templates.
+    Templates,
+    /// Resume sessions, agent integrations, and plugins.
+    Integrations,
 }
 
 impl SettingsSection {
     pub const ALL: &[Self] = &[
-        Self::Appearance,
-        Self::Sidebar,
-        Self::Layout,
-        Self::Input,
-        Self::Terminal,
-        Self::Notifications,
-        Self::Agents,
-        Self::Plugins,
-        Self::Updates,
-        Self::Advanced,
+        Self::Theme,
+        Self::Ui,
+        Self::Sound,
+        Self::System,
+        Self::Templates,
+        Self::Integrations,
     ];
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::Appearance => "appearance",
-            Self::Sidebar => "sidebar",
-            Self::Layout => "layout",
-            Self::Input => "input",
-            Self::Terminal => "terminal",
-            Self::Notifications => "notifications",
-            Self::Agents => "agents",
-            Self::Plugins => "plugins",
-            Self::Updates => "updates",
-            Self::Advanced => "advanced",
+            Self::Theme => "theme",
+            Self::Ui => "ui",
+            Self::Sound => "sound",
+            Self::System => "system",
+            Self::Templates => "templates",
+            Self::Integrations => "integrations",
         }
     }
 
     pub fn title(self) -> &'static str {
         match self {
-            Self::Appearance => "Appearance",
-            Self::Sidebar => "Sidebar",
-            Self::Layout => "Layout",
-            Self::Input => "Input",
-            Self::Terminal => "Terminal",
-            Self::Notifications => "Notifications",
-            Self::Agents => "Agents",
-            Self::Plugins => "Plugins",
-            Self::Updates => "Updates",
-            Self::Advanced => "Advanced",
+            Self::Theme => "Theme",
+            Self::Ui => "UI",
+            Self::Sound => "Sound",
+            Self::System => "System",
+            Self::Templates => "Templates",
+            Self::Integrations => "Integrations",
         }
     }
 
     pub fn description(self) -> &'static str {
         match self {
-            Self::Appearance => "theme and spinner — live preview above",
-            Self::Sidebar => "width, sections, spacing, and status presentation",
-            Self::Layout => "pane chrome and layout templates",
-            Self::Input => "mouse, copy, focus redraw, and keybind help",
-            Self::Terminal => "shell, cwd policy, and scrollback",
-            Self::Notifications => "sound, toasts, and clipboard notices",
-            Self::Agents => "resume sessions and integrations",
-            Self::Plugins => "install and manage herdr plugins",
-            Self::Updates => "channel and background checks",
-            Self::Advanced => "experiments, graphics, remote, config",
+            Self::Theme => "theme picker — live preview above",
+            Self::Ui => "spinner, indicators, pane chrome, sidebar, and input",
+            Self::Sound => "sound alerts, toasts, and clipboard notices",
+            Self::System => "shell, updates, experiments, and system config",
+            Self::Templates => "pane layout templates applied to the current tab",
+            Self::Integrations => "resume sessions, agent CLIs, and plugins",
         }
     }
 
@@ -1859,7 +1845,7 @@ impl AppState {
     }
 
     pub(crate) fn settings_section_has_badge(&self, section: SettingsSection) -> bool {
-        section == SettingsSection::Agents && self.integration_updates_available()
+        section == SettingsSection::Integrations && self.integration_updates_available()
     }
 
     pub(crate) fn focused_pane_requests_mouse_capture_from(
@@ -2147,7 +2133,7 @@ impl AppState {
             host_terminal_appearance: None,
             host_terminal_appearance_explicit: false,
             settings: SettingsState {
-                section: SettingsSection::Appearance,
+                section: SettingsSection::Theme,
                 list: SelectionListState::new(0),
                 search: String::new(),
                 focus: SettingsFocus::Content,

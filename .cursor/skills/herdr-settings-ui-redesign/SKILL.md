@@ -15,7 +15,7 @@ disable-model-invocation: true
 ## Workflow
 
 1. **Explore (grok-4.5):** dispatch `settings-explorer` for current vs target section map and risks.
-2. **Implement (composer-2.5, max 3 parallel):** dispatch `settings-implementer` per independent seam (shell/layout, appearance/layout/notifications, input/terminal/updates/agents/advanced).
+2. **Implement (composer-2.5, max 3 parallel):** dispatch `settings-implementer` per independent seam (shell/layout, theme/ui, sound/system, templates/integrations).
 3. **Review (grok-4.5):** `settings-reviewer` after each pushable slice.
 4. **CI (grok-4.5):** on red checks, `settings-diagnose` — never local cargo/just.
 

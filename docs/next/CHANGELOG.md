@@ -18,6 +18,12 @@
 - `prefix+e` now preserves logical lines when opening soft-wrapped scrollback in an editor. (#2735)
 - Detects the full set of Claude half-circle spinner frames as working. (#2762)
 
+### Changed
+- Settings panel consolidated from ten sections into six tabs (Theme, UI, Sound, System, Templates, Integrations) with collapsible groups per tab; every existing setting row is preserved, just regrouped for easier scanning.
+
+### Fixed
+- Pane navigation uses saturating arithmetic so extreme terminal sizes or split ratios can no longer overflow u16 rect math and select the wrong pane.
+
 ## [0.8.1] - 2026-08-15
 
 ### Added

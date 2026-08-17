@@ -390,14 +390,10 @@ impl App {
                 self.selection_highlight_clear_deadline = None;
             }
         }
-        if previous_settings_section != crate::app::state::SettingsSection::Agents
-            && self.state.settings.section == crate::app::state::SettingsSection::Agents
+        if previous_settings_section != crate::app::state::SettingsSection::Integrations
+            && self.state.settings.section == crate::app::state::SettingsSection::Integrations
         {
             self.refresh_integration_recommendations();
-        }
-        if previous_settings_section != crate::app::state::SettingsSection::Plugins
-            && self.state.settings.section == crate::app::state::SettingsSection::Plugins
-        {
             self.reload_plugins_for_settings();
         }
         if self.state.agent_panel_sort != previous_agent_panel_sort {
