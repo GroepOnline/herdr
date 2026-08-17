@@ -1549,7 +1549,9 @@ mod tests {
     use std::fs;
 
     fn temp_dir() -> std::path::PathBuf {
-        let path = std::env.temp_dir().join(format!("herdr-commandcode-{}", std::process::id()));
+        let path = std::env
+            .temp_dir()
+            .join(format!("herdr-commandcode-{}", std::process::id()));
         let _ = fs::remove_dir_all(&path);
         path
     }
