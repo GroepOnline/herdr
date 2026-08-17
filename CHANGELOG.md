@@ -2,8 +2,7 @@
 
 ## Unreleased
 
-### Fixed
-- Headless scheduled-task and api_ping tests no longer read developer-machine state: the pi-session watcher is pinned to a temp root, the github-refresh skip test neutralizes `XDG_CONFIG_HOME`/`GH_CONFIG_DIR` next to the token env vars, and spawned panes get an isolated `HOME` without `BASH_ENV`/`ENV` so machine dotfiles (starship/zoxide/PATH rewrites) cannot break pane commands. (#42)
+### Added
 
 ## [0.8.1] - 2026-08-15
 

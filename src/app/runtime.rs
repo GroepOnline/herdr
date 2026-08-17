@@ -1134,7 +1134,7 @@ mod tests {
             .collect();
         let temp_home =
             std::env::temp_dir().join(format!("herdr-github-no-token-home-{}", std::process::id()));
-        let _ = std::fs::create_dir_all(&temp_home);
+        std::fs::create_dir_all(&temp_home).expect("temp home for github no-token test");
         let _env_guard = EnvGuard {
             values: previous_env,
             temp_dir: temp_home.clone(),
