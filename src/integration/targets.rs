@@ -1506,6 +1506,38 @@ pub(crate) fn uninstall_commandcode() -> io::Result<CommandCodeUninstallResult> 
     })
 }
 
+pub(crate) fn install_freebuff() -> io::Result<FreebuffInstallPaths> {
+    let dir = freebuff_dir()?;
+    if !dir.is_dir() {
+        return Err(io::Error::other(format!(
+            "Freebuff config directory not found at {}. install freebuff cli first",
+            dir.display()
+        )));
+    }
+    let hooks_dir = dir.join("hooks");
+    fs::create_dir_all(&hooks_dir)?;
+
+    let hook_path = hooks_dir.join(super::FREEBUFF_HOOK_INSTALL_NAME);
+    fs::write(&hook_path, super::FREEBUFF_HOOK_ASSET)?;
+    make_executable(&hook_path)?;
+
+    Ok(FreebuffInstallPaths { hook_path })
+}
+
+pub(crate) fn uninstall_freebuff() -> io::Result<FreebuffUninstallResult> {
+    let dir = freebuff_dir()?;
+    let hooks_dir = dir.join("hooks");
+    let hook_path = hooks_dir.join(super::FREEBUFF_HOOK_INSTALL_NAME);
+    let removed_hook_file = remove_file_if_exists(&hook_path)?;
+    let _ = hooks_dir;
+    let _ = dir;
+
+    Ok(FreebuffUninstallResult {
+        hook_path,
+        removed_hook_file,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1517,7 +1549,7 @@ mod tests {
     use std::fs;
 
     fn temp_dir() -> std::path::PathBuf {
-        let path = std::env::temp_dir().join(format!("herdr-commandcode-{}", std::process::id()));
+        let path = std::env.temp_dir().join(format!("herdr-commandcode-{}", std::process::id()));
         let _ = fs::remove_dir_all(&path);
         path
     }
@@ -1558,36 +1590,4 @@ mod tests {
         std::env::remove_var(COMMANDCODE_CONFIG_DIR_ENV_VAR);
         let _ = fs::remove_dir_all(dir);
     }
-}
-
-pub(crate) fn install_freebuff() -> io::Result<FreebuffInstallPaths> {
-    let dir = freebuff_dir()?;
-    if !dir.is_dir() {
-        return Err(io::Error::other(format!(
-            "Freebuff config directory not found at {}. install freebuff cli first",
-            dir.display()
-        )));
-    }
-    let hooks_dir = dir.join("hooks");
-    fs::create_dir_all(&hooks_dir)?;
-
-    let hook_path = hooks_dir.join(super::FREEBUFF_HOOK_INSTALL_NAME);
-    fs::write(&hook_path, super::FREEBUFF_HOOK_ASSET)?;
-    make_executable(&hook_path)?;
-
-    Ok(FreebuffInstallPaths { hook_path })
-}
-
-pub(crate) fn uninstall_freebuff() -> io::Result<FreebuffUninstallResult> {
-    let dir = freebuff_dir()?;
-    let hooks_dir = dir.join("hooks");
-    let hook_path = hooks_dir.join(super::FREEBUFF_HOOK_INSTALL_NAME);
-    let removed_hook_file = remove_file_if_exists(&hook_path)?;
-    let _ = hooks_dir;
-    let _ = dir;
-
-    Ok(FreebuffUninstallResult {
-        hook_path,
-        removed_hook_file,
-    })
 }
