@@ -4159,7 +4159,7 @@ fn uninstall_commandcode_errors_on_malformed_settings_and_keeps_hook() {
         "error must name the settings path, got: {err}"
     );
     assert!(
-        err.contains("failed to parse"),
+        err.contains("not valid JSON"),
         "error must report the parse failure, got: {err}"
     );
     assert!(
