@@ -1510,7 +1510,9 @@ pub(crate) fn uninstall_commandcode() -> io::Result<CommandCodeUninstallResult> 
 mod tests {
     use super::*;
     use crate::integration::env::{integration_env_lock, COMMANDCODE_CONFIG_DIR_ENV_VAR};
-    use crate::integration::{COMMANDCODE_HOOK_INSTALL_NAME, COMMANDCODE_HOOK_ASSET, COMMANDCODE_SETTINGS_INSTALL_NAME};
+    use crate::integration::{
+        COMMANDCODE_HOOK_ASSET, COMMANDCODE_HOOK_INSTALL_NAME, COMMANDCODE_SETTINGS_INSTALL_NAME,
+    };
     use serde_json::Value;
     use std::fs;
 
@@ -1550,7 +1552,8 @@ mod tests {
         let result = uninstall_commandcode().unwrap();
         assert!(result.removed_hook_file && result.removed_config_file);
         assert!(!installed.hook_path.is_file());
-        let settings: Value = serde_json::from_str(&fs::read_to_string(result.config_path).unwrap()).unwrap();
+        let settings: Value =
+            serde_json::from_str(&fs::read_to_string(result.config_path).unwrap()).unwrap();
         assert_eq!(settings["model"], "keep-me");
         std::env::remove_var(COMMANDCODE_CONFIG_DIR_ENV_VAR);
         let _ = fs::remove_dir_all(dir);
