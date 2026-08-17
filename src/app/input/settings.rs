@@ -1110,7 +1110,10 @@ mod tests {
             true,
         )];
 
-        assert_eq!(crate::ui::settings_primary_button_label(&state), "install");
+        assert_eq!(
+            crate::ui::settings::settings_primary_button_label(&state),
+            "install"
+        );
         let action = apply_settings(&mut state);
         assert_eq!(action, Some(SettingsAction::InstallRecommendedIntegrations));
         assert_eq!(state.mode, Mode::Settings);
@@ -1133,10 +1136,12 @@ mod tests {
         )];
 
         assert_eq!(
-            crate::ui::settings_primary_button_label(&app.state),
+            crate::ui::settings::settings_primary_button_label(&app.state),
             "install"
         );
-        assert!(crate::ui::settings_show_secondary_action(&app.state));
+        assert!(crate::ui::settings::settings_show_secondary_action(
+            &app.state
+        ));
 
         let layout = app.state.settings_layout().expect("layout");
         let buttons = crate::ui::settings_button_rects(&layout, &app.state, true);
