@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+- Command Code (cmd) integration: `herdr integration install commandcode` installs a SessionStart hook that reports `COMMANDCODE_SESSION_ID` to Herdr's socket API (native session restore with `cmd --resume <id>`), merges its hook entry into `~/.commandcode/settings.json` without touching user entries, and adds screen detection for the cmd TUI. (#43)
+- Freebuff integration target: `herdr integration install freebuff` stages a session-state hook in `~/.freebuff/hooks/` (freebuff has no hook lifecycle yet, so state stays screen-detected) and adds native resume support via `freebuff --continue <id>`. (#43)
+- `opencode2` / `open-code-2` now resolve to the opencode agent for CLI and API compatibility with the OpenCode v2 line. (#43)
+
 ### Fixed
 - Headless scheduled-task and api_ping tests no longer read developer-machine state: the pi-session watcher is pinned to a temp root, the github-refresh skip test neutralizes `XDG_CONFIG_HOME`/`GH_CONFIG_DIR` next to the token env vars, and spawned panes get an isolated `HOME` without `BASH_ENV`/`ENV` so machine dotfiles (starship/zoxide/PATH rewrites) cannot break pane commands. (#42)
 
