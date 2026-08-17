@@ -202,6 +202,8 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # rename_tab = "prefix+shift+t"
 # previous_tab = "prefix+p"
 # next_tab = "prefix+n"
+# move_tab_previous = ""   # optional, e.g. "alt+shift+left" moves the tab toward the front
+# move_tab_next = ""       # optional, e.g. "alt+shift+right" moves the tab toward the back
 # switch_tab = "prefix+1..9"
 # switch_workspace = ""   # optional indexed binding, e.g. "prefix+shift+1..9"
 # close_tab = "prefix+shift+x"
@@ -219,6 +221,10 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # close_pane = "prefix+x"
 # zoom = "prefix+z"       # legacy alias: fullscreen
 # resize_mode = "prefix+r"
+# resize_pane_left = ""   # optional, e.g. "ctrl+shift+alt+left" resizes without entering resize mode
+# resize_pane_down = ""   # optional, e.g. "ctrl+shift+alt+down"
+# resize_pane_up = ""     # optional, e.g. "ctrl+shift+alt+up"
+# resize_pane_right = ""  # optional, e.g. "ctrl+shift+alt+right"
 # toggle_sidebar = "prefix+b"
 
 # Navigate-mode movement. These local shortcuts win while navigate mode is open.

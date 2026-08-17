@@ -9,24 +9,20 @@
 - Command Code (cmd) integration: `herdr integration install commandcode` installs a SessionStart hook that reports `COMMANDCODE_SESSION_ID` to Herdr's socket API (native session restore with `cmd --resume <id>`), merges its hook entry into `~/.commandcode/settings.json` without touching user entries, and adds screen detection for the cmd TUI. (#43)
 - Freebuff integration target: `herdr integration install freebuff` stages a session-state hook in `~/.freebuff/hooks/` (freebuff has no hook lifecycle yet, so state stays screen-detected) and adds native resume support via `freebuff --continue <id>`. (#43)
 - `opencode2` / `open-code-2` now resolve to the opencode agent for CLI and API compatibility with the OpenCode v2 line. (#43)
+- Optional `keys.resize_pane_left`, `keys.resize_pane_down`, `keys.resize_pane_up`, and `keys.resize_pane_right` bindings now resize the focused pane in one keystroke without entering resize mode. (#2558)
+- Optional `keys.move_tab_previous` and `keys.move_tab_next` bindings now reorder the active tab in place, wrapping at either end. (#2561)
 - Headless servers now use a configurable 120×40 virtual terminal instead of 80×24 when no client is attached, giving newly created panes a practical default size. (#2828)
-
-### Fixed
-- `agent prompt` now rejects agents already waiting at approval or question dialogs with `agent_blocked`, without sending text or Enter. The check uses the last detector-poll cache and a live bottom-buffer detection snapshot so a dialog painted between polls cannot receive prompt+Enter. (#2790)
-- Remote clients now continue redrawing at very large terminal sizes instead of freezing when a full ANSI frame exceeds the transport limit. (#2675)
-
-### Fixed
-- Remote clients now handle a terminal hangup gracefully instead of crashing. (#2827)
-- `prefix+e` now preserves logical lines when opening soft-wrapped scrollback in an editor. (#2735)
-- Detects the full set of Claude half-circle spinner frames as working. (#2762)
 
 ### Changed
 - Settings panel consolidated from ten sections into six tabs (Theme, UI, Sound, System, Templates, Integrations) with collapsible groups per tab; every existing setting row is preserved, just regrouped for easier scanning.
 
 ### Fixed
+- `agent prompt` now rejects agents already waiting at approval or question dialogs with `agent_blocked`, without sending text or Enter. The check uses the last detector-poll cache and a live bottom-buffer detection snapshot so a dialog painted between polls cannot receive prompt+Enter. (#2790)
+- Remote clients now continue redrawing at very large terminal sizes instead of freezing when a full ANSI frame exceeds the transport limit. (#2675)
+- Remote clients now handle a terminal hangup gracefully instead of crashing. (#2827)
+- `prefix+e` now preserves logical lines when opening soft-wrapped scrollback in an editor. (#2735)
+- Detects the full set of Claude half-circle spinner frames as working. (#2762)
 - Pane navigation uses saturating arithmetic so extreme terminal sizes or split ratios can no longer overflow u16 rect math and select the wrong pane.
-
-### Fixed
 - Headless scheduled-task and api_ping tests no longer read developer-machine state: the pi-session watcher is pinned to a temp root, the github-refresh skip test neutralizes `XDG_CONFIG_HOME`/`GH_CONFIG_DIR` next to the token env vars, and spawned panes get an isolated `HOME` without `BASH_ENV`/`ENV` so machine dotfiles (starship/zoxide/PATH rewrites) cannot break pane commands. (#42)
 
 ### Fixed

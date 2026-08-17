@@ -411,6 +411,18 @@
           "description": "Select the next tab."
         },
         {
+          "key": "keys.move_tab_previous",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Move the active tab one position toward the front. Unset by default."
+        },
+        {
+          "key": "keys.move_tab_next",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Move the active tab one position toward the back. Unset by default."
+        },
+        {
           "key": "keys.switch_tab",
           "type": "keybinding",
           "default": "\"prefix+1..9\"",
@@ -541,6 +553,30 @@
           "type": "keybinding",
           "default": "\"prefix+r\"",
           "description": "Enter resize mode."
+        },
+        {
+          "key": "keys.resize_pane_left",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Resize the focused pane toward the left. Unset by default."
+        },
+        {
+          "key": "keys.resize_pane_down",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Resize the focused pane downward. Unset by default."
+        },
+        {
+          "key": "keys.resize_pane_up",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Resize the focused pane upward. Unset by default."
+        },
+        {
+          "key": "keys.resize_pane_right",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Resize the focused pane toward the right. Unset by default."
         },
         {
           "key": "keys.toggle_sidebar",
