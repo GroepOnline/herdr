@@ -98,6 +98,7 @@ fn print_full_status(json: bool) -> std::io::Result<i32> {
         crate::config::Config::load().config.update.channel.as_str()
     );
     println!("  protocol: {}", crate::protocol::PROTOCOL_VERSION);
+    println!("  binary: {}", crate::update::invoked_binary_label());
     println!();
     println!("server:");
     print_server_status_body(&server, "  ");
@@ -130,7 +131,7 @@ fn print_client_status(json: bool) -> std::io::Result<()> {
         crate::config::Config::load().config.update.channel.as_str()
     );
     println!("protocol: {}", crate::protocol::PROTOCOL_VERSION);
-    println!("binary: {}", current_exe_label());
+    println!("binary: {}", crate::update::invoked_binary_label());
     Ok(())
 }
 
@@ -215,6 +216,7 @@ struct ClientStatusJson {
     channel: &'static str,
     protocol: u32,
     binary: String,
+    install: &'static str,
     session: Option<String>,
 }
 
@@ -248,6 +250,7 @@ fn client_status_json() -> ClientStatusJson {
         channel: crate::config::Config::load().config.update.channel.as_str(),
         protocol: crate::protocol::PROTOCOL_VERSION,
         binary: current_exe_label(),
+        install: crate::update::current_install_kind_label(),
         session: crate::session::active_name(),
     }
 }

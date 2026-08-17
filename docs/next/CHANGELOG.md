@@ -24,9 +24,8 @@
 - Detects the full set of Claude half-circle spinner frames as working. (#2762)
 - Pane navigation uses saturating arithmetic so extreme terminal sizes or split ratios can no longer overflow u16 rect math and select the wrong pane.
 - Headless scheduled-task and api_ping tests no longer read developer-machine state: the pi-session watcher is pinned to a temp root, the github-refresh skip test neutralizes `XDG_CONFIG_HOME`/`GH_CONFIG_DIR` next to the token env vars, and spawned panes get an isolated `HOME` without `BASH_ENV`/`ENV` so machine dotfiles (starship/zoxide/PATH rewrites) cannot break pane commands. (#42)
-
-### Fixed
 - Command Code no longer treats Windows `cmd.exe` as the installed CLI, and uninstall now fails closed on malformed `settings.json` instead of deleting the hook while leaving the SessionStart registration behind.
+- `herdr --version` now prints the invoked binary path and install kind, so a leftover `~/.local/bin/herdr` can no longer silently shadow Homebrew, npm, mise, or Nix. `herdr update` retires that leftover (renamed to `herdr.direct.bak`) when a package-manager install is later on PATH, runs the owning package-manager upgrade for Homebrew/npm/mise instead of exiting 1, and `herdr channel` with no subcommand prints the configured channel. Use `herdr update --force-direct` only to keep updating a leftover direct binary.
 
 ## [0.8.1] - 2026-08-15
 

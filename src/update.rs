@@ -1049,6 +1049,7 @@ fn target_client_protocol_server_is_running() -> Result<bool, String> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct SelfUpdateOptions {
     pub(crate) live_handoff: bool,
+    pub(crate) force_direct: bool,
 }
 
 pub(crate) fn parse_self_update_args(args: &[String]) -> Result<SelfUpdateOptions, String> {
@@ -1056,8 +1057,9 @@ pub(crate) fn parse_self_update_args(args: &[String]) -> Result<SelfUpdateOption
     for arg in args {
         match arg.as_str() {
             "--handoff" => options.live_handoff = true,
+            "--force-direct" => options.force_direct = true,
             "--help" | "-h" => {
-                return Err("usage: herdr update [--handoff]".to_string());
+                return Err("usage: herdr update [--handoff] [--force-direct]".to_string());
             }
             _ => return Err(format!("unknown update option: {arg}")),
         }
@@ -1927,6 +1929,314 @@ pub(crate) fn is_package_manager_managed_exe_path(_path: &Path) -> bool {
     false
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InstallKind {
+    Direct,
+    Homebrew,
+    Npm,
+    Mise,
+    Nix,
+}
+
+impl InstallKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Direct => "direct",
+            Self::Homebrew => "homebrew",
+            Self::Npm => "npm",
+            Self::Mise => "mise",
+            Self::Nix => "nix",
+        }
+    }
+
+    fn is_package_managed(self) -> bool {
+        !matches!(self, Self::Direct)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PathInstallShadow {
+    leftover: PathBuf,
+    managed: PathBuf,
+    managed_kind: InstallKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PackageManagerUpdateAction {
+    Run {
+        kind: InstallKind,
+        command: &'static str,
+        prerelease_note: Option<&'static str>,
+    },
+    Guidance {
+        message: &'static str,
+    },
+}
+
+pub(crate) fn current_install_kind_label() -> &'static str {
+    install_kind_for_current_exe().as_str()
+}
+
+pub(crate) fn invoked_binary_label() -> String {
+    match env::current_exe() {
+        Ok(path) => format!(
+            "{} ({})",
+            path.display(),
+            install_kind_for_exe_path(&path).as_str()
+        ),
+        Err(err) => format!("unknown ({err})"),
+    }
+}
+
+pub(crate) fn print_version_identity() {
+    match env::current_exe() {
+        Ok(path) => {
+            println!(
+                "binary: {} ({})",
+                path.display(),
+                install_kind_for_exe_path(&path).as_str()
+            );
+            if let Some(shadow) = detect_path_install_shadow_for(&path) {
+                eprintln!(
+                    "note: {} herdr is also on PATH at {}",
+                    shadow.managed_kind.as_str(),
+                    shadow.managed.display()
+                );
+            }
+        }
+        Err(err) => println!("binary: unknown ({err})"),
+    }
+}
+
+fn print_invoked_binary_line() {
+    match env::current_exe() {
+        Ok(path) => eprintln!(
+            "binary: {} ({})",
+            path.display(),
+            install_kind_for_exe_path(&path).as_str()
+        ),
+        Err(err) => eprintln!("binary: unknown ({err})"),
+    }
+}
+
+fn install_kind_for_current_exe() -> InstallKind {
+    env::current_exe()
+        .map(|path| install_kind_for_exe_path(&path))
+        .unwrap_or(InstallKind::Direct)
+}
+
+fn install_kind_for_exe_path(path: &Path) -> InstallKind {
+    if is_homebrew_managed_exe_path_following_links(path) {
+        InstallKind::Homebrew
+    } else if is_npm_managed_exe_path_following_links(path) {
+        InstallKind::Npm
+    } else if is_mise_managed_exe_path_following_links(path) {
+        InstallKind::Mise
+    } else if is_nix_store_exe_path_following_links(path) {
+        InstallKind::Nix
+    } else {
+        InstallKind::Direct
+    }
+}
+
+fn herdr_exe_file_name() -> &'static str {
+    if cfg!(windows) {
+        "herdr.exe"
+    } else {
+        "herdr"
+    }
+}
+
+fn herdr_binaries_on_path_var(path_var: impl AsRef<std::ffi::OsStr>) -> Vec<PathBuf> {
+    env::split_paths(path_var.as_ref())
+        .filter_map(|dir| {
+            let candidate = dir.join(herdr_exe_file_name());
+            candidate.is_file().then_some(candidate)
+        })
+        .collect()
+}
+
+fn path_install_shadow(current_exe: &Path, path_binaries: &[PathBuf]) -> Option<PathInstallShadow> {
+    if install_kind_for_exe_path(current_exe).is_package_managed() {
+        return None;
+    }
+
+    let mut saw_current = false;
+    for candidate in path_binaries {
+        if !saw_current {
+            if paths_match(candidate, current_exe) {
+                saw_current = true;
+            }
+            continue;
+        }
+
+        let kind = install_kind_for_exe_path(candidate);
+        if kind.is_package_managed() {
+            return Some(PathInstallShadow {
+                leftover: current_exe.to_path_buf(),
+                managed: candidate.clone(),
+                managed_kind: kind,
+            });
+        }
+    }
+
+    None
+}
+
+#[cfg(unix)]
+fn detect_path_install_shadow() -> Option<PathInstallShadow> {
+    let current = env::current_exe().ok()?;
+    detect_path_install_shadow_for(&current)
+}
+
+fn detect_path_install_shadow_for(current_exe: &Path) -> Option<PathInstallShadow> {
+    let path_var = env::var_os("PATH")?;
+    path_install_shadow(current_exe, &herdr_binaries_on_path_var(&path_var))
+}
+
+#[cfg(unix)]
+fn leftover_direct_backup_path(leftover: &Path) -> PathBuf {
+    let file_name = leftover
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("herdr");
+    let preferred = leftover.with_file_name(format!("{file_name}.direct.bak"));
+    if !preferred.exists() {
+        return preferred;
+    }
+    leftover.with_file_name(format!("{file_name}.direct.bak.{}", std::process::id()))
+}
+
+#[cfg(unix)]
+fn retire_shadowed_direct_install(shadow: &PathInstallShadow) -> Result<Version, String> {
+    let backup = leftover_direct_backup_path(&shadow.leftover);
+    fs::rename(&shadow.leftover, &backup).map_err(|err| {
+        format!(
+            "PATH is using leftover {} (direct) while {} herdr is also at {}. Move the leftover aside (`mv {} {}`) and run `herdr update` again: {err}",
+            shadow.leftover.display(),
+            shadow.managed_kind.as_str(),
+            shadow.managed.display(),
+            shadow.leftover.display(),
+            backup.display()
+        )
+    })?;
+
+    eprintln!(
+        "retired leftover direct install {} -> {}",
+        shadow.leftover.display(),
+        backup.display()
+    );
+    eprintln!(
+        "herdr on PATH now uses the {} install at {}",
+        shadow.managed_kind.as_str(),
+        shadow.managed.display()
+    );
+    if let Some(command) = package_manager_update_command(shadow.managed_kind) {
+        eprintln!("update that install with `{command}`");
+    }
+    eprintln!("use `herdr update --force-direct` only when you want to keep a leftover direct binary first on PATH");
+    Ok(Version::current())
+}
+
+fn package_manager_update_command(kind: InstallKind) -> Option<&'static str> {
+    match kind {
+        InstallKind::Direct => None,
+        InstallKind::Homebrew => Some(HOMEBREW_UPDATE_COMMAND),
+        InstallKind::Npm => Some(NPM_UPDATE_COMMAND),
+        InstallKind::Mise => Some(MISE_UPDATE_COMMAND),
+        InstallKind::Nix => Some(NIX_UPDATE_COMMAND),
+    }
+}
+
+fn package_manager_prerelease_note(kind: InstallKind) -> Option<&'static str> {
+    match kind {
+        InstallKind::Direct => None,
+        InstallKind::Homebrew => Some(
+            "preview and dev channels are only for direct installs; Homebrew stays on stable",
+        ),
+        InstallKind::Npm => {
+            Some("preview and dev channels are only for direct installs; npm stays on stable")
+        }
+        InstallKind::Mise => {
+            Some("preview and dev channels are only for direct installs; mise stays on stable")
+        }
+        InstallKind::Nix => {
+            Some("preview and dev channels are only for direct installs; Nix stays on stable")
+        }
+    }
+}
+
+fn package_manager_update_action(
+    kind: InstallKind,
+    channel: UpdateChannel,
+) -> Option<PackageManagerUpdateAction> {
+    let prerelease_note = channel
+        .is_prerelease()
+        .then(|| package_manager_prerelease_note(kind))
+        .flatten();
+
+    match kind {
+        InstallKind::Direct => None,
+        InstallKind::Homebrew | InstallKind::Npm | InstallKind::Mise => {
+            Some(PackageManagerUpdateAction::Run {
+                kind,
+                command: package_manager_update_command(kind)?,
+                prerelease_note,
+            })
+        }
+        InstallKind::Nix => Some(PackageManagerUpdateAction::Guidance {
+            message: if channel.is_prerelease() {
+                "preview and dev channels are only for direct installs; update Nix-managed Herdr with `nix profile upgrade` or the flake input that provides Herdr"
+            } else {
+                "update Nix-managed Herdr with `nix profile upgrade` or the flake input that provides Herdr"
+            },
+        }),
+    }
+}
+
+fn apply_package_manager_update(action: PackageManagerUpdateAction) -> Result<Version, String> {
+    match action {
+        PackageManagerUpdateAction::Run {
+            kind,
+            command,
+            prerelease_note,
+        } => {
+            if let Some(note) = prerelease_note {
+                eprintln!("note: {note}");
+            }
+            eprintln!("this {} install updates with `{command}`", kind.as_str());
+            #[cfg(unix)]
+            {
+                eprintln!("running `{command}`");
+                run_package_manager_command(command)?;
+                eprintln!("package manager update finished");
+            }
+            #[cfg(not(unix))]
+            {
+                eprintln!("run `{command}` to update");
+            }
+            Ok(Version::current())
+        }
+        PackageManagerUpdateAction::Guidance { message } => {
+            eprintln!("{message}");
+            Ok(Version::current())
+        }
+    }
+}
+
+#[cfg(unix)]
+fn run_package_manager_command(command: &str) -> Result<(), String> {
+    let status = crate::noninteractive_process::command("sh")
+        .args(["-c", command])
+        .status()
+        .map_err(|err| format!("failed to run `{command}`: {err}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("`{command}` failed"))
+    }
+}
+
 fn is_homebrew_managed_exe_path_following_links(path: &Path) -> bool {
     if is_homebrew_managed_exe_path(path) {
         return true;
@@ -2090,52 +2400,26 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
         );
     }
 
-    if is_homebrew_managed_install() {
-        if channel.is_prerelease() {
-            return Err(format!(
-                "self-update is disabled for Homebrew installs; the {} channel is only available for direct Herdr installs",
-                channel.as_str()
-            ));
+    print_invoked_binary_line();
+    #[cfg(not(unix))]
+    let _ = options.force_direct;
+
+    #[cfg(unix)]
+    if let Some(shadow) = detect_path_install_shadow() {
+        if options.force_direct {
+            eprintln!(
+                "updating leftover direct install at {}; {} herdr remains later on PATH at {}",
+                shadow.leftover.display(),
+                shadow.managed_kind.as_str(),
+                shadow.managed.display()
+            );
+        } else {
+            return retire_shadowed_direct_install(&shadow);
         }
-        return Err(format!(
-            "self-update is disabled for Homebrew installs; run `{HOMEBREW_UPDATE_COMMAND}`"
-        ));
     }
 
-    if is_npm_managed_install() {
-        if channel.is_prerelease() {
-            return Err(format!(
-                "self-update is disabled for npm installs; the {} channel is only available for direct Herdr installs",
-                channel.as_str()
-            ));
-        }
-        return Err(format!(
-            "self-update is disabled for npm installs; run `{NPM_UPDATE_COMMAND}`"
-        ));
-    }
-
-    if is_mise_managed_install() {
-        if channel.is_prerelease() {
-            return Err(format!(
-                "self-update is disabled for mise installs; the {} channel is only available for direct Herdr installs",
-                channel.as_str()
-            ));
-        }
-        return Err(format!(
-            "self-update is disabled for mise installs; run `{MISE_UPDATE_COMMAND}`"
-        ));
-    }
-
-    if is_nix_managed_install() {
-        if channel.is_prerelease() {
-            return Err(format!(
-                "self-update is disabled for Nix installs; the {} channel is only available for direct Herdr installs",
-                channel.as_str()
-            ));
-        }
-        return Err(
-            "self-update is disabled for Nix installs; update with `nix profile upgrade` or update the flake input that provides Herdr".into(),
-        );
+    if let Some(action) = package_manager_update_action(install_kind_for_current_exe(), channel) {
+        return apply_package_manager_update(action);
     }
 
     if running_inside_herdr() {
@@ -2562,6 +2846,88 @@ mod tests {
         let path = Path::new("/usr/local/bin/herdr");
 
         assert!(!is_homebrew_managed_exe_path(path));
+        assert_eq!(install_kind_for_exe_path(path), InstallKind::Direct);
+    }
+
+    #[test]
+    fn path_install_shadow_finds_leftover_before_homebrew() {
+        let leftover = PathBuf::from("/home/joep/.local/bin/herdr");
+        let managed =
+            PathBuf::from("/home/linuxbrew/.linuxbrew/Cellar/groeponline-herdr/0.8.1/bin/herdr");
+
+        assert_eq!(
+            path_install_shadow(&leftover, &[leftover.clone(), managed.clone()]),
+            Some(PathInstallShadow {
+                leftover: leftover.clone(),
+                managed: managed.clone(),
+                managed_kind: InstallKind::Homebrew,
+            })
+        );
+        assert_eq!(
+            path_install_shadow(&managed, &[leftover.clone(), managed.clone()]),
+            None
+        );
+        assert_eq!(path_install_shadow(&leftover, &[leftover.clone()]), None);
+        assert_eq!(
+            path_install_shadow(&leftover, &[managed, leftover.clone()]),
+            None
+        );
+    }
+
+    #[test]
+    fn leftover_direct_backup_path_avoids_existing_backup() {
+        let dir = std::env::temp_dir().join(format!(
+            "herdr-update-bak-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let leftover = dir.join("herdr");
+        let first = leftover_direct_backup_path(&leftover);
+        assert_eq!(first, dir.join("herdr.direct.bak"));
+        fs::write(&first, b"old").unwrap();
+        let second = leftover_direct_backup_path(&leftover);
+        assert_ne!(second, first);
+        assert!(second
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.starts_with("herdr.direct.bak.")));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn package_manager_update_action_runs_homebrew_and_notes_preview() {
+        assert_eq!(
+            package_manager_update_action(InstallKind::Direct, UpdateChannel::Stable),
+            None
+        );
+        assert_eq!(
+            package_manager_update_action(InstallKind::Homebrew, UpdateChannel::Stable),
+            Some(PackageManagerUpdateAction::Run {
+                kind: InstallKind::Homebrew,
+                command: HOMEBREW_UPDATE_COMMAND,
+                prerelease_note: None,
+            })
+        );
+        assert_eq!(
+            package_manager_update_action(InstallKind::Homebrew, UpdateChannel::Preview),
+            Some(PackageManagerUpdateAction::Run {
+                kind: InstallKind::Homebrew,
+                command: HOMEBREW_UPDATE_COMMAND,
+                prerelease_note: Some(
+                    "preview and dev channels are only for direct installs; Homebrew stays on stable"
+                ),
+            })
+        );
+        assert_eq!(
+            package_manager_update_action(InstallKind::Nix, UpdateChannel::Stable),
+            Some(PackageManagerUpdateAction::Guidance {
+                message: "update Nix-managed Herdr with `nix profile upgrade` or the flake input that provides Herdr",
+            })
+        );
     }
 
     #[test]
@@ -2834,12 +3200,23 @@ mod tests {
         assert_eq!(
             parse_self_update_args(&[]).unwrap(),
             SelfUpdateOptions {
-                live_handoff: false
+                live_handoff: false,
+                force_direct: false,
             }
         );
         assert_eq!(
             parse_self_update_args(&["--handoff".to_string()]).unwrap(),
-            SelfUpdateOptions { live_handoff: true }
+            SelfUpdateOptions {
+                live_handoff: true,
+                force_direct: false,
+            }
+        );
+        assert_eq!(
+            parse_self_update_args(&["--force-direct".to_string()]).unwrap(),
+            SelfUpdateOptions {
+                live_handoff: false,
+                force_direct: true,
+            }
         );
         assert_eq!(
             parse_self_update_args(&["--unknown".to_string()]).unwrap_err(),
@@ -2942,6 +3319,7 @@ mod tests {
             &release,
             SelfUpdateOptions {
                 live_handoff: false,
+                force_direct: false,
             },
         )
         .unwrap();
@@ -3150,6 +3528,7 @@ mod tests {
             &release,
             SelfUpdateOptions {
                 live_handoff: false,
+                force_direct: false,
             },
         )
         .unwrap();

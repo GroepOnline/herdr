@@ -17,14 +17,16 @@ herdr --remote workbox --remote-keybindings server
 herdr --remote workbox --handoff
 herdr --no-session            # single-process escape hatch
 herdr --default-config        # print default config
-herdr update                  # download and install from the configured channel
+herdr update                  # update this install (direct download or package manager)
 herdr update --handoff        # opt into live handoff for supported running servers
+herdr update --force-direct   # keep updating a leftover direct binary that shadows a package manager
 herdr completion zsh          # generate a zsh completion script
-herdr channel show            # print stable, preview, or dev
+herdr channel                 # print stable, preview, or dev
+herdr channel show            # same as herdr channel
 herdr channel set preview     # opt into preview builds
 herdr channel set dev         # opt into dev builds
 herdr channel set stable      # return Linux/macOS direct installs to stable
-herdr --version               # print version
+herdr --version               # print version, binary path, and install kind
 ```
 
 Status commands:

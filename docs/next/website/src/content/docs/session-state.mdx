@@ -106,4 +106,4 @@ herdr --remote workbox --handoff
 
 Plain `herdr update` and plain `herdr --remote workbox` use the normal restart/stop flow by default.
 
-`herdr update --handoff` only applies to installs managed by Herdr's own updater. Homebrew, mise, and Nix installs are updated through their package managers, so `herdr update` is disabled there and cannot perform live handoff.
+`herdr update --handoff` only applies to direct installs managed by Herdr's own updater. Homebrew, npm, and mise installs run their package-manager upgrade and cannot perform live handoff.
