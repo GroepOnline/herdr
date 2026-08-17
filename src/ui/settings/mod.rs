@@ -8,9 +8,11 @@ pub(crate) mod spinner;
 pub(crate) use catalog::SettingsAction;
 
 pub(crate) use layout::{
-    settings_button_rects, settings_primary_button_label, settings_show_primary_action,
-    settings_show_secondary_action, SettingsLayout,
+    settings_button_rects, settings_show_primary_action, SettingsLayout,
 };
+
+#[cfg(test)]
+pub(crate) use layout::{settings_primary_button_label, settings_show_secondary_action};
 
 use ratatui::{layout::Rect, Frame};
 
