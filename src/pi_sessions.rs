@@ -149,9 +149,8 @@ fn scan_session_files(root: PathBuf) -> Vec<(PathBuf, SystemTime)> {
         if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
             continue;
         }
-        let dir = match fs::read_dir(entry.path()) {
-            Ok(e) => e,
-            Err(_) => continue,
+        let Ok(dir) = fs::read_dir(entry.path()) else {
+            continue;
         };
         for file in dir.flatten() {
             let path = file.path();

@@ -2257,9 +2257,8 @@ impl AppState {
     }
 
     pub fn copy_selection(&mut self, terminal_runtimes: &crate::terminal::TerminalRuntimeRegistry) {
-        let mut sel = match self.selection.take() {
-            Some(sel) => sel,
-            None => return,
+        let Some(mut sel) = self.selection.take() else {
+            return;
         };
         if !sel.finish() {
             return;

@@ -112,9 +112,8 @@ impl ClipboardHistory {
     /// Record a clipboard write. Non-UTF-8 and whitespace-only content is
     /// skipped. Oversized text is truncated to `max_bytes`.
     pub fn record(&self, content: &[u8], source: &str) {
-        let text = match std::str::from_utf8(content) {
-            Ok(t) => t,
-            Err(_) => return,
+        let Ok(text) = std::str::from_utf8(content) else {
+            return;
         };
         let text = text.trim();
         if text.is_empty() {
@@ -175,18 +174,15 @@ impl ClipboardHistory {
 
     /// Return up to `limit` most-recent entries, newest first.
     pub fn recent(&self, limit: usize) -> Vec<ClipboardEntry> {
-        let read_tx = match self.db.begin_read() {
-            Ok(tx) => tx,
-            Err(_) => return Vec::new(),
+        let Ok(read_tx) = self.db.begin_read() else {
+            return Vec::new();
         };
-        let table = match read_tx.open_table(TABLE) {
-            Ok(t) => t,
-            Err(_) => return Vec::new(),
+        let Ok(table) = read_tx.open_table(TABLE) else {
+            return Vec::new();
         };
         let mut rows: Vec<ClipboardEntry> = Vec::new();
-        let iter = match table.iter() {
-            Ok(i) => i,
-            Err(_) => return Vec::new(),
+        let Ok(iter) = table.iter() else {
+            return Vec::new();
         };
         for item in iter.flatten() {
             let (k, v) = item;
