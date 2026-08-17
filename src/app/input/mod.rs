@@ -262,9 +262,9 @@ impl App {
     }
 
     pub(super) fn handle_mouse(&mut self, mouse: MouseEvent) -> bool {
-        let hover_before = self.state.view.sidebar_hover;
+        let hover_before = self.state.sidebar_hover;
         self.dispatch_mouse_event(mouse);
-        self.state.view.sidebar_hover != hover_before
+        self.state.sidebar_hover != hover_before
     }
 
     fn dispatch_mouse_event(&mut self, mouse: MouseEvent) {

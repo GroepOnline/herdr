@@ -3,8 +3,8 @@
 ## Unreleased
 
 ### Added
-- Sidebar hover highlight: moving the mouse over a workspace or agent row in the sidebar highlights it (surface background plus text color), so click targets are visible before clicking.
-- Mobile edge-swipe: on narrow (mobile) layouts, a touch drag that starts at the left edge opens the workspace switcher, mirroring the header button. Vertical or short drags still reach the pane app.
+- Sidebar hover highlight: moving the mouse over a workspace or agent row in the sidebar highlights it with a distinct hover surface, so click targets are visible before clicking. Hover clears when the pointer leaves the sidebar, the host terminal loses focus, or a modal opens.
+- Mobile edge-swipe: on narrow (mobile) layouts, a touch drag that starts at the left edge (columns 0..=1) opens the workspace switcher, mirroring the header button. Vertical or short drags still reach the pane app.
 
 ## [0.8.1] - 2026-08-15
 

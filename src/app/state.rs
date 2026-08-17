@@ -798,7 +798,7 @@ pub enum ViewLayout {
 }
 
 /// Sidebar row the mouse currently hovers over, used to render a subtle
-/// hover highlight. Pure TUI presentation state.
+/// hover highlight. Pure TUI presentation state stored on `AppState`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SidebarHoverTarget {
     Workspace(usize),
@@ -825,7 +825,6 @@ pub struct ViewState {
     pub toast_hit_area: Rect,
     pub pane_infos: Vec<PaneInfo>,
     pub split_borders: Vec<SplitBorder>,
-    pub(crate) sidebar_hover: Option<SidebarHoverTarget>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -855,23 +854,18 @@ pub enum Mode {
 
 impl Mode {
     pub(crate) fn mouse_motion_changes_view(self) -> bool {
-        // Terminal mode intentionally excluded: pane applications render their
-        // own motion responses through PTY output, and unconditional full
-        // repaints on every Moved event are a CPU/network waste. Overlay hover
-        // still triggers via GlobalMenu / ContextMenu / Navigator / Navigate.
-        // Terminal sidebar hover is handled separately: the scheduler asks
-        // mouse_motion_requires_view_update with the bool from
-        // update_sidebar_hover so only an actual hover change repaints.
-        matches!(
-            self,
-            Self::GlobalMenu | Self::ContextMenu | Self::Navigator | Self::Navigate
-        )
+        // Terminal and Navigate are excluded: pane apps render their own
+        // motion through PTY output, and sidebar hover is change-detected via
+        // mouse_motion_requires_view_update. Unconditional Moved repaints in
+        // those modes waste CPU/network. Overlay hover still triggers here
+        // for GlobalMenu / ContextMenu / Navigator.
+        matches!(self, Self::GlobalMenu | Self::ContextMenu | Self::Navigator)
     }
 
     /// Whether a mouse-move should schedule a Herdr view update.
     ///
-    /// Overlay modes always do. Terminal motion does only when sidebar hover
-    /// actually changed; pane-only motion stays render-neutral.
+    /// Overlay modes always do. Terminal and Navigate motion do only when
+    /// sidebar hover actually changed; pane-only motion stays render-neutral.
     pub(crate) fn mouse_motion_requires_view_update(self, sidebar_hover_changed: bool) -> bool {
         self.mouse_motion_changes_view() || sidebar_hover_changed
     }
@@ -1674,6 +1668,10 @@ pub struct AppState {
     pub mobile_switcher_scroll: usize,
     /// Start position of a touch drag on mobile (edge-swipe detection).
     pub mobile_swipe_start: Option<(u16, u16)>,
+    /// Pointer hover over a sidebar row. Presentation-only; stored on AppState
+    /// so per-frame ViewState rebuilds cannot drop it. Shared across attached
+    /// clients, matching context-menu / global-menu hover.
+    pub(crate) sidebar_hover: Option<SidebarHoverTarget>,
     // View geometry (computed before render, consumed by render + mouse)
     pub view: ViewState,
     pub(crate) drag: Option<DragState>,
@@ -2076,6 +2074,7 @@ impl AppState {
             tab_scroll_follow_active: true,
             mobile_switcher_scroll: 0,
             mobile_swipe_start: None,
+            sidebar_hover: None,
             view: ViewState {
                 layout: ViewLayout::Desktop,
                 sidebar_rect: Rect::default(),
@@ -2092,7 +2091,6 @@ impl AppState {
                 toast_hit_area: Rect::default(),
                 pane_infos: Vec::new(),
                 split_borders: Vec::new(),
-                sidebar_hover: None,
             },
             drag: None,
             workspace_press: None,

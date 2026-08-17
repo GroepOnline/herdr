@@ -1154,7 +1154,7 @@ fn render_workspace_list(
         let is_active = Some(i) == app.active;
         let is_dragged = dragged_ws_idx == Some(i);
         let hovered = matches!(
-            app.view.sidebar_hover,
+            app.sidebar_hover,
             Some(crate::app::state::SidebarHoverTarget::Workspace(h)) if h == i
         );
         let highlighted = selected || is_active || is_dragged;
@@ -1184,7 +1184,7 @@ fn render_workspace_list(
                     break;
                 }
                 for x in card.rect.x..card.rect.x + card.rect.width {
-                    buf[(x, y)].set_style(Style::default().bg(p.surface0));
+                    buf[(x, y)].set_style(Style::default().bg(p.surface1));
                 }
             }
         }
@@ -1396,7 +1396,7 @@ fn render_agent_detail(
 
         let is_active = app.is_active_pane(detail.ws_idx, detail.tab_idx, detail.pane_id);
         let hovered = matches!(
-            app.view.sidebar_hover,
+            app.sidebar_hover,
             Some(crate::app::state::SidebarHoverTarget::Agent {
                 ws_idx,
                 tab_idx,
@@ -1409,12 +1409,14 @@ fn render_agent_detail(
         let row_style = if is_active {
             Style::default().bg(p.surface_dim)
         } else if hovered {
-            Style::default().bg(p.surface0)
+            Style::default().bg(p.surface1)
         } else {
             Style::default()
         };
-        let name_style = if is_active || hovered {
+        let name_style = if is_active {
             Style::default().fg(p.text).add_modifier(Modifier::BOLD)
+        } else if hovered {
+            Style::default().fg(p.text)
         } else {
             Style::default().fg(p.subtext0).add_modifier(Modifier::BOLD)
         };
@@ -1631,7 +1633,7 @@ mod tests {
             .find(|card| card.ws_idx == 1)
             .expect("inactive workspace card")
             .rect;
-        app.view.sidebar_hover = Some(crate::app::state::SidebarHoverTarget::Workspace(1));
+        app.sidebar_hover = Some(crate::app::state::SidebarHoverTarget::Workspace(1));
 
         let mut terminal = Terminal::new(TestBackend::new(26, 20)).unwrap();
         terminal
@@ -1641,8 +1643,9 @@ mod tests {
 
         let name_x = find_symbol_x(buffer, card1.y, 25, "t");
         let cell = &buffer[(name_x, card1.y)];
-        assert_eq!(cell.style().bg, Some(app.palette.surface0));
+        assert_eq!(cell.style().bg, Some(app.palette.surface1));
         assert_eq!(cell.style().fg, Some(app.palette.text));
+        assert!(!cell.style().add_modifier.contains(Modifier::BOLD));
     }
 
     #[test]
@@ -1669,7 +1672,7 @@ mod tests {
         let (_, agent_area) = expanded_sidebar_sections(area, app.sidebar_section_split);
         let body = agent_panel_body_rect(agent_area, false);
         // Active pane styling wins over hover; hover the inactive agent.
-        app.view.sidebar_hover = Some(crate::app::state::SidebarHoverTarget::Agent {
+        app.sidebar_hover = Some(crate::app::state::SidebarHoverTarget::Agent {
             ws_idx: 1,
             tab_idx: 0,
             pane_id: pane_two,
@@ -1686,8 +1689,9 @@ mod tests {
             .expect("hovered agent workspace label");
         let name_x = find_symbol_x(buffer, hovered_row, body.width, "t");
         let cell = &buffer[(name_x, hovered_row)];
-        assert_eq!(cell.style().bg, Some(app.palette.surface0));
+        assert_eq!(cell.style().bg, Some(app.palette.surface1));
         assert_eq!(cell.style().fg, Some(app.palette.text));
+        assert!(!cell.style().add_modifier.contains(Modifier::BOLD));
     }
 
     #[test]

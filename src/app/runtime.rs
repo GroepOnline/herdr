@@ -189,8 +189,7 @@ impl App {
                         self.handle_mouse(mouse)
                     } else {
                         self.state
-                            .handle_pane_mouse_only(&self.terminal_runtimes, mouse);
-                        false
+                            .handle_pane_mouse_only(&self.terminal_runtimes, mouse)
                     };
                 !is_moved
                     || self
@@ -210,7 +209,7 @@ impl App {
             crate::raw_input::RawInputEvent::OuterFocusLost => {
                 self.send_outer_focus_event(crate::ghostty::FocusEvent::Lost);
                 self.state.outer_terminal_focus = Some(false);
-                false
+                self.state.clear_sidebar_hover()
             }
             crate::raw_input::RawInputEvent::HostDefaultColor { kind, color } => {
                 self.update_host_terminal_theme(kind, color)

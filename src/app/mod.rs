@@ -578,6 +578,7 @@ impl App {
             tab_scroll_follow_active: true,
             mobile_switcher_scroll: 0,
             mobile_swipe_start: None,
+            sidebar_hover: None,
             view: state::ViewState {
                 layout: state::ViewLayout::Desktop,
                 sidebar_rect: Rect::default(),
@@ -594,7 +595,6 @@ impl App {
                 toast_hit_area: Rect::default(),
                 pane_infos: Vec::new(),
                 split_borders: Vec::new(),
-                sidebar_hover: None,
             },
             drag: None,
             workspace_press: None,
@@ -1661,7 +1661,8 @@ impl App {
                     if self.state.popup_pane.is_some() || self.state.mouse_capture {
                         sidebar_hover_changed |= self.handle_mouse_event_headless(mouse);
                     } else {
-                        self.state
+                        sidebar_hover_changed |= self
+                            .state
                             .handle_pane_mouse_only(&self.terminal_runtimes, mouse);
                     }
                 }
@@ -1690,6 +1691,7 @@ impl App {
                 }
                 crate::raw_input::RawInputEvent::OuterFocusLost => {
                     self.send_outer_focus_event(crate::ghostty::FocusEvent::Lost);
+                    sidebar_hover_changed |= self.state.clear_sidebar_hover();
                 }
                 crate::raw_input::RawInputEvent::HostDefaultColor { kind, color } => {
                     if apply_host_terminal_theme {

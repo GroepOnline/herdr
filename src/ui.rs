@@ -228,7 +228,13 @@ fn compute_view_internal(
     resize_panes: bool,
     cell_size: crate::kitty_graphics::HostCellSize,
 ) {
-    if is_mobile_width(area, app.mobile_width_threshold) {
+    let next_layout = if is_mobile_width(area, app.mobile_width_threshold) {
+        ViewLayout::Mobile
+    } else {
+        ViewLayout::Desktop
+    };
+    app.sync_pointer_chrome_for_view(next_layout);
+    if next_layout == ViewLayout::Mobile {
         compute_mobile_view(app, terminal_runtimes, area, resize_panes, cell_size);
         return;
     }
@@ -320,12 +326,6 @@ fn compute_view_internal(
         Vec::new()
     };
 
-    // Preserve sidebar_hover across recompute: it is owned by input events
-    // and must stay visible through the per-frame ViewState rebuild, otherwise
-    // any workspace/agent row hovered by the pointer is reset before render
-    // (every frame). Take it out with std::mem::replace so we don't borrow
-    // app.view while constructing the new value.
-    let prev_sidebar_hover = app.view.sidebar_hover.take();
     app.view = crate::app::ViewState {
         layout: ViewLayout::Desktop,
         sidebar_rect: sidebar_area,
@@ -342,7 +342,6 @@ fn compute_view_internal(
         toast_hit_area,
         pane_infos,
         split_borders,
-        sidebar_hover: prev_sidebar_hover,
     };
     app.sync_copy_mode_search_geometry();
 }
@@ -397,10 +396,6 @@ fn compute_mobile_view(
         Vec::new()
     };
 
-    // Preserve sidebar_hover across the mobile recompute as well (see desktop
-    // path for the rationale — without this the per-frame ViewState rebuild
-    // discards any pointer-driven hover before render reads it).
-    let prev_sidebar_hover = app.view.sidebar_hover.take();
     app.view = crate::app::ViewState {
         layout: ViewLayout::Mobile,
         sidebar_rect: Rect::default(),
@@ -417,7 +412,6 @@ fn compute_mobile_view(
         toast_hit_area,
         pane_infos,
         split_borders,
-        sidebar_hover: prev_sidebar_hover,
     };
     app.sync_copy_mode_search_geometry();
 }

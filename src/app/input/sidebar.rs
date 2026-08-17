@@ -1,8 +1,17 @@
 use ratatui::layout::Rect;
 
-use crate::app::state::{AppState, SidebarHoverTarget, ViewLayout};
+use crate::app::state::{AppState, Mode, SidebarHoverTarget, ViewLayout};
 
 use super::ScrollbarClickTarget;
+
+fn pointer_in_rect(rect: Rect, col: u16, row: u16) -> bool {
+    rect.width > 0
+        && rect.height > 0
+        && col >= rect.x
+        && col < rect.x + rect.width
+        && row >= rect.y
+        && row < rect.y + rect.height
+}
 
 impl AppState {
     pub(super) fn workspace_list_rect(&self) -> Rect {
@@ -303,11 +312,17 @@ impl AppState {
     /// sidebar (or with a collapsed sidebar) the hover is cleared.
     ///
     /// Returns `true` when `sidebar_hover` actually changed (including clear)
-    /// so Terminal motion can request a repaint only in that case.
-    pub(super) fn update_sidebar_hover(&mut self, _col: u16, row: u16, in_sidebar: bool) -> bool {
-        let hover = if !in_sidebar || self.sidebar_collapsed {
+    /// so Terminal/Navigate motion can request a repaint only in that case.
+    pub(super) fn update_sidebar_hover(&mut self, col: u16, row: u16, in_sidebar: bool) -> bool {
+        if !matches!(self.mode, Mode::Terminal | Mode::Navigate) {
+            return self.clear_sidebar_hover();
+        }
+        let hover = if !in_sidebar
+            || self.sidebar_collapsed
+            || self.sidebar_hover_chrome_at(col, row)
+        {
             None
-        } else if let Some(idx) = self.workspace_at_row(row) {
+        } else if let Some(idx) = self.workspace_card_at(col, row) {
             Some(SidebarHoverTarget::Workspace(idx))
         } else if let Some((ws_idx, tab_idx, pane_id)) = self.agent_detail_target_at(row) {
             Some(SidebarHoverTarget::Agent {
@@ -318,12 +333,54 @@ impl AppState {
         } else {
             None
         };
-        if self.view.sidebar_hover == hover {
+        self.set_sidebar_hover(hover)
+    }
+
+    pub(crate) fn clear_sidebar_hover(&mut self) -> bool {
+        self.set_sidebar_hover(None)
+    }
+
+    fn set_sidebar_hover(&mut self, hover: Option<SidebarHoverTarget>) -> bool {
+        if self.sidebar_hover == hover {
             false
         } else {
-            self.view.sidebar_hover = hover;
+            self.sidebar_hover = hover;
             true
         }
+    }
+
+    /// Drop swipe/hover that cannot apply to the layout or mode about to be
+    /// shown. Called from `compute_view` so a desktop resize cannot keep a
+    /// mobile swipe origin, and a modal cannot keep a sidebar highlight.
+    pub(crate) fn sync_pointer_chrome_for_view(&mut self, layout: ViewLayout) {
+        if layout != ViewLayout::Mobile {
+            self.mobile_swipe_start = None;
+        }
+        if layout == ViewLayout::Mobile || !matches!(self.mode, Mode::Terminal | Mode::Navigate) {
+            let _ = self.clear_sidebar_hover();
+        }
+    }
+
+    fn sidebar_hover_chrome_at(&self, col: u16, row: u16) -> bool {
+        self.on_sidebar_divider(col, row)
+            || self.on_sidebar_section_divider(col, row)
+            || self.on_sidebar_toggle(col, row)
+            || self.workspace_list_scrollbar_target_at(col, row).is_some()
+            || self.agent_panel_scrollbar_target_at(col, row).is_some()
+            || pointer_in_rect(self.sidebar_footer_rect(), col, row)
+    }
+
+    fn workspace_card_at(&self, col: u16, row: u16) -> Option<usize> {
+        let owned;
+        let cards = if self.view.workspace_card_areas.is_empty() {
+            owned = crate::ui::compute_workspace_card_areas(self, self.view.sidebar_rect);
+            owned.as_slice()
+        } else {
+            self.view.workspace_card_areas.as_slice()
+        };
+        cards
+            .iter()
+            .find_map(|card| pointer_in_rect(card.rect, col, row).then_some(card.ws_idx))
     }
 
     pub(super) fn workspace_at_row(&self, row: u16) -> Option<usize> {
