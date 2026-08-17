@@ -1153,6 +1153,10 @@ fn render_workspace_list(
         let selected = i == app.selected && is_navigating;
         let is_active = Some(i) == app.active;
         let is_dragged = dragged_ws_idx == Some(i);
+        let hovered = matches!(
+            app.sidebar_hover,
+            Some(crate::app::state::SidebarHoverTarget::Workspace(h)) if h == i
+        );
         let highlighted = selected || is_active || is_dragged;
         let (agg_state, agg_seen) = ws.aggregate_state(&app.terminals);
 
@@ -1173,14 +1177,25 @@ fn render_workspace_list(
                     buf[(x, y)].set_style(Style::default().bg(bg));
                 }
             }
+        } else if hovered {
+            let buf = frame.buffer_mut();
+            for y in row_y..row_y + row_height {
+                if y >= list_bottom {
+                    break;
+                }
+                for x in card.rect.x..card.rect.x + card.rect.width {
+                    buf[(x, y)].set_style(Style::default().bg(p.surface1));
+                }
+            }
         }
 
         let name_style = if selected || is_active || is_dragged {
             Style::default().fg(p.text).add_modifier(Modifier::BOLD)
+        } else if hovered {
+            Style::default().fg(p.text)
         } else {
             Style::default().fg(p.subtext0)
         };
-
         let label = crate::workspace::unique_display_names(&app.workspaces)[i].clone();
         let display_label = if card.indented {
             grouped_child_display_label(&label, ws.branch().as_deref(), ws.custom_name.is_some())
@@ -1380,14 +1395,28 @@ fn render_agent_detail(
         }
 
         let is_active = app.is_active_pane(detail.ws_idx, detail.tab_idx, detail.pane_id);
+        let hovered = matches!(
+            app.sidebar_hover,
+            Some(crate::app::state::SidebarHoverTarget::Agent {
+                ws_idx,
+                tab_idx,
+                pane_id,
+            }) if ws_idx == detail.ws_idx
+                && tab_idx == detail.tab_idx
+                && pane_id == detail.pane_id
+        );
 
         let row_style = if is_active {
             Style::default().bg(p.surface_dim)
+        } else if hovered {
+            Style::default().bg(p.surface1)
         } else {
             Style::default()
         };
         let name_style = if is_active {
             Style::default().fg(p.text).add_modifier(Modifier::BOLD)
+        } else if hovered {
+            Style::default().fg(p.text)
         } else {
             Style::default().fg(p.subtext0).add_modifier(Modifier::BOLD)
         };
@@ -1581,6 +1610,88 @@ mod tests {
         assert!(agent_style.add_modifier.contains(Modifier::DIM));
         assert!(!agent_style.add_modifier.contains(Modifier::BOLD));
         assert_eq!(agent_style.bg, Some(app.palette.surface_dim));
+    }
+
+    #[test]
+    fn hovered_workspace_row_renders_hover_surface() {
+        let mut app = crate::app::state::AppState::test_new();
+        app.workspaces = vec![Workspace::test_new("one"), Workspace::test_new("two")];
+        app.ensure_test_terminals();
+        app.active = Some(0);
+        app.mode = Mode::Terminal;
+
+        // Treat the fixture as a sidebar, not a full screen: compute_view on
+        // 26 columns is mobile and leaves workspace_card_areas empty.
+        let area = Rect::new(0, 0, 26, 20);
+        app.view.workspace_card_areas = compute_workspace_card_areas(&app, area);
+        // Active/selected/dragged styling wins over hover, so target the
+        // inactive workspace.
+        let card1 = app
+            .view
+            .workspace_card_areas
+            .iter()
+            .find(|card| card.ws_idx == 1)
+            .expect("inactive workspace card")
+            .rect;
+        app.sidebar_hover = Some(crate::app::state::SidebarHoverTarget::Workspace(1));
+
+        let mut terminal = Terminal::new(TestBackend::new(26, 20)).unwrap();
+        terminal
+            .draw(|frame| render_sidebar(&app, &TerminalRuntimeRegistry::new(), frame, area))
+            .unwrap();
+        let buffer = terminal.backend().buffer();
+
+        let name_x = find_symbol_x(buffer, card1.y, 25, "t");
+        let cell = &buffer[(name_x, card1.y)];
+        assert_eq!(cell.style().bg, Some(app.palette.surface1));
+        assert_eq!(cell.style().fg, Some(app.palette.text));
+        assert!(!cell.style().add_modifier.contains(Modifier::BOLD));
+    }
+
+    #[test]
+    fn hovered_agent_row_renders_hover_surface() {
+        let mut app = crate::app::state::AppState::test_new();
+        let one = Workspace::test_new("one");
+        let two = Workspace::test_new("two");
+        let pane_one = one.tabs[0].root_pane;
+        let pane_two = two.tabs[0].root_pane;
+        app.workspaces = vec![one, two];
+        app.ensure_test_terminals();
+        app.active = Some(0);
+        app.mode = Mode::Terminal;
+        for (ws_idx, pane_id) in [(0usize, pane_one), (1, pane_two)] {
+            let terminal_id = app.workspaces[ws_idx].tabs[0].panes[&pane_id]
+                .attached_terminal_id
+                .clone();
+            let terminal_state = app.terminals.get_mut(&terminal_id).unwrap();
+            terminal_state.detected_agent = Some(Agent::Pi);
+            terminal_state.state = AgentState::Working;
+        }
+
+        let area = Rect::new(0, 0, 26, 20);
+        let (_, agent_area) = expanded_sidebar_sections(area, app.sidebar_section_split);
+        let body = agent_panel_body_rect(agent_area, false);
+        // Active pane styling wins over hover; hover the inactive agent.
+        app.sidebar_hover = Some(crate::app::state::SidebarHoverTarget::Agent {
+            ws_idx: 1,
+            tab_idx: 0,
+            pane_id: pane_two,
+        });
+
+        let mut terminal = Terminal::new(TestBackend::new(26, 20)).unwrap();
+        terminal
+            .draw(|frame| render_sidebar(&app, &TerminalRuntimeRegistry::new(), frame, area))
+            .unwrap();
+        let buffer = terminal.backend().buffer();
+
+        let hovered_row = (body.y..body.y + body.height)
+            .find(|&y| row_text(buffer, y, body.width).contains("two"))
+            .expect("hovered agent workspace label");
+        let name_x = find_symbol_x(buffer, hovered_row, body.width, "t");
+        let cell = &buffer[(name_x, hovered_row)];
+        assert_eq!(cell.style().bg, Some(app.palette.surface1));
+        assert_eq!(cell.style().fg, Some(app.palette.text));
+        assert!(!cell.style().add_modifier.contains(Modifier::BOLD));
     }
 
     #[test]

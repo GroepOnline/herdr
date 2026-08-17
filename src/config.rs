@@ -42,6 +42,13 @@ pub const CONFIG_PATH_ENV_VAR: &str = "HERDR_CONFIG_PATH";
 pub const DEFAULT_SCROLLBACK_LIMIT_BYTES: usize = 10_000_000;
 pub const DEFAULT_MOUSE_SCROLL_LINES: usize = 3;
 pub const DEFAULT_MOBILE_WIDTH_THRESHOLD: u16 = 64;
+pub const DEFAULT_HEADLESS_COLS: u16 = 120;
+pub const DEFAULT_HEADLESS_ROWS: u16 = 40;
+/// Practical upper bound for each headless terminal dimension.
+pub const MAX_HEADLESS_COLS: u16 = 1000;
+pub const MAX_HEADLESS_ROWS: u16 = 1000;
+/// Prevents accidental configurations from allocating excessively large grids.
+pub const MAX_HEADLESS_CELLS: u32 = 1_000_000;
 
 #[cfg(test)]
 pub(crate) fn app_dir_name() -> &'static str {
@@ -76,7 +83,36 @@ impl Config {
             .chain(self.remote_image_paste_key().err())
             .chain(self.ui.sound.diagnostics())
             .chain(self.invalid_sidebar_bounds_diagnostic())
+            .chain(self.invalid_headless_size_diagnostic())
             .collect()
+    }
+
+    pub(crate) fn headless_size(&self) -> (u16, u16) {
+        if self.invalid_headless_size_diagnostic().is_some() {
+            (DEFAULT_HEADLESS_COLS, DEFAULT_HEADLESS_ROWS)
+        } else {
+            (self.server.headless_cols, self.server.headless_rows)
+        }
+    }
+
+    pub(crate) fn invalid_headless_size_diagnostic(&self) -> Option<String> {
+        let cols = self.server.headless_cols as u32;
+        let rows = self.server.headless_rows as u32;
+        (cols == 0
+            || rows == 0
+            || self.server.headless_cols > MAX_HEADLESS_COLS
+            || self.server.headless_rows > MAX_HEADLESS_ROWS
+            || cols.saturating_mul(rows) > MAX_HEADLESS_CELLS)
+            .then(|| {
+                format!(
+                    "server.headless_cols and server.headless_rows must be between 1 and {}x{} and contain at most {} cells (got {}x{})",
+                    MAX_HEADLESS_COLS,
+                    MAX_HEADLESS_ROWS,
+                    MAX_HEADLESS_CELLS,
+                    self.server.headless_cols,
+                    self.server.headless_rows
+                )
+            })
     }
 
     pub(crate) fn invalid_sidebar_bounds_diagnostic(&self) -> Option<String> {

@@ -13,6 +13,24 @@
       ]
     },
     {
+      "id": "server",
+      "title": "Server",
+      "keys": [
+        {
+          "key": "server.headless_cols",
+          "type": "integer",
+          "default": "120",
+          "description": "Virtual terminal width used for layout and newly created panes when no client is attached. Must be greater than zero."
+        },
+        {
+          "key": "server.headless_rows",
+          "type": "integer",
+          "default": "40",
+          "description": "Virtual terminal height used for layout and newly created panes when no client is attached. Must be greater than zero."
+        }
+      ]
+    },
+    {
       "id": "theme",
       "title": "Theme",
       "keys": [

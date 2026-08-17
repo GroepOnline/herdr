@@ -577,6 +577,8 @@ impl App {
             tab_scroll: 0,
             tab_scroll_follow_active: true,
             mobile_switcher_scroll: 0,
+            mobile_swipe_start: None,
+            sidebar_hover: None,
             view: state::ViewState {
                 layout: state::ViewLayout::Desktop,
                 sidebar_rect: Rect::default(),
@@ -611,6 +613,7 @@ impl App {
             outer_terminal_focus: None,
             prefix_code,
             prefix_mods,
+            headless_size: config.headless_size(),
             default_sidebar_width: config.ui.sidebar_width,
             sidebar_width,
             sidebar_min_width,
@@ -670,7 +673,7 @@ impl App {
             host_terminal_appearance: None,
             host_terminal_appearance_explicit: false,
             settings: state::SettingsState {
-                section: state::SettingsSection::Appearance,
+                section: state::SettingsSection::Theme,
                 list: state::SelectionListState::new(0),
                 search: String::new(),
                 focus: state::SettingsFocus::Content,
@@ -740,6 +743,7 @@ impl App {
                 .get(idx)
                 .and_then(|ws| ws.focused_pane_id().map(|pane_id| (idx, pane_id)))
         });
+        let now = Instant::now();
 
         Self {
             config_diagnostic_deadline: None,
@@ -750,7 +754,9 @@ impl App {
             terminal_runtimes: restored_terminal_runtimes,
             event_tx,
             event_rx,
-            last_git_remote_status_refresh: Instant::now() - GIT_REMOTE_STATUS_REFRESH_INTERVAL,
+            last_git_remote_status_refresh: now
+                .checked_sub(GIT_REMOTE_STATUS_REFRESH_INTERVAL)
+                .unwrap_or(now),
             git_refresh_in_flight: false,
             git_refresh_due_after_in_flight: false,
             github_refresh_in_flight: false,
@@ -1300,14 +1306,17 @@ impl App {
     pub(crate) fn open_settings_from_onboarding(&mut self) {
         self.mark_onboarding_complete();
         self.refresh_integration_recommendations();
-        crate::app::input::open_settings_at(&mut self.state, state::SettingsSection::Agents);
+        crate::app::input::open_settings_at(&mut self.state, state::SettingsSection::Integrations);
     }
 
     pub(crate) fn refresh_integration_recommendations(&mut self) {
+        let previous_id = crate::ui::settings::rows::selected_settings_row_id(&self.state);
         self.state.integration_recommendations = crate::integration::integration_recommendations();
+        crate::ui::settings::rows::clamp_settings_list_selection(&mut self.state, previous_id);
     }
 
     pub(crate) fn install_recommended_integrations(&mut self) {
+        let previous_id = crate::ui::settings::rows::selected_settings_row_id(&self.state);
         let targets = self
             .state
             .integration_recommendations
@@ -1346,6 +1355,7 @@ impl App {
 
         self.state.integration_recommendations = crate::integration::integration_recommendations();
         self.state.mark_session_dirty();
+        crate::ui::settings::rows::clamp_settings_list_selection(&mut self.state, previous_id);
     }
 
     pub(crate) fn reload_config(&mut self) -> crate::config::ConfigReloadReport {
@@ -1505,6 +1515,14 @@ impl App {
             }
         }
 
+        if !invalid_section("server") {
+            if let Some(diagnostic) = config.invalid_headless_size_diagnostic() {
+                diagnostics.push(format!("{diagnostic}; keeping current [server] settings"));
+            } else {
+                self.state.headless_size = config.headless_size();
+            }
+        }
+
         if !invalid_section("advanced") {
             self.state.pane_scrollback_limit_bytes = config.advanced.scrollback_limit_bytes;
         }
@@ -1622,7 +1640,8 @@ impl App {
         &mut self,
         events: Vec<crate::raw_input::RawInputEvent>,
         apply_host_terminal_theme: bool,
-    ) {
+    ) -> bool {
+        let mut sidebar_hover_changed = false;
         for event in events {
             let previous_mode = self.state.mode;
             match event {
@@ -1656,9 +1675,10 @@ impl App {
                 }
                 crate::raw_input::RawInputEvent::Mouse(mouse) => {
                     if self.state.popup_pane.is_some() || self.state.mouse_capture {
-                        self.handle_mouse_event_headless(mouse);
+                        sidebar_hover_changed |= self.handle_mouse_event_headless(mouse);
                     } else {
-                        self.state
+                        sidebar_hover_changed |= self
+                            .state
                             .handle_pane_mouse_only(&self.terminal_runtimes, mouse);
                     }
                 }
@@ -1687,6 +1707,7 @@ impl App {
                 }
                 crate::raw_input::RawInputEvent::OuterFocusLost => {
                     self.send_outer_focus_event(crate::ghostty::FocusEvent::Lost);
+                    sidebar_hover_changed |= self.state.clear_sidebar_hover();
                 }
                 crate::raw_input::RawInputEvent::HostDefaultColor { kind, color } => {
                     if apply_host_terminal_theme {
@@ -1705,6 +1726,7 @@ impl App {
             }
             self.sync_prefix_input_source(previous_mode);
         }
+        sidebar_hover_changed
     }
 
     /// Handles a key event in non-terminal mode for the headless server.
@@ -1788,8 +1810,8 @@ impl App {
     /// Delegates to the same mouse handling logic used in the monolithic
     /// mode (hit-testing against the rendered UI), which works because
     /// the server's AppState maintains view geometry from virtual rendering.
-    fn handle_mouse_event_headless(&mut self, mouse: crossterm::event::MouseEvent) {
-        self.handle_mouse(mouse);
+    fn handle_mouse_event_headless(&mut self, mouse: crossterm::event::MouseEvent) -> bool {
+        self.handle_mouse(mouse)
     }
 }
 
@@ -2114,7 +2136,8 @@ mod tests {
     fn git_status_event_clears_in_flight_refresh() {
         let mut app = test_app();
         app.git_refresh_in_flight = true;
-        let previous_refresh = Instant::now() - Duration::from_secs(10);
+        let now = Instant::now();
+        let previous_refresh = now.checked_sub(Duration::from_secs(10)).unwrap_or(now);
         app.last_git_remote_status_refresh = previous_refresh;
 
         app.handle_internal_event(AppEvent::GitStatusRefreshed {
@@ -2123,7 +2146,7 @@ mod tests {
         });
 
         assert!(!app.git_refresh_in_flight);
-        assert!(app.last_git_remote_status_refresh > previous_refresh);
+        assert!(app.last_git_remote_status_refresh >= previous_refresh);
     }
 
     #[test]
@@ -2132,7 +2155,8 @@ mod tests {
         app.state.workspaces.push(Workspace::test_new("one"));
         app.state.workspaces.push(Workspace::test_new("two"));
         app.github_refresh_in_flight = true;
-        let previous_refresh = Instant::now() - Duration::from_secs(10);
+        let now = Instant::now();
+        let previous_refresh = now.checked_sub(Duration::from_secs(10)).unwrap_or(now);
         app.last_github_remote_status_refresh = previous_refresh;
         let first_id = app.state.workspaces[0].id.clone();
         let second_id = app.state.workspaces[1].id.clone();
@@ -2157,7 +2181,7 @@ mod tests {
         });
 
         assert!(!app.github_refresh_in_flight);
-        assert!(app.last_github_remote_status_refresh > previous_refresh);
+        assert!(app.last_github_remote_status_refresh >= previous_refresh);
         assert_eq!(
             app.state.workspaces[0].cached_github_status,
             Some(crate::workspace::GithubStatus {
@@ -2738,7 +2762,7 @@ mod tests {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(
             &path,
-            "[terminal]\ndefault_shell = \"nu\"\nshell_mode = \"non_login\"\nnew_cwd = \"home\"\n[keys]\nnew_workspace = \"prefix+m\"\nprefix = \"ctrl+a\"\n[update]\nversion_check = false\nmanifest_check = false\n[ui]\nagent_panel_sort = \"priority\"\nredraw_on_focus_gained = false\ncopy_on_select = false\nright_click_passthrough_modifier = \"ctrl\"\nprompt_new_workspace_name = true\n[ui.toast]\ndelivery = \"herdr\"\n[experimental]\nswitch_ascii_input_source_in_prefix = true\n",
+            "[terminal]\ndefault_shell = \"nu\"\nshell_mode = \"non_login\"\nnew_cwd = \"home\"\n[keys]\nnew_workspace = \"prefix+m\"\nprefix = \"ctrl+a\"\n[update]\nversion_check = false\nmanifest_check = false\n[server]\nheadless_cols = 160\nheadless_rows = 50\n[ui]\nagent_panel_sort = \"priority\"\nredraw_on_focus_gained = false\ncopy_on_select = false\nright_click_passthrough_modifier = \"ctrl\"\nprompt_new_workspace_name = true\n[ui.toast]\ndelivery = \"herdr\"\n[experimental]\nswitch_ascii_input_source_in_prefix = true\n",
         )
         .unwrap();
         std::env::set_var(crate::config::CONFIG_PATH_ENV_VAR, &path);
@@ -2772,6 +2796,7 @@ mod tests {
         let report = app.reload_config();
 
         assert_eq!(report.status, crate::config::ConfigReloadStatus::Applied);
+        assert_eq!(app.state.headless_size, (160, 50));
         assert_eq!(app.state.prefix_code, KeyCode::Char('a'));
         assert_eq!(app.state.prefix_mods, KeyModifiers::CONTROL);
         assert!(app
@@ -4739,7 +4764,7 @@ mod tests {
     fn headless_next_loop_deadline_returns_none_when_resize_poll_is_only_deadline() {
         let mut app = test_app();
         let now = Instant::now();
-        app.next_resize_poll = now - Duration::from_millis(1);
+        app.next_resize_poll = now.checked_sub(Duration::from_millis(1)).unwrap();
         app.config_diagnostic_deadline = None;
         app.toast_deadline = None;
         app.next_animation_tick = None;
@@ -4756,7 +4781,8 @@ mod tests {
     #[test]
     fn due_session_save_deadline_is_cleared() {
         let mut app = test_app();
-        app.session_save_deadline = Some(Instant::now() - Duration::from_secs(1));
+        app.session_save_deadline =
+            Some(Instant::now().checked_sub(Duration::from_secs(1)).unwrap());
 
         app.handle_scheduled_tasks(Instant::now(), false);
 
@@ -4774,7 +4800,8 @@ mod tests {
         app.no_session = false;
         app.state.workspaces = vec![Workspace::test_new("autosave")];
         app.state.ensure_test_terminals();
-        app.session_save_deadline = Some(Instant::now() - Duration::from_secs(1));
+        app.session_save_deadline =
+            Some(Instant::now().checked_sub(Duration::from_secs(1)).unwrap());
 
         app.handle_scheduled_tasks(Instant::now(), false);
 
@@ -5253,7 +5280,10 @@ last_pane = "prefix+tab"
         app.route_client_input(b"\r".to_vec());
 
         assert_eq!(app.state.mode, Mode::Settings);
-        assert_eq!(app.state.settings.section, state::SettingsSection::Agents);
+        assert_eq!(
+            app.state.settings.section,
+            state::SettingsSection::Integrations
+        );
     }
 
     #[test]

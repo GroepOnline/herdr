@@ -1171,9 +1171,8 @@ impl Workspace {
     }
 
     pub fn close_pane(&mut self, pane_id: PaneId) -> bool {
-        let tab_idx = match self.find_tab_index_for_pane(pane_id) {
-            Some(idx) => idx,
-            None => return false,
+        let Some(tab_idx) = self.find_tab_index_for_pane(pane_id) else {
+            return false;
         };
         let pane_count = self.tabs[tab_idx].layout.pane_count();
         let tab_count = self.tabs.len();

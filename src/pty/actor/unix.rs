@@ -116,9 +116,8 @@ impl PtyIoActorHandle {
             }
         }
 
-        let permit = match self.data_tx.reserve().await {
-            Ok(permit) => permit,
-            Err(_) => return Err(mpsc::error::SendError(bytes)),
+        let Ok(permit) = self.data_tx.reserve().await else {
+            return Err(mpsc::error::SendError(bytes));
         };
 
         let user_writes = self

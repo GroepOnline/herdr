@@ -2,8 +2,6 @@
 
 ## Unreleased
 
-### Added
-
 ## [0.8.1] - 2026-08-15
 
 ### Added

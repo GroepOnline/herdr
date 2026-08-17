@@ -256,6 +256,12 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # workspaces = "" # e.g. "ctrl+shift" makes ctrl+shift+1..9 switch workspaces directly
 # agents = ""     # e.g. "alt" makes alt+1..9 focus agent rows directly
 
+# Size of the virtual terminal used when no client is attached.
+# Attached clients always use their own terminal size.
+[server]
+# headless_cols = 120
+# headless_rows = 40
+
 # [worktrees]
 # directory = "~/.herdr/worktrees"
 

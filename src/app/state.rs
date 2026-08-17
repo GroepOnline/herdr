@@ -797,6 +797,18 @@ pub enum ViewLayout {
     Mobile,
 }
 
+/// Sidebar row the mouse currently hovers over, used to render a subtle
+/// hover highlight. Pure TUI presentation state stored on `AppState`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SidebarHoverTarget {
+    Workspace(usize),
+    Agent {
+        ws_idx: usize,
+        tab_idx: usize,
+        pane_id: crate::layout::PaneId,
+    },
+}
+
 pub struct ViewState {
     pub layout: ViewLayout,
     pub sidebar_rect: Rect,
@@ -842,7 +854,20 @@ pub enum Mode {
 
 impl Mode {
     pub(crate) fn mouse_motion_changes_view(self) -> bool {
+        // Terminal and Navigate are excluded: pane apps render their own
+        // motion through PTY output, and sidebar hover is change-detected via
+        // mouse_motion_requires_view_update. Unconditional Moved repaints in
+        // those modes waste CPU/network. Overlay hover still triggers here
+        // for GlobalMenu / ContextMenu / Navigator.
         matches!(self, Self::GlobalMenu | Self::ContextMenu | Self::Navigator)
+    }
+
+    /// Whether a mouse-move should schedule a Herdr view update.
+    ///
+    /// Overlay modes always do. Terminal and Navigate motion do only when
+    /// sidebar hover actually changed; pane-only motion stays render-neutral.
+    pub(crate) fn mouse_motion_requires_view_update(self, sidebar_hover_changed: bool) -> bool {
+        self.mouse_motion_changes_view() || sidebar_hover_changed
     }
 
     /// Whether keys in this mode are commands/navigation (an ASCII input source is wanted) rather
@@ -1039,77 +1064,63 @@ pub enum AgentPanelSort {
 // Settings UI state
 // ---------------------------------------------------------------------------
 
-/// Which section of the settings panel is focused.
+/// Which tab of the settings panel is focused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsSection {
-    Appearance,
-    Sidebar,
-    Layout,
-    Input,
-    Terminal,
-    Notifications,
-    Agents,
-    Plugins,
-    Updates,
-    Advanced,
+    /// Theme picker.
+    Theme,
+    /// Spinner grid, status indicators, pane chrome, sidebar, and input.
+    Ui,
+    /// Sound alerts and toast delivery.
+    Sound,
+    /// Shell, updates, experiments, and system config.
+    System,
+    /// Pane layout templates.
+    Templates,
+    /// Resume sessions, agent integrations, and plugins.
+    Integrations,
 }
 
 impl SettingsSection {
     pub const ALL: &[Self] = &[
-        Self::Appearance,
-        Self::Sidebar,
-        Self::Layout,
-        Self::Input,
-        Self::Terminal,
-        Self::Notifications,
-        Self::Agents,
-        Self::Plugins,
-        Self::Updates,
-        Self::Advanced,
+        Self::Theme,
+        Self::Ui,
+        Self::Sound,
+        Self::System,
+        Self::Templates,
+        Self::Integrations,
     ];
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::Appearance => "appearance",
-            Self::Sidebar => "sidebar",
-            Self::Layout => "layout",
-            Self::Input => "input",
-            Self::Terminal => "terminal",
-            Self::Notifications => "notifications",
-            Self::Agents => "agents",
-            Self::Plugins => "plugins",
-            Self::Updates => "updates",
-            Self::Advanced => "advanced",
+            Self::Theme => "theme",
+            Self::Ui => "ui",
+            Self::Sound => "sound",
+            Self::System => "system",
+            Self::Templates => "templates",
+            Self::Integrations => "integrations",
         }
     }
 
     pub fn title(self) -> &'static str {
         match self {
-            Self::Appearance => "Appearance",
-            Self::Sidebar => "Sidebar",
-            Self::Layout => "Layout",
-            Self::Input => "Input",
-            Self::Terminal => "Terminal",
-            Self::Notifications => "Notifications",
-            Self::Agents => "Agents",
-            Self::Plugins => "Plugins",
-            Self::Updates => "Updates",
-            Self::Advanced => "Advanced",
+            Self::Theme => "Theme",
+            Self::Ui => "UI",
+            Self::Sound => "Sound",
+            Self::System => "System",
+            Self::Templates => "Templates",
+            Self::Integrations => "Integrations",
         }
     }
 
     pub fn description(self) -> &'static str {
         match self {
-            Self::Appearance => "theme and spinner — live preview above",
-            Self::Sidebar => "width, sections, spacing, and status presentation",
-            Self::Layout => "pane chrome and layout templates",
-            Self::Input => "mouse, copy, focus redraw, and keybind help",
-            Self::Terminal => "shell, cwd policy, and scrollback",
-            Self::Notifications => "sound, toasts, and clipboard notices",
-            Self::Agents => "resume sessions and integrations",
-            Self::Plugins => "install and manage herdr plugins",
-            Self::Updates => "channel and background checks",
-            Self::Advanced => "experiments, graphics, remote, config",
+            Self::Theme => "theme picker — live preview above",
+            Self::Ui => "spinner, indicators, pane chrome, sidebar, and input",
+            Self::Sound => "sound alerts, toasts, and clipboard notices",
+            Self::System => "shell, updates, experiments, and system config",
+            Self::Templates => "pane layout templates applied to the current tab",
+            Self::Integrations => "resume sessions, agent CLIs, and plugins",
         }
     }
 
@@ -1641,6 +1652,12 @@ pub struct AppState {
     pub tab_scroll: usize,
     pub tab_scroll_follow_active: bool,
     pub mobile_switcher_scroll: usize,
+    /// Start position of a touch drag on mobile (edge-swipe detection).
+    pub mobile_swipe_start: Option<(u16, u16)>,
+    /// Pointer hover over a sidebar row. Presentation-only; stored on AppState
+    /// so per-frame ViewState rebuilds cannot drop it. Shared across attached
+    /// clients, matching context-menu / global-menu hover.
+    pub(crate) sidebar_hover: Option<SidebarHoverTarget>,
     // View geometry (computed before render, consumed by render + mouse)
     pub view: ViewState,
     pub(crate) drag: Option<DragState>,
@@ -1664,6 +1681,8 @@ pub struct AppState {
     // Config
     pub prefix_code: KeyCode,
     pub prefix_mods: KeyModifiers,
+    /// Virtual terminal size (columns, rows) used when no client is attached.
+    pub(crate) headless_size: (u16, u16),
     pub default_sidebar_width: u16,
     pub sidebar_width: u16,
     pub sidebar_min_width: u16,
@@ -1857,7 +1876,7 @@ impl AppState {
     }
 
     pub(crate) fn settings_section_has_badge(&self, section: SettingsSection) -> bool {
-        section == SettingsSection::Agents && self.integration_updates_available()
+        section == SettingsSection::Integrations && self.integration_updates_available()
     }
 
     pub(crate) fn focused_pane_requests_mouse_capture_from(
@@ -1889,7 +1908,7 @@ impl AppState {
         if let Some(info) = self.view.pane_infos.first() {
             (info.rect.height, info.rect.width)
         } else {
-            (24, 80)
+            (self.headless_size.1, self.headless_size.0)
         }
     }
 
@@ -2042,6 +2061,8 @@ impl AppState {
             tab_scroll: 0,
             tab_scroll_follow_active: true,
             mobile_switcher_scroll: 0,
+            mobile_swipe_start: None,
+            sidebar_hover: None,
             view: ViewState {
                 layout: ViewLayout::Desktop,
                 sidebar_rect: Rect::default(),
@@ -2076,6 +2097,10 @@ impl AppState {
             outer_terminal_focus: None,
             prefix_code: KeyCode::Char('b'),
             prefix_mods: KeyModifiers::CONTROL,
+            headless_size: (
+                crate::config::DEFAULT_HEADLESS_COLS,
+                crate::config::DEFAULT_HEADLESS_ROWS,
+            ),
             default_sidebar_width: 26,
             sidebar_width: 26,
             sidebar_min_width: 18,
@@ -2141,7 +2166,7 @@ impl AppState {
             host_terminal_appearance: None,
             host_terminal_appearance_explicit: false,
             settings: SettingsState {
-                section: SettingsSection::Appearance,
+                section: SettingsSection::Theme,
                 list: SelectionListState::new(0),
                 search: String::new(),
                 focus: SettingsFocus::Content,
@@ -2531,6 +2556,14 @@ impl AppState {
 mod tests {
     use super::*;
     use crossterm::event::KeyEvent;
+
+    #[test]
+    fn pane_size_estimate_uses_headless_size_before_first_view() {
+        let mut state = AppState::test_new();
+        state.headless_size = (132, 41);
+
+        assert_eq!(state.estimate_pane_size(), (41, 132));
+    }
 
     #[test]
     fn agent_terminal_keeps_final_child_cursor_exposed() {

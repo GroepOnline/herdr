@@ -84,7 +84,7 @@ the new IA is complete.
 
 ### Current IA (shipping)
 
-`appearance → layout → input → terminal → notifications → agents → plugins → updates → advanced`
+`theme → ui → sound → system → templates → integrations`
 
 Pain (from live TUI + code):
 

@@ -183,15 +183,19 @@ impl App {
                 true
             }
             crate::raw_input::RawInputEvent::Mouse(mouse) => {
-                let changes_view = !matches!(mouse.kind, crossterm::event::MouseEventKind::Moved)
-                    || self.state.mode.mouse_motion_changes_view();
-                if self.state.popup_pane.is_some() || self.state.mouse_capture {
-                    self.handle_mouse(mouse);
-                } else {
-                    self.state
-                        .handle_pane_mouse_only(&self.terminal_runtimes, mouse);
-                }
-                changes_view
+                let is_moved = matches!(mouse.kind, crossterm::event::MouseEventKind::Moved);
+                let sidebar_hover_changed =
+                    if self.state.popup_pane.is_some() || self.state.mouse_capture {
+                        self.handle_mouse(mouse)
+                    } else {
+                        self.state
+                            .handle_pane_mouse_only(&self.terminal_runtimes, mouse)
+                    };
+                !is_moved
+                    || self
+                        .state
+                        .mode
+                        .mouse_motion_requires_view_update(sidebar_hover_changed)
             }
             crate::raw_input::RawInputEvent::OuterFocusGained => {
                 self.send_outer_focus_event(crate::ghostty::FocusEvent::Gained);
@@ -205,7 +209,7 @@ impl App {
             crate::raw_input::RawInputEvent::OuterFocusLost => {
                 self.send_outer_focus_event(crate::ghostty::FocusEvent::Lost);
                 self.state.outer_terminal_focus = Some(false);
-                false
+                self.state.clear_sidebar_hover()
             }
             crate::raw_input::RawInputEvent::HostDefaultColor { kind, color } => {
                 self.update_host_terminal_theme(kind, color)
@@ -1070,7 +1074,9 @@ mod tests {
         );
         app.state.workspaces.push(Workspace::test_new("test"));
         let now = Instant::now();
-        app.last_git_remote_status_refresh = now - super::super::GIT_REMOTE_STATUS_REFRESH_INTERVAL;
+        app.last_git_remote_status_refresh = now
+            .checked_sub(super::super::GIT_REMOTE_STATUS_REFRESH_INTERVAL)
+            .unwrap();
 
         assert_eq!(
             app.next_headless_loop_deadline_with_git_refresh(now, false, false),
@@ -1084,6 +1090,10 @@ mod tests {
 
     #[test]
     fn github_refresh_skips_when_no_token_available() {
+        let _env_lock = crate::config::test_config_env_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
         let mut app = super::super::App::new(
             &crate::config::Config::default(),
             true,
@@ -1093,38 +1103,65 @@ mod tests {
         );
         app.state.workspaces.push(Workspace::test_new("test"));
         let now = Instant::now();
-        app.last_github_remote_status_refresh =
-            now - super::super::GITHUB_REMOTE_STATUS_REFRESH_INTERVAL;
+        app.last_github_remote_status_refresh = now
+            .checked_sub(super::super::GITHUB_REMOTE_STATUS_REFRESH_INTERVAL)
+            .unwrap();
 
-        // Ensure env tokens are unset for this process for the duration of the check.
-        let previous_gh = std::env::var_os("GH_TOKEN");
-        let previous_github = std::env::var_os("GITHUB_TOKEN");
-        std::env::remove_var("GH_TOKEN");
-        std::env::remove_var("GITHUB_TOKEN");
+        struct EnvGuard {
+            values: Vec<(&'static str, Option<std::ffi::OsString>)>,
+            temp_dir: std::path::PathBuf,
+        }
+
+        impl Drop for EnvGuard {
+            fn drop(&mut self) {
+                for (name, value) in &self.values {
+                    match value {
+                        Some(value) => std::env::set_var(name, value),
+                        None => std::env::remove_var(name),
+                    }
+                }
+                let _ = std::fs::remove_dir_all(&self.temp_dir);
+            }
+        }
 
         // Point HOME at an empty temp dir so hosts.yml / gh config cannot supply a token.
-        let previous_home = std::env::var_os("HOME");
+        // Also neutralize XDG_CONFIG_HOME / GH_CONFIG_DIR: `gh auth token`
+        // reads hosts.yml from there when set, which made this test fail on
+        // developer machines with a logged-in gh CLI (CI has none).
+        // Finally pin PATH to the empty temp dir so the `gh` binary is
+        // unresolvable: `gh auth token` can otherwise return a token from the
+        // OS keyring / secure storage even with HOME/XDG neutralized, and the
+        // resulting refresh would `tokio::spawn` outside a runtime and panic.
+        let env_names = [
+            "GH_TOKEN",
+            "GITHUB_TOKEN",
+            "HOME",
+            "XDG_CONFIG_HOME",
+            "GH_CONFIG_DIR",
+            "PATH",
+        ];
+        let previous_env = env_names
+            .iter()
+            .map(|name| (*name, std::env::var_os(name)))
+            .collect();
         let temp_home =
             std::env::temp_dir().join(format!("herdr-github-no-token-home-{}", std::process::id()));
-        let _ = std::fs::create_dir_all(&temp_home);
+        std::fs::create_dir_all(&temp_home).expect("temp home for github no-token test");
+        let _env_guard = EnvGuard {
+            values: previous_env,
+            temp_dir: temp_home.clone(),
+        };
+        std::env::remove_var("GH_TOKEN");
+        std::env::remove_var("GITHUB_TOKEN");
         std::env::set_var("HOME", &temp_home);
+        std::env::remove_var("XDG_CONFIG_HOME");
+        std::env::remove_var("GH_CONFIG_DIR");
+        std::env::set_var("PATH", &temp_home);
 
         app.start_github_status_refresh_if_due(now);
 
         assert!(!app.github_refresh_in_flight);
         assert_eq!(app.last_github_remote_status_refresh, now);
-
-        if let Some(value) = previous_gh {
-            std::env::set_var("GH_TOKEN", value);
-        }
-        if let Some(value) = previous_github {
-            std::env::set_var("GITHUB_TOKEN", value);
-        }
-        match previous_home {
-            Some(value) => std::env::set_var("HOME", value),
-            None => std::env::remove_var("HOME"),
-        }
-        let _ = std::fs::remove_dir_all(temp_home);
     }
 
     #[test]
@@ -1403,7 +1440,11 @@ mod tests {
             argv: vec!["/bin/sh".into(), "-c".into(), "sleep 5".into()],
             dedupe_key: "herdr:codex\0codex\0Id\0codex-session".into(),
         });
-        app.pending_agent_resume_deadline = Some(Instant::now() - Duration::from_millis(1));
+        app.pending_agent_resume_deadline = Some(
+            Instant::now()
+                .checked_sub(Duration::from_millis(1))
+                .unwrap(),
+        );
         let now = Instant::now();
         app.next_fleet_ops_cache_refresh = now + Duration::from_secs(3600);
         app.next_resize_poll = now + Duration::from_secs(3600);
