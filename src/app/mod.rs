@@ -577,6 +577,8 @@ impl App {
             tab_scroll: 0,
             tab_scroll_follow_active: true,
             mobile_switcher_scroll: 0,
+            mobile_swipe_start: None,
+            sidebar_hover: None,
             view: state::ViewState {
                 layout: state::ViewLayout::Desktop,
                 sidebar_rect: Rect::default(),
@@ -1635,7 +1637,8 @@ impl App {
         &mut self,
         events: Vec<crate::raw_input::RawInputEvent>,
         apply_host_terminal_theme: bool,
-    ) {
+    ) -> bool {
+        let mut sidebar_hover_changed = false;
         for event in events {
             let previous_mode = self.state.mode;
             match event {
@@ -1669,9 +1672,10 @@ impl App {
                 }
                 crate::raw_input::RawInputEvent::Mouse(mouse) => {
                     if self.state.popup_pane.is_some() || self.state.mouse_capture {
-                        self.handle_mouse_event_headless(mouse);
+                        sidebar_hover_changed |= self.handle_mouse_event_headless(mouse);
                     } else {
-                        self.state
+                        sidebar_hover_changed |= self
+                            .state
                             .handle_pane_mouse_only(&self.terminal_runtimes, mouse);
                     }
                 }
@@ -1700,6 +1704,7 @@ impl App {
                 }
                 crate::raw_input::RawInputEvent::OuterFocusLost => {
                     self.send_outer_focus_event(crate::ghostty::FocusEvent::Lost);
+                    sidebar_hover_changed |= self.state.clear_sidebar_hover();
                 }
                 crate::raw_input::RawInputEvent::HostDefaultColor { kind, color } => {
                     if apply_host_terminal_theme {
@@ -1718,6 +1723,7 @@ impl App {
             }
             self.sync_prefix_input_source(previous_mode);
         }
+        sidebar_hover_changed
     }
 
     /// Handles a key event in non-terminal mode for the headless server.
@@ -1801,8 +1807,8 @@ impl App {
     /// Delegates to the same mouse handling logic used in the monolithic
     /// mode (hit-testing against the rendered UI), which works because
     /// the server's AppState maintains view geometry from virtual rendering.
-    fn handle_mouse_event_headless(&mut self, mouse: crossterm::event::MouseEvent) {
-        self.handle_mouse(mouse);
+    fn handle_mouse_event_headless(&mut self, mouse: crossterm::event::MouseEvent) -> bool {
+        self.handle_mouse(mouse)
     }
 }
 

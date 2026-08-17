@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- Sidebar hover highlight: moving the mouse over a workspace or agent row in the sidebar highlights it with a distinct hover surface, so click targets are visible before clicking. Hover clears when the pointer leaves the sidebar, the host terminal loses focus, or a modal opens.
+- Mobile edge-swipe: on narrow (mobile) layouts, a touch drag that starts at the left edge (columns 0..=1) opens the workspace switcher, mirroring the header button. Vertical or short drags still reach the pane app.
 - CLI help now points coding agents to Herdr's plain-text guide, documentation index, and built-in control skill. (#48)
 - Command Code (cmd) integration: `herdr integration install commandcode` installs a SessionStart hook that reports `COMMANDCODE_SESSION_ID` to Herdr's socket API (native session restore with `cmd --resume <id>`), merges its hook entry into `~/.commandcode/settings.json` without touching user entries, and adds screen detection for the cmd TUI. (#43)
 - Freebuff integration target: `herdr integration install freebuff` stages a session-state hook in `~/.freebuff/hooks/` (freebuff has no hook lifecycle yet, so state stays screen-detected) and adds native resume support via `freebuff --continue <id>`. (#43)

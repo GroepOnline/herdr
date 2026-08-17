@@ -797,6 +797,18 @@ pub enum ViewLayout {
     Mobile,
 }
 
+/// Sidebar row the mouse currently hovers over, used to render a subtle
+/// hover highlight. Pure TUI presentation state stored on `AppState`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SidebarHoverTarget {
+    Workspace(usize),
+    Agent {
+        ws_idx: usize,
+        tab_idx: usize,
+        pane_id: crate::layout::PaneId,
+    },
+}
+
 pub struct ViewState {
     pub layout: ViewLayout,
     pub sidebar_rect: Rect,
@@ -842,7 +854,20 @@ pub enum Mode {
 
 impl Mode {
     pub(crate) fn mouse_motion_changes_view(self) -> bool {
+        // Terminal and Navigate are excluded: pane apps render their own
+        // motion through PTY output, and sidebar hover is change-detected via
+        // mouse_motion_requires_view_update. Unconditional Moved repaints in
+        // those modes waste CPU/network. Overlay hover still triggers here
+        // for GlobalMenu / ContextMenu / Navigator.
         matches!(self, Self::GlobalMenu | Self::ContextMenu | Self::Navigator)
+    }
+
+    /// Whether a mouse-move should schedule a Herdr view update.
+    ///
+    /// Overlay modes always do. Terminal and Navigate motion do only when
+    /// sidebar hover actually changed; pane-only motion stays render-neutral.
+    pub(crate) fn mouse_motion_requires_view_update(self, sidebar_hover_changed: bool) -> bool {
+        self.mouse_motion_changes_view() || sidebar_hover_changed
     }
 
     /// Whether keys in this mode are commands/navigation (an ASCII input source is wanted) rather
@@ -1627,6 +1652,12 @@ pub struct AppState {
     pub tab_scroll: usize,
     pub tab_scroll_follow_active: bool,
     pub mobile_switcher_scroll: usize,
+    /// Start position of a touch drag on mobile (edge-swipe detection).
+    pub mobile_swipe_start: Option<(u16, u16)>,
+    /// Pointer hover over a sidebar row. Presentation-only; stored on AppState
+    /// so per-frame ViewState rebuilds cannot drop it. Shared across attached
+    /// clients, matching context-menu / global-menu hover.
+    pub(crate) sidebar_hover: Option<SidebarHoverTarget>,
     // View geometry (computed before render, consumed by render + mouse)
     pub view: ViewState,
     pub(crate) drag: Option<DragState>,
@@ -2030,6 +2061,8 @@ impl AppState {
             tab_scroll: 0,
             tab_scroll_follow_active: true,
             mobile_switcher_scroll: 0,
+            mobile_swipe_start: None,
+            sidebar_hover: None,
             view: ViewState {
                 layout: ViewLayout::Desktop,
                 sidebar_rect: Rect::default(),

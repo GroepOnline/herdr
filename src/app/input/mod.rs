@@ -261,7 +261,13 @@ impl App {
         }
     }
 
-    pub(super) fn handle_mouse(&mut self, mouse: MouseEvent) {
+    pub(super) fn handle_mouse(&mut self, mouse: MouseEvent) -> bool {
+        let hover_before = self.state.sidebar_hover;
+        self.dispatch_mouse_event(mouse);
+        self.state.sidebar_hover != hover_before
+    }
+
+    fn dispatch_mouse_event(&mut self, mouse: MouseEvent) {
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) => {
                 self.pending_url_click = false;
