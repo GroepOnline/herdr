@@ -301,7 +301,10 @@ impl AppState {
 
     /// Updates the hovered sidebar row from a mouse-move position. Outside the
     /// sidebar (or with a collapsed sidebar) the hover is cleared.
-    pub(super) fn update_sidebar_hover(&mut self, _col: u16, row: u16, in_sidebar: bool) {
+    ///
+    /// Returns `true` when `sidebar_hover` actually changed (including clear)
+    /// so Terminal motion can request a repaint only in that case.
+    pub(super) fn update_sidebar_hover(&mut self, _col: u16, row: u16, in_sidebar: bool) -> bool {
         let hover = if !in_sidebar || self.sidebar_collapsed {
             None
         } else if let Some(idx) = self.workspace_at_row(row) {
@@ -315,7 +318,12 @@ impl AppState {
         } else {
             None
         };
-        self.view.sidebar_hover = hover;
+        if self.view.sidebar_hover == hover {
+            false
+        } else {
+            self.view.sidebar_hover = hover;
+            true
+        }
     }
 
     pub(super) fn workspace_at_row(&self, row: u16) -> Option<usize> {

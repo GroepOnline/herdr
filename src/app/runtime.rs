@@ -183,15 +183,20 @@ impl App {
                 true
             }
             crate::raw_input::RawInputEvent::Mouse(mouse) => {
-                let changes_view = !matches!(mouse.kind, crossterm::event::MouseEventKind::Moved)
-                    || self.state.mode.mouse_motion_changes_view();
-                if self.state.popup_pane.is_some() || self.state.mouse_capture {
-                    self.handle_mouse(mouse);
-                } else {
-                    self.state
-                        .handle_pane_mouse_only(&self.terminal_runtimes, mouse);
-                }
-                changes_view
+                let is_moved = matches!(mouse.kind, crossterm::event::MouseEventKind::Moved);
+                let sidebar_hover_changed =
+                    if self.state.popup_pane.is_some() || self.state.mouse_capture {
+                        self.handle_mouse(mouse)
+                    } else {
+                        self.state
+                            .handle_pane_mouse_only(&self.terminal_runtimes, mouse);
+                        false
+                    };
+                !is_moved
+                    || self
+                        .state
+                        .mode
+                        .mouse_motion_requires_view_update(sidebar_hover_changed)
             }
             crate::raw_input::RawInputEvent::OuterFocusGained => {
                 self.send_outer_focus_event(crate::ghostty::FocusEvent::Gained);

@@ -3036,8 +3036,14 @@ impl HeadlessServer {
             self.resize_shared_runtime_to_effective_size_before_input();
         }
         let theme_changed = self.update_client_host_theme_from_events(client_id, &events);
-        self.app
+        let sidebar_hover_changed = self
+            .app
             .route_client_events(events, self.foreground_client_id == Some(client_id));
+        if sidebar_hover_changed {
+            if let Some(client) = self.clients.get_mut(&client_id) {
+                client.request_semantic_redraw_after_input();
+            }
+        }
         if self.app.take_config_reloaded_from_disk() {
             self.reload_server_config(false);
         } else {
@@ -3062,7 +3068,10 @@ impl HeadlessServer {
 
             false
         } else {
-            foreground_changed || theme_changed || (interaction && !render_neutral_mouse_motion)
+            foreground_changed
+                || theme_changed
+                || sidebar_hover_changed
+                || (interaction && !render_neutral_mouse_motion)
         }
     }
 
@@ -4552,6 +4561,9 @@ impl HeadlessServer {
 
 // Pane applications render their own motion responses through PTY output. Only Herdr modes with
 // hover selection mutate the current frame directly from a plain mouse-move event.
+// Terminal sidebar hover is not visible here (it depends on hit-testing after routing);
+// `handle_client_input_events` ORs in the bool from `route_client_events` so a hover
+// change still requests a frame while pane-only Terminal motion stays render-neutral.
 fn events_are_render_neutral_mouse_motion(
     events: &[crate::raw_input::RawInputEvent],
     mode: crate::app::Mode,

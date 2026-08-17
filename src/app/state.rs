@@ -857,13 +857,23 @@ impl Mode {
     pub(crate) fn mouse_motion_changes_view(self) -> bool {
         // Terminal mode intentionally excluded: pane applications render their
         // own motion responses through PTY output, and unconditional full
-        // repaints on every Moved event are a CPU/network waste. Sidebar or
-        // overlay hover updates still trigger repaints via the explicit
-        // overlay modes (GlobalMenu / ContextMenu / Navigator / Navigate).
+        // repaints on every Moved event are a CPU/network waste. Overlay hover
+        // still triggers via GlobalMenu / ContextMenu / Navigator / Navigate.
+        // Terminal sidebar hover is handled separately: the scheduler asks
+        // mouse_motion_requires_view_update with the bool from
+        // update_sidebar_hover so only an actual hover change repaints.
         matches!(
             self,
             Self::GlobalMenu | Self::ContextMenu | Self::Navigator | Self::Navigate
         )
+    }
+
+    /// Whether a mouse-move should schedule a Herdr view update.
+    ///
+    /// Overlay modes always do. Terminal motion does only when sidebar hover
+    /// actually changed; pane-only motion stays render-neutral.
+    pub(crate) fn mouse_motion_requires_view_update(self, sidebar_hover_changed: bool) -> bool {
+        self.mouse_motion_changes_view() || sidebar_hover_changed
     }
 
     /// Whether keys in this mode are commands/navigation (an ASCII input source is wanted) rather
