@@ -581,7 +581,8 @@ mod tests {
             "Action Required",
             "",
         ));
-        let viewer = "↑/↓ to scroll · pgup/pgdn to move · home/end to jump · q to quit · esc to edit prev\n\
+        let viewer =
+            "↑/↓ to scroll · pgup/pgdn to move · home/end to jump · q to quit · esc to edit prev\n\
             Press enter to confirm or esc to cancel\n";
         assert!(!terminal_is_blocked_for_prompt(
             AgentState::Idle,
