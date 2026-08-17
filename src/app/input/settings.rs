@@ -217,10 +217,7 @@ fn prev_section(section: SettingsSection) -> SettingsSection {
 }
 
 fn first_selectable(state: &AppState, section: SettingsSection) -> usize {
-    section_rows(state, section)
-        .iter()
-        .position(|row| row.kind != SettingsRowKind::Header)
-        .unwrap_or(0)
+    crate::ui::settings::rows::first_selectable_index(state, section)
 }
 
 fn default_selection_for_section(state: &AppState, section: SettingsSection) -> usize {
@@ -565,8 +562,10 @@ pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
     state.settings.plugin_detail_scroll = 0;
     state.mode = Mode::Settings;
     if section == SettingsSection::Integrations {
+        let previous_id = crate::ui::settings::rows::selected_settings_row_id(state);
         let _ =
             crate::app::api::plugins::reload_installed_plugins_state(&mut state.installed_plugins);
+        crate::ui::settings::rows::clamp_settings_list_selection(state, previous_id);
     }
 }
 
@@ -630,12 +629,27 @@ impl AppState {
                 // two-button layout's "apply" slot and triggers a refresh.
                 let show_primary = self.settings.plugin_detail.is_none()
                     && crate::ui::settings_show_primary_action(self);
-                let (apply, close) = crate::ui::settings_button_rects(&layout, self, show_primary);
-                let mut buttons = vec![(close, super::modal::ModalAction::Close)];
-                if let Some(apply) = apply {
-                    buttons.insert(0, (apply, super::modal::ModalAction::Apply));
+                let buttons = crate::ui::settings_button_rects(&layout, self, show_primary);
+                if let Some(secondary) = buttons.secondary {
+                    if super::modal::modal_action_from_buttons(
+                        mouse.column,
+                        mouse.row,
+                        &[(secondary, ())],
+                    )
+                    .is_some()
+                    {
+                        return Some(SettingsAction::RefreshInstalledPlugins);
+                    }
                 }
-                match super::modal::modal_action_from_buttons(mouse.column, mouse.row, &buttons) {
+                let mut modal_buttons = vec![(buttons.close, super::modal::ModalAction::Close)];
+                if let Some(apply) = buttons.primary {
+                    modal_buttons.insert(0, (apply, super::modal::ModalAction::Apply));
+                }
+                match super::modal::modal_action_from_buttons(
+                    mouse.column,
+                    mouse.row,
+                    &modal_buttons,
+                ) {
                     Some(super::modal::ModalAction::Apply) => apply_settings(self),
                     Some(super::modal::ModalAction::Close) => {
                         // In the plugin detail view the footer "close" goes back
@@ -1088,6 +1102,120 @@ mod tests {
     }
 
     #[test]
+    fn integrations_primary_is_install_when_needed() {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::Integrations);
+        state.integration_recommendations = vec![integration_recommendation(
+            crate::integration::IntegrationStatusKind::Outdated,
+            true,
+        )];
+
+        assert_eq!(crate::ui::settings_primary_button_label(&state), "install");
+        let action = apply_settings(&mut state);
+        assert_eq!(action, Some(SettingsAction::InstallRecommendedIntegrations));
+        assert_eq!(state.mode, Mode::Settings);
+    }
+
+    #[test]
+    fn integrations_can_refresh_plugins_while_install_is_pending() {
+        let mut app = app_for_mouse_test();
+        app.state.view.sidebar_rect = ratatui::layout::Rect::new(0, 0, 26, 40);
+        app.state.view.terminal_area = ratatui::layout::Rect::new(26, 0, 80, 40);
+        open_settings_at(&mut app.state, SettingsSection::Integrations);
+        app.state.installed_plugins.clear();
+        app.state.installed_plugins.insert(
+            "com.test.demo".to_string(),
+            test_plugin("com.test.demo", vec![]),
+        );
+        app.state.integration_recommendations = vec![integration_recommendation(
+            crate::integration::IntegrationStatusKind::Outdated,
+            true,
+        )];
+
+        assert_eq!(
+            crate::ui::settings_primary_button_label(&app.state),
+            "install"
+        );
+        assert!(crate::ui::settings_show_secondary_action(&app.state));
+
+        let layout = app.state.settings_layout().expect("layout");
+        let buttons = crate::ui::settings_button_rects(&layout, &app.state, true);
+        let refresh = buttons.secondary.expect("refresh footer button");
+        let install = buttons.primary.expect("install footer button");
+        assert!(
+            refresh.x + refresh.width <= install.x || install.x + install.width <= refresh.x,
+            "install and refresh footer buttons must not overlap"
+        );
+
+        let action = app.state.handle_settings_mouse(mouse(
+            MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            refresh.x + refresh.width / 2,
+            refresh.y,
+        ));
+        assert_eq!(action, Some(SettingsAction::RefreshInstalledPlugins));
+
+        let action = app.state.handle_settings_mouse(mouse(
+            MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            install.x + install.width / 2,
+            install.y,
+        ));
+        assert_eq!(action, Some(SettingsAction::InstallRecommendedIntegrations));
+
+        let plugin_row = section_rows(&app.state, SettingsSection::Integrations)
+            .iter()
+            .position(|row| matches!(row.id, SettingsItemId::InstalledPlugin { .. }))
+            .expect("installed plugin row");
+        app.state.settings.list.selected = plugin_row;
+        let action = update_settings_state(
+            &mut app.state,
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
+        );
+        assert!(action.is_none());
+        assert_eq!(app.state.settings.plugin_detail, Some(0));
+    }
+
+    #[test]
+    fn integrations_selection_clamps_after_row_list_shrinks() {
+        let mut state = state_with_workspaces(&["test"]);
+        open_settings_at(&mut state, SettingsSection::Integrations);
+        state.installed_plugins.clear();
+        for i in 0..8 {
+            let id = format!("com.test.p{i}");
+            state
+                .installed_plugins
+                .insert(id.clone(), test_plugin(&id, vec![]));
+        }
+        let rows_before = section_rows(&state, SettingsSection::Integrations);
+        let high = rows_before
+            .iter()
+            .rposition(|row| matches!(row.id, SettingsItemId::InstalledPlugin { .. }))
+            .expect("installed plugin row");
+        state.settings.list.selected = high;
+        let previous_id = crate::ui::settings::rows::selected_settings_row_id(&state);
+        assert!(
+            matches!(previous_id, Some(SettingsItemId::InstalledPlugin { .. })),
+            "high selection should be an installed plugin"
+        );
+
+        state.installed_plugins.retain(|id, _| id == "com.test.p0");
+        crate::ui::settings::rows::clamp_settings_list_selection(&mut state, previous_id);
+
+        let rows = section_rows(&state, SettingsSection::Integrations);
+        assert!(!rows.is_empty());
+        assert!(
+            state.settings.list.selected < rows.len(),
+            "selected {} must be in 0..{}",
+            state.settings.list.selected,
+            rows.len()
+        );
+        let _ = activate_row(&state, state.settings.list.selected);
+        let _ = update_settings_state(
+            &mut state,
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()),
+        );
+    }
+
+    #[test]
     fn integrations_search_matches_catalog_source_and_plugin_id() {
         let mut state = state_with_workspaces(&["test"]);
         open_settings_at(&mut state, SettingsSection::Integrations);
@@ -1233,7 +1361,7 @@ mod tests {
 
         // The detail view renders a single close button; click its center.
         let layout = app.state.settings_layout().expect("layout");
-        let (_, close_rect) = crate::ui::settings_button_rects(&layout, &app.state, false);
+        let close_rect = crate::ui::settings_button_rects(&layout, &app.state, false).close;
         let action = app.state.handle_settings_mouse(mouse(
             MouseEventKind::Down(crossterm::event::MouseButton::Left),
             close_rect.x + close_rect.width / 2,

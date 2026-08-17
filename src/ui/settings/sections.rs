@@ -455,7 +455,7 @@ pub(crate) fn render_settings_footer(app: &AppState, frame: &mut Frame, layout: 
             layout.footer_hints,
         );
 
-        let (_, close_rect) = super::layout::settings_button_rects(layout, app, false);
+        let close_rect = super::layout::settings_button_rects(layout, app, false).close;
         super::super::widgets::render_action_button(
             frame,
             close_rect,
@@ -485,8 +485,8 @@ pub(crate) fn render_settings_footer(app: &AppState, frame: &mut Frame, layout: 
     );
 
     let show_primary = super::layout::settings_show_primary_action(app);
-    let (apply_rect, close_rect) = super::layout::settings_button_rects(layout, app, show_primary);
-    if let Some(apply_rect) = apply_rect {
+    let buttons = super::layout::settings_button_rects(layout, app, show_primary);
+    if let Some(apply_rect) = buttons.primary {
         super::super::widgets::render_action_button(
             frame,
             apply_rect,
@@ -498,9 +498,21 @@ pub(crate) fn render_settings_footer(app: &AppState, frame: &mut Frame, layout: 
                 .add_modifier(Modifier::BOLD),
         );
     }
+    if let Some(secondary_rect) = buttons.secondary {
+        super::super::widgets::render_action_button(
+            frame,
+            secondary_rect,
+            None,
+            "refresh",
+            Style::default()
+                .fg(p.text)
+                .bg(p.surface0)
+                .add_modifier(Modifier::BOLD),
+        );
+    }
     super::super::widgets::render_action_button(
         frame,
-        close_rect,
+        buttons.close,
         Some("esc"),
         "close",
         Style::default()

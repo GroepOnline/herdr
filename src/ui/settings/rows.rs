@@ -761,3 +761,40 @@ impl SettingsDisplayLabels for AppState {
         }
     }
 }
+
+pub(crate) fn first_selectable_index(state: &AppState, section: SettingsSection) -> usize {
+    section_rows(state, section)
+        .iter()
+        .position(|row| row.kind != SettingsRowKind::Header)
+        .unwrap_or(0)
+}
+
+pub(crate) fn selected_settings_row_id(state: &AppState) -> Option<SettingsItemId> {
+    section_rows(state, state.settings.section)
+        .get(state.settings.list.selected)
+        .map(|row| row.id)
+}
+
+pub(crate) fn clamp_settings_list_selection(
+    state: &mut AppState,
+    previous_id: Option<SettingsItemId>,
+) {
+    if state.settings.section != SettingsSection::Integrations {
+        return;
+    }
+    let rows = section_rows(state, state.settings.section);
+    if let Some(id) = previous_id {
+        if let Some(idx) = rows.iter().position(|row| row.id == id) {
+            state.settings.list.selected = idx;
+            return;
+        }
+    }
+    if rows.is_empty() {
+        state.settings.list.selected = 0;
+        return;
+    }
+    state.settings.list.selected = state.settings.list.selected.min(rows.len() - 1);
+    if rows[state.settings.list.selected].kind == SettingsRowKind::Header {
+        state.settings.list.selected = first_selectable_index(state, state.settings.section);
+    }
+}

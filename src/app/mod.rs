@@ -1304,10 +1304,13 @@ impl App {
     }
 
     pub(crate) fn refresh_integration_recommendations(&mut self) {
+        let previous_id = crate::ui::settings::rows::selected_settings_row_id(&self.state);
         self.state.integration_recommendations = crate::integration::integration_recommendations();
+        crate::ui::settings::rows::clamp_settings_list_selection(&mut self.state, previous_id);
     }
 
     pub(crate) fn install_recommended_integrations(&mut self) {
+        let previous_id = crate::ui::settings::rows::selected_settings_row_id(&self.state);
         let targets = self
             .state
             .integration_recommendations
@@ -1346,6 +1349,7 @@ impl App {
 
         self.state.integration_recommendations = crate::integration::integration_recommendations();
         self.state.mark_session_dirty();
+        crate::ui::settings::rows::clamp_settings_list_selection(&mut self.state, previous_id);
     }
 
     pub(crate) fn reload_config(&mut self) -> crate::config::ConfigReloadReport {

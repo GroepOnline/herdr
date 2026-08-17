@@ -7,7 +7,10 @@ pub(crate) mod spinner;
 
 pub(crate) use catalog::SettingsAction;
 
-pub(crate) use layout::{settings_button_rects, settings_show_primary_action, SettingsLayout};
+pub(crate) use layout::{
+    settings_button_rects, settings_primary_button_label, settings_show_primary_action,
+    settings_show_secondary_action, SettingsLayout,
+};
 
 use ratatui::{layout::Rect, Frame};
 

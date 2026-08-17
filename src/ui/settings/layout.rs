@@ -262,11 +262,18 @@ pub(crate) fn settings_popup_height(app: &AppState) -> u16 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SettingsButtonRects {
+    pub primary: Option<Rect>,
+    pub secondary: Option<Rect>,
+    pub close: Rect,
+}
+
 pub(crate) fn settings_button_rects(
     layout: &SettingsLayout,
     app: &AppState,
     show_primary: bool,
-) -> (Option<Rect>, Rect) {
+) -> SettingsButtonRects {
     use super::super::widgets::{action_button_row_rects, ActionButtonSpec};
 
     let inner = layout.inner;
@@ -281,7 +288,39 @@ pub(crate) fn settings_button_rects(
             2,
             row_y,
         );
-        return (None, rects[0]);
+        return SettingsButtonRects {
+            primary: None,
+            secondary: None,
+            close: rects[0],
+        };
+    }
+
+    let show_secondary = settings_show_secondary_action(app);
+    if show_secondary {
+        let rects = action_button_row_rects(
+            inner,
+            &[
+                ActionButtonSpec {
+                    hint: Some("↵"),
+                    label: settings_primary_button_label(app),
+                },
+                ActionButtonSpec {
+                    hint: None,
+                    label: "refresh",
+                },
+                ActionButtonSpec {
+                    hint: Some("esc"),
+                    label: "close",
+                },
+            ],
+            2,
+            row_y,
+        );
+        return SettingsButtonRects {
+            primary: Some(rects[0]),
+            secondary: Some(rects[1]),
+            close: rects[2],
+        };
     }
 
     let rects = action_button_row_rects(
@@ -299,7 +338,11 @@ pub(crate) fn settings_button_rects(
         2,
         row_y,
     );
-    (Some(rects[0]), rects[1])
+    SettingsButtonRects {
+        primary: Some(rects[0]),
+        secondary: None,
+        close: rects[1],
+    }
 }
 
 pub(crate) fn settings_primary_button_label(app: &AppState) -> &'static str {
@@ -332,6 +375,15 @@ pub(crate) fn settings_show_primary_action(app: &AppState) -> bool {
         }
         _ => false,
     }
+}
+
+pub(crate) fn settings_show_secondary_action(app: &AppState) -> bool {
+    app.settings.section == SettingsSection::Integrations
+        && app
+            .integration_recommendations
+            .iter()
+            .any(crate::integration::IntegrationRecommendation::needs_install)
+        && !super::catalog::installed_plugins_sorted(app).is_empty()
 }
 
 pub(crate) fn spinner_category_labels() -> impl Iterator<Item = &'static str> {
@@ -480,8 +532,27 @@ mod tests {
     fn button_rects_align_with_footer_buttons_area() {
         let app = AppState::test_new();
         let layout = layout_for_section(SettingsSection::Theme);
-        let (apply, close) = settings_button_rects(&layout, &app, true);
-        assert!(apply.is_some());
-        assert!(close.y >= layout.footer_buttons.y);
+        let buttons = settings_button_rects(&layout, &app, true);
+        assert!(buttons.primary.is_some());
+        assert!(buttons.secondary.is_none());
+        assert!(buttons.close.y >= layout.footer_buttons.y);
+    }
+
+    #[test]
+    fn integrations_primary_is_install_when_needed() {
+        let mut app = AppState::test_new();
+        app.mode = Mode::Settings;
+        app.settings.section = SettingsSection::Integrations;
+        app.integration_recommendations = vec![crate::integration::IntegrationRecommendation {
+            target: crate::api::schema::IntegrationTarget::Claude,
+            label: "claude",
+            command: "claude",
+            available: true,
+            path: std::path::PathBuf::from("/tmp/herdr-test-integration"),
+            state: crate::integration::IntegrationStatusKind::Outdated,
+        }];
+        assert!(settings_show_primary_action(&app));
+        assert_eq!(settings_primary_button_label(&app), "install");
+        assert!(!settings_show_secondary_action(&app));
     }
 }

@@ -57,9 +57,11 @@ impl App {
         if self.no_session {
             return;
         }
+        let previous_id = crate::ui::settings::rows::selected_settings_row_id(&self.state);
         if let Err(err) = reload_installed_plugins_state(&mut self.state.installed_plugins) {
             tracing::warn!(error = %err, "failed to reload installed plugins for settings");
         }
+        crate::ui::settings::rows::clamp_settings_list_selection(&mut self.state, previous_id);
     }
 
     pub(crate) fn settings_set_plugin_enabled(
@@ -167,10 +169,15 @@ impl App {
         }
         // A successful CLI install is only visible once the registry reloads; a failed
         // reload leaves the settings list stale, so report it instead of claiming success.
+        let previous_id = crate::ui::settings::rows::selected_settings_row_id(&self.state);
         match reload_installed_plugins_state(&mut self.state.installed_plugins) {
             Ok(()) => {
                 self.finish_plugin_install_job(true, &format!("installed {source}: {summary}"));
                 self.state.mark_session_dirty();
+                crate::ui::settings::rows::clamp_settings_list_selection(
+                    &mut self.state,
+                    previous_id,
+                );
             }
             Err(err) => {
                 tracing::warn!(error = %err, "failed to reload installed plugins after install");
@@ -191,6 +198,7 @@ impl App {
                 .push("plugin registry unavailable in no-session mode".to_string());
             return;
         }
+        let previous_id = crate::ui::settings::rows::selected_settings_row_id(&self.state);
         match reload_installed_plugins_state(&mut self.state.installed_plugins) {
             Ok(()) => self
                 .state
@@ -201,6 +209,7 @@ impl App {
                 .plugin_install_messages
                 .push(format!("refresh failed: {err}")),
         }
+        crate::ui::settings::rows::clamp_settings_list_selection(&mut self.state, previous_id);
     }
 
     fn finish_plugin_install_job(&mut self, success: bool, message: &str) {

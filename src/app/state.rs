@@ -1080,7 +1080,7 @@ impl SettingsSection {
     pub fn title(self) -> &'static str {
         match self {
             Self::Theme => "Theme",
-            Self::Ui => "Ui",
+            Self::Ui => "UI",
             Self::Sound => "Sound",
             Self::System => "System",
             Self::Templates => "Templates",
