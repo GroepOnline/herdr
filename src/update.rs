@@ -46,6 +46,7 @@ const HOMEBREW_FORMULA_API_URL: &str = "https://formulae.brew.sh/api/formula/her
 const HERDR_UPDATE_COMMAND: &str = "herdr update";
 const HOMEBREW_UPDATE_COMMAND: &str =
     "brew update && brew upgrade GroepOnline/tap/groeponline-herdr";
+const HOMEBREW_UPSTREAM_UPDATE_COMMAND: &str = "brew update && brew upgrade herdr";
 const NPM_UPDATE_COMMAND: &str = "npm install --global groeponline-herdr@latest";
 const MISE_UPDATE_COMMAND: &str = "mise upgrade herdr";
 const NIX_UPDATE_COMMAND: &str = "update through Nix";
@@ -2051,7 +2052,16 @@ fn herdr_binaries_on_path_var(path_var: impl AsRef<std::ffi::OsStr>) -> Vec<Path
     env::split_paths(path_var.as_ref())
         .filter_map(|dir| {
             let candidate = dir.join(herdr_exe_file_name());
-            candidate.is_file().then_some(candidate)
+            candidate.is_file().then(|| {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    return (candidate.metadata().ok()?.permissions().mode() & 0o111 != 0)
+                        .then_some(candidate);
+                }
+                #[cfg(not(unix))]
+                { Some(candidate) }
+            }).flatten()
         })
         .collect()
 }
@@ -2131,17 +2141,28 @@ fn retire_shadowed_direct_install(shadow: &PathInstallShadow) -> Result<Version,
         shadow.managed_kind.as_str(),
         shadow.managed.display()
     );
-    if let Some(command) = package_manager_update_command(shadow.managed_kind) {
-        eprintln!("update that install with `{command}`");
-    }
     eprintln!("use `herdr update --force-direct` only when you want to keep a leftover direct binary first on PATH");
-    Ok(Version::current())
+    let action = package_manager_update_action_for_path(
+        shadow.managed_kind,
+        UpdateChannel::configured(),
+        Some(&shadow.managed),
+    ).ok_or_else(|| "managed install has no update action".to_string())?;
+    apply_package_manager_update(action)
 }
 
 fn package_manager_update_command(kind: InstallKind) -> Option<&'static str> {
+    package_manager_update_command_for_path(kind, None)
+}
+
+fn package_manager_update_command_for_path(
+    kind: InstallKind,
+    path: Option<&Path>,
+) -> Option<&'static str> {
     match kind {
         InstallKind::Direct => None,
-        InstallKind::Homebrew => Some(HOMEBREW_UPDATE_COMMAND),
+        InstallKind::Homebrew => Some(if path.is_some_and(|path| {
+            path.components().any(|component| component.as_os_str() == "herdr")
+        }) { HOMEBREW_UPSTREAM_UPDATE_COMMAND } else { HOMEBREW_UPDATE_COMMAND }),
         InstallKind::Npm => Some(NPM_UPDATE_COMMAND),
         InstallKind::Mise => Some(MISE_UPDATE_COMMAND),
         InstallKind::Nix => Some(NIX_UPDATE_COMMAND),
@@ -2151,9 +2172,9 @@ fn package_manager_update_command(kind: InstallKind) -> Option<&'static str> {
 fn package_manager_prerelease_note(kind: InstallKind) -> Option<&'static str> {
     match kind {
         InstallKind::Direct => None,
-        InstallKind::Homebrew => {
-            Some("preview and dev channels are only for direct installs; Homebrew stays on stable")
-        }
+        InstallKind::Homebrew => Some(
+            "preview and dev channels are only for direct installs; Homebrew stays on stable",
+        ),
         InstallKind::Npm => {
             Some("preview and dev channels are only for direct installs; npm stays on stable")
         }
@@ -2170,6 +2191,14 @@ fn package_manager_update_action(
     kind: InstallKind,
     channel: UpdateChannel,
 ) -> Option<PackageManagerUpdateAction> {
+    package_manager_update_action_for_path(kind, channel, None)
+}
+
+fn package_manager_update_action_for_path(
+    kind: InstallKind,
+    channel: UpdateChannel,
+    path: Option<&Path>,
+) -> Option<PackageManagerUpdateAction> {
     let prerelease_note = channel
         .is_prerelease()
         .then(|| package_manager_prerelease_note(kind))
@@ -2180,7 +2209,7 @@ fn package_manager_update_action(
         InstallKind::Homebrew | InstallKind::Npm | InstallKind::Mise => {
             Some(PackageManagerUpdateAction::Run {
                 kind,
-                command: package_manager_update_command(kind)?,
+                command: package_manager_update_command_for_path(kind, path)?,
                 prerelease_note,
             })
         }
@@ -2208,7 +2237,7 @@ fn apply_package_manager_update(action: PackageManagerUpdateAction) -> Result<Ve
             #[cfg(unix)]
             {
                 eprintln!("running `{command}`");
-                run_package_manager_command(command)?;
+                crate::platform::run_package_manager_command(command)?;
                 eprintln!("package manager update finished");
             }
             #[cfg(not(unix))]
@@ -2221,19 +2250,6 @@ fn apply_package_manager_update(action: PackageManagerUpdateAction) -> Result<Ve
             eprintln!("{message}");
             Ok(Version::current())
         }
-    }
-}
-
-#[cfg(unix)]
-fn run_package_manager_command(command: &str) -> Result<(), String> {
-    let status = crate::noninteractive_process::command("sh")
-        .args(["-c", command])
-        .status()
-        .map_err(|err| format!("failed to run `{command}`: {err}"))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("`{command}` failed"))
     }
 }
 
@@ -2403,6 +2419,10 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
     print_invoked_binary_line();
     #[cfg(not(unix))]
     let _ = options.force_direct;
+
+    if running_inside_herdr() {
+        return Err("run `herdr update` outside herdr after detaching from the session".into());
+    }
 
     #[cfg(unix)]
     if let Some(shadow) = detect_path_install_shadow() {
