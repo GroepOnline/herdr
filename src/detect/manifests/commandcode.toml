@@ -1,0 +1,48 @@
+id = "commandcode"
+version = "2026.08.16.1"
+min_engine_version = 2
+updated_at = "2026-08-16T00:00:00Z"
+aliases = ["cmd", "command-code", "commandcode-cli"]
+
+# Command Code (cmd) renders an interactive TUI: the project directory on its
+# own line, then a "❯cmd" brand prompt and a "❯" input chevron. Permission
+# requests and question prompts replace the input line. This manifest is
+# deliberately conservative — the TUI is young and its exact chrome is
+# verified against live captures before adding more rules. The native
+# integration (herdr integration install commandcode) reports session ids via
+# the COMMANDCODE_SESSION_ID SessionStart hook, which is the primary state
+# authority once installed.
+
+[[rules]]
+id = "permission_prompt"
+state = "blocked"
+priority = 980
+region = "whole_recent"
+visible_blocker = true
+any = [
+  { contains = ["permission required"], any = [{ contains = ["y allow"] }, { contains = ["n deny"] }, { contains = ["confirm allow"] }, { contains = ["confirm deny"] }] },
+  { contains = ["do you want to proceed?"] },
+  { contains = ["awaiting approval"] },
+]
+
+[[rules]]
+id = "prompt_chevron_working"
+state = "working"
+priority = 900
+region = "bottom_non_empty_lines(4)"
+visible_working = true
+any = [{ contains = ["working"] }, { contains = ["streaming"] }]
+line_regex = ['^❯cmd\b']
+
+[[rules]]
+id = "prompt_chevron_idle"
+state = "idle"
+priority = 850
+region = "bottom_non_empty_lines(4)"
+visible_idle = true
+line_regex = ['^❯cmd\b']
+not = [
+  { contains = ["working"] },
+  { contains = ["streaming"] },
+  { line_regex = ['^[⠁-⣿]'] },
+]
