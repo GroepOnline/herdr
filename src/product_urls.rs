@@ -6,8 +6,9 @@
 //! `website/install.sh`, `website/install.ps1`, `Cargo.toml`,
 //! `npm/package.json`, `justfile`, and `website/scripts/check-built-docs.mjs`
 //! stay in sync with this constant. Production consumers: `src/update.rs`
-//! derives its fallback manifest URLs from the site constant, and
-//! `src/remote/attach.rs` uses the channel manifest constants.
+//! derives its fallback manifest URLs from the site constant,
+//! `src/remote/attach.rs` uses the channel manifest constants, and
+//! `src/cli.rs` derives the agent-help footer from the site constants.
 //!
 //! NOTE: the branded domain must be the GroepOnline deployment. The upstream
 //! (herdrdev) Pages deployment must never appear in the update chain; the sync
@@ -26,16 +27,23 @@ pub const PREVIEW_UPDATE_MANIFEST_URL: &str = "https://herdr.chefgroep.nl/previe
 /// Dev update channel manifest.
 pub const DEV_UPDATE_MANIFEST_URL: &str = "https://herdr.chefgroep.nl/dev.json";
 
+/// Plain-text first-run guide published at the product site root.
+pub const AGENT_GUIDE_URL: &str = "https://herdr.chefgroep.nl/agent-guide.md";
+/// Plain-text documentation index published at the product site root.
+pub const LLMS_TXT_URL: &str = "https://herdr.chefgroep.nl/llms.txt";
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn manifest_urls_are_hosted_on_the_product_site() {
+    fn product_urls_are_hosted_on_the_product_site() {
         for url in [
             STABLE_UPDATE_MANIFEST_URL,
             PREVIEW_UPDATE_MANIFEST_URL,
             DEV_UPDATE_MANIFEST_URL,
+            AGENT_GUIDE_URL,
+            LLMS_TXT_URL,
         ] {
             assert!(
                 url.starts_with(PRODUCT_SITE_URL),
