@@ -2157,7 +2157,9 @@
             "cursor",
             "mastracode",
             "antigravity_cli",
-            "grok"
+            "grok",
+            "command_code",
+            "freebuff"
           ],
           "type": "string"
         },
@@ -7317,7 +7319,9 @@
             "cursor",
             "mastracode",
             "antigravity_cli",
-            "grok"
+            "grok",
+            "command_code",
+            "freebuff"
           ],
           "type": "string"
         },

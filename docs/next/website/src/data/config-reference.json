@@ -1176,6 +1176,17 @@
             "on",
             "off"
           ]
+        },
+        {
+          "key": "ui.sound.agents.command_code",
+          "type": "enum",
+          "default": "\"default\"",
+          "description": "Sound override for detected Command Code agents.",
+          "values": [
+            "default",
+            "on",
+            "off"
+          ]
         }
       ]
     },
