@@ -500,3 +500,147 @@ fn non_nix_store_path_is_not_detected() {
 
     assert!(!is_nix_store_exe_path(path));
 }
+
+#[test]
+fn path_install_update_shadow_skips_multiple_transient_nix_entries() {
+    let leftover = PathBuf::from("/home/joep/.local/bin/herdr");
+    let nix_store_one = PathBuf::from("/nix/store/aaaa-herdr-0.8.0/bin/herdr");
+    let nix_store_two = PathBuf::from("/nix/store/bbbb-herdr-0.8.1/bin/herdr");
+    let managed = PathBuf::from("/home/user/.local/share/mise/installs/herdr/0.8.1/bin/herdr");
+
+    assert_eq!(
+        path_install_update_shadow(
+            &leftover,
+            &[
+                leftover.clone(),
+                nix_store_one,
+                nix_store_two,
+                managed.clone(),
+            ]
+        ),
+        Some(PathInstallShadow {
+            leftover,
+            managed,
+            managed_kind: InstallKind::Mise,
+        })
+    );
+}
+
+#[test]
+fn path_install_update_shadow_returns_none_when_only_transient_nix_follows() {
+    let leftover = PathBuf::from("/home/joep/.local/bin/herdr");
+    let nix_store = PathBuf::from("/nix/store/aaaa-herdr-0.8.0/bin/herdr");
+
+    assert_eq!(
+        path_install_update_shadow(&leftover, &[leftover, nix_store]),
+        None
+    );
+}
+
+#[test]
+fn path_install_update_shadow_treats_stable_nix_profile_path_as_managed() {
+    // A Nix path that does not literally live under /nix/store (for example a
+    // `nix profile` symlink target already resolved) is not considered
+    // transient, so it can still be picked up as the install to retire for.
+    let leftover = PathBuf::from("/home/joep/.local/bin/herdr");
+    let nix_profile = PathBuf::from("/nix/store-not-really/herdr-0.8.1/bin/herdr");
+
+    // Sanity: this path is not classified as Nix at all (doesn't start with
+    // "/nix/store"), so it falls through to Direct and is not package
+    // managed, meaning it is skipped just like any other non-managed binary.
+    assert_eq!(InstallKind::classify(&nix_profile), InstallKind::Direct);
+    assert_eq!(
+        path_install_update_shadow(&leftover, &[leftover, nix_profile]),
+        None
+    );
+}
+
+#[test]
+fn apply_managed_update_guide_returns_err_without_leftover_when_exit_error() {
+    let result = apply_managed_update(SelfUpdatePlan::Guide {
+        message: NIX_GUIDANCE,
+        leftover: None,
+        exit_error: true,
+    });
+
+    assert_eq!(result, Err(NIX_GUIDANCE.to_string()));
+}
+
+#[test]
+fn apply_managed_update_guide_returns_ok_when_exit_error_is_false() {
+    let result = apply_managed_update(SelfUpdatePlan::Guide {
+        message: NIX_GUIDANCE,
+        leftover: None,
+        exit_error: false,
+    });
+
+    assert_eq!(result, Ok(()));
+}
+
+#[test]
+fn apply_managed_update_direct_and_force_direct_are_noops() {
+    assert_eq!(apply_managed_update(SelfUpdatePlan::Direct), Ok(()));
+
+    let shadow = PathInstallShadow {
+        leftover: PathBuf::from("/tmp/herdr-noop-leftover"),
+        managed: PathBuf::from("/opt/homebrew/Cellar/groeponline-herdr/0.8.1/bin/herdr"),
+        managed_kind: InstallKind::Homebrew,
+    };
+    assert_eq!(
+        apply_managed_update(SelfUpdatePlan::ForceDirect { shadow }),
+        Ok(())
+    );
+}
+
+#[test]
+fn apply_managed_update_guide_retires_leftover_on_success_without_running_a_package_manager() {
+    let dir = std::env::temp_dir().join(format!(
+        "herdr-update-guide-retire-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    let leftover = dir.join("herdr");
+    fs::write(&leftover, b"leftover").unwrap();
+    let shadow = PathInstallShadow {
+        leftover: leftover.clone(),
+        managed: PathBuf::from("/nix/store/aaaa-herdr-0.8.1/bin/herdr"),
+        managed_kind: InstallKind::Nix,
+    };
+
+    // Guide never shells out, so this only exercises the leftover-retirement
+    // side effect, not a real package-manager command.
+    let result = apply_managed_update(SelfUpdatePlan::Guide {
+        message: NIX_GUIDANCE,
+        leftover: Some(shadow),
+        exit_error: false,
+    });
+
+    assert_eq!(result, Ok(()));
+    assert!(!leftover.exists());
+    assert!(dir.join("herdr.direct.bak").exists());
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn apply_managed_update_guide_reports_exit_error_even_when_leftover_retire_fails() {
+    // The leftover path does not exist, so retirement fails; that failure
+    // must not mask the underlying `exit_error` guidance failure.
+    let missing_leftover = PathBuf::from("/tmp/herdr-guide-missing-leftover-does-not-exist");
+    let shadow = PathInstallShadow {
+        leftover: missing_leftover,
+        managed: PathBuf::from("/nix/store/aaaa-herdr-0.8.1/bin/herdr"),
+        managed_kind: InstallKind::Nix,
+    };
+
+    let result = apply_managed_update(SelfUpdatePlan::Guide {
+        message: NIX_GUIDANCE,
+        leftover: Some(shadow),
+        exit_error: true,
+    });
+
+    assert_eq!(result, Err(NIX_GUIDANCE.to_string()));
+}

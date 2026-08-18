@@ -1141,6 +1141,25 @@ mod tests {
     }
 
     #[test]
+    fn channel_set_install_action_distinguishes_guidance_from_suggest_update() {
+        // Regression guard: a package-manager guidance string must never be
+        // collapsed into the plain "run herdr update" suggestion, since only
+        // one of the two actions is correct for a given install kind.
+        assert_ne!(
+            super::channel_set_install_action(Some("guidance")),
+            super::channel_set_install_action(None)
+        );
+    }
+
+    #[test]
+    fn channel_set_install_action_preserves_empty_guidance_message() {
+        assert_eq!(
+            super::channel_set_install_action(Some("")),
+            super::ChannelSetInstallAction::PrintGuidance("")
+        );
+    }
+
+    #[test]
     fn parse_env_assignment_accepts_empty_values() {
         assert_eq!(
             super::parse_env_assignment("HERDR_ROLE=").unwrap(),

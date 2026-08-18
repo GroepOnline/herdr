@@ -369,6 +369,36 @@ mod tests {
     use super::*;
 
     #[test]
+    fn run_shell_command_succeeds_for_zero_exit_status() {
+        assert_eq!(run_shell_command("exit 0"), Ok(()));
+    }
+
+    #[test]
+    fn run_shell_command_reports_failure_for_nonzero_exit_status() {
+        let result = run_shell_command("exit 7");
+        assert_eq!(result, Err("`exit 7` failed".to_string()));
+    }
+
+    #[test]
+    fn run_shell_command_reports_failure_for_missing_binary() {
+        // The shell itself starts fine, but the invoked program does not
+        // exist, so `sh -c` exits non-zero (typically 127) and the wrapper
+        // must surface that as an Err rather than panicking.
+        let result = run_shell_command("herdr-test-nonexistent-binary-xyz123");
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .contains("herdr-test-nonexistent-binary-xyz123"));
+    }
+
+    #[test]
+    fn run_shell_command_runs_through_a_real_shell_pipeline() {
+        // Exercises that the command string is interpreted by `sh -c`
+        // (supporting pipes/redirection), not executed as a literal argv.
+        assert_eq!(run_shell_command("echo hi | grep hi > /dev/null"), Ok(()));
+    }
+
+    #[test]
     fn terminal_resize_signal_is_recorded_once_per_delivery() {
         watch_terminal_resize_signal();
         assert!(!take_terminal_resize_signal());
