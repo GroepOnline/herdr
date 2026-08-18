@@ -124,7 +124,7 @@ fn path_install_shadow_notes_transient_nix_store_but_plan_skips_retire() {
         shadow,
         Some(PathInstallShadow {
             leftover: leftover.clone(),
-            managed: nix_store,
+            managed: nix_store.clone(),
             managed_kind: InstallKind::Nix,
         })
     );
@@ -532,7 +532,7 @@ fn path_install_update_shadow_returns_none_when_only_transient_nix_follows() {
     let nix_store = PathBuf::from("/nix/store/aaaa-herdr-0.8.0/bin/herdr");
 
     assert_eq!(
-        path_install_update_shadow(&leftover, &[leftover, nix_store]),
+        path_install_update_shadow(&leftover, &[leftover.clone(), nix_store]),
         None
     );
 }
@@ -550,7 +550,7 @@ fn path_install_update_shadow_treats_stable_nix_profile_path_as_managed() {
     // managed, meaning it is skipped just like any other non-managed binary.
     assert_eq!(InstallKind::classify(&nix_profile), InstallKind::Direct);
     assert_eq!(
-        path_install_update_shadow(&leftover, &[leftover, nix_profile]),
+        path_install_update_shadow(&leftover, &[leftover.clone(), nix_profile]),
         None
     );
 }

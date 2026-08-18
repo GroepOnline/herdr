@@ -297,15 +297,18 @@ fn plan_for_managed(
                 leftover,
             }
         }
-        InstallKind::Nix => SelfUpdatePlan::Guide {
-            message: if channel.is_prerelease() {
-                NIX_GUIDANCE_PRERELEASE
-            } else {
-                NIX_GUIDANCE
-            },
-            leftover,
-            exit_error: leftover.is_none(),
-        },
+        InstallKind::Nix => {
+            let exit_error = leftover.is_none();
+            SelfUpdatePlan::Guide {
+                message: if channel.is_prerelease() {
+                    NIX_GUIDANCE_PRERELEASE
+                } else {
+                    NIX_GUIDANCE
+                },
+                leftover,
+                exit_error,
+            }
+        }
     }
 }
 
@@ -331,7 +334,7 @@ pub(super) fn apply_managed_update(plan: SelfUpdatePlan) -> Result<(), String> {
             {
                 eprintln!("run `{command}` to update");
             }
-            retire_leftover_after_success(leftover.as_ref());
+            retire_leftover_after_success(leftover.as_ref())?;
             eprintln!(
                 "Restart any running Herdr sessions to use the {} install.",
                 kind.as_str()
@@ -343,7 +346,7 @@ pub(super) fn apply_managed_update(plan: SelfUpdatePlan) -> Result<(), String> {
             leftover,
             exit_error,
         } => {
-            retire_leftover_after_success(leftover.as_ref());
+            retire_leftover_after_success(leftover.as_ref())?;
             if exit_error {
                 // The caller (main.rs) prints the returned error, so printing
                 // it here too would surface the same guidance twice.
@@ -364,6 +367,7 @@ fn retire_leftover_after_success(shadow: Option<&PathInstallShadow>) -> Result<(
     #[cfg(not(unix))]
     {
         let _ = shadow;
+        Ok(())
     }
     #[cfg(unix)]
     match retire_leftover(shadow) {
@@ -381,8 +385,9 @@ fn retire_leftover_after_success(shadow: Option<&PathInstallShadow>) -> Result<(
             eprintln!(
                 "use `herdr update --force-direct` only when you want to keep a leftover direct binary first on PATH"
             );
+            Ok(())
         }
-        Err(err) => eprintln!("{err}"),
+        Err(err) => Err(err),
     }
 }
 
