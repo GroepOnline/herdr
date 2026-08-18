@@ -40,17 +40,7 @@ pub(crate) fn configure_background_command(command: &mut std::process::Command) 
 }
 
 #[cfg(unix)]
-pub(crate) fn run_package_manager_command(command: &str) -> Result<(), String> {
-    let status = crate::noninteractive_process::command("sh")
-        .args(["-c", command])
-        .status()
-        .map_err(|err| format!("failed to run `{command}`: {err}"))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("`{command}` failed"))
-    }
-}
+pub(crate) use unix_common::run_package_manager_command;
 
 #[cfg(not(windows))]
 fn configure_background_command_platform(_command: &mut std::process::Command) {}

@@ -2143,23 +2143,74 @@ fn retire_shadowed_direct_install(shadow: &PathInstallShadow) -> Result<Version,
     })?;
 
     eprintln!(
-        "retired leftover direct install {} -> {}",
+        "moving leftover direct install {} -> {}",
         shadow.leftover.display(),
         backup.display()
     );
-    eprintln!(
-        "herdr on PATH now uses the {} install at {}",
-        shadow.managed_kind.as_str(),
-        shadow.managed.display()
-    );
-    eprintln!("use `herdr update --force-direct` only when you want to keep a leftover direct binary first on PATH");
-    let action = package_manager_update_action_for_path(
+    let action = match package_manager_update_action_for_path(
         shadow.managed_kind,
         UpdateChannel::configured(),
         Some(&shadow.managed),
-    )
-    .ok_or_else(|| "managed install has no update action".to_string())?;
+    ) {
+        Some(action) => action,
+        None => {
+            return Err(restore_retired_leftover(
+                &shadow.leftover,
+                &backup,
+                "managed install has no update action",
+                shadow.managed_kind,
+                &shadow.managed,
+            ));
+        }
+    };
     apply_package_manager_update(action)
+        .map_err(|err| {
+            restore_retired_leftover(
+                &shadow.leftover,
+                &backup,
+                &err,
+                shadow.managed_kind,
+                &shadow.managed,
+            )
+        })
+        .inspect(|_| {
+            eprintln!(
+                "retired leftover direct install {} -> {}",
+                shadow.leftover.display(),
+                backup.display()
+            );
+            eprintln!(
+                "herdr on PATH now uses the {} install at {}",
+                shadow.managed_kind.as_str(),
+                shadow.managed.display()
+            );
+            eprintln!("use `herdr update --force-direct` only when you want to keep a leftover direct binary first on PATH");
+        })
+}
+
+#[cfg(unix)]
+fn restore_retired_leftover(
+    leftover: &Path,
+    backup: &Path,
+    update_err: &str,
+    managed_kind: InstallKind,
+    managed: &Path,
+) -> String {
+    match fs::rename(backup, leftover) {
+        Ok(()) => format!(
+            "{update_err}; restored leftover {} so PATH still has a herdr binary",
+            leftover.display()
+        ),
+        Err(restore_err) => format!(
+            "{update_err}; also failed to restore leftover {} from {}: {restore_err}. Recover with `mv {} {}` or use {} herdr at {}",
+            leftover.display(),
+            backup.display(),
+            backup.display(),
+            leftover.display(),
+            managed_kind.as_str(),
+            managed.display()
+        ),
+    }
 }
 
 fn package_manager_update_command_for_path(
@@ -3010,6 +3061,55 @@ mod tests {
             .and_then(|name| name.to_str())
             .is_some_and(|name| name.starts_with("herdr.direct.bak.")));
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn restore_retired_leftover_puts_the_path_entry_back() {
+        let dir = std::env::temp_dir().join(format!(
+            "herdr-update-restore-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let leftover = dir.join("herdr");
+        let backup = dir.join("herdr.direct.bak");
+        fs::write(&backup, b"leftover").unwrap();
+        let managed = PathBuf::from("/opt/homebrew/Cellar/groeponline-herdr/0.8.1/bin/herdr");
+
+        let message = restore_retired_leftover(
+            &leftover,
+            &backup,
+            "`brew upgrade` failed",
+            InstallKind::Homebrew,
+            &managed,
+        );
+
+        assert!(message.contains("restored leftover"));
+        assert_eq!(fs::read(&leftover).unwrap(), b"leftover");
+        assert!(!backup.exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn restore_retired_leftover_reports_both_failures() {
+        let leftover = PathBuf::from("/tmp/herdr-missing-leftover");
+        let backup = PathBuf::from("/tmp/herdr-missing-backup");
+        let managed = PathBuf::from("/opt/homebrew/Cellar/groeponline-herdr/0.8.1/bin/herdr");
+
+        let message = restore_retired_leftover(
+            &leftover,
+            &backup,
+            "`brew upgrade` failed",
+            InstallKind::Homebrew,
+            &managed,
+        );
+
+        assert!(message.contains("`brew upgrade` failed"));
+        assert!(message.contains("also failed to restore leftover"));
+        assert!(message.contains("mv"));
     }
 
     #[test]
