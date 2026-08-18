@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.8.5] - 2026-08-19
 
 ### Added
 - Sidebar hover highlight: moving the mouse over a workspace or agent row in the sidebar highlights it with a distinct hover surface, so click targets are visible before clicking. Hover clears when the pointer leaves the sidebar, the host terminal loses focus, or a modal opens.
