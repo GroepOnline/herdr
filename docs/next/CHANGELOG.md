@@ -19,6 +19,7 @@
 - `herdr channel set` writes the update channel only. Package-manager installs print their upgrade command; direct installs print `herdr update`. Changing the channel no longer retires leftover PATH binaries or runs brew/npm/mise.
 
 ### Fixed
+- `~/.asdf/shims/herdr` is no longer classified as a mise install.
 - `agent prompt` now rejects agents already waiting at approval or question dialogs with `agent_blocked`, without sending text or Enter. The check uses the last detector-poll cache and a live bottom-buffer detection snapshot so a dialog painted between polls cannot receive prompt+Enter. (#2790)
 - Remote clients now continue redrawing at very large terminal sizes instead of freezing when a full ANSI frame exceeds the transport limit. (#2675)
 - Remote clients now handle a terminal hangup gracefully instead of crashing. (#2827)
