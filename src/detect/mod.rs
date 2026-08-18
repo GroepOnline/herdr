@@ -233,7 +233,6 @@ fn lookup_agent(name: &str) -> Option<Agent> {
         "qwen" | "qwen-code" | "qwen code" => Some(Agent::Qwen),
         "maki" => Some(Agent::Maki),
         "cmd" | "command-code" | "commandcode" | "commandcode-cli" => Some(Agent::CommandCode),
-        "opencode2" | "open-code-2" => Some(Agent::OpenCode),
         _ => None,
     }
 }

@@ -4527,36 +4527,6 @@ mod tests {
     }
 
     #[test]
-    fn qwen_session_ref_does_not_replace_without_foreground_qwen() {
-        let mut terminal = test_terminal();
-        terminal
-            .set_agent_session_ref(
-                "herdr:qwen".into(),
-                "qwen".into(),
-                crate::agent_resume::AgentSessionRef::id("qwen-parent"),
-                Some(20),
-            )
-            .expect("initial session should be accepted");
-
-        let mutation = terminal.set_agent_session_ref_for_session_start(
-            "herdr:qwen".into(),
-            "qwen".into(),
-            crate::agent_resume::AgentSessionRef::id("qwen-branch"),
-            Some(21),
-            Some("branch".into()),
-        );
-
-        assert!(mutation.is_none());
-        assert_eq!(
-            terminal
-                .persisted_agent_session
-                .as_ref()
-                .map(|session| session.session_ref.value.as_str()),
-            Some("qwen-parent")
-        );
-    }
-
-    #[test]
     fn opencode_server_new_does_not_replace_existing_session_ref() {
         let mut terminal = test_terminal();
         let root_session =

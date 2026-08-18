@@ -79,6 +79,11 @@ path = "qwen.toml"
 [[agents]]
 id = "copilot"
 path = "github-copilot.toml"
+
+[[agents]]
+id = "commandcode"
+path = "commandcode.toml"
+
 [[agents]]
 id = "freebuff"
 path = "freebuff.toml"
