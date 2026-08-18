@@ -346,12 +346,15 @@ pub(super) fn apply_managed_update(plan: SelfUpdatePlan) -> Result<(), String> {
             leftover,
             exit_error,
         } => {
-            retire_leftover_after_success(leftover.as_ref())?;
+            let retire_result = retire_leftover_after_success(leftover.as_ref());
             if exit_error {
                 // The caller (main.rs) prints the returned error, so printing
-                // it here too would surface the same guidance twice.
+                // it here too would surface the same guidance twice. This
+                // user-facing guidance also remains the primary failure when
+                // an optional leftover-retire attempt fails.
                 Err(message.to_string())
             } else {
+                retire_result?;
                 eprintln!("{message}");
                 Ok(())
             }
