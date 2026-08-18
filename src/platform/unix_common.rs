@@ -98,6 +98,18 @@ pub(crate) fn remote_reattach_argument(value: &str) -> String {
     shell_quote(value)
 }
 
+pub(crate) fn run_shell_command(command: &str) -> Result<(), String> {
+    let status = crate::noninteractive_process::command("sh")
+        .args(["-c", command])
+        .status()
+        .map_err(|err| format!("failed to run `{command}`: {err}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("`{command}` failed"))
+    }
+}
+
 fn shell_quote(value: &str) -> String {
     if !value.is_empty()
         && value.chars().all(|ch| {
