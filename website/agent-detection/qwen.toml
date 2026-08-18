@@ -110,6 +110,7 @@ state = "idle"
 priority = 100
 region = "bottom_non_empty_lines(5)"
 visible_idle = true
+line_regex = ['^\\s*>\\s*(?:type\\s*)?.*$']
 any = [
   { contains = ["type your message"] },
   { contains = ["your message or @path/to/file"] },
