@@ -228,7 +228,13 @@ fn compute_view_internal(
     resize_panes: bool,
     cell_size: crate::kitty_graphics::HostCellSize,
 ) {
-    if is_mobile_width(area, app.mobile_width_threshold) {
+    let next_layout = if is_mobile_width(area, app.mobile_width_threshold) {
+        ViewLayout::Mobile
+    } else {
+        ViewLayout::Desktop
+    };
+    app.sync_pointer_chrome_for_view(next_layout);
+    if next_layout == ViewLayout::Mobile {
         compute_mobile_view(app, terminal_runtimes, area, resize_panes, cell_size);
         return;
     }

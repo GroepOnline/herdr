@@ -148,6 +148,61 @@ fn agent_start_command_works() {
     let after = run_cli_json(&socket_path, &["pane", "list"]);
     assert_eq!(pane_topology_snapshot(&after), before_topology);
 
+    let prompts_before_blocked = fs::read(&captured_prompts).unwrap();
+    let blocked_report = run_cli(
+        &socket_path,
+        &[
+            "pane",
+            "report-agent",
+            &pane_id,
+            "--source",
+            "custom:fake-pi",
+            "--agent",
+            "pi",
+            "--state",
+            "blocked",
+        ],
+    );
+    assert!(blocked_report.status.success());
+    assert_eq!(
+        run_cli_json(&socket_path, &["agent", "get", "main"])["result"]["agent"]["agent_status"],
+        "blocked"
+    );
+
+    let blocked_prompt = run_cli(
+        &socket_path,
+        &[
+            "agent",
+            "prompt",
+            "main",
+            "must not be submitted",
+            "--wait",
+            "--timeout",
+            "2000",
+        ],
+    );
+    assert_eq!(blocked_prompt.status.code(), Some(1));
+    let blocked_prompt: serde_json::Value = serde_json::from_slice(&blocked_prompt.stderr).unwrap();
+    assert_eq!(blocked_prompt["error"]["code"], "agent_blocked");
+    thread::sleep(Duration::from_millis(400));
+    assert_eq!(fs::read(&captured_prompts).unwrap(), prompts_before_blocked);
+
+    let idle_report = run_cli(
+        &socket_path,
+        &[
+            "pane",
+            "report-agent",
+            &pane_id,
+            "--source",
+            "custom:fake-pi",
+            "--agent",
+            "pi",
+            "--state",
+            "idle",
+        ],
+    );
+    assert!(idle_report.status.success());
+
     let stale_idle = run_cli(
         &socket_path,
         &[

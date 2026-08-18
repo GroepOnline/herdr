@@ -202,6 +202,8 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # rename_tab = "prefix+shift+t"
 # previous_tab = "prefix+p"
 # next_tab = "prefix+n"
+# move_tab_previous = ""   # optional, e.g. "alt+shift+left" moves the tab toward the front
+# move_tab_next = ""       # optional, e.g. "alt+shift+right" moves the tab toward the back
 # switch_tab = "prefix+1..9"
 # switch_workspace = ""   # optional indexed binding, e.g. "prefix+shift+1..9"
 # close_tab = "prefix+shift+x"
@@ -219,6 +221,10 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # close_pane = "prefix+x"
 # zoom = "prefix+z"       # legacy alias: fullscreen
 # resize_mode = "prefix+r"
+# resize_pane_left = ""   # optional, e.g. "ctrl+shift+alt+left" resizes without entering resize mode
+# resize_pane_down = ""   # optional, e.g. "ctrl+shift+alt+down"
+# resize_pane_up = ""     # optional, e.g. "ctrl+shift+alt+up"
+# resize_pane_right = ""  # optional, e.g. "ctrl+shift+alt+right"
 # toggle_sidebar = "prefix+b"
 
 # Navigate-mode movement. These local shortcuts win while navigate mode is open.
@@ -249,6 +255,12 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # tabs = ""       # e.g. "ctrl" makes ctrl+1..9 switch tabs directly
 # workspaces = "" # e.g. "ctrl+shift" makes ctrl+shift+1..9 switch workspaces directly
 # agents = ""     # e.g. "alt" makes alt+1..9 focus agent rows directly
+
+# Size of the virtual terminal used when no client is attached.
+# Attached clients always use their own terminal size.
+[server]
+# headless_cols = 120
+# headless_rows = 40
 
 # [worktrees]
 # directory = "~/.herdr/worktrees"
@@ -553,7 +565,7 @@ fn main() -> io::Result<()> {
             }
             Err(err) => {
                 eprintln!("{err}");
-                eprintln!("usage: herdr update [--handoff]");
+                eprintln!("usage: herdr update [--handoff] [--force-direct]");
                 std::process::exit(2);
             }
         };
@@ -578,7 +590,8 @@ fn main() -> io::Result<()> {
         println!("       herdr --remote <ssh-target> [--session <name>]");
         println!("       herdr session attach <name>");
         println!("       herdr completion zsh");
-        println!("       herdr update [--handoff]");
+        println!("       herdr update [--handoff] [--force-direct]");
+        println!("       herdr channel [show]");
         println!("       herdr channel set <stable|preview|dev>");
         println!("       herdr server stop");
         println!("       herdr server reload-config");
@@ -602,12 +615,16 @@ fn main() -> io::Result<()> {
                 "herdr status [server|client]",
                 "Show local client and running server status",
             ),
-            ("herdr update", "Download and install the latest version"),
+            (
+                "herdr update",
+                "Update this install (direct download or package manager)",
+            ),
             ("herdr completion zsh", "Generate shell completions for zsh"),
             (
                 "herdr server stop",
                 "Stop the running server via the API socket",
             ),
+            ("herdr channel", "Print the configured update channel"),
             (
                 "herdr channel set <stable|preview|dev>",
                 "Choose the stable, preview, or dev update channel",
@@ -671,9 +688,10 @@ fn main() -> io::Result<()> {
         println!("  --remote-keybindings <local|server>");
         println!("                      Keybindings for --remote app attach (default: local)");
         println!("  --handoff           Opt into live handoff for update or remote attach");
+        println!("  --force-direct      Update a leftover direct install even when a package-manager herdr is later on PATH");
         println!("  --default-config    Print default configuration and exit");
         println!("  --skill             Print the agent skill file and exit");
-        println!("  --version, -V       Print version and exit");
+        println!("  --version, -V       Print version, binary path, and install kind");
         println!("  --help, -h          Show this help");
         println!();
         println!("Config: {}", config::config_path().display());
@@ -681,11 +699,14 @@ fn main() -> io::Result<()> {
         println!("Env:    HERDR_CONFIG_PATH overrides config file path");
         println!("Home:   https://herdr.chefgroep.nl");
         println!("Skill:  herdr --skill prints agent instructions for driving herdr from a pane");
+        println!();
+        println!("{}", cli::agent_help_footer());
         return Ok(());
     }
 
     if args.iter().any(|a| a == "--version" || a == "-V") {
         println!("herdr {}", crate::build_info::version());
+        crate::update::print_version_identity();
         return Ok(());
     }
 

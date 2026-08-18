@@ -17,14 +17,16 @@ herdr --remote workbox --remote-keybindings server
 herdr --remote workbox --handoff
 herdr --no-session            # single-process escape hatch
 herdr --default-config        # print default config
-herdr update                  # download and install from the configured channel
+herdr update                  # update this install (direct download or package manager)
 herdr update --handoff        # opt into live handoff for supported running servers
+herdr update --force-direct   # keep updating a leftover direct binary that shadows a package manager
 herdr completion zsh          # generate a zsh completion script
-herdr channel show            # print stable, preview, or dev
+herdr channel                 # print stable, preview, or dev
+herdr channel show            # same as herdr channel
 herdr channel set preview     # opt into preview builds
 herdr channel set dev         # opt into dev builds
 herdr channel set stable      # return Linux/macOS direct installs to stable
-herdr --version               # print version
+herdr --version               # print version, binary path, and install kind
 ```
 
 Status commands:
@@ -310,7 +312,7 @@ Agent targets are either a unique live agent name or the pane ID that currently 
 
 Start returns only after the expected agent owns the same terminal and is ready for interactive input. The default startup timeout is 30000 milliseconds; explicit values must be greater than 3000 and no more than 300000.
 
-`agent prompt` honors live bracketed-paste mode and submits text plus encoded Enter atomically, including while the agent is working. With `--wait`, a prompt sent from a non-working state must produce an observed lifecycle change within five seconds or Herdr returns `agent_prompt_stalled`; a caller timeout of five seconds or less keeps the normal `timeout` error. After activity is observed, it waits for the first requested settled status. It does not track individual turns. If the agent is already working, completion of that active turn may satisfy the wait. `--until` narrows the matching states and is rejected unless `--wait` is also present. Standalone `agent wait` returns immediately when the current status matches. Both default to `idle`, `done`, or `blocked`; use `--until unknown` explicitly when needed.
+`agent prompt` honors live bracketed-paste mode and sends text plus encoded Enter in one atomic write, including while the agent is working. If the agent is already `blocked`, it returns `agent_blocked` without sending input. With `--wait`, an accepted prompt sent from another non-working state must produce an observed lifecycle change within five seconds or Herdr returns `agent_prompt_stalled`; a caller timeout of five seconds or less keeps the normal `timeout` error. After activity is observed, it waits for the first requested settled status. It does not track individual turns. If the agent is already working, completion of that active turn may satisfy the wait. `--until` narrows the matching states and is rejected unless `--wait` is also present. Standalone `agent wait` returns immediately when the current status matches. Both default to `idle`, `done`, or `blocked`; use `--until unknown` explicitly when needed.
 
 `idle` means ready for input after its tab has been seen in the focused Herdr UI; `done` is the same underlying idle state after unseen background work completes. Focusing that tab or targeting it with `pane focus` / `agent focus` marks it seen; reading it through the CLI does not. `blocked` means Herdr recognized an approval or question UI. `unknown` means an agent is present but Herdr cannot classify it confidently, not that its work succeeded.
 

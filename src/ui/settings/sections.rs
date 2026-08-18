@@ -82,7 +82,7 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
         ),
     );
 
-    if section == SettingsSection::Appearance {
+    if section == SettingsSection::Ui {
         render_spinner_categories(app, frame, layout);
         render_spinner_hero(app, frame, layout);
     }
@@ -211,10 +211,8 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
         frame.render_widget(Paragraph::new(Line::from(spans)), rect);
     }
 
-    if section == SettingsSection::Agents {
+    if section == SettingsSection::Integrations {
         render_agents_footer(app, frame, layout);
-    }
-    if section == SettingsSection::Plugins {
         render_plugins_footer(app, frame, layout);
     }
 }
@@ -277,7 +275,7 @@ fn render_spinner_hero(app: &AppState, frame: &mut Frame, layout: &SettingsLayou
     );
     frame.render_widget(
         Paragraph::new(Span::styled(
-            "  [ and ] cycle packs · enter picks this style",
+            "  < and > cycle packs · enter picks this style",
             Style::default().fg(p.overlay0),
         )),
         Rect::new(rect.x, rect.y + 2, rect.width, 1),
@@ -285,7 +283,7 @@ fn render_spinner_hero(app: &AppState, frame: &mut Frame, layout: &SettingsLayou
 }
 
 fn focused_spinner_style(app: &AppState) -> crate::config::SpinnerStyle {
-    let rows = section_rows(app, SettingsSection::Appearance);
+    let rows = section_rows(app, SettingsSection::Ui);
     if let Some(row) = rows.get(app.settings.list.selected) {
         if row.kind == SettingsRowKind::Spinner {
             if let Some(idx) = spinner_index(row.id) {
@@ -343,7 +341,7 @@ fn render_agents_footer(app: &AppState, frame: &mut Frame, layout: &SettingsLayo
 
 fn render_plugins_footer(app: &AppState, frame: &mut Frame, layout: &SettingsLayout) {
     let p = &app.palette;
-    let y = layout.content.y + layout.content.height.saturating_sub(1);
+    let y = layout.content.y + layout.content.height.saturating_sub(2);
     if y <= layout.content.y {
         return;
     }
@@ -457,8 +455,7 @@ pub(crate) fn render_settings_footer(app: &AppState, frame: &mut Frame, layout: 
             layout.footer_hints,
         );
 
-        let (_, close_rect) =
-            super::layout::settings_button_rects(layout, app.settings.section, false);
+        let close_rect = super::layout::settings_button_rects(layout, app, false).close;
         super::super::widgets::render_action_button(
             frame,
             close_rect,
@@ -488,23 +485,34 @@ pub(crate) fn render_settings_footer(app: &AppState, frame: &mut Frame, layout: 
     );
 
     let show_primary = super::layout::settings_show_primary_action(app);
-    let (apply_rect, close_rect) =
-        super::layout::settings_button_rects(layout, app.settings.section, show_primary);
-    if let Some(apply_rect) = apply_rect {
+    let buttons = super::layout::settings_button_rects(layout, app, show_primary);
+    if let Some(apply_rect) = buttons.primary {
         super::super::widgets::render_action_button(
             frame,
             apply_rect,
             Some("↵"),
-            super::layout::settings_primary_button_label(app.settings.section),
+            super::layout::settings_primary_button_label(app),
             Style::default()
                 .fg(super::super::widgets::panel_contrast_fg(p))
                 .bg(p.accent)
                 .add_modifier(Modifier::BOLD),
         );
     }
+    if let Some(secondary_rect) = buttons.secondary {
+        super::super::widgets::render_action_button(
+            frame,
+            secondary_rect,
+            None,
+            "refresh",
+            Style::default()
+                .fg(p.text)
+                .bg(p.surface0)
+                .add_modifier(Modifier::BOLD),
+        );
+    }
     super::super::widgets::render_action_button(
         frame,
-        close_rect,
+        buttons.close,
         Some("esc"),
         "close",
         Style::default()

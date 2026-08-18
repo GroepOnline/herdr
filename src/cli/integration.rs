@@ -138,7 +138,6 @@ fn parse_integration_target(
             eprintln!("unknown integration target: {target}");
             eprintln!(
                 "currently supported: pi, omp, claude, codex, copilot, devin, droid, kimi, opencode, kilo, hermes, qodercli, cursor, mastracode, antigravity-cli, grok, commandcode, freebuff"
-                "currently supported: pi, omp, claude, codex, copilot, devin, droid, kimi, opencode, kilo, hermes, qodercli, qwen, cursor, mastracode, antigravity-cli, grok"
             );
             return Ok(None);
         }

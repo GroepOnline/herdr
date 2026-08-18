@@ -21,9 +21,8 @@ fn session_history_path() -> PathBuf {
 fn resolve_write_target(path: &Path) -> std::io::Result<PathBuf> {
     let mut current = path.to_path_buf();
     for _ in 0..16 {
-        let meta = match std::fs::symlink_metadata(&current) {
-            Ok(meta) => meta,
-            Err(_) => return Ok(current),
+        let Ok(meta) = std::fs::symlink_metadata(&current) else {
+            return Ok(current);
         };
         if !meta.file_type().is_symlink() {
             return Ok(current);

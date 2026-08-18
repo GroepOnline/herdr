@@ -13,5 +13,5 @@
 ## Parallel seams
 
 1. Shell + `SettingsLayout` + nav/search hit-tests
-2. Appearance / Layout / Notifications + save helpers
-3. Input / Terminal / Updates / Agents / Advanced + save helpers
+2. Theme / UI / Sound + save helpers
+3. System / Templates / Integrations + save helpers

@@ -59,7 +59,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
     let mut rows = Vec::new();
 
     match section {
-        SettingsSection::Appearance => {
+        SettingsSection::Theme => {
             if show_headers {
                 rows.push(header_row("theme"));
             }
@@ -79,6 +79,8 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     search_extra: None,
                 });
             }
+        }
+        SettingsSection::Ui => {
             if show_headers {
                 rows.push(header_row("spinner"));
             }
@@ -112,10 +114,41 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     search_extra: None,
                 });
             }
-        }
-        SettingsSection::Sidebar => {
             if show_headers {
-                rows.push(header_row("size & ordering"));
+                rows.push(header_row("pane chrome"));
+            }
+            for (label, detail, id) in [
+                (
+                    "pane borders",
+                    "draw borders around split panes",
+                    SettingsItemId::PaneBorders,
+                ),
+                (
+                    "pane gaps",
+                    "keep split panes visually separated",
+                    SettingsItemId::PaneGaps,
+                ),
+                (
+                    "agent labels",
+                    "show agent names in pane borders",
+                    SettingsItemId::AgentLabels,
+                ),
+                (
+                    "hide tab bar",
+                    "hide tab row when only one tab",
+                    SettingsItemId::HideTabBar,
+                ),
+            ] {
+                rows.push(SettingsRow {
+                    label: label.to_string(),
+                    detail: Some(detail.to_string()),
+                    kind: SettingsRowKind::Toggle,
+                    id,
+                    search_extra: None,
+                });
+            }
+            if show_headers {
+                rows.push(header_row("sidebar"));
             }
             for (label, detail, id) in [
                 (
@@ -165,56 +198,6 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 id: SettingsItemId::ConfigFile,
                 search_extra: Some("agents spaces rows rows_by_agent token custom".to_string()),
             });
-        }
-        SettingsSection::Layout => {
-            if show_headers {
-                rows.push(header_row("pane chrome"));
-            }
-            for (label, detail, id) in [
-                (
-                    "pane borders",
-                    "draw borders around split panes",
-                    SettingsItemId::PaneBorders,
-                ),
-                (
-                    "pane gaps",
-                    "keep split panes visually separated",
-                    SettingsItemId::PaneGaps,
-                ),
-                (
-                    "agent labels",
-                    "show agent names in pane borders",
-                    SettingsItemId::AgentLabels,
-                ),
-                (
-                    "hide tab bar",
-                    "hide tab row when only one tab",
-                    SettingsItemId::HideTabBar,
-                ),
-            ] {
-                rows.push(SettingsRow {
-                    label: label.to_string(),
-                    detail: Some(detail.to_string()),
-                    kind: SettingsRowKind::Toggle,
-                    id,
-                    search_extra: None,
-                });
-            }
-            if show_headers {
-                rows.push(header_row("templates"));
-            }
-            for (idx, id) in PaneTemplateId::ALL.iter().enumerate() {
-                let tmpl = id.template();
-                rows.push(SettingsRow {
-                    label: tmpl.name.to_string(),
-                    detail: Some(tmpl.description.to_string()),
-                    kind: SettingsRowKind::Template,
-                    id: SettingsItemId::PaneTemplate { index: idx },
-                    search_extra: None,
-                });
-            }
-        }
-        SettingsSection::Input => {
             if show_headers {
                 rows.push(header_row("mouse & clipboard"));
             }
@@ -277,45 +260,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 search_extra: None,
             });
         }
-        SettingsSection::Terminal => {
-            if show_headers {
-                rows.push(header_row("shell"));
-            }
-            rows.push(SettingsRow {
-                label: "default shell".to_string(),
-                detail: Some(app.default_shell_display()),
-                kind: SettingsRowKind::Choice,
-                id: SettingsItemId::DefaultShell,
-                search_extra: None,
-            });
-            rows.push(SettingsRow {
-                label: "shell mode".to_string(),
-                detail: Some(app.shell_mode_label()),
-                kind: SettingsRowKind::Choice,
-                id: SettingsItemId::ShellMode,
-                search_extra: None,
-            });
-            rows.push(SettingsRow {
-                label: "new pane cwd".to_string(),
-                detail: Some(app.new_terminal_cwd_label()),
-                kind: SettingsRowKind::Choice,
-                id: SettingsItemId::NewTerminalCwd,
-                search_extra: None,
-            });
-            if show_headers {
-                rows.push(header_row("scrollback"));
-            }
-            for (idx, (_bytes, label)) in scrollback_presets().iter().enumerate() {
-                rows.push(SettingsRow {
-                    label: format!("scrollback {label}"),
-                    detail: None,
-                    kind: SettingsRowKind::Choice,
-                    id: SettingsItemId::ScrollbackPreset { index: idx },
-                    search_extra: None,
-                });
-            }
-        }
-        SettingsSection::Notifications => {
+        SettingsSection::Sound => {
             if show_headers {
                 rows.push(header_row("sound"));
             }
@@ -371,92 +316,45 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 search_extra: None,
             });
         }
-        SettingsSection::Agents => {
+        SettingsSection::System => {
             if show_headers {
-                rows.push(header_row("sessions"));
+                rows.push(header_row("shell"));
             }
             rows.push(SettingsRow {
-                label: "resume agents on restore".to_string(),
-                detail: Some("resume supported agent sessions when restoring".to_string()),
-                kind: SettingsRowKind::Toggle,
-                id: SettingsItemId::ResumeAgentsOnRestore,
+                label: "default shell".to_string(),
+                detail: Some(app.default_shell_display()),
+                kind: SettingsRowKind::Choice,
+                id: SettingsItemId::DefaultShell,
+                search_extra: None,
+            });
+            rows.push(SettingsRow {
+                label: "shell mode".to_string(),
+                detail: Some(app.shell_mode_label()),
+                kind: SettingsRowKind::Choice,
+                id: SettingsItemId::ShellMode,
+                search_extra: None,
+            });
+            rows.push(SettingsRow {
+                label: "new pane cwd".to_string(),
+                detail: Some(app.new_terminal_cwd_label()),
+                kind: SettingsRowKind::Choice,
+                id: SettingsItemId::NewTerminalCwd,
                 search_extra: None,
             });
             if show_headers {
-                rows.push(header_row("integrations"));
+                rows.push(header_row("scrollback"));
             }
-            for (idx, item) in app.integration_recommendations.iter().enumerate() {
+            for (idx, (_bytes, label)) in scrollback_presets().iter().enumerate() {
                 rows.push(SettingsRow {
-                    label: item.label.to_string(),
-                    detail: Some(item.status_label().to_string()),
-                    kind: SettingsRowKind::Integration,
-                    id: SettingsItemId::Integration { index: idx },
-                    search_extra: None,
-                });
-            }
-            if app.integration_recommendations.is_empty() {
-                rows.push(SettingsRow {
-                    label: "no supported agent CLIs found on PATH".to_string(),
+                    label: format!("scrollback {label}"),
                     detail: None,
-                    kind: SettingsRowKind::Note,
-                    id: SettingsItemId::IntegrationsEmpty,
+                    kind: SettingsRowKind::Choice,
+                    id: SettingsItemId::ScrollbackPreset { index: idx },
                     search_extra: None,
                 });
             }
-        }
-        SettingsSection::Plugins => {
             if show_headers {
-                rows.push(header_row("your plugins"));
-            }
-            let installed = installed_plugins_sorted(app);
-            if installed.is_empty() {
-                rows.push(SettingsRow {
-                    label: "nothing installed yet".to_string(),
-                    detail: Some("pick something below to add".to_string()),
-                    kind: SettingsRowKind::Note,
-                    id: SettingsItemId::PluginsEmpty,
-                    search_extra: None,
-                });
-            } else {
-                for (index, plugin) in installed.iter().enumerate() {
-                    let source_label = plugin_source_search_label(plugin);
-                    rows.push(SettingsRow {
-                        label: plugin.name.clone(),
-                        detail: Some(if plugin.enabled {
-                            "on".to_string()
-                        } else {
-                            "off".to_string()
-                        }),
-                        kind: SettingsRowKind::Toggle,
-                        id: SettingsItemId::InstalledPlugin { index },
-                        search_extra: Some(format!("{} {source_label}", plugin.plugin_id)),
-                    });
-                }
-            }
-            let catalog = catalog_entries_available(app);
-            if !catalog.is_empty() {
-                if show_headers {
-                    rows.push(header_row("available to install"));
-                }
-                for entry in catalog {
-                    rows.push(SettingsRow {
-                        label: entry.name.to_string(),
-                        detail: Some(entry.blurb.to_string()),
-                        kind: SettingsRowKind::Integration,
-                        id: SettingsItemId::CatalogPlugin {
-                            plugin_id: entry.plugin_id,
-                        },
-                        search_extra: Some(format!(
-                            "{} {} {}",
-                            entry.blurb, entry.source, entry.plugin_id
-                        )),
-                    });
-                }
-            }
-        }
-        SettingsSection::Updates => {
-            if show_headers {
-                rows.push(header_row("channel"));
+                rows.push(header_row("updates"));
             }
             rows.push(SettingsRow {
                 label: "stable channel".to_string(),
@@ -472,9 +370,6 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 id: SettingsItemId::UpdateChannelPreview,
                 search_extra: None,
             });
-            if show_headers {
-                rows.push(header_row("checks"));
-            }
             rows.push(SettingsRow {
                 label: "version check".to_string(),
                 detail: Some("check for herdr updates in the background".to_string()),
@@ -489,8 +384,6 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 id: SettingsItemId::ManifestCheck,
                 search_extra: None,
             });
-        }
-        SettingsSection::Advanced => {
             if show_headers {
                 rows.push(header_row("experiments"));
             }
@@ -557,6 +450,102 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 id: SettingsItemId::ConfigFile,
                 search_extra: None,
             });
+        }
+        SettingsSection::Templates => {
+            if show_headers {
+                rows.push(header_row("templates"));
+            }
+            for (idx, id) in PaneTemplateId::ALL.iter().enumerate() {
+                let tmpl = id.template();
+                rows.push(SettingsRow {
+                    label: tmpl.name.to_string(),
+                    detail: Some(tmpl.description.to_string()),
+                    kind: SettingsRowKind::Template,
+                    id: SettingsItemId::PaneTemplate { index: idx },
+                    search_extra: None,
+                });
+            }
+        }
+        SettingsSection::Integrations => {
+            if show_headers {
+                rows.push(header_row("sessions"));
+            }
+            rows.push(SettingsRow {
+                label: "resume agents on restore".to_string(),
+                detail: Some("resume supported agent sessions when restoring".to_string()),
+                kind: SettingsRowKind::Toggle,
+                id: SettingsItemId::ResumeAgentsOnRestore,
+                search_extra: None,
+            });
+            if show_headers {
+                rows.push(header_row("integrations"));
+            }
+            for (idx, item) in app.integration_recommendations.iter().enumerate() {
+                rows.push(SettingsRow {
+                    label: item.label.to_string(),
+                    detail: Some(item.status_label().to_string()),
+                    kind: SettingsRowKind::Integration,
+                    id: SettingsItemId::Integration { index: idx },
+                    search_extra: None,
+                });
+            }
+            if app.integration_recommendations.is_empty() {
+                rows.push(SettingsRow {
+                    label: "no supported agent CLIs found on PATH".to_string(),
+                    detail: None,
+                    kind: SettingsRowKind::Note,
+                    id: SettingsItemId::IntegrationsEmpty,
+                    search_extra: None,
+                });
+            }
+            if show_headers {
+                rows.push(header_row("your plugins"));
+            }
+            let installed = installed_plugins_sorted(app);
+            if installed.is_empty() {
+                rows.push(SettingsRow {
+                    label: "nothing installed yet".to_string(),
+                    detail: Some("pick something below to add".to_string()),
+                    kind: SettingsRowKind::Note,
+                    id: SettingsItemId::PluginsEmpty,
+                    search_extra: None,
+                });
+            } else {
+                for (index, plugin) in installed.iter().enumerate() {
+                    let source_label = plugin_source_search_label(plugin);
+                    rows.push(SettingsRow {
+                        label: plugin.name.clone(),
+                        detail: Some(if plugin.enabled {
+                            "on".to_string()
+                        } else {
+                            "off".to_string()
+                        }),
+                        kind: SettingsRowKind::Toggle,
+                        id: SettingsItemId::InstalledPlugin { index },
+                        search_extra: Some(format!("{} {source_label}", plugin.plugin_id)),
+                    });
+                }
+            }
+            let catalog = catalog_entries_available(app);
+            if !catalog.is_empty() {
+                if show_headers {
+                    rows.push(header_row("available to install"));
+                }
+                for entry in catalog {
+                    rows.push(SettingsRow {
+                        label: entry.name.to_string(),
+                        detail: Some(entry.blurb.to_string()),
+                        kind: SettingsRowKind::Integration,
+                        id: SettingsItemId::CatalogPlugin {
+                            plugin_id: entry.plugin_id,
+                        },
+                        search_extra: Some(format!(
+                            "{} {} {}",
+                            entry.blurb, entry.source, entry.plugin_id
+                        )),
+                    });
+                }
+            }
         }
     }
 
@@ -770,5 +759,42 @@ impl SettingsDisplayLabels for AppState {
             crate::config::HostCursorModeConfig::Native => "native".to_string(),
             crate::config::HostCursorModeConfig::Drawn => "drawn".to_string(),
         }
+    }
+}
+
+pub(crate) fn first_selectable_index(state: &AppState, section: SettingsSection) -> usize {
+    section_rows(state, section)
+        .iter()
+        .position(|row| row.kind != SettingsRowKind::Header)
+        .unwrap_or(0)
+}
+
+pub(crate) fn selected_settings_row_id(state: &AppState) -> Option<SettingsItemId> {
+    section_rows(state, state.settings.section)
+        .get(state.settings.list.selected)
+        .map(|row| row.id)
+}
+
+pub(crate) fn clamp_settings_list_selection(
+    state: &mut AppState,
+    previous_id: Option<SettingsItemId>,
+) {
+    if state.settings.section != SettingsSection::Integrations {
+        return;
+    }
+    let rows = section_rows(state, state.settings.section);
+    if let Some(id) = previous_id {
+        if let Some(idx) = rows.iter().position(|row| row.id == id) {
+            state.settings.list.selected = idx;
+            return;
+        }
+    }
+    if rows.is_empty() {
+        state.settings.list.selected = 0;
+        return;
+    }
+    state.settings.list.selected = state.settings.list.selected.min(rows.len() - 1);
+    if rows[state.settings.list.selected].kind == SettingsRowKind::Header {
+        state.settings.list.selected = first_selectable_index(state, state.settings.section);
     }
 }

@@ -119,7 +119,7 @@ impl SettingsLayout {
         let mut y = self.content.y;
         let height = self.content.height;
         y += SETTINGS_SECTION_DESC_ROWS + SETTINGS_SECTION_GAP_ROWS;
-        if app.settings.section == SettingsSection::Appearance {
+        if app.settings.section == SettingsSection::Ui {
             y += SETTINGS_SPINNER_CATEGORY_ROWS
                 + SETTINGS_SECTION_GAP_ROWS
                 + SETTINGS_SPINNER_HERO_ROWS
@@ -129,12 +129,18 @@ impl SettingsLayout {
             x: self.content.x,
             y,
             width: self.content.width,
-            height: height.saturating_sub(y - self.content.y),
+            height: height.saturating_sub(y - self.content.y).saturating_sub(
+                if app.settings.section == SettingsSection::Integrations {
+                    2
+                } else {
+                    0
+                },
+            ),
         }
     }
 
     pub(crate) fn spinner_category_rect(&self, app: &AppState) -> Option<Rect> {
-        if app.settings.section != SettingsSection::Appearance {
+        if app.settings.section != SettingsSection::Ui {
             return None;
         }
         let y = self.content.y + SETTINGS_SECTION_DESC_ROWS + SETTINGS_SECTION_GAP_ROWS;
@@ -147,7 +153,7 @@ impl SettingsLayout {
     }
 
     pub(crate) fn spinner_hero_rect(&self, app: &AppState) -> Option<Rect> {
-        if app.settings.section != SettingsSection::Appearance {
+        if app.settings.section != SettingsSection::Ui {
             return None;
         }
         let y = self.content.y
@@ -244,25 +250,30 @@ impl SettingsLayout {
 pub(crate) fn settings_popup_height(app: &AppState) -> u16 {
     let base = SETTINGS_POPUP_HEIGHT;
     match app.settings.section {
-        SettingsSection::Agents => {
-            let extra = app.integration_recommendations.len().max(2) as u16;
-            base.saturating_add(extra.min(8))
-        }
-        SettingsSection::Plugins => {
+        SettingsSection::Integrations => {
+            let integrations = app.integration_recommendations.len().max(2) as u16;
             let installed = super::catalog::installed_plugins_sorted(app).len();
             let catalog = super::catalog::catalog_entries_available(app).len();
-            let extra = installed.saturating_add(catalog).saturating_add(2) as u16;
-            base.saturating_add(extra.min(10))
+            let plugins = installed.saturating_add(catalog).saturating_add(2) as u16;
+            base.saturating_add(integrations.min(8))
+                .saturating_add(plugins.min(10))
         }
         _ => base,
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SettingsButtonRects {
+    pub primary: Option<Rect>,
+    pub secondary: Option<Rect>,
+    pub close: Rect,
+}
+
 pub(crate) fn settings_button_rects(
     layout: &SettingsLayout,
-    section: SettingsSection,
+    app: &AppState,
     show_primary: bool,
-) -> (Option<Rect>, Rect) {
+) -> SettingsButtonRects {
     use super::super::widgets::{action_button_row_rects, ActionButtonSpec};
 
     let inner = layout.inner;
@@ -277,7 +288,39 @@ pub(crate) fn settings_button_rects(
             2,
             row_y,
         );
-        return (None, rects[0]);
+        return SettingsButtonRects {
+            primary: None,
+            secondary: None,
+            close: rects[0],
+        };
+    }
+
+    let show_secondary = settings_show_secondary_action(app);
+    if show_secondary {
+        let rects = action_button_row_rects(
+            inner,
+            &[
+                ActionButtonSpec {
+                    hint: Some("↵"),
+                    label: settings_primary_button_label(app),
+                },
+                ActionButtonSpec {
+                    hint: None,
+                    label: "refresh",
+                },
+                ActionButtonSpec {
+                    hint: Some("esc"),
+                    label: "close",
+                },
+            ],
+            2,
+            row_y,
+        );
+        return SettingsButtonRects {
+            primary: Some(rects[0]),
+            secondary: Some(rects[1]),
+            close: rects[2],
+        };
     }
 
     let rects = action_button_row_rects(
@@ -285,7 +328,7 @@ pub(crate) fn settings_button_rects(
         &[
             ActionButtonSpec {
                 hint: Some("↵"),
-                label: settings_primary_button_label(section),
+                label: settings_primary_button_label(app),
             },
             ActionButtonSpec {
                 hint: Some("esc"),
@@ -295,27 +338,52 @@ pub(crate) fn settings_button_rects(
         2,
         row_y,
     );
-    (Some(rects[0]), rects[1])
+    SettingsButtonRects {
+        primary: Some(rects[0]),
+        secondary: None,
+        close: rects[1],
+    }
 }
 
-pub(crate) fn settings_primary_button_label(section: SettingsSection) -> &'static str {
-    match section {
-        SettingsSection::Agents => "install",
-        SettingsSection::Appearance => "apply",
-        SettingsSection::Plugins => "refresh",
+pub(crate) fn settings_primary_button_label(app: &AppState) -> &'static str {
+    match app.settings.section {
+        SettingsSection::Theme => "apply",
+        SettingsSection::Integrations => {
+            if app
+                .integration_recommendations
+                .iter()
+                .any(crate::integration::IntegrationRecommendation::needs_install)
+            {
+                "install"
+            } else {
+                "refresh"
+            }
+        }
         _ => "done",
     }
 }
 
 pub(crate) fn settings_show_primary_action(app: &AppState) -> bool {
     match app.settings.section {
-        SettingsSection::Agents => app
-            .integration_recommendations
-            .iter()
-            .any(crate::integration::IntegrationRecommendation::needs_install),
-        SettingsSection::Appearance | SettingsSection::Plugins => true,
+        SettingsSection::Theme => true,
+        SettingsSection::Integrations => {
+            let needs_install = app
+                .integration_recommendations
+                .iter()
+                .any(crate::integration::IntegrationRecommendation::needs_install);
+            needs_install || !super::catalog::installed_plugins_sorted(app).is_empty()
+        }
         _ => false,
     }
+}
+
+pub(crate) fn settings_show_secondary_action(app: &AppState) -> bool {
+    app.settings.section == SettingsSection::Integrations
+        && app
+            .integration_recommendations
+            .iter()
+            .any(crate::integration::IntegrationRecommendation::needs_install)
+        && !super::catalog::installed_plugins_sorted(app).is_empty()
 }
 
 pub(crate) fn spinner_category_labels() -> impl Iterator<Item = &'static str> {
@@ -340,7 +408,7 @@ mod tests {
 
     #[test]
     fn nav_index_round_trips_item_rect() {
-        let layout = layout_for_section(SettingsSection::Layout);
+        let layout = layout_for_section(SettingsSection::Templates);
         for idx in 0..SettingsSection::ALL.len() {
             let rect = layout.nav_item_rect(idx).expect("nav item rect");
             assert_eq!(layout.nav_index_at(rect.x + 1, rect.y), Some(idx));
@@ -349,19 +417,19 @@ mod tests {
 
     #[test]
     fn search_rect_matches_search_index_at() {
-        let layout = layout_for_section(SettingsSection::Appearance);
+        let layout = layout_for_section(SettingsSection::Ui);
         let rect = layout.search_rect();
         assert!(layout.search_index_at(rect.x + 2, rect.y));
         assert!(!layout.search_index_at(rect.x, rect.y.saturating_sub(1)));
     }
 
     #[test]
-    fn content_row_rect_matches_content_index_at_for_layout_toggles() {
+    fn content_row_rect_matches_content_index_at_for_template_rows() {
         let mut app = AppState::test_new();
         app.mode = Mode::Settings;
-        app.settings.section = SettingsSection::Layout;
+        app.settings.section = SettingsSection::Templates;
         let layout = SettingsLayout::compute(Rect::new(0, 0, 120, 40), &app).expect("layout");
-        // Row 0 is the "pane chrome" header; the first selectable row is index 1.
+        // Row 0 is the "templates" header; the first selectable row is index 1.
         let row_rect = layout
             .content_row_rect(&app, 1)
             .expect("first toggle row should have geometry");
@@ -375,11 +443,11 @@ mod tests {
     fn content_index_at_returns_header_row_index() {
         let mut app = AppState::test_new();
         app.mode = Mode::Settings;
-        app.settings.section = SettingsSection::Appearance;
+        app.settings.section = SettingsSection::Ui;
         let layout = SettingsLayout::compute(Rect::new(0, 0, 120, 40), &app).expect("layout");
         let header_rect = layout
             .content_row_rect(&app, 0)
-            .expect("appearance header should have geometry");
+            .expect("ui header should have geometry");
         assert_eq!(
             layout.content_index_at(&app, header_rect.x + 1, header_rect.y),
             Some(0)
@@ -390,9 +458,9 @@ mod tests {
     fn layout_template_rows_are_plain_content_rows() {
         let mut app = AppState::test_new();
         app.mode = Mode::Settings;
-        app.settings.section = SettingsSection::Layout;
+        app.settings.section = SettingsSection::Templates;
         let layout = SettingsLayout::compute(Rect::new(0, 0, 120, 40), &app).expect("layout");
-        let rows = section_rows(&app, SettingsSection::Layout);
+        let rows = section_rows(&app, SettingsSection::Templates);
         let template_idx = rows
             .iter()
             .position(|row| {
@@ -415,11 +483,11 @@ mod tests {
     fn spinner_category_hit_matches_category_rect_row() {
         let mut app = AppState::test_new();
         app.mode = Mode::Settings;
-        app.settings.section = SettingsSection::Appearance;
+        app.settings.section = SettingsSection::Ui;
         let layout = SettingsLayout::compute(Rect::new(0, 0, 120, 40), &app).expect("layout");
         let rect = layout
             .spinner_category_rect(&app)
-            .expect("appearance should expose category row");
+            .expect("ui should expose category row");
         assert_eq!(
             layout.spinner_category_index_at(&app, rect.x + 2, rect.y),
             Some(0)
@@ -427,22 +495,64 @@ mod tests {
     }
 
     #[test]
-    fn plugins_section_shows_refresh_primary_action() {
+    fn integrations_section_shows_primary_action() {
         let mut app = AppState::test_new();
         app.mode = Mode::Settings;
-        app.settings.section = SettingsSection::Plugins;
-        assert!(settings_show_primary_action(&app));
-        assert_eq!(
-            settings_primary_button_label(SettingsSection::Plugins),
-            "refresh"
+        app.settings.section = SettingsSection::Integrations;
+        // No plugins installed and nothing to install: no primary action.
+        assert!(!settings_show_primary_action(&app));
+        // With a demo plugin installed the primary action refreshes.
+        app.installed_plugins.insert(
+            "com.test.demo".to_string(),
+            crate::api::schema::InstalledPluginInfo {
+                plugin_id: "com.test.demo".to_string(),
+                name: "demo".to_string(),
+                version: "0.1.0".to_string(),
+                min_herdr_version: String::new(),
+                description: None,
+                manifest_path: "/tmp/herdr-plugin.toml".to_string(),
+                plugin_root: "/tmp".to_string(),
+                enabled: true,
+                platforms: None,
+                build: Vec::new(),
+                startup: Vec::new(),
+                actions: Vec::new(),
+                events: Vec::new(),
+                panes: Vec::new(),
+                link_handlers: Vec::new(),
+                source: Default::default(),
+                warnings: Vec::new(),
+            },
         );
+        assert!(settings_show_primary_action(&app));
+        assert_eq!(settings_primary_button_label(&app), "refresh");
     }
 
     #[test]
     fn button_rects_align_with_footer_buttons_area() {
-        let layout = layout_for_section(SettingsSection::Appearance);
-        let (apply, close) = settings_button_rects(&layout, SettingsSection::Appearance, true);
-        assert!(apply.is_some());
-        assert!(close.y >= layout.footer_buttons.y);
+        let app = AppState::test_new();
+        let layout = layout_for_section(SettingsSection::Theme);
+        let buttons = settings_button_rects(&layout, &app, true);
+        assert!(buttons.primary.is_some());
+        assert!(buttons.secondary.is_none());
+        assert!(buttons.close.y >= layout.footer_buttons.y);
+    }
+
+    #[test]
+    fn integrations_primary_is_install_when_needed() {
+        let mut app = AppState::test_new();
+        app.mode = Mode::Settings;
+        app.settings.section = SettingsSection::Integrations;
+        app.integration_recommendations = vec![crate::integration::IntegrationRecommendation {
+            target: crate::api::schema::IntegrationTarget::Claude,
+            label: "claude",
+            command: "claude",
+            available: true,
+            path: std::path::PathBuf::from("/tmp/herdr-test-integration"),
+            state: crate::integration::IntegrationStatusKind::Outdated,
+        }];
+        assert!(settings_show_primary_action(&app));
+        assert_eq!(settings_primary_button_label(&app), "install");
+        assert!(!settings_show_secondary_action(&app));
     }
 }

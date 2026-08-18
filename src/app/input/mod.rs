@@ -261,7 +261,13 @@ impl App {
         }
     }
 
-    pub(super) fn handle_mouse(&mut self, mouse: MouseEvent) {
+    pub(super) fn handle_mouse(&mut self, mouse: MouseEvent) -> bool {
+        let hover_before = self.state.sidebar_hover;
+        self.dispatch_mouse_event(mouse);
+        self.state.sidebar_hover != hover_before
+    }
+
+    fn dispatch_mouse_event(&mut self, mouse: MouseEvent) {
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) => {
                 self.pending_url_click = false;
@@ -390,14 +396,10 @@ impl App {
                 self.selection_highlight_clear_deadline = None;
             }
         }
-        if previous_settings_section != crate::app::state::SettingsSection::Agents
-            && self.state.settings.section == crate::app::state::SettingsSection::Agents
+        if previous_settings_section != crate::app::state::SettingsSection::Integrations
+            && self.state.settings.section == crate::app::state::SettingsSection::Integrations
         {
             self.refresh_integration_recommendations();
-        }
-        if previous_settings_section != crate::app::state::SettingsSection::Plugins
-            && self.state.settings.section == crate::app::state::SettingsSection::Plugins
-        {
             self.reload_plugins_for_settings();
         }
         if self.state.agent_panel_sort != previous_agent_panel_sort {

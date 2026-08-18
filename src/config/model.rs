@@ -936,6 +936,7 @@ pub struct Config {
     pub theme: ThemeConfig,
     pub terminal: TerminalConfig,
     pub session: SessionConfig,
+    pub server: ServerConfig,
     pub update: UpdateConfig,
     pub keys: KeysConfig,
     pub ui: UiConfig,
@@ -1056,6 +1057,10 @@ pub struct KeysConfig {
     pub previous_tab: BindingConfig,
     /// Select the next tab. Default: "prefix+n".
     pub next_tab: BindingConfig,
+    /// Move the active tab one position toward the front. Unset by default.
+    pub move_tab_previous: BindingConfig,
+    /// Move the active tab one position toward the back. Unset by default.
+    pub move_tab_next: BindingConfig,
     /// Switch to tab 1-9. Default: "prefix+1..9".
     pub switch_tab: BindingConfig,
     /// Switch to workspace 1-9 from prefix mode. Unset by default.
@@ -1101,6 +1106,14 @@ pub struct KeysConfig {
     pub zoom: BindingConfig,
     /// Enter resize mode. Default: "prefix+r"
     pub resize_mode: BindingConfig,
+    /// Resize the focused pane toward the left. Unset by default.
+    pub resize_pane_left: BindingConfig,
+    /// Resize the focused pane downward. Unset by default.
+    pub resize_pane_down: BindingConfig,
+    /// Resize the focused pane upward. Unset by default.
+    pub resize_pane_up: BindingConfig,
+    /// Resize the focused pane toward the right. Unset by default.
+    pub resize_pane_right: BindingConfig,
     /// Toggle sidebar collapse. Default: "prefix+b"
     pub toggle_sidebar: BindingConfig,
     /// Optional indexed shortcuts expanded over number keys 1-9.
@@ -1176,6 +1189,10 @@ pub(crate) struct KeysConfigOverlay {
     #[serde(skip_serializing_if = "Option::is_none")]
     next_tab: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    move_tab_previous: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    move_tab_next: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     switch_tab: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     switch_workspace: Option<BindingConfig>,
@@ -1219,6 +1236,14 @@ pub(crate) struct KeysConfigOverlay {
     zoom: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     resize_mode: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resize_pane_left: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resize_pane_down: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resize_pane_up: Option<BindingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resize_pane_right: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     toggle_sidebar: Option<BindingConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1274,6 +1299,8 @@ impl<'de> Deserialize<'de> for KeysConfig {
         apply_field!(rename_tab);
         apply_field!(previous_tab);
         apply_field!(next_tab);
+        apply_field!(move_tab_previous);
+        apply_field!(move_tab_next);
         apply_field!(switch_tab);
         apply_field!(switch_workspace);
         apply_field!(close_tab);
@@ -1296,6 +1323,10 @@ impl<'de> Deserialize<'de> for KeysConfig {
         apply_field!(close_pane);
         apply_field!(zoom);
         apply_field!(resize_mode);
+        apply_field!(resize_pane_left);
+        apply_field!(resize_pane_down);
+        apply_field!(resize_pane_up);
+        apply_field!(resize_pane_right);
         apply_field!(toggle_sidebar);
         apply_field!(indexed);
         apply_field!(command);
@@ -1372,6 +1403,8 @@ impl KeysConfig {
         copy_effective_action_field!(rename_tab, keybinds.rename_tab);
         copy_effective_action_field!(previous_tab, keybinds.previous_tab);
         copy_effective_action_field!(next_tab, keybinds.next_tab);
+        copy_effective_action_field!(move_tab_previous, keybinds.move_tab_previous);
+        copy_effective_action_field!(move_tab_next, keybinds.move_tab_next);
         copy_effective_indexed_field!(switch_tab, keybinds.switch_tab);
         copy_effective_indexed_field!(switch_workspace, keybinds.switch_workspace);
         copy_effective_action_field!(close_tab, keybinds.close_tab);
@@ -1394,6 +1427,10 @@ impl KeysConfig {
         copy_effective_action_field!(close_pane, keybinds.close_pane);
         copy_effective_action_field!(zoom, keybinds.zoom);
         copy_effective_action_field!(resize_mode, keybinds.resize_mode);
+        copy_effective_action_field!(resize_pane_left, keybinds.resize_pane_left);
+        copy_effective_action_field!(resize_pane_down, keybinds.resize_pane_down);
+        copy_effective_action_field!(resize_pane_up, keybinds.resize_pane_up);
+        copy_effective_action_field!(resize_pane_right, keybinds.resize_pane_right);
         copy_effective_action_field!(toggle_sidebar, keybinds.toggle_sidebar);
         copy_user_field!(indexed);
 
@@ -1561,6 +1598,15 @@ impl ImeCursorShape {
 
 #[derive(Debug, Deserialize)]
 #[serde(default)]
+pub struct ServerConfig {
+    /// Virtual terminal width used when no client is attached. Default: 120.
+    pub headless_cols: u16,
+    /// Virtual terminal height used when no client is attached. Default: 40.
+    pub headless_rows: u16,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(default)]
 pub struct AdvancedConfig {
     /// Maximum scrollback buffer size in bytes retained per pane terminal. Default: 10000000.
     #[serde(alias = "scrollback_lines")]
@@ -1661,6 +1707,8 @@ impl Default for KeysConfig {
             rename_tab: BindingConfig::one("prefix+shift+t"),
             previous_tab: BindingConfig::one("prefix+p"),
             next_tab: BindingConfig::one("prefix+n"),
+            move_tab_previous: BindingConfig::empty(),
+            move_tab_next: BindingConfig::empty(),
             switch_tab: BindingConfig::one("prefix+1..9"),
             switch_workspace: BindingConfig::empty(),
             close_tab: BindingConfig::one("prefix+shift+x"),
@@ -1683,6 +1731,10 @@ impl Default for KeysConfig {
             close_pane: BindingConfig::one("prefix+x"),
             zoom: BindingConfig::one("prefix+z"),
             resize_mode: BindingConfig::one("prefix+r"),
+            resize_pane_left: BindingConfig::empty(),
+            resize_pane_down: BindingConfig::empty(),
+            resize_pane_up: BindingConfig::empty(),
+            resize_pane_right: BindingConfig::empty(),
             toggle_sidebar: BindingConfig::one("prefix+b"),
             indexed: IndexedKeysConfig::default(),
             command: Vec::new(),
@@ -1810,6 +1862,15 @@ impl<'de> Deserialize<'de> for ToastConfig {
             herdr: raw.herdr,
             clipboard: raw.clipboard,
         })
+    }
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            headless_cols: crate::config::DEFAULT_HEADLESS_COLS,
+            headless_rows: crate::config::DEFAULT_HEADLESS_ROWS,
+        }
     }
 }
 
@@ -2457,6 +2518,45 @@ delay_seconds = {}
     fn onboarding_false_skips_setup() {
         let config: Config = toml::from_str("onboarding = false").unwrap();
         assert!(!config.should_show_onboarding());
+    }
+
+    #[test]
+    fn server_headless_size_defaults_and_parses() {
+        let default_config = Config::default();
+        assert_eq!(
+            default_config.server.headless_cols,
+            crate::config::DEFAULT_HEADLESS_COLS
+        );
+        assert_eq!(
+            default_config.server.headless_rows,
+            crate::config::DEFAULT_HEADLESS_ROWS
+        );
+
+        let config: Config = toml::from_str(
+            r#"[server]
+headless_cols = 160
+headless_rows = 50
+"#,
+        )
+        .unwrap();
+        assert_eq!(config.server.headless_cols, 160);
+        assert_eq!(config.server.headless_rows, 50);
+
+        let invalid: Config = toml::from_str(
+            r#"[server]
+headless_cols = 0
+headless_rows = 50
+"#,
+        )
+        .unwrap();
+        assert!(invalid.invalid_headless_size_diagnostic().is_some());
+        assert_eq!(
+            invalid.headless_size(),
+            (
+                crate::config::DEFAULT_HEADLESS_COLS,
+                crate::config::DEFAULT_HEADLESS_ROWS
+            )
+        );
     }
 
     #[test]

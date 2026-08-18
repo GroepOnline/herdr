@@ -11,14 +11,12 @@
 
 | Section | Surfaces |
 |---|---|
-| Appearance | themes, auto dark/light, spinner categories/pages |
-| Layout | pane chrome, sidebar collapse/sort, templates |
-| Input | mouse, host cursor, confirms/prompts; link to Keybind Help |
-| Terminal | shell, shell mode, new cwd, scrollback |
-| Notifications | sound, toast delivery/position/delay, clipboard toasts |
-| Agents | resume-on-restore, integrations install/status |
-| Updates | channel, version/manifest checks |
-| Advanced | experiments, kitty graphics, nested, worktrees dir, remote SSH, open/reload config CTA |
+| Theme | themes, auto dark/light, live preview |
+| UI | spinner categories/pages, status indicators, pane chrome, sidebar, input |
+| Sound | sound alerts, toast delivery/position/delay, clipboard toasts |
+| System | shell, updates, experiments, kitty/nested/SSH, worktrees, config path |
+| Templates | pane layout templates |
+| Integrations | resume-on-restore, agent CLI install/status, installed plugins, catalog |
 
 ## Non-goals v1
 

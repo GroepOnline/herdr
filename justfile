@@ -91,6 +91,14 @@ release-docs-check:
     @test -d docs/next/website/src/content/docs
     just website-build
 
+# Validate release docs and review reminders before release preparation
+pre-release-check:
+    just release-docs-check
+    @echo "release review required: investigate material render-scaling regressions before publishing."
+    @echo "render scaling: NOT CHECKED (this fork has no bench-render-scale recipe)."
+    @echo "release review required: verify SKILL.md matches the current CLI, IDs, agent lifecycle semantics, and safety guidance."
+
+
 # Prepare the release commit without tagging or pushing (usage: just release-prepare 0.1.1)
 release-prepare version:
     @printf '%s\n' '{{version}}' | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { \
@@ -206,3 +214,8 @@ release-status version="":
 # Print default config
 default-config:
     cargo run --release --locked -- --default-config
+
+# Pre-release audit (upstream #2790, adapted for fork)
+pre-release-audit:
+    python3 -m unittest scripts.test_release_manifest_hardening scripts.test_changelog
+

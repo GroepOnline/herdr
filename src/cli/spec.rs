@@ -50,19 +50,24 @@ pub(super) fn command() -> Command {
         } else {
             command
         },
-        true,
+        0,
     )
 }
 
-fn configure_help(command: Command, root: bool) -> Command {
-    let command = if root {
+fn configure_help(command: Command, depth: usize) -> Command {
+    let command = if depth == 0 {
         command
     } else {
         command.disable_help_flag(false)
     };
+    let command = if depth == 1 && command.has_subcommands() {
+        command.after_help(super::agent_help_footer())
+    } else {
+        command
+    };
     command
         .disable_help_subcommand(true)
-        .mut_subcommands(|subcommand| configure_help(subcommand, false))
+        .mut_subcommands(|subcommand| configure_help(subcommand, depth + 1))
 }
 
 pub(super) fn print_requested_help(args: &[String]) -> std::io::Result<bool> {
@@ -138,8 +143,11 @@ fn browser_command() -> Command {
 
 fn update_command() -> Command {
     Command::new("update")
-        .about("Download and install the latest version")
+        .about("Update this install from the configured channel or its package manager")
         .arg(flag("handoff").help("Try live handoff after installing"))
+        .arg(flag("force-direct").help(
+            "Update a leftover direct install even when a package-manager herdr is later on PATH",
+        ))
 }
 
 fn status_command() -> Command {
@@ -167,7 +175,8 @@ fn config_command() -> Command {
 
 fn channel_command() -> Command {
     Command::new("channel")
-        .about("Manage stable, preview, and dev update channels")
+        .about("Print or change the stable, preview, or dev update channel")
+        .subcommand_required(false)
         .subcommand(Command::new("show").about("Print the configured update channel"))
         .subcommand(
             Command::new("set").about("Choose the update channel").arg(
@@ -382,7 +391,7 @@ fn agent_command() -> Command {
                         .help("Fail after this many milliseconds"),
                 )
                 .after_help(
-                    "When submission starts from a non-working state, --wait first requires an observed state change within 5000ms; otherwise it returns agent_prompt_stalled. A shorter --timeout returns timeout instead. It then matches idle, done, or blocked by default, or any exact --until state. It does not track turns: if the agent is already working, that active turn's completion may match. Without --timeout, the settled-state wait is indefinite.",
+                    "If the agent is already blocked, submission is rejected with agent_blocked before any input is sent. When an accepted submission starts from another non-working state, --wait first requires an observed state change within 5000ms; otherwise it returns agent_prompt_stalled. A shorter --timeout returns timeout instead. It then matches idle, done, or blocked by default, or any exact --until state. It does not track turns: if the agent is already working, that active turn's completion may match. Without --timeout, the settled-state wait is indefinite.",
                 ),
         )
         .subcommand(
@@ -1494,6 +1503,23 @@ mod tests {
             path.join(" ")
         );
         String::from_utf8(output).unwrap()
+    }
+
+    #[test]
+    fn agent_resources_appear_on_command_groups_but_not_leaf_commands() {
+        for group in ["agent", "pane", "workspace", "terminal"] {
+            let help = long_help(&[group]);
+            assert!(
+                help.contains(&super::super::agent_help_footer()),
+                "herdr {group} is missing agent resources: {help}"
+            );
+        }
+
+        let leaf = long_help(&["agent", "wait"]);
+        assert!(
+            !leaf.contains(&super::super::agent_help_footer()),
+            "leaf help should stay focused: {leaf}"
+        );
     }
 
     #[test]
