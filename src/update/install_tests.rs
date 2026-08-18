@@ -128,7 +128,9 @@ fn path_install_shadow_notes_transient_nix_store_but_plan_skips_retire() {
             managed_kind: InstallKind::Nix,
         })
     );
-    assert!(shadow.as_ref().is_some_and(PathInstallShadow::is_transient_nix));
+    assert!(shadow
+        .as_ref()
+        .is_some_and(PathInstallShadow::is_transient_nix));
     assert_eq!(
         plan_from_parts(
             InstallKind::Direct,
@@ -182,9 +184,7 @@ fn homebrew_update_command_uses_cellar_formula_not_binary_name() {
         HOMEBREW_UPSTREAM_UPDATE_COMMAND
     );
     assert_eq!(
-        homebrew_update_command_for_path(Some(Path::new(
-            "/home/linuxbrew/.linuxbrew/bin/herdr"
-        ))),
+        homebrew_update_command_for_path(Some(Path::new("/home/linuxbrew/.linuxbrew/bin/herdr"))),
         HOMEBREW_UPDATE_COMMAND
     );
     assert_eq!(
@@ -298,8 +298,7 @@ fn plan_runs_homebrew_and_notes_preview() {
 #[test]
 fn leftover_homebrew_plan_runs_pm_then_retires() {
     let leftover = PathBuf::from("/home/joep/.local/bin/herdr");
-    let managed =
-        PathBuf::from("/opt/homebrew/Cellar/groeponline-herdr/0.8.1/bin/herdr");
+    let managed = PathBuf::from("/opt/homebrew/Cellar/groeponline-herdr/0.8.1/bin/herdr");
     let shadow = PathInstallShadow {
         leftover: leftover.clone(),
         managed: managed.clone(),
@@ -468,8 +467,9 @@ fn preview_channel_is_rejected_for_package_manager_paths() {
         .is_some_and(|message| message.contains("Homebrew")));
     assert!(preview_channel_rejection_for_exe_path(mise)
         .is_some_and(|message| message.contains("mise")));
-    assert!(preview_channel_rejection_for_exe_path(nix)
-        .is_some_and(|message| message.contains("Nix")));
+    assert!(
+        preview_channel_rejection_for_exe_path(nix).is_some_and(|message| message.contains("Nix"))
+    );
     assert!(preview_channel_rejection_for_exe_path(direct).is_none());
 }
 

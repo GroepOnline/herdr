@@ -9,12 +9,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::{
-    HOMEBREW_UPDATE_COMMAND, HOMEBREW_UPSTREAM_UPDATE_COMMAND, HERDR_UPDATE_COMMAND,
+    UpdateChannel, HERDR_UPDATE_COMMAND, HOMEBREW_UPDATE_COMMAND, HOMEBREW_UPSTREAM_UPDATE_COMMAND,
     MISE_INSTALLS_DIR_ENV, MISE_UPDATE_COMMAND, NIX_UPDATE_COMMAND, NPM_UPDATE_COMMAND,
-    UpdateChannel,
 };
 
-const NIX_GUIDANCE: &str = "update Nix-managed Herdr with `nix profile upgrade` or the flake input that provides Herdr";
+const NIX_GUIDANCE: &str =
+    "update Nix-managed Herdr with `nix profile upgrade` or the flake input that provides Herdr";
 const NIX_GUIDANCE_PRERELEASE: &str = "preview and dev channels are only available for direct Herdr installs; update Nix-managed Herdr with `nix profile upgrade` or the flake input that provides Herdr";
 const HOMEBREW_PREVIEW_NOTE: &str = "preview and dev channels are only available for direct Herdr installs; Homebrew installs stay on stable";
 const NPM_PREVIEW_NOTE: &str = "preview and dev channels are only available for direct Herdr installs; npm installs stay on stable";
@@ -106,9 +106,9 @@ impl InstallKind {
         match self {
             Self::Direct => HERDR_UPDATE_COMMAND,
             Self::Nix => NIX_UPDATE_COMMAND,
-            Self::Homebrew | Self::Npm | Self::Mise => self
-                .update_command(path)
-                .unwrap_or(HERDR_UPDATE_COMMAND),
+            Self::Homebrew | Self::Npm | Self::Mise => {
+                self.update_command(path).unwrap_or(HERDR_UPDATE_COMMAND)
+            }
         }
     }
 }
@@ -211,7 +211,11 @@ fn current_install_kind_from(path: Option<&Path>) -> InstallKind {
 
 pub(crate) fn invoked_binary_label() -> String {
     match env::current_exe() {
-        Ok(path) => format!("{} ({})", path.display(), InstallKind::classify(&path).as_str()),
+        Ok(path) => format!(
+            "{} ({})",
+            path.display(),
+            InstallKind::classify(&path).as_str()
+        ),
         Err(err) => format!("unknown ({err})"),
     }
 }
@@ -272,7 +276,10 @@ fn plan_for_managed(
     channel: UpdateChannel,
     leftover: Option<PathInstallShadow>,
 ) -> SelfUpdatePlan {
-    let prerelease_note = channel.is_prerelease().then(|| kind.preview_note()).flatten();
+    let prerelease_note = channel
+        .is_prerelease()
+        .then(|| kind.preview_note())
+        .flatten();
     match kind {
         InstallKind::Direct => SelfUpdatePlan::Direct,
         InstallKind::Homebrew | InstallKind::Npm | InstallKind::Mise => {

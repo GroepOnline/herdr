@@ -26,8 +26,8 @@ use serde::{Deserialize, Deserializer};
 use crate::product_urls::PRODUCT_SITE_URL;
 
 mod install;
-use install::*;
 pub(crate) use install::is_mise_shim_exe_path;
+use install::*;
 
 fn stable_update_url() -> String {
     std::env::var("HERDR_UPDATE_BASE_URL")
