@@ -9,12 +9,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::{
-    UpdateChannel, HERDR_UPDATE_COMMAND, HOMEBREW_UPDATE_COMMAND, HOMEBREW_UPSTREAM_UPDATE_COMMAND,
+    HOMEBREW_UPDATE_COMMAND, HOMEBREW_UPSTREAM_UPDATE_COMMAND, HERDR_UPDATE_COMMAND,
     MISE_INSTALLS_DIR_ENV, MISE_UPDATE_COMMAND, NIX_UPDATE_COMMAND, NPM_UPDATE_COMMAND,
+    UpdateChannel,
 };
 
-const NIX_GUIDANCE: &str =
-    "update Nix-managed Herdr with `nix profile upgrade` or the flake input that provides Herdr";
+const NIX_GUIDANCE: &str = "update Nix-managed Herdr with `nix profile upgrade` or the flake input that provides Herdr";
 const NIX_GUIDANCE_PRERELEASE: &str = "preview and dev channels are only available for direct Herdr installs; update Nix-managed Herdr with `nix profile upgrade` or the flake input that provides Herdr";
 const HOMEBREW_PREVIEW_NOTE: &str = "preview and dev channels are only available for direct Herdr installs; Homebrew installs stay on stable";
 const NPM_PREVIEW_NOTE: &str = "preview and dev channels are only available for direct Herdr installs; npm installs stay on stable";
@@ -66,10 +66,6 @@ impl InstallKind {
         !matches!(self, Self::Direct)
     }
 
-    fn runs_package_manager(self) -> bool {
-        matches!(self, Self::Homebrew | Self::Npm | Self::Mise)
-    }
-
     fn preview_note(self) -> Option<&'static str> {
         match self {
             Self::Direct => None,
@@ -106,9 +102,9 @@ impl InstallKind {
         match self {
             Self::Direct => HERDR_UPDATE_COMMAND,
             Self::Nix => NIX_UPDATE_COMMAND,
-            Self::Homebrew | Self::Npm | Self::Mise => {
-                self.update_command(path).unwrap_or(HERDR_UPDATE_COMMAND)
-            }
+            Self::Homebrew | Self::Npm | Self::Mise => self
+                .update_command(path)
+                .unwrap_or(HERDR_UPDATE_COMMAND),
         }
     }
 }
@@ -211,11 +207,7 @@ fn current_install_kind_from(path: Option<&Path>) -> InstallKind {
 
 pub(crate) fn invoked_binary_label() -> String {
     match env::current_exe() {
-        Ok(path) => format!(
-            "{} ({})",
-            path.display(),
-            InstallKind::classify(&path).as_str()
-        ),
+        Ok(path) => format!("{} ({})", path.display(), InstallKind::classify(&path).as_str()),
         Err(err) => format!("unknown ({err})"),
     }
 }
@@ -243,9 +235,7 @@ pub(crate) fn print_version_identity() {
 pub(super) fn plan_self_update(force_direct: bool, channel: UpdateChannel) -> SelfUpdatePlan {
     let path = env::current_exe().ok();
     let kind = current_install_kind_from(path.as_deref());
-    let shadow = path
-        .as_deref()
-        .and_then(detect_path_install_update_shadow_for);
+    let shadow = path.as_deref().and_then(detect_path_install_shadow_for);
     plan_from_parts(kind, path.as_deref(), channel, force_direct, shadow)
 }
 
@@ -259,11 +249,11 @@ fn plan_from_parts(
     if force_direct {
         return match shadow {
             Some(shadow) => SelfUpdatePlan::ForceDirect { shadow },
-            None => SelfUpdatePlan::Direct,
+            None => plan_for_managed(kind, path, channel, None),
         };
     }
 
-    if let Some(shadow) = shadow.filter(|shadow| shadow.managed_kind.runs_package_manager()) {
+    if let Some(shadow) = shadow.filter(|shadow| !shadow.is_transient_nix()) {
         let kind = shadow.managed_kind;
         let managed = shadow.managed.clone();
         return plan_for_managed(kind, Some(&managed), channel, Some(shadow));
@@ -278,10 +268,7 @@ fn plan_for_managed(
     channel: UpdateChannel,
     leftover: Option<PathInstallShadow>,
 ) -> SelfUpdatePlan {
-    let prerelease_note = channel
-        .is_prerelease()
-        .then(|| kind.preview_note())
-        .flatten();
+    let prerelease_note = channel.is_prerelease().then(|| kind.preview_note()).flatten();
     match kind {
         InstallKind::Direct => SelfUpdatePlan::Direct,
         InstallKind::Homebrew | InstallKind::Npm | InstallKind::Mise => {
@@ -295,18 +282,15 @@ fn plan_for_managed(
                 leftover,
             }
         }
-        InstallKind::Nix => {
-            let _ = leftover;
-            SelfUpdatePlan::Guide {
-                message: if channel.is_prerelease() {
-                    NIX_GUIDANCE_PRERELEASE
-                } else {
-                    NIX_GUIDANCE
-                },
-                leftover: None,
-                exit_error: true,
-            }
-        }
+        InstallKind::Nix => SelfUpdatePlan::Guide {
+            message: if channel.is_prerelease() {
+                NIX_GUIDANCE_PRERELEASE
+            } else {
+                NIX_GUIDANCE
+            },
+            leftover,
+            exit_error: leftover.is_none(),
+        },
     }
 }
 
@@ -325,7 +309,7 @@ pub(super) fn apply_managed_update(plan: SelfUpdatePlan) -> Result<(), String> {
             #[cfg(unix)]
             {
                 eprintln!("running `{command}`");
-                run_shell_command(command)?;
+                crate::platform::run_shell_command(command)?;
                 eprintln!("package manager update finished");
             }
             #[cfg(not(unix))]
@@ -356,9 +340,9 @@ pub(super) fn apply_managed_update(plan: SelfUpdatePlan) -> Result<(), String> {
     }
 }
 
-fn retire_leftover_after_success(shadow: Option<&PathInstallShadow>) {
+fn retire_leftover_after_success(shadow: Option<&PathInstallShadow>) -> Result<(), String> {
     let Some(shadow) = shadow else {
-        return;
+        return Ok(());
     };
     #[cfg(not(unix))]
     {
@@ -412,19 +396,6 @@ fn retire_leftover(shadow: &PathInstallShadow) -> Result<PathBuf, String> {
     Ok(backup)
 }
 
-#[cfg(unix)]
-fn run_shell_command(command: &str) -> Result<(), String> {
-    let status = crate::noninteractive_process::command("sh")
-        .args(["-c", command])
-        .status()
-        .map_err(|err| format!("failed to run `{command}`: {err}"))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("`{command}` failed"))
-    }
-}
-
 fn herdr_exe_file_name() -> &'static str {
     if cfg!(windows) {
         "herdr.exe"
@@ -457,21 +428,6 @@ fn herdr_binaries_on_path_var(path_var: impl AsRef<std::ffi::OsStr>) -> Vec<Path
 }
 
 fn path_install_shadow(current_exe: &Path, path_binaries: &[PathBuf]) -> Option<PathInstallShadow> {
-    path_install_shadow_filtered(current_exe, path_binaries, false)
-}
-
-fn path_install_update_shadow(
-    current_exe: &Path,
-    path_binaries: &[PathBuf],
-) -> Option<PathInstallShadow> {
-    path_install_shadow_filtered(current_exe, path_binaries, true)
-}
-
-fn path_install_shadow_filtered(
-    current_exe: &Path,
-    path_binaries: &[PathBuf],
-    skip_nix: bool,
-) -> Option<PathInstallShadow> {
     if InstallKind::classify(current_exe).is_package_managed() {
         return None;
     }
@@ -489,9 +445,6 @@ fn path_install_shadow_filtered(
         if !kind.is_package_managed() {
             continue;
         }
-        if skip_nix && kind == InstallKind::Nix {
-            continue;
-        }
         return Some(PathInstallShadow {
             leftover: leftover?,
             managed: candidate.clone(),
@@ -505,11 +458,6 @@ fn path_install_shadow_filtered(
 fn detect_path_install_shadow_for(current_exe: &Path) -> Option<PathInstallShadow> {
     let path_var = env::var_os("PATH")?;
     path_install_shadow(current_exe, &herdr_binaries_on_path_var(&path_var))
-}
-
-fn detect_path_install_update_shadow_for(current_exe: &Path) -> Option<PathInstallShadow> {
-    let path_var = env::var_os("PATH")?;
-    path_install_update_shadow(current_exe, &herdr_binaries_on_path_var(&path_var))
 }
 
 fn homebrew_update_command_for_path(path: Option<&Path>) -> &'static str {

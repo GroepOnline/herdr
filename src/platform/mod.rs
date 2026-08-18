@@ -39,6 +39,19 @@ pub(crate) fn configure_background_command(command: &mut std::process::Command) 
     configure_background_command_platform(command);
 }
 
+#[cfg(unix)]
+pub(crate) fn run_shell_command(command: &str) -> Result<(), String> {
+    let status = crate::noninteractive_process::command("sh")
+        .args(["-c", command])
+        .status()
+        .map_err(|err| format!("failed to run `{command}`: {err}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("`{command}` failed"))
+    }
+}
+
 #[cfg(not(windows))]
 fn configure_background_command_platform(_command: &mut std::process::Command) {}
 
