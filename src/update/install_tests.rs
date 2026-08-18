@@ -141,6 +141,30 @@ fn path_install_shadow_notes_transient_nix_store_but_plan_skips_retire() {
         ),
         SelfUpdatePlan::Direct
     );
+    assert_eq!(
+        path_install_update_shadow(&leftover, &[leftover.clone(), nix_store]),
+        None
+    );
+}
+
+#[test]
+fn path_install_update_shadow_skips_nix_and_finds_homebrew() {
+    let leftover = PathBuf::from("/home/joep/.local/bin/herdr");
+    let nix_store = PathBuf::from("/nix/store/aaaa-herdr-0.8.1/bin/herdr");
+    let managed =
+        PathBuf::from("/home/linuxbrew/.linuxbrew/Cellar/groeponline-herdr/0.8.1/bin/herdr");
+
+    assert_eq!(
+        path_install_update_shadow(
+            &leftover,
+            &[leftover.clone(), nix_store, managed.clone()]
+        ),
+        Some(PathInstallShadow {
+            leftover,
+            managed,
+            managed_kind: InstallKind::Homebrew,
+        })
+    );
 }
 
 #[test]

@@ -243,7 +243,9 @@ pub(crate) fn print_version_identity() {
 pub(super) fn plan_self_update(force_direct: bool, channel: UpdateChannel) -> SelfUpdatePlan {
     let path = env::current_exe().ok();
     let kind = current_install_kind_from(path.as_deref());
-    let shadow = path.as_deref().and_then(detect_path_install_shadow_for);
+    let shadow = path
+        .as_deref()
+        .and_then(detect_path_install_update_shadow_for);
     plan_from_parts(kind, path.as_deref(), channel, force_direct, shadow)
 }
 
@@ -261,7 +263,7 @@ fn plan_from_parts(
         };
     }
 
-    if let Some(shadow) = shadow.filter(|shadow| !shadow.is_transient_nix()) {
+    if let Some(shadow) = shadow.filter(|shadow| shadow.managed_kind.runs_package_manager()) {
         let kind = shadow.managed_kind;
         let managed = shadow.managed.clone();
         return plan_for_managed(kind, Some(&managed), channel, Some(shadow));
@@ -293,15 +295,18 @@ fn plan_for_managed(
                 leftover,
             }
         }
-        InstallKind::Nix => SelfUpdatePlan::Guide {
-            message: if channel.is_prerelease() {
-                NIX_GUIDANCE_PRERELEASE
-            } else {
-                NIX_GUIDANCE
-            },
-            leftover,
-            exit_error: leftover.is_none(),
-        },
+        InstallKind::Nix => {
+            let _ = leftover;
+            SelfUpdatePlan::Guide {
+                message: if channel.is_prerelease() {
+                    NIX_GUIDANCE_PRERELEASE
+                } else {
+                    NIX_GUIDANCE
+                },
+                leftover: None,
+                exit_error: true,
+            }
+        }
     }
 }
 
@@ -452,6 +457,21 @@ fn herdr_binaries_on_path_var(path_var: impl AsRef<std::ffi::OsStr>) -> Vec<Path
 }
 
 fn path_install_shadow(current_exe: &Path, path_binaries: &[PathBuf]) -> Option<PathInstallShadow> {
+    path_install_shadow_filtered(current_exe, path_binaries, false)
+}
+
+fn path_install_update_shadow(
+    current_exe: &Path,
+    path_binaries: &[PathBuf],
+) -> Option<PathInstallShadow> {
+    path_install_shadow_filtered(current_exe, path_binaries, true)
+}
+
+fn path_install_shadow_filtered(
+    current_exe: &Path,
+    path_binaries: &[PathBuf],
+    skip_nix: bool,
+) -> Option<PathInstallShadow> {
     if InstallKind::classify(current_exe).is_package_managed() {
         return None;
     }
@@ -469,6 +489,9 @@ fn path_install_shadow(current_exe: &Path, path_binaries: &[PathBuf]) -> Option<
         if !kind.is_package_managed() {
             continue;
         }
+        if skip_nix && kind == InstallKind::Nix {
+            continue;
+        }
         return Some(PathInstallShadow {
             leftover: leftover?,
             managed: candidate.clone(),
@@ -482,6 +505,11 @@ fn path_install_shadow(current_exe: &Path, path_binaries: &[PathBuf]) -> Option<
 fn detect_path_install_shadow_for(current_exe: &Path) -> Option<PathInstallShadow> {
     let path_var = env::var_os("PATH")?;
     path_install_shadow(current_exe, &herdr_binaries_on_path_var(&path_var))
+}
+
+fn detect_path_install_update_shadow_for(current_exe: &Path) -> Option<PathInstallShadow> {
+    let path_var = env::var_os("PATH")?;
+    path_install_update_shadow(current_exe, &herdr_binaries_on_path_var(&path_var))
 }
 
 fn homebrew_update_command_for_path(path: Option<&Path>) -> &'static str {
