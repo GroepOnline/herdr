@@ -3,7 +3,7 @@
 ## [0.8.5] - 2026-08-19
 
 ### Added
-- Qwen Code integration: `herdr integration install qwen` installs a SessionStart hook that reports `QWEN_SESSION_ID` to Herdr's socket API (native session restore with `qwen --resume <id>), plus screen detection for idle, working, and user-confirmation states. (upstream #2743)
+- Qwen Code integration: `herdr integration install qwen` installs a SessionStart hook that reports `QWEN_SESSION_ID` to Herdr's socket API (native session restore with `qwen --resume <id>`), plus screen detection for idle, working, and user-confirmation states. (upstream #2743)
 - Sidebar hover highlight: moving the mouse over a workspace or agent row in the sidebar highlights it with a distinct hover surface, so click targets are visible before clicking. Hover clears when the pointer leaves the sidebar, the host terminal loses focus, or a modal opens.
 - Mobile edge-swipe: on narrow (mobile) layouts, a touch drag that starts at the left edge (columns 0..=1) opens the workspace switcher, mirroring the header button. Vertical or short drags still reach the pane app.
 - CLI help now points coding agents to Herdr's plain-text guide, documentation index, and built-in control skill. (#48)
@@ -19,7 +19,6 @@
 - `herdr channel set` writes the update channel only. Package-manager installs print their upgrade command; direct installs print `herdr update`. Changing the channel no longer retires leftover PATH binaries or runs brew/npm/mise.
 
 ### Fixed
-- `~/.asdf/shims/herdr` is no longer classified as a mise install.
 - `agent prompt` now rejects agents already waiting at approval or question dialogs with `agent_blocked`, without sending text or Enter. The check uses the last detector-poll cache and a live bottom-buffer detection snapshot so a dialog painted between polls cannot receive prompt+Enter. (#2790)
 - Remote clients now continue redrawing at very large terminal sizes instead of freezing when a full ANSI frame exceeds the transport limit. (#2675)
 - Remote clients now handle a terminal hangup gracefully instead of crashing. (#2827)
