@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.6] - 2026-08-18
+
+### Fixed
+- Release CI now validates and publishes synchronized detection manifests, release metadata, and historical documentation snapshots.
+- Contributor approval proposals now recover idempotently, trigger their required CI gate, and avoid persisting repository credentials in the checkout.
+- The release pipeline now preserves the documented asdf-shim classification fix and produces a reproducible patch release after a failed prior tag.
+
 ## [0.8.1] - 2026-08-15
 
 ### Added
