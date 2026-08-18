@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## [0.8.5] - 2026-08-19
+
+### Changed
+- `herdr channel set` writes the update channel only. Package-manager installs print their upgrade command; direct installs print `herdr update`. Changing the channel no longer retires leftover PATH binaries or runs brew/npm/mise.
+- `herdr --version` now prints the invoked binary path and install kind on stderr, so a leftover `~/.local/bin/herdr` can no longer silently shadow Homebrew, npm, mise, or Nix, and remote attach still sees a single `herdr <version>` stdout line. `herdr update` runs the owning package-manager upgrade for Homebrew/npm/mise first, then renames a leftover PATH entry to `herdr.direct.bak`. Nix prints guidance and exits 1. `herdr channel` with no subcommand prints the configured channel. Use `herdr update --force-direct` only to keep updating a leftover direct binary.
+
+### Fixed
+- `~/.asdf/shims/herdr` is no longer classified as a mise install.
 
 ### Added
 

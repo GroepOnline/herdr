@@ -23,10 +23,10 @@ herdr update --force-direct   # keep updating a leftover direct binary that shad
 herdr completion zsh          # generate a zsh completion script
 herdr channel                 # print stable, preview, or dev
 herdr channel show            # same as herdr channel
-herdr channel set preview     # opt into preview builds
-herdr channel set dev         # opt into dev builds
-herdr channel set stable      # return Linux/macOS direct installs to stable
-herdr --version               # print version, binary path, and install kind
+herdr channel set preview     # write preview into config; run herdr update after
+herdr channel set dev         # write dev into config; run herdr update after
+herdr channel set stable      # write stable into config; run herdr update after
+herdr --version               # print version; binary path and install kind go to stderr
 ```
 
 Status commands:

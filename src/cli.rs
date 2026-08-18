@@ -235,15 +235,10 @@ fn channel_set(args: &[String]) -> std::io::Result<i32> {
     ) {
         ChannelSetInstallAction::PrintGuidance(guidance) => {
             println!("{guidance}");
-            return Ok(0);
         }
-        ChannelSetInstallAction::RunSelfUpdate => {}
-    }
-
-    if let Err(err) = crate::update::self_update(crate::update::SelfUpdateOptions::default()) {
-        eprintln!("update failed: {err}");
-        eprintln!("Run `herdr update` to retry.");
-        return Ok(1);
+        ChannelSetInstallAction::SuggestUpdate => {
+            println!("Run `herdr update` to refresh this install for the new channel.");
+        }
     }
 
     Ok(0)
@@ -277,7 +272,7 @@ fn channel_set_rejection(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ChannelSetInstallAction {
-    RunSelfUpdate,
+    SuggestUpdate,
     PrintGuidance(&'static str),
 }
 
@@ -286,7 +281,7 @@ fn channel_set_install_action(
 ) -> ChannelSetInstallAction {
     match package_manager_guidance {
         Some(guidance) => ChannelSetInstallAction::PrintGuidance(guidance),
-        None => ChannelSetInstallAction::RunSelfUpdate,
+        None => ChannelSetInstallAction::SuggestUpdate,
     }
 }
 
@@ -1134,14 +1129,33 @@ mod tests {
     }
 
     #[test]
-    fn channel_set_skips_self_update_for_package_manager_guidance() {
+    fn channel_set_never_runs_self_update() {
         assert_eq!(
             super::channel_set_install_action(Some("use package manager")),
             super::ChannelSetInstallAction::PrintGuidance("use package manager")
         );
         assert_eq!(
             super::channel_set_install_action(None),
-            super::ChannelSetInstallAction::RunSelfUpdate
+            super::ChannelSetInstallAction::SuggestUpdate
+        );
+    }
+
+    #[test]
+    fn channel_set_install_action_distinguishes_guidance_from_suggest_update() {
+        // Regression guard: a package-manager guidance string must never be
+        // collapsed into the plain "run herdr update" suggestion, since only
+        // one of the two actions is correct for a given install kind.
+        assert_ne!(
+            super::channel_set_install_action(Some("guidance")),
+            super::channel_set_install_action(None)
+        );
+    }
+
+    #[test]
+    fn channel_set_install_action_preserves_empty_guidance_message() {
+        assert_eq!(
+            super::channel_set_install_action(Some("")),
+            super::ChannelSetInstallAction::PrintGuidance("")
         );
     }
 

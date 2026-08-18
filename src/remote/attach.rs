@@ -918,7 +918,7 @@ fn remote_herdr_from_path(remote_herdr: &RemoteHerdr, path: &str) -> Option<Remo
 }
 
 fn is_mise_shim_path(path: &str) -> bool {
-    path.ends_with("/mise/shims/herdr")
+    crate::update::is_mise_shim_exe_path(std::path::Path::new(path))
 }
 
 fn remote_binary_matches(ssh: &RemoteSsh, remote_herdr: &RemoteHerdr) -> io::Result<bool> {
@@ -2823,6 +2823,47 @@ mod tests {
             candidates[0].shell_path,
             "/home/can/.local/share/mise/installs/herdr/0.7.1/bin/herdr"
         );
+    }
+
+    #[test]
+    fn is_mise_shim_path_delegates_to_update_module_classification() {
+        assert!(is_mise_shim_path("/home/can/.local/share/mise/shims/herdr"));
+        assert!(!is_mise_shim_path(
+            "/home/can/.local/share/mise/installs/herdr/0.7.1/bin/herdr"
+        ));
+        assert!(!is_mise_shim_path("/home/can/.asdf/shims/herdr"));
+    }
+
+    #[test]
+    fn remote_path_discovery_ignores_nested_mise_shim_directories() {
+        // is_mise_shim_exe_path only requires a "mise" path component
+        // somewhere above a trailing "shims/herdr", not an immediate
+        // "mise/shims/herdr" suffix, so a deeper install layout is still
+        // recognized as a shim and filtered out.
+        let remote_herdr = RemoteHerdr::for_platform(RemotePlatform {
+            os: "linux",
+            arch: "x86_64",
+        });
+        let candidates = remote_herdrs_from_path_discovery(
+            &remote_herdr,
+            "/opt/mise/custom/nested/shims/herdr\n/usr/local/bin/herdr\n",
+        );
+
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].shell_path, "/usr/local/bin/herdr");
+    }
+
+    #[test]
+    fn remote_path_discovery_keeps_non_mise_shims_directories() {
+        let remote_herdr = RemoteHerdr::for_platform(RemotePlatform {
+            os: "linux",
+            arch: "x86_64",
+        });
+        let candidates =
+            remote_herdrs_from_path_discovery(&remote_herdr, "/home/can/.asdf/shims/herdr\n");
+
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].shell_path, "/home/can/.asdf/shims/herdr");
     }
 
     #[test]
