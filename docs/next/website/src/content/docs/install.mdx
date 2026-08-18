@@ -120,11 +120,11 @@ On macOS, use `shasum -a 256 --ignore-missing --check SHA256SUMS` when `sha256su
 
 ## Direct-install update channels
 
-`herdr update` updates the binary that is first on `PATH`. Direct installs download from the configured channel. Homebrew, npm, and mise installs run their package-manager upgrade instead of failing. Nix prints the Nix upgrade path.
+`herdr update` updates the binary that is first on `PATH`. Direct installs download from the configured channel. Homebrew, npm, and mise installs run their package-manager upgrade instead of failing. Nix prints the Nix upgrade path and exits 1.
 
-If a leftover `~/.local/bin/herdr` is first on `PATH` and a package-manager `herdr` is later on `PATH`, `herdr update` renames the leftover to `herdr.direct.bak` so the package-manager binary wins. Use `herdr update --force-direct` only when you want to keep updating that leftover file.
+If a leftover `~/.local/bin/herdr` is first on `PATH` and a Homebrew, npm, or mise `herdr` is later on `PATH`, `herdr update` runs that package-manager upgrade first, then renames the leftover to `herdr.direct.bak`. A later Nix store path from `nix shell` is noted on `--version` but does not retire the leftover. Use `herdr update --force-direct` only when you want to keep updating that leftover file.
 
-`herdr --version` prints the version, binary path, and install kind (`direct`, `homebrew`, `npm`, `mise`, or `nix`). `herdr channel` with no subcommand prints the configured channel.
+`herdr --version` prints the version on stdout and the binary path plus install kind (`direct`, `homebrew`, `npm`, `mise`, or `nix`) on stderr. `herdr channel` with no subcommand prints the configured channel. `herdr channel set` writes the channel only; run `herdr update` afterwards to refresh the binary.
 
 Linux and macOS direct installs use `stable` by default:
 

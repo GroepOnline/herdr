@@ -113,18 +113,6 @@ fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 
-pub(crate) fn run_package_manager_command(command: &str) -> Result<(), String> {
-    let status = crate::noninteractive_process::command("sh")
-        .args(["-c", command])
-        .status()
-        .map_err(|err| format!("failed to run `{command}`: {err}"))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("`{command}` failed"))
-    }
-}
-
 fn fits_unix_socket_path(path: &Path) -> bool {
     use std::os::unix::ffi::OsStrExt;
 

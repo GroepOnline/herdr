@@ -15,6 +15,7 @@
 
 ### Changed
 - Settings panel consolidated from ten sections into six tabs (Theme, UI, Sound, System, Templates, Integrations) with collapsible groups per tab; every existing setting row is preserved, just regrouped for easier scanning.
+- `herdr channel set` writes the update channel only. Package-manager installs print their upgrade command; direct installs print `herdr update`. Changing the channel no longer retires leftover PATH binaries or runs brew/npm/mise.
 
 ### Fixed
 - `agent prompt` now rejects agents already waiting at approval or question dialogs with `agent_blocked`, without sending text or Enter. The check uses the last detector-poll cache and a live bottom-buffer detection snapshot so a dialog painted between polls cannot receive prompt+Enter. (#2790)
@@ -25,7 +26,7 @@
 - Pane navigation uses saturating arithmetic so extreme terminal sizes or split ratios can no longer overflow u16 rect math and select the wrong pane.
 - Headless scheduled-task and api_ping tests no longer read developer-machine state: the pi-session watcher is pinned to a temp root, the github-refresh skip test neutralizes `XDG_CONFIG_HOME`/`GH_CONFIG_DIR` next to the token env vars, and spawned panes get an isolated `HOME` without `BASH_ENV`/`ENV` so machine dotfiles (starship/zoxide/PATH rewrites) cannot break pane commands. (#42)
 - Command Code no longer treats Windows `cmd.exe` as the installed CLI, and uninstall now fails closed on malformed `settings.json` instead of deleting the hook while leaving the SessionStart registration behind.
-- `herdr --version` now prints the invoked binary path and install kind, so a leftover `~/.local/bin/herdr` can no longer silently shadow Homebrew, npm, mise, or Nix. `herdr update` retires that leftover (renamed to `herdr.direct.bak`) when a package-manager install is later on PATH, runs the owning package-manager upgrade for Homebrew/npm/mise instead of exiting 1, and `herdr channel` with no subcommand prints the configured channel. Use `herdr update --force-direct` only to keep updating a leftover direct binary.
+- `herdr --version` now prints the invoked binary path and install kind on stderr, so a leftover `~/.local/bin/herdr` can no longer silently shadow Homebrew, npm, mise, or Nix, and remote attach still sees a single `herdr <version>` stdout line. `herdr update` runs the owning package-manager upgrade for Homebrew/npm/mise first, then renames a leftover PATH entry to `herdr.direct.bak`. Nix prints guidance and exits 1. `herdr channel` with no subcommand prints the configured channel. Use `herdr update --force-direct` only to keep updating a leftover direct binary.
 
 ## [0.8.1] - 2026-08-15
 
