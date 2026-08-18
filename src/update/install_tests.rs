@@ -155,10 +155,7 @@ fn path_install_update_shadow_skips_nix_and_finds_homebrew() {
         PathBuf::from("/home/linuxbrew/.linuxbrew/Cellar/groeponline-herdr/0.8.1/bin/herdr");
 
     assert_eq!(
-        path_install_update_shadow(
-            &leftover,
-            &[leftover.clone(), nix_store, managed.clone()]
-        ),
+        path_install_update_shadow(&leftover, &[leftover.clone(), nix_store, managed.clone()]),
         Some(PathInstallShadow {
             leftover,
             managed,

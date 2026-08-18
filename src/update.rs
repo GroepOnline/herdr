@@ -26,14 +26,15 @@ use serde::{Deserialize, Deserializer};
 use crate::product_urls::PRODUCT_SITE_URL;
 
 mod install;
-pub(crate) use install::{
-    current_install_kind_label, invoked_binary_label, is_mise_shim_exe_path,
-    is_package_manager_managed_exe_path, package_manager_channel_update_guidance_for_current_install,
-    preview_channel_rejection_for_current_install, print_version_identity, update_install_command,
-    update_install_instruction,
-};
 use install::{
     apply_managed_update, current_install_kind, plan_self_update, InstallKind, SelfUpdatePlan,
+};
+pub(crate) use install::{
+    current_install_kind_label, invoked_binary_label, is_mise_shim_exe_path,
+    is_package_manager_managed_exe_path,
+    package_manager_channel_update_guidance_for_current_install,
+    preview_channel_rejection_for_current_install, print_version_identity, update_install_command,
+    update_install_instruction,
 };
 
 fn stable_update_url() -> String {
