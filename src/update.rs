@@ -2512,7 +2512,12 @@ pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
         }
     }
 
-    if let Some(action) = package_manager_update_action(install_kind_for_current_exe(), channel) {
+    let current_exe = env::current_exe().ok();
+    if let Some(action) = package_manager_update_action_for_path(
+        install_kind_for_current_exe(),
+        channel,
+        current_exe.as_deref(),
+    ) {
         return apply_package_manager_update(action);
     }
 
