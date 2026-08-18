@@ -2058,8 +2058,8 @@ fn herdr_binaries_on_path_var(path_var: impl AsRef<std::ffi::OsStr>) -> Vec<Path
                     #[cfg(unix)]
                     {
                         use std::os::unix::fs::PermissionsExt;
-                        return (candidate.metadata().ok()?.permissions().mode() & 0o111 != 0)
-                            .then_some(candidate);
+                        (candidate.metadata().ok()?.permissions().mode() & 0o111 != 0)
+                            .then_some(candidate)
                     }
                     #[cfg(not(unix))]
                     {
@@ -2147,21 +2147,18 @@ fn retire_shadowed_direct_install(shadow: &PathInstallShadow) -> Result<Version,
         shadow.leftover.display(),
         backup.display()
     );
-    let action = match package_manager_update_action_for_path(
+    let Some(action) = package_manager_update_action_for_path(
         shadow.managed_kind,
         UpdateChannel::configured(),
         Some(&shadow.managed),
-    ) {
-        Some(action) => action,
-        None => {
-            return Err(restore_retired_leftover(
-                &shadow.leftover,
-                &backup,
-                "managed install has no update action",
-                shadow.managed_kind,
-                &shadow.managed,
-            ));
-        }
+    ) else {
+        return Err(restore_retired_leftover(
+            &shadow.leftover,
+            &backup,
+            "managed install has no update action",
+            shadow.managed_kind,
+            &shadow.managed,
+        ));
     };
     apply_package_manager_update(action)
         .map_err(|err| {
