@@ -108,12 +108,10 @@ regex = ['^4;3(?:;|$)']
 id = "composer_idle"
 state = "idle"
 priority = 100
-region = "bottom_non_empty_lines(30)"
+region = "bottom_non_empty_lines(5)"
 visible_idle = true
-line_regex = ['^\s*>\s*(?:type\s*)?.*$']
 any = [
   { contains = ["type your message"] },
   { contains = ["your message or @path/to/file"] },
   { contains = ["@path/to/file"] },
-  { contains = ["type", "mes", "sage", "@pat", "h/to", "/fil"] },
 ]

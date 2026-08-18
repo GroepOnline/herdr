@@ -3,6 +3,8 @@ title: How to work with Herdr
 description: Run Herdr locally, inside SSH, or through remote attach.
 ---
 
+import MobileDocShots from '../../components/MobileDocShots.astro';
+
 Run Herdr where the work lives. Attach from wherever you are.
 
 Herdr is a background session server plus one or more terminal clients. Panes keep running in the server. Clients attach, detach, and render the session.
@@ -55,18 +57,16 @@ herdr
 
 The same persistent Herdr session opens in your phone terminal. The TUI adapts to narrow screens, so you can inspect agents, switch workspaces, and check panes without leaving SSH.
 
-On iPhone, apps like [moshi](https://getmoshi.app/) work well.
+On iPhone, apps like [Moshi](https://getmoshi.app/) work well. See
+[Moshi (iPhone) with Herdr](/docs/moshi/) and
+[Fleet ops and gateway](/docs/fleet-ops/) when many hosts are online.
 
-<div class="mobile-doc-shots">
-  <figure>
-    <img src="/assets/mobile-agent-session-v2.jpeg" alt="Herdr agent session over SSH on a phone" loading="lazy" />
-    <figcaption>agent session over SSH</figcaption>
-  </figure>
-  <figure>
-    <img src="/assets/mobile-switch-menu-v2.jpeg" alt="Herdr responsive switch menu on a phone" loading="lazy" />
-    <figcaption>responsive switch menu</figcaption>
-  </figure>
-</div>
+<MobileDocShots
+  sessionAlt="Herdr agent session over SSH on a phone"
+  sessionCaption="agent session over SSH"
+  menuAlt="Herdr responsive switch menu on a phone"
+  menuCaption="responsive switch menu"
+/>
 
 ## Remote work from your local terminal
 
