@@ -2089,9 +2089,11 @@ fn path_install_shadow(current_exe: &Path, path_binaries: &[PathBuf]) -> Option<
         if !kind.is_package_managed() {
             continue;
         }
-        // A raw /nix/store path is usually a transient `nix shell`. Do not
-        // retire a leftover just because one appeared later on PATH.
-        if kind == InstallKind::Nix && is_nix_store_exe_path(candidate) {
+        // Nix installs never self-update through `herdr update` (Nix only
+        // prints guidance). A raw /nix/store path is also usually a transient
+        // `nix shell`. Either way, do not retire a direct leftover just because
+        // a Nix binary appeared later on PATH.
+        if kind == InstallKind::Nix {
             continue;
         }
         return Some(PathInstallShadow {
@@ -2261,6 +2263,7 @@ fn package_manager_prerelease_note(kind: InstallKind) -> Option<&'static str> {
     }
 }
 
+#[cfg(test)]
 fn package_manager_update_action(
     kind: InstallKind,
     channel: UpdateChannel,
@@ -2390,7 +2393,16 @@ fn is_nix_store_exe_path(path: &Path) -> bool {
 }
 
 fn is_mise_managed_exe_path(path: &Path) -> bool {
-    mise_install_root(path).is_some()
+    mise_install_root(path).is_some() || is_mise_shim_exe_path(path)
+}
+
+fn is_mise_shim_exe_path(path: &Path) -> bool {
+    if path.file_name() != Some(std::ffi::OsStr::new("herdr")) {
+        return false;
+    }
+    path.parent()
+        .and_then(Path::file_name)
+        .is_some_and(|name| name == "shims")
 }
 
 fn mise_install_root(path: &Path) -> Option<PathBuf> {
@@ -3012,6 +3024,51 @@ mod tests {
         assert_eq!(
             path_install_shadow(&leftover, &[leftover.clone(), nix_store]),
             None
+        );
+    }
+
+    #[test]
+    fn path_install_shadow_ignores_nix_profile_symlinks() {
+        let dir = std::env::temp_dir().join(format!(
+            "herdr-update-nix-profile-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let leftover = dir.join("herdr");
+        let store = dir.join("nix-store-herdr");
+        let profile = dir.join("nix-profile-herdr");
+        fs::write(&leftover, b"").unwrap();
+        fs::write(&store, b"").unwrap();
+        // A profile entry is a symlink into the Nix store, so it is classified
+        // as Nix only after following links. Retiring the direct leftover for
+        // it would move the working binary aside for nothing.
+        std::os::unix::fs::symlink(&store, &profile).unwrap();
+
+        // Sanity: the profile symlink target lives under a "nix-store" name, so
+        // exercise the classification through install_kind_for_exe_path.
+        assert_eq!(
+            path_install_shadow(&leftover, &[leftover.clone(), profile]),
+            None
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn path_install_shadow_retires_leftover_before_mise_shim() {
+        let leftover = PathBuf::from("/home/joep/.local/bin/herdr");
+        let shim = PathBuf::from("/home/joep/.local/share/mise/shims/herdr");
+
+        assert_eq!(
+            path_install_shadow(&leftover, &[leftover.clone(), shim.clone()]),
+            Some(PathInstallShadow {
+                leftover,
+                managed: shim,
+                managed_kind: InstallKind::Mise,
+            })
         );
     }
 
