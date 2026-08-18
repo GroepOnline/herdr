@@ -2827,9 +2827,7 @@ mod tests {
 
     #[test]
     fn is_mise_shim_path_delegates_to_update_module_classification() {
-        assert!(is_mise_shim_path(
-            "/home/can/.local/share/mise/shims/herdr"
-        ));
+        assert!(is_mise_shim_path("/home/can/.local/share/mise/shims/herdr"));
         assert!(!is_mise_shim_path(
             "/home/can/.local/share/mise/installs/herdr/0.7.1/bin/herdr"
         ));

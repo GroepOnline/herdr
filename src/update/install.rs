@@ -239,7 +239,9 @@ pub(crate) fn print_version_identity() {
 pub(super) fn plan_self_update(force_direct: bool, channel: UpdateChannel) -> SelfUpdatePlan {
     let path = env::current_exe().ok();
     let kind = current_install_kind_from(path.as_deref());
-    let shadow = path.as_deref().and_then(detect_path_install_update_shadow_for);
+    let shadow = path
+        .as_deref()
+        .and_then(detect_path_install_update_shadow_for);
     plan_from_parts(kind, path.as_deref(), channel, force_direct, shadow)
 }
 
