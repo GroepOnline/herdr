@@ -17,7 +17,7 @@ aliases = ["cmd", "command-code", "commandcode-cli"]
 id = "permission_prompt"
 state = "blocked"
 priority = 980
-region = "whole_recent"
+region = "bottom_non_empty_lines(5)"
 visible_blocker = true
 any = [
   { contains = ["permission required"], any = [{ contains = ["y allow"] }, { contains = ["n deny"] }, { contains = ["confirm allow"] }, { contains = ["confirm deny"] }] },
