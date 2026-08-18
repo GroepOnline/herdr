@@ -1,6 +1,6 @@
 {
   "name": "groeponline-herdr",
-  "version": "0.8.1",
+  "version": "0.8.5",
   "description": "Herdr - fast terminal multiplexer with AI agent detection (GroepOnline distribution)",
   "license": "AGPL-3.0-or-later",
   "repository": {
