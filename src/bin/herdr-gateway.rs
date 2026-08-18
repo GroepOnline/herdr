@@ -265,7 +265,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/workspaces", get(get_workspaces))
         .route("/v1/agents", get(get_agents))
         .route("/v1/ops/context", get(get_ops_context))
-        .route("/v1/clipboard", get(get_clipboard).delete(clear_clipboard))
+        .route("/v1/clipboard", get(get_clipboard))
         .route("/v1/events", get(sse_events))
         .with_state(state);
 
