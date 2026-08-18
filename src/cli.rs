@@ -164,7 +164,7 @@ fn channel_command_kind(args: &[String]) -> ChannelCommandKind {
         None => ChannelCommandKind::Show,
         Some("set") => ChannelCommandKind::Set,
         Some("show") if args.len() == 1 => ChannelCommandKind::Show,
-        Some("help" | "--help" | "-h") => ChannelCommandKind::Help,
+        Some("help" | "--help" | "-h") if args.len() == 1 => ChannelCommandKind::Help,
         _ => ChannelCommandKind::Usage,
     }
 }
@@ -1071,6 +1071,14 @@ mod tests {
         );
         assert_eq!(
             super::channel_command_kind(&["nope".to_string()]),
+            super::ChannelCommandKind::Usage
+        );
+        assert_eq!(
+            super::channel_command_kind(&["help".to_string()]),
+            super::ChannelCommandKind::Help
+        );
+        assert_eq!(
+            super::channel_command_kind(&["help".to_string(), "unexpected".to_string()]),
             super::ChannelCommandKind::Usage
         );
     }
