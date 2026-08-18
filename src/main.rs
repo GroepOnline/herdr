@@ -564,7 +564,7 @@ fn main() -> io::Result<()> {
             }
             Err(err) => {
                 eprintln!("{err}");
-                eprintln!("usage: herdr update [--handoff]");
+                eprintln!("usage: herdr update [--handoff] [--force-direct]");
                 std::process::exit(2);
             }
         };
@@ -589,7 +589,8 @@ fn main() -> io::Result<()> {
         println!("       herdr --remote <ssh-target> [--session <name>]");
         println!("       herdr session attach <name>");
         println!("       herdr completion zsh");
-        println!("       herdr update [--handoff]");
+        println!("       herdr update [--handoff] [--force-direct]");
+        println!("       herdr channel [show]");
         println!("       herdr channel set <stable|preview|dev>");
         println!("       herdr server stop");
         println!("       herdr server reload-config");
@@ -613,12 +614,16 @@ fn main() -> io::Result<()> {
                 "herdr status [server|client]",
                 "Show local client and running server status",
             ),
-            ("herdr update", "Download and install the latest version"),
+            (
+                "herdr update",
+                "Update this install (direct download or package manager)",
+            ),
             ("herdr completion zsh", "Generate shell completions for zsh"),
             (
                 "herdr server stop",
                 "Stop the running server via the API socket",
             ),
+            ("herdr channel", "Print the configured update channel"),
             (
                 "herdr channel set <stable|preview|dev>",
                 "Choose the stable, preview, or dev update channel",
@@ -682,9 +687,10 @@ fn main() -> io::Result<()> {
         println!("  --remote-keybindings <local|server>");
         println!("                      Keybindings for --remote app attach (default: local)");
         println!("  --handoff           Opt into live handoff for update or remote attach");
+        println!("  --force-direct      Update a leftover direct install even when a package-manager herdr is later on PATH");
         println!("  --default-config    Print default configuration and exit");
         println!("  --skill             Print the agent skill file and exit");
-        println!("  --version, -V       Print version and exit");
+        println!("  --version, -V       Print version, binary path, and install kind");
         println!("  --help, -h          Show this help");
         println!();
         println!("Config: {}", config::config_path().display());
@@ -699,6 +705,7 @@ fn main() -> io::Result<()> {
 
     if args.iter().any(|a| a == "--version" || a == "-V") {
         println!("herdr {}", crate::build_info::version());
+        crate::update::print_version_identity();
         return Ok(());
     }
 

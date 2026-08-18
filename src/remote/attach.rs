@@ -932,13 +932,26 @@ fn remote_binary_matches(ssh: &RemoteSsh, remote_herdr: &RemoteHerdr) -> io::Res
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut lines = stdout.lines();
-    let version = lines.next().unwrap_or_default().trim();
-    let status = lines.next().unwrap_or_default();
-    Ok(version == format!("herdr {}", current_version())
-        && parse_client_status_json(status)
-            .map(|status| status.protocol == CURRENT_PROTOCOL)
-            .unwrap_or(false))
+    Ok(remote_binary_probe_matches(
+        &stdout,
+        &format!("herdr {}", current_version()),
+        CURRENT_PROTOCOL,
+    ))
+}
+
+fn remote_binary_probe_matches(stdout: &str, expected_version: &str, protocol: u32) -> bool {
+    let version = stdout
+        .lines()
+        .map(str::trim)
+        .find(|line| line.starts_with("herdr "));
+    let status = stdout
+        .lines()
+        .map(str::trim)
+        .find(|line| line.starts_with('{'));
+    matches!(version, Some(version) if version == expected_version)
+        && status
+            .and_then(parse_client_status_json)
+            .is_some_and(|status| status.protocol == protocol)
 }
 
 fn remote_binary_exists(ssh: &RemoteSsh, remote_herdr: &RemoteHerdr) -> io::Result<bool> {
@@ -2908,6 +2921,18 @@ mod tests {
             Some(8)
         );
         assert!(parse_client_status_json(r#"{"protocol":"unknown"}"#).is_none());
+    }
+
+    #[test]
+    fn remote_binary_probe_skips_version_identity_lines() {
+        let stdout = "herdr 0.8.1\nbinary: /home/joep/.local/bin/herdr (direct)\n{\"version\":\"0.8.1\",\"protocol\":18,\"binary\":\"/home/joep/.local/bin/herdr\"}\n";
+        assert!(remote_binary_probe_matches(stdout, "herdr 0.8.1", 18));
+        assert!(!remote_binary_probe_matches(stdout, "herdr 0.8.0", 18));
+        assert!(!remote_binary_probe_matches(
+            "herdr 0.8.1\nbinary: /tmp/herdr (direct)\n",
+            "herdr 0.8.1",
+            18
+        ));
     }
 
     #[test]

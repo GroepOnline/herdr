@@ -39,6 +39,11 @@ pub(crate) fn configure_background_command(command: &mut std::process::Command) 
     configure_background_command_platform(command);
 }
 
+#[cfg(unix)]
+pub(crate) fn run_package_manager_command(command: &str) -> Result<(), String> {
+    unix_common::run_package_manager_command(command)
+}
+
 #[cfg(not(windows))]
 fn configure_background_command_platform(_command: &mut std::process::Command) {}
 

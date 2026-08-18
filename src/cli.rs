@@ -137,22 +137,47 @@ pub fn maybe_run(args: &[String]) -> std::io::Result<CommandOutcome> {
 }
 
 fn run_channel_command(args: &[String]) -> std::io::Result<i32> {
-    match args.first().map(|arg| arg.as_str()) {
-        Some("set") => channel_set(&args[1..]),
-        Some("show") if args.len() == 1 => {
-            let config = crate::config::Config::load().config;
-            println!("{}", config.update.channel.as_str());
-            Ok(0)
-        }
-        Some("help" | "--help" | "-h") => {
+    match channel_command_kind(args) {
+        ChannelCommandKind::Set => channel_set(&args[1..]),
+        ChannelCommandKind::Show => print_configured_channel(),
+        ChannelCommandKind::Help => {
             print_channel_help();
             Ok(0)
         }
-        _ => {
+        ChannelCommandKind::Usage => {
             print_channel_help();
             Ok(2)
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ChannelCommandKind {
+    Show,
+    Set,
+    Help,
+    Usage,
+}
+
+fn channel_command_kind(args: &[String]) -> ChannelCommandKind {
+    match args.first().map(|arg| arg.as_str()) {
+        None => ChannelCommandKind::Show,
+        Some("set") => ChannelCommandKind::Set,
+        Some("show") if args.len() == 1 => ChannelCommandKind::Show,
+        Some("help" | "--help" | "-h") if args.len() == 1 => ChannelCommandKind::Help,
+        _ => ChannelCommandKind::Usage,
+    }
+}
+
+fn print_configured_channel() -> std::io::Result<i32> {
+    let channel = crate::config::Config::load().config.update.channel.as_str();
+    println!("{channel}");
+    if matches!(channel, "preview" | "dev") {
+        if let Some(reason) = crate::update::preview_channel_rejection_for_current_install() {
+            eprintln!("note: {reason}");
+        }
+    }
+    Ok(0)
 }
 
 fn channel_set(args: &[String]) -> std::io::Result<i32> {
@@ -267,8 +292,9 @@ fn channel_set_install_action(
 
 fn print_channel_help() {
     eprintln!("herdr channel commands:");
-    eprintln!("  herdr channel show                      print the configured update channel");
-    eprintln!("  herdr channel set <stable|preview|dev>  choose the update channel");
+    eprintln!("  herdr channel                            print the configured update channel");
+    eprintln!("  herdr channel show                       print the configured update channel");
+    eprintln!("  herdr channel set <stable|preview|dev>   choose the update channel");
 }
 
 fn run_config_command(args: &[String]) -> std::io::Result<i32> {
@@ -1029,6 +1055,34 @@ fn _print_json<T: Serialize>(value: &T) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn channel_without_args_shows_configured_channel() {
+        assert_eq!(
+            super::channel_command_kind(&[]),
+            super::ChannelCommandKind::Show
+        );
+        assert_eq!(
+            super::channel_command_kind(&["show".to_string()]),
+            super::ChannelCommandKind::Show
+        );
+        assert_eq!(
+            super::channel_command_kind(&["set".to_string()]),
+            super::ChannelCommandKind::Set
+        );
+        assert_eq!(
+            super::channel_command_kind(&["nope".to_string()]),
+            super::ChannelCommandKind::Usage
+        );
+        assert_eq!(
+            super::channel_command_kind(&["help".to_string()]),
+            super::ChannelCommandKind::Help
+        );
+        assert_eq!(
+            super::channel_command_kind(&["help".to_string(), "unexpected".to_string()]),
+            super::ChannelCommandKind::Usage
+        );
+    }
+
     #[test]
     fn parses_channel_set_argument() {
         assert_eq!(

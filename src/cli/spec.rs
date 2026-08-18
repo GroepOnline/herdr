@@ -143,8 +143,11 @@ fn browser_command() -> Command {
 
 fn update_command() -> Command {
     Command::new("update")
-        .about("Download and install the latest version")
+        .about("Update this install from the configured channel or its package manager")
         .arg(flag("handoff").help("Try live handoff after installing"))
+        .arg(flag("force-direct").help(
+            "Update a leftover direct install even when a package-manager herdr is later on PATH",
+        ))
 }
 
 fn status_command() -> Command {
@@ -172,7 +175,8 @@ fn config_command() -> Command {
 
 fn channel_command() -> Command {
     Command::new("channel")
-        .about("Manage stable, preview, and dev update channels")
+        .about("Print or change the stable, preview, or dev update channel")
+        .subcommand_required(false)
         .subcommand(Command::new("show").about("Print the configured update channel"))
         .subcommand(
             Command::new("set").about("Choose the update channel").arg(
