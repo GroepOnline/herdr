@@ -262,7 +262,13 @@ fn plan_from_parts(
     if let Some(shadow) = shadow.filter(|shadow| !shadow.is_transient_nix()) {
         let kind = shadow.managed_kind;
         let managed = shadow.managed.clone();
-        return plan_for_managed(kind, Some(&managed), channel, Some(shadow));
+        // A Nix install never upgrades through `herdr update`; it only prints
+        // guidance. Retiring the leftover in that case would move a working
+        // binary aside while installing nothing, silently downgrading PATH to
+        // the (possibly older) Nix copy. Keep the leftover in place and let the
+        // Nix branch exit with an error so the user follows the guidance.
+        let leftover = (kind != InstallKind::Nix).then_some(shadow);
+        return plan_for_managed(kind, Some(&managed), channel, leftover);
     }
 
     plan_for_managed(kind, path, channel, None)
@@ -337,11 +343,13 @@ pub(super) fn apply_managed_update(plan: SelfUpdatePlan) -> Result<(), String> {
             leftover,
             exit_error,
         } => {
-            eprintln!("{message}");
             retire_leftover_after_success(leftover.as_ref());
             if exit_error {
+                // The caller (main.rs) prints the returned error, so printing
+                // it here too would surface the same guidance twice.
                 Err(message.to_string())
             } else {
+                eprintln!("{message}");
                 Ok(())
             }
         }
