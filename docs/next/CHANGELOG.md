@@ -3,6 +3,9 @@
 ## [0.8.6] - 2026-08-19
 
 ### Added
+- Configurable tab bar status: `ui.tab_bar_right` accepts an ordered list of `zoom`, `hostname`, `datetime`, `text`, and `command` entries that render right-aligned in the desktop tab bar. `ui.tab_bar_right_separator` controls the separator between visible entries. Status commands run asynchronously on the server, poll at a configurable interval with a timeout, and clean up their process trees on reload or cancellation. The status area yields to tab controls on narrow rows. (upstream #352592aa + hardening fixes)
+
+### Added
 - Qwen Code integration: `herdr integration install qwen` installs a SessionStart hook that reports `QWEN_SESSION_ID` to Herdr's socket API (native session restore with `qwen --resume <id>`), plus screen detection for idle, working, and user-confirmation states. (upstream #2743)
 - Sidebar hover highlight: moving the mouse over a workspace or agent row in the sidebar highlights it with a distinct hover surface, so click targets are visible before clicking. Hover clears when the pointer leaves the sidebar, the host terminal loses focus, or a modal opens.
 - Mobile edge-swipe: on narrow (mobile) layouts, a touch drag that starts at the left edge (columns 0..=1) opens the workspace switcher, mirroring the header button. Vertical or short drags still reach the pane app.

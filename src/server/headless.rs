@@ -668,6 +668,12 @@ impl HeadlessServer {
 
             self.app.sync_headless_animation_timer(now);
 
+            if self.app.handle_tab_bar_status_tasks(now) {
+                needs_render = true;
+                needs_full_render = true;
+                needs_graphics_render = false;
+            }
+
             // 7. Render virtually and stream frames.
             if needs_render && self.app.can_render_now(now) {
                 crate::render_prof::event("render.attempt");
@@ -4364,6 +4370,10 @@ impl HeadlessServer {
         }
 
         self.app.sync_headless_animation_timer(now);
+
+        if self.app.handle_tab_bar_status_tasks(now) {
+            changed = true;
+        }
 
         // No resize polling needed — server has no terminal.
         // Client resize messages drive size changes instead.

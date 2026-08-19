@@ -344,6 +344,24 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # Desktop tab row placement: "top" or "bottom".
 # tab_bar_position = "top"
 
+# Right-side tab bar status entries. Empty by default.
+# Each entry is a table with a "type" field: zoom, hostname, datetime, text, or command.
+# zoom        — show a ZOOM pill while the active tab is zoomed.
+# hostname    — show the server machine's host name.
+# datetime    — show a strftime-formatted clock; default format is "%H:%M".
+# text        — show a fixed string.
+# command     — run a shell command and show its last output line.
+#               interval_seconds (default 5) and timeout_seconds (default 2) control polling.
+# tab_bar_right = [
+#   { type = "zoom" },
+#   { type = "hostname" },
+#   { type = "datetime", format = "%H:%M" },
+#   { type = "text", text = "prod" },
+#   { type = "command", command = "~/.config/herdr/status.sh", interval_seconds = 5, timeout_seconds = 2 },
+# ]
+# Text inserted between visible right-side tab bar entries. Default: one space.
+# tab_bar_right_separator = " "
+
 # Agent panel ordering: "spaces" (grouped by space) or "priority" (attention queue).
 # "workspaces" is accepted as an alias for "spaces".
 # agent_panel_sort = "spaces"

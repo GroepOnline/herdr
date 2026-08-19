@@ -187,4 +187,10 @@ pub enum AppEvent {
     WorktreeAddFinished(Box<WorktreeAddResult>),
     /// Background `git worktree remove` completed.
     WorktreeRemoveFinished(Box<WorktreeRemoveResult>),
+    /// A configured tab bar status command finished.
+    TabBarCommandFinished {
+        generation: u64,
+        segment_index: usize,
+        result: Result<Option<String>, String>,
+    },
 }

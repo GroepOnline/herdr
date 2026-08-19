@@ -19,6 +19,17 @@ pub(crate) struct PluginPaneRecord {
     pub entrypoint: String,
 }
 
+/// A single right-side tab bar status entry, maintained by the async runtime
+/// in `tab_bar_status.rs` and rendered by `ui/tabs.rs`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TabBarStatusSegment {
+    /// Accent-styled `ZOOM` pill, shown only while the active workspace is zoomed.
+    Zoom,
+    /// Dynamic text resolved by the runtime (hostname, datetime, command output).
+    /// `None` means the entry is configured but has no value yet, so it is hidden.
+    Text(Option<String>),
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PaneGraphicsLayer {
     pub format: crate::api::schema::PaneGraphicsFormat,
@@ -1717,6 +1728,10 @@ pub struct AppState {
     pub show_agent_labels_on_pane_borders: bool,
     pub hide_tab_bar_when_single_tab: bool,
     pub tab_bar_position: TabBarPositionConfig,
+    /// Right-side tab bar status segments, driven by the async runtime in `App`.
+    pub tab_bar_right: Vec<TabBarStatusSegment>,
+    /// Separator inserted between visible right-side tab bar entries.
+    pub tab_bar_right_separator: String,
     pub pane_history_persistence: bool,
     /// Expose the focused pane's cursor anchor to the outer terminal even when
     /// the pane requested `?25l`. See `[experimental] reveal_hidden_cursor_for_cjk_ime`.
@@ -2131,6 +2146,8 @@ impl AppState {
             show_agent_labels_on_pane_borders: false,
             hide_tab_bar_when_single_tab: false,
             tab_bar_position: TabBarPositionConfig::Top,
+            tab_bar_right: Vec::new(),
+            tab_bar_right_separator: String::new(),
             pane_history_persistence: false,
             reveal_hidden_cursor_for_cjk_ime: false,
             cjk_ime_agent_filter_configured: false,
