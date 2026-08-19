@@ -95,7 +95,7 @@ Herdr notifies you when a new version is available. Run manually:
 herdr update
 ```
 
-`herdr update` works for all install kinds: direct installs download from the configured channel, and Homebrew, npm, and mise installs run their package-manager upgrade. Nix prints upgrade guidance and exits 1. For manual control, Homebrew, npm, mise, and Nix installs can also update directly through `brew update && brew upgrade GroepOnline/tap/groeponline-herdr`, `npm install --global groeponline-herdr@latest`, `mise upgrade herdr`, or your Nix workflow, then use the same stop-and-run-again flow if a session is still running the old server. Direct installs can opt into preview builds with `herdr channel set preview` followed by `herdr update`, dev builds with `herdr channel set dev` followed by `herdr update`, and return to stable with `herdr channel set stable` on Linux and macOS. See [install docs](https://herdr.chefgroep.nl/docs/install/) and [session state docs](https://herdr.chefgroep.nl/docs/session-state/) for the full update, restart, restore, and handoff matrix.
+`herdr update` updates the binary that is first on `PATH`. Direct installs download from the configured channel. Homebrew, npm, and mise installs run their package-manager upgrade. A leftover `~/.local/bin/herdr` that shadows a later Homebrew, npm, or mise install is renamed to `herdr.direct.bak` after that upgrade succeeds; `herdr update --force-direct` keeps updating the leftover. `herdr --version` prints the binary path and install kind on stderr, and `herdr channel` prints the configured channel. Direct installs can opt into preview builds with `herdr channel set preview`, dev builds with `herdr channel set dev`, and return to stable with `herdr channel set stable` on Linux and macOS. See [install docs](https://herdr.chefgroep.nl/docs/install/) and [session state docs](https://herdr.chefgroep.nl/docs/session-state/) for the full update, restart, restore, and handoff matrix.
 
 Linux and macOS direct installs use the stable update channel by default. Windows beta installs default to preview. To test preview builds from `main` before the next stable release:
 
@@ -115,7 +115,7 @@ To return Linux and macOS direct installs to stable:
 herdr channel set stable
 ```
 
-For direct installs, `herdr channel set` writes the channel config only. Run `herdr update` afterwards to refresh the binary for the new channel.
+`herdr channel set` writes the channel only. Run `herdr update` afterwards to refresh a direct install from the new channel.
 
 Preview is only for direct installs managed by Herdr's updater. Homebrew, mise, and Nix stay on stable and update through their package managers.
 Dev is also direct-install only. It follows merges to `main` and is meant for smoke testing merge results.
