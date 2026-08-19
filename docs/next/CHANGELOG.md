@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.8.5] - 2026-08-19
+## [0.8.6] - 2026-08-19
 
 ### Added
 - Qwen Code integration: `herdr integration install qwen` installs a SessionStart hook that reports `QWEN_SESSION_ID` to Herdr's socket API (native session restore with `qwen --resume <id>`), plus screen detection for idle, working, and user-confirmation states. (upstream #2743)
@@ -19,6 +19,9 @@
 - `herdr channel set` writes the update channel only. Package-manager installs print their upgrade command; direct installs print `herdr update`. Changing the channel no longer retires leftover PATH binaries or runs brew/npm/mise.
 
 ### Fixed
+- Release CI now validates and publishes synchronized detection manifests, release metadata, and historical documentation snapshots.
+- Contributor approval proposals now recover idempotently, trigger their required CI gate, and avoid persisting repository credentials in the checkout.
+- The release pipeline now preserves the documented asdf-shim classification fix and produces a reproducible patch release after a failed prior tag.
 - `agent prompt` now rejects agents already waiting at approval or question dialogs with `agent_blocked`, without sending text or Enter. The check uses the last detector-poll cache and a live bottom-buffer detection snapshot so a dialog painted between polls cannot receive prompt+Enter. (#2790)
 - Remote clients now continue redrawing at very large terminal sizes instead of freezing when a full ANSI frame exceeds the transport limit. (#2675)
 - Remote clients now handle a terminal hangup gracefully instead of crashing. (#2827)

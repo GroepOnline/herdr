@@ -68,9 +68,8 @@ attach and ops dashboards do not collapse distinct hosts.
 ## herdr-gateway
 
 `herdr-gateway` is a small HTTP adapter in front of the local Herdr socket. It
-does not replace the socket API; it exposes JSON routes for scripts, fleet
- tooling, and Moshi-style remote clients. The clipboard endpoint can mutate state,
-so secure the gateway before remote exposure.
+does not replace the socket API; it exposes a few read-only JSON routes for
+scripts, fleet tooling, and Moshi-style remote clients.
 
 Run it on the host where the Herdr server already runs:
 
@@ -84,7 +83,7 @@ Environment:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `HERDR_GATEWAY_PORT` | `7777` | TCP listen port |
-| `HERDR_SOCKET_PATH` | `HERDR_SOCKET_PATH` must be set when using XDG or named sessions | Herdr server socket |
+| `HERDR_SOCKET_PATH` | `~/.config/herdr/herdr.sock` | Herdr server socket |
 
 Use SSH port forwarding or Tailscale serve when you need remote access; the
 gateway binds to localhost by default.

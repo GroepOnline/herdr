@@ -78,6 +78,7 @@ Native session restore requires these Herdr integration versions or newer:
 | Droid | `2` | `droid --resume <id>` |
 | Kimi Code CLI | `3` | `kimi --session <id>` |
 | Qoder CLI | `2` | `qodercli --resume <id>` |
+| Qwen Code | `1` | `qwen --resume <id>` |
 | OpenCode | `5` | `opencode --session <id>` |
 | Kilo Code CLI | `1` | `kilo --session <id>` |
 | Hermes Agent | `2` | `hermes --resume <id>` |
@@ -106,4 +107,4 @@ herdr --remote workbox --handoff
 
 Plain `herdr update` and plain `herdr --remote workbox` use the normal restart/stop flow by default.
 
-`herdr update --handoff` only applies to installs managed by Herdr's own updater. Homebrew, mise, and Nix installs are updated through their package managers, so `herdr update` is disabled there and cannot perform live handoff.
+`herdr update --handoff` only applies to direct installs managed by Herdr's own updater. Homebrew, npm, and mise installs run their package-manager upgrade and cannot perform live handoff. Nix prints upgrade guidance and cannot handoff.

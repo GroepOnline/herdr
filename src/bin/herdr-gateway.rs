@@ -153,13 +153,6 @@ async fn get_clipboard(State(state): State<SharedState>) -> Json<Value> {
     Json(data.unwrap_or_else(|e| json!({"error": e})))
 }
 
-async fn clear_clipboard(State(state): State<SharedState>) -> Json<Value> {
-    let s = state.read().await;
-    let req = json!({"id": next_id(), "method": "clipboard.clear", "params": {}});
-    let data = socket_request(&s.socket_path, &req).await;
-    Json(data.unwrap_or_else(|e| json!({"error": e})))
-}
-
 async fn get_session(State(state): State<SharedState>) -> Json<Value> {
     let s = state.read().await;
     let req = json!({"id": next_id(), "method": "session.snapshot", "params": {}});

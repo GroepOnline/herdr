@@ -1,7 +1,7 @@
 id = "commandcode"
-version = "2026.08.16.1"
+version = "2026.08.18.1"
 min_engine_version = 2
-updated_at = "2026-08-16T00:00:00Z"
+updated_at = "2026-08-18T00:00:00Z"
 aliases = ["cmd", "command-code", "commandcode-cli"]
 
 # Command Code (cmd) renders an interactive TUI: the project directory on its
