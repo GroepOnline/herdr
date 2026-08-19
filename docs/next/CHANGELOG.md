@@ -3,6 +3,7 @@
 ## [0.8.6] - 2026-08-18
 
 ### Added
+- Qwen Code integration: `herdr integration install qwen` installs a SessionStart hook that reports `QWEN_SESSION_ID` to Herdr's socket API (native session restore with `qwen --resume <id>`), plus screen detection for idle, working, and user-confirmation states. (upstream #2743)
 - Sidebar hover highlight: moving the mouse over a workspace or agent row in the sidebar highlights it with a distinct hover surface, so click targets are visible before clicking. Hover clears when the pointer leaves the sidebar, the host terminal loses focus, or a modal opens.
 - Mobile edge-swipe: on narrow (mobile) layouts, a touch drag that starts at the left edge (columns 0..=1) opens the workspace switcher, mirroring the header button. Vertical or short drags still reach the pane app.
 - CLI help now points coding agents to Herdr's plain-text guide, documentation index, and built-in control skill. (#48)
