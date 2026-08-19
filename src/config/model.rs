@@ -2120,8 +2120,14 @@ tab_bar_right_separator = " · "
 "#;
         let config: Config = toml::from_str(toml).unwrap();
         assert_eq!(config.ui.tab_bar_right.len(), 5);
-        assert!(matches!(&config.ui.tab_bar_right[0], TabBarRightEntryConfig::Zoom));
-        assert!(matches!(&config.ui.tab_bar_right[1], TabBarRightEntryConfig::Hostname));
+        assert!(matches!(
+            &config.ui.tab_bar_right[0],
+            TabBarRightEntryConfig::Zoom
+        ));
+        assert!(matches!(
+            &config.ui.tab_bar_right[1],
+            TabBarRightEntryConfig::Hostname
+        ));
         assert!(matches!(
             &config.ui.tab_bar_right[2],
             TabBarRightEntryConfig::Datetime { format } if format == "%H:%M"
