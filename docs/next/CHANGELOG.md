@@ -2,10 +2,34 @@
 
 ## [0.8.6] - 2026-08-18
 
+### Added
+- Sidebar hover highlight: moving the mouse over a workspace or agent row in the sidebar highlights it with a distinct hover surface, so click targets are visible before clicking. Hover clears when the pointer leaves the sidebar, the host terminal loses focus, or a modal opens.
+- Mobile edge-swipe: on narrow (mobile) layouts, a touch drag that starts at the left edge (columns 0..=1) opens the workspace switcher, mirroring the header button. Vertical or short drags still reach the pane app.
+- CLI help now points coding agents to Herdr's plain-text guide, documentation index, and built-in control skill. (#48)
+- Command Code (cmd) integration: `herdr integration install commandcode` installs a SessionStart hook that reports `COMMANDCODE_SESSION_ID` to Herdr's socket API (native session restore with `cmd --resume <id>`), merges its hook entry into `~/.commandcode/settings.json` without touching user entries, and adds screen detection for the cmd TUI. (#43)
+- Freebuff integration target: `herdr integration install freebuff` stages a session-state hook in `~/.freebuff/hooks/` (freebuff has no hook lifecycle yet, so state stays screen-detected) and adds native resume support via `freebuff --continue <id>`. (#43)
+- `opencode2` / `open-code-2` now resolve to the opencode agent for CLI and API compatibility with the OpenCode v2 line. (#43)
+- Optional `keys.resize_pane_left`, `keys.resize_pane_down`, `keys.resize_pane_up`, and `keys.resize_pane_right` bindings now resize the focused pane in one keystroke without entering resize mode. (#2558)
+- Optional `keys.move_tab_previous` and `keys.move_tab_next` bindings now reorder the active tab in place, wrapping at either end. (#2561)
+- Headless servers now use a configurable 120×40 virtual terminal instead of 80×24 when no client is attached, giving newly created panes a practical default size. (#2828)
+
+### Changed
+- Settings panel consolidated from ten sections into six tabs (Theme, UI, Sound, System, Templates, Integrations) with collapsible groups per tab; every existing setting row is preserved, just regrouped for easier scanning.
+- `herdr channel set` writes the update channel only. Package-manager installs print their upgrade command; direct installs print `herdr update`. Changing the channel no longer retires leftover PATH binaries or runs brew/npm/mise.
+
 ### Fixed
 - Release CI now validates and publishes synchronized detection manifests, release metadata, and historical documentation snapshots.
 - Contributor approval proposals now recover idempotently, trigger their required CI gate, and avoid persisting repository credentials in the checkout.
 - The release pipeline now preserves the documented asdf-shim classification fix and produces a reproducible patch release after a failed prior tag.
+- `agent prompt` now rejects agents already waiting at approval or question dialogs with `agent_blocked`, without sending text or Enter. The check uses the last detector-poll cache and a live bottom-buffer detection snapshot so a dialog painted between polls cannot receive prompt+Enter. (#2790)
+- Remote clients now continue redrawing at very large terminal sizes instead of freezing when a full ANSI frame exceeds the transport limit. (#2675)
+- Remote clients now handle a terminal hangup gracefully instead of crashing. (#2827)
+- `prefix+e` now preserves logical lines when opening soft-wrapped scrollback in an editor. (#2735)
+- Detects the full set of Claude half-circle spinner frames as working. (#2762)
+- Pane navigation uses saturating arithmetic so extreme terminal sizes or split ratios can no longer overflow u16 rect math and select the wrong pane.
+- Headless scheduled-task and api_ping tests no longer read developer-machine state: the pi-session watcher is pinned to a temp root, the github-refresh skip test neutralizes `XDG_CONFIG_HOME`/`GH_CONFIG_DIR` next to the token env vars, and spawned panes get an isolated `HOME` without `BASH_ENV`/`ENV` so machine dotfiles (starship/zoxide/PATH rewrites) cannot break pane commands. (#42)
+- Command Code no longer treats Windows `cmd.exe` as the installed CLI, and uninstall now fails closed on malformed `settings.json` instead of deleting the hook while leaving the SessionStart registration behind.
+- `herdr --version` now prints the invoked binary path and install kind on stderr, so a leftover `~/.local/bin/herdr` can no longer silently shadow Homebrew, npm, mise, or Nix, and remote attach still sees a single `herdr <version>` stdout line. `herdr update` runs the owning package-manager upgrade for Homebrew/npm/mise first, then renames a leftover PATH entry to `herdr.direct.bak`. Nix prints guidance and exits 1. `herdr channel` with no subcommand prints the configured channel. Use `herdr update --force-direct` only to keep updating a leftover direct binary.
 
 ## [0.8.1] - 2026-08-15
 
