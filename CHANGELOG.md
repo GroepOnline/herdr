@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.8.6] - 2026-08-18
+## [0.8.6] - 2026-08-19
 
 ### Added
 - Qwen Code integration: `herdr integration install qwen` installs a SessionStart hook that reports `QWEN_SESSION_ID` to Herdr's socket API (native session restore with `qwen --resume <id>`), plus screen detection for idle, working, and user-confirmation states. (upstream #2743)
