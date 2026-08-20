@@ -54,7 +54,12 @@ impl App {
         };
         let create_result = match params.command.as_deref() {
             Some(command) if !command.is_empty() => self
-                .create_workspace_argv_command_with_launch_env(cwd, params.focus, extra_env, command),
+                .create_workspace_argv_command_with_launch_env(
+                    cwd,
+                    params.focus,
+                    extra_env,
+                    command,
+                ),
             _ => self.create_workspace_with_launch_env(cwd, params.focus, extra_env),
         };
         match create_result {
