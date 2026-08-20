@@ -1733,8 +1733,10 @@ rows = [[{ token = "workspace", bold = false }, { token = "agent", dim = false }
     }
 
     #[test]
-    fn default_space_workspace_style_tracks_active_state() {
+    fn default_space_workspace_style_tracks_active_state_with_distinct_active_row_bg() {
         let mut app = crate::app::state::AppState::test_new();
+        app.palette = crate::app::state::Palette::tokyo_night();
+        assert_ne!(app.palette.surface_dim, app.palette.active_row_bg);
         app.workspaces = vec![Workspace::test_new("one"), Workspace::test_new("two")];
         app.active = Some(0);
         app.mode = Mode::Terminal;
@@ -1752,7 +1754,8 @@ rows = [[{ token = "workspace", bold = false }, { token = "agent", dim = false }
         assert_eq!(active.fg, Some(app.palette.text));
         assert!(active.add_modifier.contains(Modifier::BOLD));
         assert!(!active.add_modifier.contains(Modifier::DIM));
-        assert_eq!(active.bg, Some(app.palette.surface_dim));
+        assert_eq!(active.bg, Some(app.palette.active_row_bg));
+        assert_ne!(active.bg, Some(app.palette.surface_dim));
 
         let inactive = buffer[(find_symbol_x(buffer, second_row, 25, "t"), second_row)].style();
         assert_eq!(inactive.fg, Some(app.palette.subtext0));
@@ -1772,6 +1775,8 @@ rows = [[{ token = "$hype", fg = "#abcdef", bold = true, dim = false }, "workspa
         )
         .unwrap();
         let mut app = crate::app::state::AppState::test_new();
+        app.palette = crate::app::state::Palette::tokyo_night();
+        assert_ne!(app.palette.surface_dim, app.palette.active_row_bg);
         app.sidebar_spaces = config.ui.sidebar.spaces;
         app.workspaces = vec![Workspace::test_new("one")];
         app.active = Some(0);
@@ -1798,12 +1803,14 @@ rows = [[{ token = "$hype", fg = "#abcdef", bold = true, dim = false }, "workspa
             assert_eq!(style.fg, Some(ratatui::style::Color::Rgb(0xab, 0xcd, 0xef)));
             assert!(style.add_modifier.contains(Modifier::BOLD));
             assert!(!style.add_modifier.contains(Modifier::DIM));
-            assert_eq!(style.bg, Some(app.palette.surface_dim));
+            assert_eq!(style.bg, Some(app.palette.active_row_bg));
+            assert_ne!(style.bg, Some(app.palette.surface_dim));
         }
         assert_eq!(separator.fg, Some(app.palette.overlay0));
         assert!(separator.add_modifier.contains(Modifier::DIM));
         assert!(!separator.add_modifier.contains(Modifier::BOLD));
-        assert_eq!(separator.bg, Some(app.palette.surface_dim));
+        assert_eq!(separator.bg, Some(app.palette.active_row_bg));
+        assert_ne!(separator.bg, Some(app.palette.surface_dim));
     }
 
     #[test]
