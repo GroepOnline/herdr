@@ -62,11 +62,16 @@ pub enum Agent {
     Kilo,
     Qodercli,
     Maki,
+    Freebuff,
+    Junie,
+    OpenClaude,
+    Qwen,
+    CommandCode,
     Muse,
 }
 
 impl Agent {
-    pub const ALL: [Self; 22] = [
+    pub const ALL: [Self; 27] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -88,10 +93,15 @@ impl Agent {
         Self::Kilo,
         Self::Qodercli,
         Self::Maki,
+        Self::Freebuff,
+        Self::Junie,
+        Self::OpenClaude,
+        Self::Qwen,
+        Self::CommandCode,
         Self::Muse,
     ];
 
-    pub const SCREEN_MANIFEST_AGENTS: [Self; 20] = [
+    pub const SCREEN_MANIFEST_AGENTS: [Self; 25] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -111,6 +121,11 @@ impl Agent {
         Self::Kilo,
         Self::Qodercli,
         Self::Maki,
+        Self::Freebuff,
+        Self::Junie,
+        Self::OpenClaude,
+        Self::Qwen,
+        Self::CommandCode,
         Self::Muse,
     ];
 }
@@ -138,6 +153,11 @@ pub fn agent_label(agent: Agent) -> &'static str {
         Agent::Kilo => "kilo",
         Agent::Qodercli => "qodercli",
         Agent::Maki => "maki",
+          Agent::Freebuff => "freebuff",
+          Agent::Junie => "junie",
+          Agent::OpenClaude => "openclaude",
+          Agent::Qwen => "qwen",
+          Agent::CommandCode => "commandcode",
         Agent::Muse => "muse",
     }
 }
@@ -171,6 +191,11 @@ pub fn interactive_agent_executable(agent: Agent) -> &'static str {
         Agent::Kilo => "kilo",
         Agent::Qodercli => "qodercli",
         Agent::Maki => "maki",
+          Agent::Freebuff => "freebuff",
+          Agent::Junie => "junie",
+          Agent::OpenClaude => "openclaude",
+          Agent::Qwen => "qwen",
+          Agent::CommandCode => "commandcode",
         Agent::Muse => "muse",
     }
 }
@@ -198,7 +223,7 @@ fn lookup_agent(name: &str) -> Option<Agent> {
         "cline" => Some(Agent::Cline),
         "omp" => Some(Agent::Omp),
         "mastracode" | "mastra-code" | "mastra code" => Some(Agent::Mastracode),
-        "opencode" | "opencode2" | "open-code" => Some(Agent::OpenCode),
+        "opencode" | "opencode2" | "open-code" | "open-code-2" => Some(Agent::OpenCode),
         "copilot" | "github-copilot" | "ghcs" => Some(Agent::GithubCopilot),
         "kimi" | "kimi-code" | "kimi code" => Some(Agent::Kimi),
         "kiro" | "kiro-cli" => Some(Agent::Kiro),
@@ -209,6 +234,11 @@ fn lookup_agent(name: &str) -> Option<Agent> {
         "kilo" | "kilo-code" | "kilo code" => Some(Agent::Kilo),
         "qodercli" | "qoderclicn" | "qoder" | "qodercn" => Some(Agent::Qodercli),
         "maki" => Some(Agent::Maki),
+          "freebuff" => Some(Agent::Freebuff),
+          "junie" => Some(Agent::Junie),
+          "openclaude" | "open-claude" => Some(Agent::OpenClaude),
+          "qwen" | "qwen-code" => Some(Agent::Qwen),
+          "commandcode" | "command-code" => Some(Agent::CommandCode),
         "muse" | "muse-code" | "muse-cli" => Some(Agent::Muse),
         _ if is_muse_versioned_binary(name) => Some(Agent::Muse),
         _ => None,
@@ -559,6 +589,11 @@ fn agent_name_from_known_package_path(path: &str) -> Option<String> {
         .map(normalized_agent_lookup_name)
         .collect();
 
+    for window in components.windows(5) {
+        if window == ["node_modules", "@qwen-code", "qwen-code", "dist", "index"] {
+            return Some(agent_label(Agent::Qwen).to_string());
+        }
+    }
     for window in components.windows(5) {
         if window
             == [
