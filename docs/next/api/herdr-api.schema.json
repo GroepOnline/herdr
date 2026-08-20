@@ -4197,6 +4197,20 @@
           ],
           "type": "string"
         },
+        "WorkspaceCloseParams": {
+          "properties": {
+            "close_group": {
+              "type": "boolean"
+            },
+            "workspace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "workspace_id"
+          ],
+          "type": "object"
+        },
         "WorkspaceCreateParams": {
           "properties": {
             "command": {
@@ -4313,21 +4327,6 @@
         },
         "WorkspaceTarget": {
           "properties": {
-            "workspace_id": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "workspace_id"
-          ],
-          "type": "object"
-        },
-        "WorkspaceCloseParams": {
-          "properties": {
-            "close_group": {
-              "default": false,
-              "type": "boolean"
-            },
             "workspace_id": {
               "type": "string"
             }
