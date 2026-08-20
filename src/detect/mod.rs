@@ -832,6 +832,11 @@ mod tests {
             (Agent::Hermes, "hermes"),
             (Agent::Kilo, "kilo"),
             (Agent::Qodercli, "qodercli"),
+            (Agent::Freebuff, "freebuff"),
+            (Agent::Junie, "junie"),
+            (Agent::OpenClaude, "openclaude"),
+            (Agent::Qwen, "qwen"),
+            (Agent::CommandCode, "commandcode"),
             (Agent::Maki, "maki"),
             (Agent::Muse, "muse"),
         ];
