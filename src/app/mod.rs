@@ -750,7 +750,7 @@ impl App {
         });
         let now = Instant::now();
 
-        Self {
+        let mut app = App {
             config_diagnostic_deadline: None,
             toast_deadline: None,
             copy_feedback_deadline: None,
@@ -813,8 +813,10 @@ impl App {
             local_input_source_switch: true,
             config_reloaded_from_disk: false,
             prefix_input_source: Box::new(crate::platform::RealPrefixInputSource::default()),
-        }
-    }
+        };
+
+        app.configure_tab_bar_status(&config.ui.tab_bar_right, &config.ui.tab_bar_right_separator);
+        app
 
     #[cfg(unix)]
     pub fn new_from_handoff(
