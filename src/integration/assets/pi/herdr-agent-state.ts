@@ -268,9 +268,15 @@ function shouldReleaseOnSessionShutdown(event: any): boolean {
 
 let sendInFlight = false;
 const queuedStates: QueuedState[] = [];
+  const MAX_QUEUED_STATES = 64;
 
 function queueState(state: AgentState, message?: string): void {
-  queuedStates.push({ state, message, seq: nextReportSeq() });
+  if (queuedStates.length >= MAX_QUEUED_STATES) {
+    const dropIndex = queuedStates.findIndex((queued) => queued.state !== "blocked");
+    queuedStates.splice(dropIndex >= 0 ? dropIndex : 0, 1);
+    console.warn(`Pi state report backlog full; dropping an older state (limit ${MAX_QUEUED_STATES})`);
+  }
+    queuedStates.push({ state, message, seq: nextReportSeq() });
   if (!sendInFlight) {
     void drainStateQueue();
   }
