@@ -689,6 +689,7 @@ fn run_clipboard_command(command: &ClipboardCommand, bytes: &[u8]) -> bool {
         .stderr(Stdio::null());
 
     let bytes = bytes.to_vec();
+    let is_wl_copy = command.program == "wl-copy";
     run_clipboard_child_with_timeout(cmd, CLIPBOARD_CHILD_TIMEOUT, move |mut child| {
         let Some(mut stdin) = child.stdin.take() else {
             let _ = child.kill();
@@ -703,7 +704,7 @@ fn run_clipboard_command(command: &ClipboardCommand, bytes: &[u8]) -> bool {
         }
         drop(stdin);
 
-        if command.program == "wl-copy" {
+        if is_wl_copy {
             return Some(detach_clipboard_owner(child));
         }
 
