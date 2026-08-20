@@ -717,44 +717,16 @@ fn detach_clipboard_owner(mut child: std::process::Child) -> bool {
     let pid = child.id();
 
     // wl-copy may fail immediately (for example when no Wayland compositor is
-    // available). Check that startup failure before handing ownership to the
-    // detached reaper so callers can try the next clipboard backend.
-    match child.try_wait() {
-        Ok(Some(status)) => return status.success(),
-        Ok(None) => {}
+    // available). Wait for the initial process to finish before reporting success:
+    // without --foreground it forks after establishing the selection, so this
+    // waits only for startup and lets callers fall back when it fails.
+    match child.wait() {
+        Ok(status) => status.success(),
         Err(err) => {
-            tracing::warn!(pid, %err, "failed to check wl-copy startup status");
-            let _ = child.kill();
-            let _ = child.wait();
-            return false;
+            tracing::warn!(pid, %err, "failed to wait for wl-copy startup");
+            false
         }
     }
-    let child = std::sync::Arc::new(std::sync::Mutex::new(child));
-    let reaper_child = std::sync::Arc::clone(&child);
-    let reaper = std::thread::Builder::new()
-        .name("herdr-wl-copy-reaper".to_string())
-        .spawn(move || {
-            let wait_result = match reaper_child.lock() {
-                Ok(mut child) => child.wait(),
-                Err(poisoned) => poisoned.into_inner().wait(),
-            };
-            if let Err(err) = wait_result {
-                tracing::warn!(pid, %err, "failed to reap wl-copy clipboard owner");
-            }
-        });
-
-    if let Err(err) = reaper {
-        tracing::warn!(pid, %err, "failed to start wl-copy clipboard owner reaper");
-        let mut child = match child.lock() {
-            Ok(child) => child,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        let _ = child.kill();
-        let _ = child.wait();
-        return false;
-    }
-
-    true
 }
 
 fn process_session_id(pid: u32) -> Option<i32> {
