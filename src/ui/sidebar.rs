@@ -770,16 +770,16 @@ pub(super) fn render_sidebar_collapsed(app: &AppState, frame: &mut Frame, area: 
         let is_selected = visible_idx == app.selected && is_navigating;
         let is_active = Some(visible_idx) == app.active;
         let row_style = if is_selected {
-            Style::default().bg(p.selection_bg)
+            Style::default().bg(p.surface0)
         } else if is_active {
-            Style::default().bg(p.active_row_bg)
+            Style::default().bg(p.surface_dim)
         } else {
             Style::default()
         };
         let num_style = if is_selected {
-            Style::default().fg(p.overlay1).bg(p.selection_bg)
+            Style::default().fg(p.overlay1).bg(p.surface0)
         } else if is_active {
-            Style::default().fg(p.text).bg(p.active_row_bg)
+            Style::default().fg(p.text).bg(p.surface_dim)
         } else {
             Style::default().fg(p.overlay0)
         };
@@ -1162,7 +1162,7 @@ fn render_workspace_list(
 
         if highlighted {
             let bg = if selected {
-                p.selection_bg
+                p.surface0
             } else if is_dragged {
                 p.surface1
             } else {
@@ -1407,7 +1407,7 @@ fn render_agent_detail(
         );
 
         let row_style = if is_active {
-            Style::default().bg(p.active_row_bg)
+            Style::default().bg(p.surface_dim)
         } else if hovered {
             Style::default().bg(p.surface1)
         } else {
@@ -1602,14 +1602,14 @@ mod tests {
         assert_eq!(workspace_style.fg, Some(app.palette.text));
         assert!(workspace_style.add_modifier.contains(Modifier::BOLD));
         assert!(!workspace_style.add_modifier.contains(Modifier::DIM));
-        assert_eq!(workspace_style.bg, Some(app.palette.active_row_bg));
+        assert_eq!(workspace_style.bg, Some(app.palette.surface_dim));
 
         let agent_x = find_symbol_x(buffer, body.y + 1, body.width, "p");
         let agent_style = buffer[(agent_x, body.y + 1)].style();
         assert_eq!(agent_style.fg, Some(app.palette.overlay0));
         assert!(agent_style.add_modifier.contains(Modifier::DIM));
         assert!(!agent_style.add_modifier.contains(Modifier::BOLD));
-        assert_eq!(agent_style.bg, Some(app.palette.active_row_bg));
+        assert_eq!(agent_style.bg, Some(app.palette.surface_dim));
     }
 
     #[test]
@@ -1752,7 +1752,7 @@ rows = [[{ token = "workspace", bold = false }, { token = "agent", dim = false }
         assert_eq!(active.fg, Some(app.palette.text));
         assert!(active.add_modifier.contains(Modifier::BOLD));
         assert!(!active.add_modifier.contains(Modifier::DIM));
-        assert_eq!(active.bg, Some(app.palette.active_row_bg));
+        assert_eq!(active.bg, Some(app.palette.surface_dim));
 
         let inactive = buffer[(find_symbol_x(buffer, second_row, 25, "t"), second_row)].style();
         assert_eq!(inactive.fg, Some(app.palette.subtext0));
@@ -1798,12 +1798,12 @@ rows = [[{ token = "$hype", fg = "#abcdef", bold = true, dim = false }, "workspa
             assert_eq!(style.fg, Some(ratatui::style::Color::Rgb(0xab, 0xcd, 0xef)));
             assert!(style.add_modifier.contains(Modifier::BOLD));
             assert!(!style.add_modifier.contains(Modifier::DIM));
-            assert_eq!(style.bg, Some(app.palette.active_row_bg));
+            assert_eq!(style.bg, Some(app.palette.surface_dim));
         }
         assert_eq!(separator.fg, Some(app.palette.overlay0));
         assert!(separator.add_modifier.contains(Modifier::DIM));
         assert!(!separator.add_modifier.contains(Modifier::BOLD));
-        assert_eq!(separator.bg, Some(app.palette.active_row_bg));
+        assert_eq!(separator.bg, Some(app.palette.surface_dim));
     }
 
     #[test]

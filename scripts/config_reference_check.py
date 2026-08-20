@@ -190,14 +190,11 @@ def parse_enum_body(
             index += 1
             break
 
-        if depth == 0 and not stripped.startswith(("#[", "///")):
-            # Capture variant name even for struct-like variants such as `Datetime {`
-            variant_match = re.match(r"^([A-Z][A-Za-z0-9_]*)\b", stripped)
-            if variant_match:
-                variants.append(
-                    apply_rename_all(variant_match.group(1), rename_all or "lowercase")
-                )
         depth += stripped.count("{") - stripped.count("}")
+        if depth == 0 and not stripped.startswith(("#[", "///")):
+            match = VARIANT_RE.match(stripped)
+            if match:
+                variants.append(apply_rename_all(match.group(1), rename_all or "lowercase"))
         index += 1
 
     model.enums[name] = variants

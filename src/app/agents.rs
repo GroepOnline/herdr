@@ -6,10 +6,8 @@ use super::{terminal_targets::TerminalTargetError, App};
 use crate::api::schema::AgentStartParams;
 
 const DEFAULT_AGENT_START_TIMEOUT: Duration = Duration::from_secs(30);
-pub(crate) const MAX_AGENT_START_TIMEOUT: Duration = Duration::from_secs(300);
-pub(crate) const AGENT_START_SETTLE_DELAY: Duration = Duration::from_secs(3);
-const INVALID_AGENT_TIMEOUT_MESSAGE: &str =
-    "agent start timeout must be greater than 3000ms and at most 300000ms";
+const MAX_AGENT_START_TIMEOUT: Duration = Duration::from_secs(300);
+const AGENT_START_SETTLE_DELAY: Duration = Duration::from_secs(3);
 const INVALID_AGENT_NAME_MESSAGE: &str = "agent name must start with a lowercase letter and contain only lowercase letters, digits, '-' or '_' (1-32 characters)";
 
 fn valid_agent_name(name: &str) -> bool {
@@ -245,7 +243,8 @@ impl App {
             },
             AgentStartError::InvalidTimeout => crate::api::schema::ErrorBody {
                 code: "invalid_agent_timeout".into(),
-                message: INVALID_AGENT_TIMEOUT_MESSAGE.into(),
+                message: "agent start timeout must be greater than 3000ms and at most 300000ms"
+                    .into(),
             },
             AgentStartError::TargetNotFound(target) => crate::api::schema::ErrorBody {
                 code: "agent_pane_not_found".into(),

@@ -346,11 +346,11 @@ fn agent_start(args: &[String]) -> std::io::Result<i32> {
     let mut previous_busy_response = None;
     let mut response = loop {
         if let Some(previous_busy_response) = previous_busy_response.as_ref() {
-            let retry_expired = retry_deadline.is_some_and(|deadline| Instant::now() >= deadline);
-            if retry_expired
-                || pane_terminal_id(&pane_id)? != pinned_terminal_id
-                || !pane_shell_is_initializing(&pane_id)?
-            {
+            if should_abort_agent_start_retry(
+                agent_start_retry_expired(retry_deadline, Instant::now()),
+                agent_start_terminals_match(&pinned_terminal_id, &pane_terminal_id(&pane_id)?),
+                pane_shell_is_initializing(&pane_id)?,
+            ) {
                 return super::print_response(previous_busy_response);
             }
         }
@@ -368,17 +368,19 @@ fn agent_start(args: &[String]) -> std::io::Result<i32> {
         if response.get("error").is_none() {
             break response;
         }
-        if response["error"]["code"].as_str() != Some("agent_pane_busy")
-            || !retryable_timeout
-            || pinned_terminal_id.is_none()
-            || pane_terminal_id(&pane_id)? != pinned_terminal_id
-            || !pane_shell_is_initializing(&pane_id)?
-        {
+        if !should_retry_agent_pane_busy(
+            response["error"]["code"].as_str(),
+            retryable_timeout,
+            &pinned_terminal_id,
+            &pane_terminal_id(&pane_id)?,
+            pane_shell_is_initializing(&pane_id)?,
+        ) {
             return super::print_response(&response);
         }
 
-        let deadline = *retry_deadline
-            .get_or_insert_with(|| Instant::now().checked_add(PANE_SHELL_READINESS_RETRY_TIMEOUT));
+        let deadline = *retry_deadline.get_or_insert_with(|| {
+            Instant::now() + PANE_SHELL_READINESS_RETRY_TIMEOUT
+        });
         previous_busy_response = Some(response);
         let remaining = deadline.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
@@ -552,7 +554,8 @@ fn wait_for_named_agent(
     expected_kind: &str,
     expected_terminal_id: &str,
 ) -> std::io::Result<Result<serde_json::Value, serde_json::Value>> {
-    let deadline = Instant::now().checked_add(timeout);
+    let started_at = Instant::now();
+    let deadline = started_at.checked_add(timeout);
     let mut first_poll = true;
     loop {
         if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
@@ -607,6 +610,39 @@ fn wait_for_named_agent(
     }
 }
 
+fn agent_start_retry_expired(deadline: Option<Instant>, now: Instant) -> bool {
+    deadline.is_some_and(|deadline| now >= deadline)
+}
+
+fn agent_start_terminals_match(
+    pinned_terminal_id: &Option<String>,
+    current_terminal_id: &Option<String>,
+) -> bool {
+    pinned_terminal_id == current_terminal_id
+}
+
+fn should_abort_agent_start_retry(
+    retry_expired: bool,
+    terminals_match: bool,
+    shell_initializing: bool,
+) -> bool {
+    retry_expired || !terminals_match || !shell_initializing
+}
+
+fn should_retry_agent_pane_busy(
+    error_code: Option<&str>,
+    retryable_timeout: bool,
+    pinned_terminal_id: &Option<String>,
+    current_terminal_id: &Option<String>,
+    shell_initializing: bool,
+) -> bool {
+    error_code == Some("agent_pane_busy")
+        && retryable_timeout
+        && pinned_terminal_id.is_some()
+        && pinned_terminal_id == current_terminal_id
+        && shell_initializing
+}
+
 fn pane_terminal_id(pane_id: &str) -> std::io::Result<Option<String>> {
     let response = super::send_request(&Request {
         id: "cli:agent:start:pane".into(),
@@ -629,38 +665,6 @@ fn pane_shell_is_initializing(pane_id: &str) -> std::io::Result<bool> {
     Ok(crate::platform::process_info_shows_shell_initialization(
         &response["result"]["process_info"],
     ))
-}
-
-#[cfg(unix)]
-fn process_info_shows_shell_initialization(process_info: &serde_json::Value) -> bool {
-    let Some(shell_pid) = process_info["shell_pid"].as_u64() else {
-        return false;
-    };
-    if process_info["foreground_process_group_id"].as_u64() != Some(shell_pid) {
-        return false;
-    }
-    process_info["foreground_processes"]
-        .as_array()
-        .is_some_and(|processes| {
-            processes.iter().any(|process| {
-                process["pid"].as_u64() == Some(shell_pid)
-                    && (process["name"]
-                        .as_str()
-                        .is_some_and(crate::platform::is_pane_shell_process_name)
-                        || process["argv"]
-                            .as_array()
-                            .and_then(|argv| argv.first())
-                            .and_then(serde_json::Value::as_str)
-                            .is_some_and(crate::platform::is_pane_shell_process_name))
-            })
-        })
-}
-
-// Windows exposes no foreground process group, so shell initialization is not
-// observable and a busy `agent.start` is not retried there.
-#[cfg(not(unix))]
-fn process_info_shows_shell_initialization(_process_info: &serde_json::Value) -> bool {
-    false
 }
 
 fn agent_name_lost_error(request_id: &str, expected_name: &str) -> serde_json::Value {
@@ -922,4 +926,121 @@ fn parse_timeout(value: &str) -> Result<u64, i32> {
         eprintln!("{err}");
         2
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn agent_start_retry_expired_when_deadline_passed() {
+        let deadline = Instant::now() - Duration::from_millis(1);
+        assert!(agent_start_retry_expired(Some(deadline), Instant::now()));
+    }
+
+    #[test]
+    fn agent_start_retry_not_expired_without_deadline() {
+        assert!(!agent_start_retry_expired(None, Instant::now()));
+    }
+
+    #[test]
+    fn should_abort_retry_when_terminal_changes() {
+        assert!(should_abort_agent_start_retry(
+            false,
+            false,
+            true,
+        ));
+    }
+
+    #[test]
+    fn should_abort_retry_when_shell_is_ready() {
+        assert!(should_abort_agent_start_retry(
+            false,
+            true,
+            false,
+        ));
+    }
+
+    #[test]
+    fn should_retry_busy_when_shell_initializing() {
+        assert!(should_retry_agent_pane_busy(
+            Some("agent_pane_busy"),
+            true,
+            &Some("term-1".into()),
+            &Some("term-1".into()),
+            true,
+        ));
+    }
+
+    #[test]
+    fn should_not_retry_busy_when_timeout_not_retryable() {
+        assert!(!should_retry_agent_pane_busy(
+            Some("agent_pane_busy"),
+            false,
+            &Some("term-1".into()),
+            &Some("term-1".into()),
+            true,
+        ));
+    }
+
+    #[test]
+    fn should_not_retry_non_busy_errors() {
+        assert!(!should_retry_agent_pane_busy(
+            Some("agent_name_taken"),
+            true,
+            &Some("term-1".into()),
+            &Some("term-1".into()),
+            true,
+        ));
+    }
+
+    #[test]
+    fn shell_initialization_rejects_missing_shell_pid() {
+        assert!(!crate::platform::process_info_shows_shell_initialization(
+            &serde_json::json!({})
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shell_initialization_detects_foreground_shell() {
+        let process_info = serde_json::json!({
+            "shell_pid": 42,
+            "foreground_process_group_id": 42,
+            "foreground_processes": [{
+                "pid": 42,
+                "name": "bash"
+            }]
+        });
+        assert!(crate::platform::process_info_shows_shell_initialization(
+            &process_info
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shell_initialization_rejects_replaced_shell() {
+        let process_info = serde_json::json!({
+            "shell_pid": 42,
+            "foreground_process_group_id": 99,
+            "foreground_processes": [{"pid": 99, "name": "vim"}]
+        });
+        assert!(!crate::platform::process_info_shows_shell_initialization(
+            &process_info
+        ));
+    }
+
+    #[cfg(not(unix))]
+    #[test]
+    fn shell_initialization_is_not_observable_off_unix() {
+        let process_info = serde_json::json!({
+            "shell_pid": 42,
+            "foreground_process_group_id": 42,
+            "foreground_processes": [{"pid": 42, "name": "bash"}]
+        });
+        assert!(!crate::platform::process_info_shows_shell_initialization(
+            &process_info
+        ));
+    }
 }
