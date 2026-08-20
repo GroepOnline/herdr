@@ -712,8 +712,22 @@ fn run_clipboard_command(command: &ClipboardCommand, bytes: &[u8]) -> bool {
     .unwrap_or(false)
 }
 
-fn detach_clipboard_owner(child: std::process::Child) -> bool {
+fn detach_clipboard_owner(mut child: std::process::Child) -> bool {
     let pid = child.id();
+
+    // wl-copy may fail immediately (for example when no Wayland compositor is
+    // available). Check that startup failure before handing ownership to the
+    // detached reaper so callers can try the next clipboard backend.
+    match child.try_wait() {
+        Ok(Some(status)) => return status.success(),
+        Ok(None) => {}
+        Err(err) => {
+            tracing::warn!(pid, %err, "failed to check wl-copy startup status");
+            let _ = child.kill();
+            let _ = child.wait();
+            return false;
+        }
+    }
     let child = std::sync::Arc::new(std::sync::Mutex::new(child));
     let reaper_child = std::sync::Arc::clone(&child);
     let reaper = std::thread::Builder::new()
