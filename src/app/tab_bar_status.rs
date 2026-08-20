@@ -21,6 +21,7 @@ pub(super) struct TabBarCommandRuntime {
     timeout: Duration,
     next_run_at: std::time::Instant,
     task: Option<tokio::task::AbortHandle>,
+    failure_logged: bool,
 }
 
 impl Drop for TabBarCommandRuntime {
@@ -103,6 +104,7 @@ impl App {
                         timeout: Duration::from_secs(*timeout_seconds),
                         next_run_at: now,
                         task: None,
+                        failure_logged: false,
                     });
                 }
             }
@@ -188,9 +190,15 @@ impl App {
         runtime.task = None;
 
         let output = match result {
-            Ok(output) => output,
+            Ok(output) => {
+                runtime.failure_logged = false;
+                output
+            }
             Err(error) => {
-                tracing::warn!(command = %runtime.command, error, "tab bar status command failed");
+                if !runtime.failure_logged {
+                    tracing::warn!(command = %runtime.command, error, "tab bar status command failed");
+                    runtime.failure_logged = true;
+                }
                 None
             }
         };
@@ -386,13 +394,13 @@ mod tests {
     #[cfg(unix)]
     const OVER_CAP_COMMAND: &str = "head -c 5000 /dev/zero | tr '\\0' x; printf '\\nREADY\\n'";
 
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[cfg(unix)]
     fn unique_temp_path(name: &str) -> std::path::PathBuf {
         let stamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system clock after epoch")
             .as_nanos();
-        std::path::PathBuf::from("/var/tmp").join(format!(
+        std::env::temp_dir().join(format!(
             "herdr-tab-status-{name}-{}-{stamp}",
             std::process::id()
         ))
@@ -479,7 +487,7 @@ mod tests {
         );
     }
 
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[cfg(unix)]
     #[tokio::test]
     async fn reload_aborts_an_in_flight_command_task_and_its_descendants() {
         let started = unique_temp_path("started");
