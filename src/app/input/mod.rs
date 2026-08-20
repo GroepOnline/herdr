@@ -504,14 +504,21 @@ impl App {
             return false;
         };
 
-        self.last_pane_click = None;
-        self.pending_url_click = true;
-        match self.invoke_plugin_link_handler_for_url(&url, info.id) {
-            Ok(true) => return true,
-            Ok(false) => {}
+        let plugin_handled = match self.invoke_plugin_link_handler_for_url(&url, info.id) {
+            Ok(handled) => handled,
             Err(err) => {
                 tracing::warn!(err = %err, url = %url, "failed to invoke plugin link handler");
+                false
             }
+        };
+        if !plugin_handled && crate::app::actions::safe_web_url(&url).is_none() {
+            return false;
+        }
+
+        self.last_pane_click = None;
+        self.pending_url_click = true;
+        if plugin_handled {
+            return true;
         }
         if let Err(err) = crate::platform::open_url(&url) {
             tracing::warn!(err = %err, url = %url, "failed to open pane URL");

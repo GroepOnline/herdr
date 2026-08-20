@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Wayland clipboard copies no longer freeze Herdr while `wl-copy` remains alive to serve the selection. (upstream #3014)
+- The Pi integration now preserves short blocked transitions while an earlier lifecycle report is still in flight. (upstream #2971)
+- File links via OSC 8 `file://` URLs now route to plugin link handlers and are ignored when unhandled instead of being opened as web URLs. (upstream #2941)
+
 ## [0.8.6] - 2026-08-19
 
 ### Added

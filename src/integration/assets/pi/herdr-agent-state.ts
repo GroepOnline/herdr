@@ -2,7 +2,7 @@
 // managed by herdr; reinstalling or updating the integration overwrites this file.
 // add custom hooks/plugins beside this file instead of editing it.
 // HERDR_INTEGRATION_ID=pi
-// HERDR_INTEGRATION_VERSION=7
+// HERDR_INTEGRATION_VERSION=9
 // @ts-nocheck
 
 import { execFile } from "node:child_process";
@@ -267,10 +267,10 @@ function shouldReleaseOnSessionShutdown(event: any): boolean {
 }
 
 let sendInFlight = false;
-let queuedState: QueuedState | undefined;
+const queuedStates: QueuedState[] = [];
 
 function queueState(state: AgentState, message?: string): void {
-  queuedState = { state, message, seq: nextReportSeq() };
+  queuedStates.push({ state, message, seq: nextReportSeq() });
   if (!sendInFlight) {
     void drainStateQueue();
   }
@@ -283,14 +283,16 @@ async function drainStateQueue(): Promise<void> {
 
   sendInFlight = true;
   try {
-    while (queuedState) {
-      const next = queuedState;
-      queuedState = undefined;
+    while (true) {
+      const next = queuedStates.shift();
+      if (!next) {
+        break;
+      }
       await sendState(next.state, next.message, next.seq);
     }
   } finally {
     sendInFlight = false;
-    if (queuedState) {
+    if (queuedStates.length > 0) {
       void drainStateQueue();
     }
   }
