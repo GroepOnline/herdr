@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- `theme.custom.active_row_bg` sets a dedicated background for active Space and focused Agent rows, remaining visible even when the host terminal background matches the selected Herdr theme. (upstream #2792)
+- Navigate-mode selection rows now use a dedicated per-theme cursor color, customizable via `theme.custom.selection_bg`, so the cursor stays distinguishable from the active Space and Agent highlight. (upstream #2792)
+
+### Fixed
+- `agent start` now waits for new pane shells and first-run agent prompts to become ready instead of racing them or reporting premature readiness, preventing lost input when sending a prompt immediately after startup. (upstream #2410, #2774)
+
 ## [0.8.6] - 2026-08-19
 
 ### Added

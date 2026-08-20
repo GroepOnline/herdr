@@ -291,6 +291,8 @@ You can override individual colors:
 ```toml
 [theme.custom]
 sidebar_bg = "#181825"
+active_row_bg = "#1e1e2e"
+selection_bg = "#313244"
 panel_bg = "reset"
 accent = "#a6e3a1"
 green = "#a6e3a1"
@@ -299,7 +301,7 @@ red = "#f38ba8"
 yellow = "#f9e2af"
 ```
 
-`sidebar_bg` optionally gives the desktop sidebar its own background. When omitted, the sidebar keeps the host terminal background.
+`sidebar_bg` optionally gives the desktop sidebar its own background. When omitted, the sidebar keeps the host terminal background. `active_row_bg` changes the active Space and focused Agent row background without affecting separators or scrollbar tracks. `selection_bg` changes the Navigate-mode cursor row background in the sidebar.
 
 Color values accept hex, named colors, `rgb(r,g,b)`, or reset aliases like `reset`, `default`, `none`, and `transparent`.
 
