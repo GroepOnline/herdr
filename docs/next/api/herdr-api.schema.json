@@ -4326,7 +4326,6 @@
           "properties": {
             "close_group": {
               "default": false,
-              "description": "When true, close every workspace in the same worktree group.",
               "type": "boolean"
             },
             "workspace_id": {
