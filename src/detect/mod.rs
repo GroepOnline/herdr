@@ -195,7 +195,7 @@ pub fn interactive_agent_executable(agent: Agent) -> &'static str {
         Agent::Junie => "junie",
         Agent::OpenClaude => "openclaude",
         Agent::Qwen => "qwen",
-        Agent::CommandCode => "commandcode",
+        Agent::CommandCode => "command-code",
         Agent::Muse => "muse",
     }
 }
@@ -836,7 +836,7 @@ mod tests {
             (Agent::Junie, "junie"),
             (Agent::OpenClaude, "openclaude"),
             (Agent::Qwen, "qwen"),
-            (Agent::CommandCode, "commandcode"),
+            (Agent::CommandCode, "command-code"),
             (Agent::Maki, "maki"),
             (Agent::Muse, "muse"),
         ];
