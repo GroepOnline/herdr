@@ -39,18 +39,29 @@ pub enum TabBarRightEntryConfig {
     },
 }
 
-pub(crate) fn parse_tab_bar_datetime_format(
-    value: &str,
-) -> Result<time::format_description::OwnedFormatItem, String> {
+/// Validate a strftime format string for tab bar datetime entries.
+///
+/// We support a subset of strftime directives that map to server-local
+/// wall-clock time. Directives requiring a UTC offset or Unix timestamp
+/// (such as `%z` and `%s`) are rejected.
+pub(crate) fn validate_tab_bar_datetime_format(value: &str) -> Result<(), String> {
     if value.is_empty() {
         return Err("datetime format is empty".into());
     }
-    let format = time::format_description::parse_strftime_owned(value)
-        .map_err(|err| format!("invalid datetime format: {err}"))?;
-    time::PrimitiveDateTime::MIN
-        .format(&format)
-        .map_err(|err| format!("unsupported datetime format: {err}"))?;
-    Ok(format)
+    let mut chars = value.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '%' {
+            continue;
+        }
+        let directive = chars.next().ok_or("truncated strftime directive")?;
+        // Reject directives that require a UTC offset or Unix timestamp.
+        if matches!(directive, 'z' | 's' | 'Z') {
+            return Err(format!(
+                "unsupported datetime format: %{directive} requires a UTC offset or timestamp"
+            ));
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn tab_bar_right_diagnostics(entries: &[TabBarRightEntryConfig]) -> Vec<String> {
@@ -68,7 +79,7 @@ pub(crate) fn tab_bar_right_diagnostics(entries: &[TabBarRightEntryConfig]) -> V
                     diagnostics.push(format!(
                         "ui.tab_bar_right[{index}] datetime format is empty; hiding entry"
                     ));
-                } else if let Err(err) = parse_tab_bar_datetime_format(format) {
+                } else if let Err(err) = validate_tab_bar_datetime_format(format) {
                     diagnostics.push(format!("ui.tab_bar_right[{index}] has {err}; hiding entry"));
                 }
             }
@@ -112,6 +123,57 @@ pub(crate) fn tab_bar_right_diagnostics(entries: &[TabBarRightEntryConfig]) -> V
     diagnostics
 }
 
+/// Format a `time::PrimitiveDateTime` using a strftime format string.
+///
+/// Supports the common directives: %Y, %m, %d, %H, %M, %S, %y, %p, %I.
+/// Literal `%%` produces a single `%`.
+pub(crate) fn format_datetime(dt: &time::PrimitiveDateTime, format: &str) -> String {
+    let mut result = String::new();
+    let mut chars = format.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '%' {
+            result.push(ch);
+            continue;
+        }
+        let directive = match chars.next() {
+            Some(d) => d,
+            None => {
+                result.push('%');
+                break;
+            }
+        };
+        match directive {
+            '%' => result.push('%'),
+            'Y' => result.push_str(&dt.year().to_string()),
+            'y' => result.push_str(&format!("{:02}", dt.year() % 100)),
+            'm' => result.push_str(&format!("{:02}", dt.month() as u8)),
+            'd' => result.push_str(&format!("{:02}", dt.day())),
+            'e' => result.push_str(&format!("{:2}", dt.day())),
+            'H' => result.push_str(&format!("{:02}", dt.hour())),
+            'M' => result.push_str(&format!("{:02}", dt.minute())),
+            'S' => result.push_str(&format!("{:02}", dt.second())),
+            'I' => {
+                let h = dt.hour() % 12;
+                let h = if h == 0 { 12 } else { h };
+                result.push_str(&format!("{:02}", h));
+            }
+            'p' => {
+                if dt.hour() < 12 {
+                    result.push_str("AM");
+                } else {
+                    result.push_str("PM");
+                }
+            }
+            'j' => result.push_str(&format!("{:03}", dt.day())),
+            _ => {
+                result.push('%');
+                result.push(directive);
+            }
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -151,10 +213,13 @@ entries = [
     fn diagnostics_reject_invalid_datetime_and_command_schedules() {
         let entries = vec![
             TabBarRightEntryConfig::Datetime {
-                format: "%Q".into(),
+                format: "%z".into(),
             },
             TabBarRightEntryConfig::Datetime {
-                format: "%z".into(),
+                format: "%s".into(),
+            },
+            TabBarRightEntryConfig::Datetime {
+                format: String::new(),
             },
             TabBarRightEntryConfig::Command {
                 command: String::new(),
@@ -169,13 +234,13 @@ entries = [
         ];
 
         let diagnostics = tab_bar_right_diagnostics(&entries).join("\n");
-        assert!(diagnostics.contains("invalid datetime format"));
         assert!(diagnostics.contains("unsupported datetime format"));
+        assert!(diagnostics.contains("datetime format is empty"));
         assert!(diagnostics.contains("command is empty"));
         assert!(diagnostics.contains("interval_seconds must be at least 1"));
         assert!(diagnostics.contains("interval_seconds may be at most"));
         assert!(diagnostics.contains("timeout_seconds must be at least 1"));
         assert!(diagnostics.contains("timeout_seconds may be at most"));
-        assert!(parse_tab_bar_datetime_format("").is_err());
+        assert!(validate_tab_bar_datetime_format("").is_err());
     }
 }

@@ -818,6 +818,7 @@ impl App {
 
         app.configure_tab_bar_status(&config.ui.tab_bar_right, &config.ui.tab_bar_right_separator);
         app
+    }
 
     #[cfg(unix)]
     pub fn new_from_handoff(

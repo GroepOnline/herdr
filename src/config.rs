@@ -39,7 +39,9 @@ pub use self::{
 
 pub(crate) use self::io::upsert_top_level_bool;
 pub(crate) use self::keybinds::parse_key_combo;
-pub(crate) use self::tab_bar::{parse_tab_bar_datetime_format, tab_bar_right_diagnostics};
+pub(crate) use self::tab_bar::{
+    format_datetime, tab_bar_right_diagnostics, validate_tab_bar_datetime_format,
+};
 
 pub const CONFIG_PATH_ENV_VAR: &str = "HERDR_CONFIG_PATH";
 pub const DEFAULT_SCROLLBACK_LIMIT_BYTES: usize = 10_000_000;

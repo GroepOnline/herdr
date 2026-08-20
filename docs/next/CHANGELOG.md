@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- Configurable tab bar status: `ui.tab_bar_right` accepts an ordered list of `zoom`, `hostname`, `datetime`, `text`, and `command` entries that render right-aligned in the desktop tab bar. `ui.tab_bar_right_separator` controls the separator between visible entries. Status commands run asynchronously on the server, poll at a configurable interval with a timeout, and clean up their process trees on reload or cancellation. The status area yields to tab controls on narrow rows. (upstream #352592aa + hardening fixes)
 - `theme.custom.active_row_bg` sets a dedicated background for active Space and focused Agent rows, remaining visible even when the host terminal background matches the selected Herdr theme. (upstream #2792)
 - Navigate-mode selection rows now use a dedicated per-theme cursor color, customizable via `theme.custom.selection_bg`, so the cursor stays distinguishable from the active Space and Agent highlight. (upstream #2792)
 
@@ -12,7 +13,6 @@
 ## [0.8.6] - 2026-08-19
 
 ### Added
-- Configurable tab bar status: `ui.tab_bar_right` accepts an ordered list of `zoom`, `hostname`, `datetime`, `text`, and `command` entries that render right-aligned in the desktop tab bar. `ui.tab_bar_right_separator` controls the separator between visible entries. Status commands run asynchronously on the server, poll at a configurable interval with a timeout, and clean up their process trees on reload or cancellation. The status area yields to tab controls on narrow rows. (upstream #352592aa + hardening fixes)
 
 ### Added
 - Qwen Code integration: `herdr integration install qwen` installs a SessionStart hook that reports `QWEN_SESSION_ID` to Herdr's socket API (native session restore with `qwen --resume <id>`), plus screen detection for idle, working, and user-confirmation states. (upstream #2743)

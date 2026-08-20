@@ -333,6 +333,32 @@ The Settings surface previews spinner styles before saving. Use a restrained sty
 
 Set `tab_bar_position = "bottom"` under `[ui]` to place the desktop tab row below the terminal panes. Prefix, Navigate, Copy, and Resize mode bars temporarily replace the bottom tab row while active. The default is `"top"`.
 
+Right-side tab bar status is configurable with an ordered list that renders right-aligned in the desktop tab bar. The status area yields to tab controls on narrow rows and hides entries that fail validation.
+
+```toml
+[ui]
+tab_bar_right = [
+  { type = "zoom" },
+  { type = "hostname" },
+  { type = "datetime", format = "%H:%M" },
+  { type = "text", text = "prod" },
+  { type = "command", command = "git branch --show-current", interval_seconds = 5, timeout_seconds = 2 },
+]
+tab_bar_right_separator = " · "
+```
+
+Supported entry types:
+
+- `zoom` — shows `zoom` when the active tab has a zoomed pane, otherwise hidden.
+- `hostname` — shows the server hostname.
+- `datetime` — shows local wall-clock time. `format` is a strftime string (default `"%H:%M"`). Supports `%Y`, `%m`, `%d`, `%H`, `%M`, `%S`, `%y`, `%p`, `%I`, `%%` and rejects `%z`/`%s`/`%Z` which require UTC. Empty or unsupported formats hide the entry and emit a diagnostic.
+- `text` — shows literal `text`.
+- `command` — runs `command` on the server and shows its stdout (first line, up to 80 chars, sanitized). `interval_seconds` (1..31536000, default 5) controls poll frequency, `timeout_seconds` (1..3600, default 2) caps execution. Empty commands, out-of-range intervals/timeouts, or failing commands hide the entry. Commands run asynchronously, are killed on reload/cancellation, and their process trees are reaped.
+
+`tab_bar_right_separator` (default single space) is inserted between visible entries. Diagnostics for invalid entries are reported at startup and on `herdr server reload-config` and visible via `herdr config check`.
+
+At most 16 entries are rendered; extras are ignored with a diagnostic.
+
 ### Sidebar row layouts
 
 The expanded desktop sidebar renders each inner array in `rows` as one line. These are the complete default layouts:

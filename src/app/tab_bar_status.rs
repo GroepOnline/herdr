@@ -11,7 +11,7 @@ const MAX_STATUS_TEXT_CHARS: usize = 80;
 
 pub(super) struct TabBarDatetimeRuntime {
     segment_index: usize,
-    format: time::format_description::OwnedFormatItem,
+    format: String,
 }
 
 pub(super) struct TabBarCommandRuntime {
@@ -61,17 +61,17 @@ impl App {
                         )));
                 }
                 TabBarRightEntryConfig::Datetime { format } => {
-                    let Ok(format) = crate::config::parse_tab_bar_datetime_format(format) else {
+                    if validate_tab_bar_datetime_format(format).is_err() {
                         continue;
-                    };
-                    let value = format_local_datetime(&format);
+                    }
+                    let value = format_local_datetime(format);
                     let segment_index = self.state.tab_bar_right.len();
                     self.state
                         .tab_bar_right
                         .push(TabBarStatusSegment::Text(value));
                     self.tab_bar_datetimes.push(TabBarDatetimeRuntime {
                         segment_index,
-                        format,
+                        format: format.clone(),
                     });
                 }
                 TabBarRightEntryConfig::Text { text } => {
@@ -213,12 +213,10 @@ impl App {
     }
 }
 
-fn format_local_datetime(format: &time::format_description::OwnedFormatItem) -> Option<String> {
+fn format_local_datetime(format: &str) -> Option<String> {
     let datetime = crate::platform::local_datetime()?;
-    datetime
-        .format(format)
-        .ok()
-        .and_then(|value| sanitize_status_text(&value))
+    let value = crate::config::format_datetime(&datetime, format);
+    sanitize_status_text(&value)
 }
 
 fn sanitize_separator(value: &str) -> String {
