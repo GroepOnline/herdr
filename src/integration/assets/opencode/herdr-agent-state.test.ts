@@ -54,9 +54,23 @@ async function loadPlugin() {
   return HerdrAgentStatePlugin();
 }
 
+async function loadDefaultExport() {
+  importCounter += 1;
+  const module = await import(`./herdr-agent-state.js?test=${importCounter}`);
+  return module.default;
+}
+
 function waitForNextRequest(): Promise<void> {
   return new Promise((resolve) => requestWaiters.push(resolve));
 }
+
+test("default export satisfies OpenCode 2 plugin schema", async () => {
+  const plugin = await loadDefaultExport();
+  expect(plugin.id).toBe("herdr-agent-state");
+  expect(plugin.server).toBeTypeOf("function");
+  expect(plugin.setup).toBeTypeOf("function");
+  expect(plugin.effect).toBeTypeOf("function");
+});
 
 test("serializes lifecycle reports", async () => {
   autoAcknowledge = false;

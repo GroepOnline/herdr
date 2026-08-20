@@ -209,3 +209,12 @@ export const HerdrAgentStatePlugin = async () => {
     },
   };
 };
+
+// OpenCode 2 beta plugin loader requires a default export with both `setup`
+// and `effect`. Hook registration stays on the legacy `server` function.
+export default {
+  id: "herdr-agent-state",
+  server: HerdrAgentStatePlugin,
+  setup: async () => {},
+  effect: () => {},
+};
