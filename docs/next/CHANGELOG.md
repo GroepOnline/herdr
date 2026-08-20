@@ -3,14 +3,10 @@
 ## Unreleased
 
 ### Fixed
-<<<<<<< HEAD
+- `workspace close` now rejects implicit worktree-group closure and supports explicit group closure with `--group`; without `--group` / `close_group: true` the API returns `workspace_group_close_required`. (upstream #2874)
 - Wayland clipboard copies no longer freeze Herdr while `wl-copy` remains alive to serve the selection. (upstream #3014)
 - The Pi integration now preserves short blocked transitions while an earlier lifecycle report is still in flight. (upstream #2971)
 - File links via OSC 8 `file://` URLs now route to plugin link handlers and are ignored when unhandled instead of being opened as web URLs. (upstream #2941)
-||||||| parent of 323b5371 (fix: require explicit workspace group close)
-=======
-- `workspace close` now rejects implicit worktree-group closure and supports explicit group closure with `--group`. (upstream #2874)
->>>>>>> 323b5371 (fix: require explicit workspace group close)
 
 ## [0.8.6] - 2026-08-19
 

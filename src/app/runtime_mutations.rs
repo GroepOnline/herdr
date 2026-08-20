@@ -62,6 +62,20 @@ impl App {
         self.dispatch_runtime_mutation(id, Method::WorkspaceMoveBlock(params))
     }
 
+    pub(crate) fn runtime_workspace_close(
+        &mut self,
+        id: &'static str,
+        workspace_id: String,
+    ) -> String {
+        self.dispatch_runtime_mutation(
+            id,
+            Method::WorkspaceClose(WorkspaceCloseParams {
+                workspace_id,
+                close_group: false,
+            }),
+        )
+    }
+
     pub(crate) fn runtime_workspace_close_group(
         &mut self,
         id: &'static str,

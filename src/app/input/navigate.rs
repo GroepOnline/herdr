@@ -232,7 +232,7 @@ impl App {
                     if self.state.confirm_close {
                         super::modal::open_confirm_close(&mut self.state);
                     } else {
-                        self.close_workspace_idx_with_group_via_api(ws_idx);
+                        self.close_workspace_idx_via_api(ws_idx);
                         leave_navigate_mode(&mut self.state);
                     }
                 }
@@ -462,9 +462,14 @@ impl App {
         self.runtime_workspace_focus("tui.workspace.focus", workspace_id);
     }
 
+    pub(crate) fn close_workspace_idx_via_api(&mut self, ws_idx: usize) {
+        let workspace_id = self.public_workspace_id(ws_idx);
+        self.runtime_workspace_close("tui.workspace.close", workspace_id);
+    }
+
     pub(crate) fn close_workspace_idx_with_group_via_api(&mut self, ws_idx: usize) {
         let workspace_id = self.public_workspace_id(ws_idx);
-        self.runtime_workspace_close_group("tui.workspace.close", workspace_id);
+        self.runtime_workspace_close_group("tui.workspace.close_group", workspace_id);
     }
 
     pub(crate) fn move_workspace_via_api(&mut self, source_ws_idx: usize, insert_idx: usize) {
@@ -3374,7 +3379,7 @@ navigate_pane_down = "ctrl+j"
     }
 
     #[test]
-    fn tui_close_parent_group_closes_immediately_when_confirmation_disabled() {
+    fn tui_close_parent_group_requires_explicit_group_close_when_confirmation_disabled() {
         let mut app = app_with_test_workspaces(&["main", "issue"]);
         mark_worktree_space_member(&mut app.state, 0, "repo-key");
         mark_worktree_space_member(&mut app.state, 1, "repo-key");
@@ -3385,9 +3390,9 @@ navigate_pane_down = "ctrl+j"
 
         app.execute_tui_navigate_action(NavigateAction::CloseWorkspace, ActionContext::Navigate);
 
-        assert!(app.state.workspaces.is_empty());
+        assert_eq!(app.state.workspaces.len(), 2);
         assert_eq!(app.state.mode, Mode::Navigate);
-        assert_eq!(app.event_hub.events_after(0).len(), 2);
+        assert_eq!(app.event_hub.events_after(0).len(), 0);
     }
 
     #[test]

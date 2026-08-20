@@ -333,8 +333,10 @@ impl App {
                 )
             })
             .collect::<Vec<_>>();
+        let previous_toast = self.state.toast.clone();
         self.state.selected = index;
         self.state.close_selected_workspace();
+        self.sync_toast_deadline(previous_toast);
         self.shutdown_detached_terminal_runtimes();
         for (workspace_id, workspace) in closed_workspaces {
             self.emit_event(EventEnvelope {

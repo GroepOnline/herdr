@@ -1125,7 +1125,14 @@ impl App {
     pub(super) fn confirm_close_accept_via_api(&mut self) {
         let ws_idx = self.state.selected;
         if ws_idx < self.state.workspaces.len() {
-            self.close_workspace_idx_with_group_via_api(ws_idx);
+            if self
+                .state
+                .workspace_close_would_close_worktree_group(ws_idx)
+            {
+                self.close_workspace_idx_with_group_via_api(ws_idx);
+            } else {
+                self.close_workspace_idx_via_api(ws_idx);
+            }
         }
         self.state.mode = if self.state.active.is_some() {
             Mode::Terminal
@@ -1246,10 +1253,40 @@ impl App {
                 | ContextMenuKind::GitWorkspace { ws_idx, .. },
                 Some("Rename"),
             ) => open_rename_workspace(&mut self.state, &self.terminal_runtimes, ws_idx),
+            (ContextMenuKind::Workspace { ws_idx }, Some("Close"))
+            | (
+                ContextMenuKind::GitWorkspace {
+                    ws_idx,
+                    is_linked_worktree: true,
+                    ..
+                },
+                Some("Close"),
+            )
+            | (
+                ContextMenuKind::GitWorkspace {
+                    ws_idx,
+                    is_linked_worktree: false,
+                    has_worktree_children: false,
+                    ..
+                },
+                Some("Close"),
+            ) => {
+                self.state.selected = ws_idx;
+                if self.state.confirm_close {
+                    open_confirm_close(&mut self.state);
+                } else {
+                    self.close_workspace_idx_via_api(ws_idx);
+                    self.state.mode = Mode::Navigate;
+                }
+            }
             (
-                ContextMenuKind::Workspace { ws_idx }
-                | ContextMenuKind::GitWorkspace { ws_idx, .. },
-                Some("Close" | "Close group"),
+                ContextMenuKind::GitWorkspace {
+                    ws_idx,
+                    is_linked_worktree: false,
+                    has_worktree_children: true,
+                    ..
+                },
+                Some("Close group"),
             ) => {
                 self.state.selected = ws_idx;
                 if self.state.confirm_close {
