@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "protocol": 21,
+  "protocol": 18,
   "schema_version": 1,
   "schemas": {
     "error_response": {
@@ -46,6 +46,13 @@
             },
             "kind": {
               "$ref": "#/schemas/event/$defs/AgentSessionRefKind"
+            },
+            "session_start_source": {
+              "description": "How the session started (`startup`, `resume`, `clear`, `compact`,\n`new`, or `fork`), when reported by the agent hook.",
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "source": {
               "type": "string"
@@ -200,38 +207,6 @@
                 "type",
                 "workspace_id",
                 "insert_index",
-                "workspaces"
-              ],
-              "type": "object"
-            },
-            {
-              "properties": {
-                "before_workspace_id": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "type": {
-                  "const": "workspace_reordered",
-                  "type": "string"
-                },
-                "workspace_ids": {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                "workspaces": {
-                  "items": {
-                    "$ref": "#/schemas/event/$defs/WorkspaceInfo"
-                  },
-                  "type": "array"
-                }
-              },
-              "required": [
-                "type",
-                "workspace_ids",
                 "workspaces"
               ],
               "type": "object"
@@ -723,39 +698,88 @@
                 "layout"
               ],
               "type": "object"
+            },
+            {
+              "description": "Fired when a Pi session JSONL stops growing. Payload mirrors what\nchef-pi-eval ingests.",
+              "properties": {
+                "cwd": {
+                  "type": "string"
+                },
+                "event_count": {
+                  "format": "uint64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "last_stop_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "session_file": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "type": {
+                  "const": "pi_session_ended",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "session_id",
+                "cwd",
+                "host",
+                "event_count",
+                "session_file"
+              ],
+              "type": "object"
             }
           ]
         },
         "EventKind": {
-          "enum": [
-            "workspace_created",
-            "workspace_updated",
-            "workspace_metadata_updated",
-            "workspace_closed",
-            "workspace_renamed",
-            "workspace_moved",
-            "workspace_reordered",
-            "workspace_focused",
-            "worktree_created",
-            "worktree_opened",
-            "worktree_removed",
-            "tab_created",
-            "tab_closed",
-            "tab_renamed",
-            "tab_moved",
-            "tab_focused",
-            "pane_created",
-            "pane_closed",
-            "pane_updated",
-            "pane_focused",
-            "pane_moved",
-            "pane_output_changed",
-            "pane_exited",
-            "pane_agent_detected",
-            "pane_agent_status_changed",
-            "layout_updated"
-          ],
-          "type": "string"
+          "oneOf": [
+            {
+              "enum": [
+                "workspace_created",
+                "workspace_updated",
+                "workspace_metadata_updated",
+                "workspace_closed",
+                "workspace_renamed",
+                "workspace_moved",
+                "workspace_focused",
+                "worktree_created",
+                "worktree_opened",
+                "worktree_removed",
+                "tab_created",
+                "tab_closed",
+                "tab_renamed",
+                "tab_moved",
+                "tab_focused",
+                "pane_created",
+                "pane_closed",
+                "pane_updated",
+                "pane_focused",
+                "pane_moved",
+                "pane_output_changed",
+                "pane_exited",
+                "pane_agent_detected",
+                "pane_agent_status_changed",
+                "layout_updated"
+              ],
+              "type": "string"
+            },
+            {
+              "const": "pi_session_ended",
+              "description": "A Pi coding-agent session JSONL has stopped growing. Emitted by the\nbuilt-in `pi_sessions` watcher (see `src/pi_sessions.rs`) so plugins can\nreact the moment a session finishes — e.g. chef-pi-eval's `ingest`.",
+              "type": "string"
+            }
+          ]
         },
         "PaneInfo": {
           "properties": {
@@ -1700,6 +1724,19 @@
           ],
           "type": "object"
         },
+        "ClipboardListParams": {
+          "description": "Params for `clipboard.list`.",
+          "properties": {
+            "limit": {
+              "default": 100,
+              "description": "Maximum number of recent entries to return. Defaults to 100 when omitted.",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
         "EmptyParams": {
           "type": "object"
         },
@@ -2121,7 +2158,9 @@
             "cursor",
             "mastracode",
             "antigravity_cli",
-            "grok"
+            "grok",
+            "command_code",
+            "freebuff"
           ],
           "type": "string"
         },
@@ -2453,12 +2492,6 @@
         },
         "PaneGraphicsClearParams": {
           "properties": {
-            "layer_id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
             "pane_id": {
               "type": "string"
             }
@@ -2472,8 +2505,7 @@
           "enum": [
             "png",
             "rgb",
-            "rgba",
-            "bgra"
+            "rgba"
           ],
           "type": "string"
         },
@@ -2523,12 +2555,6 @@
               "minimum": 0,
               "type": "integer"
             },
-            "layer_id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
             "pane_id": {
               "type": "string"
             },
@@ -2540,11 +2566,6 @@
                 "viewport_col": 0,
                 "viewport_row": 0
               }
-            },
-            "z_index": {
-              "default": 0,
-              "format": "int32",
-              "type": "integer"
             }
           },
           "required": [
@@ -2759,6 +2780,18 @@
           "properties": {
             "agent": {
               "type": "string"
+            },
+            "agent_session_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "agent_session_path": {
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "pane_id": {
               "type": "string"
@@ -3066,6 +3099,15 @@
         },
         "PaneSplitParams": {
           "properties": {
+            "command": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
             "cwd": {
               "type": [
                 "string",
@@ -3744,18 +3786,6 @@
             {
               "properties": {
                 "type": {
-                  "const": "workspace.reordered",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "type"
-              ],
-              "type": "object"
-            },
-            {
-              "properties": {
-                "type": {
                   "const": "workspace.closed",
                   "type": "string"
                 }
@@ -4046,11 +4076,33 @@
                 "type"
               ],
               "type": "object"
+            },
+            {
+              "description": "Subscribe to Pi coding-agent session-end events. Emitted by the built-in\n`pi_sessions` watcher when a session JSONL stops growing. The event\npayload (`EventData::PiSessionEnded`) carries `cwd`; subscribers filter\nclient-side, matching the other fleet-lifecycle event subscriptions\n(which take no filter fields).",
+              "properties": {
+                "type": {
+                  "const": "pi.session.ended",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "type": "object"
             }
           ]
         },
         "TabCreateParams": {
           "properties": {
+            "command": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
             "cwd": {
               "type": [
                 "string",
@@ -4145,22 +4197,17 @@
           ],
           "type": "string"
         },
-        "WorkspaceCloseParams": {
-          "properties": {
-            "close_group": {
-              "type": "boolean"
-            },
-            "workspace_id": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "workspace_id"
-          ],
-          "type": "object"
-        },
         "WorkspaceCreateParams": {
           "properties": {
+            "command": {
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
             "cwd": {
               "type": [
                 "string",
@@ -4184,26 +4231,6 @@
               ]
             }
           },
-          "type": "object"
-        },
-        "WorkspaceMoveBlockParams": {
-          "properties": {
-            "before_workspace_id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "workspace_ids": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          },
-          "required": [
-            "workspace_ids"
-          ],
           "type": "object"
         },
         "WorkspaceMoveParams": {
@@ -4286,6 +4313,22 @@
         },
         "WorkspaceTarget": {
           "properties": {
+            "workspace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "workspace_id"
+          ],
+          "type": "object"
+        },
+        "WorkspaceCloseParams": {
+          "properties": {
+            "close_group": {
+              "default": false,
+              "description": "When true, close every workspace in the same worktree group.",
+              "type": "boolean"
+            },
             "workspace_id": {
               "type": "string"
             }
@@ -4689,22 +4732,6 @@
             },
             "params": {
               "$ref": "#/schemas/request/$defs/WorkspaceMoveParams"
-            }
-          },
-          "required": [
-            "method",
-            "params"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "method": {
-              "const": "workspace.move_block",
-              "type": "string"
-            },
-            "params": {
-              "$ref": "#/schemas/request/$defs/WorkspaceMoveBlockParams"
             }
           },
           "required": [
@@ -5896,6 +5923,38 @@
             "params"
           ],
           "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "const": "clipboard.list",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/ClipboardListParams"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "const": "clipboard.clear",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/EmptyParams"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
         }
       ],
       "properties": {
@@ -6172,6 +6231,20 @@
             "launch_pending": {
               "type": "boolean"
             },
+            "manifest_source": {
+              "description": "Active screen-detection manifest source label for the detected agent\n(`bundled`, `remote:<path>`, or `override:<path>`).",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "manifest_version": {
+              "description": "Active screen-detection manifest version, when known.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "name": {
               "type": [
                 "string",
@@ -6180,6 +6253,15 @@
             },
             "pane_id": {
               "type": "string"
+            },
+            "pane_number": {
+              "description": "Stable human-facing pane number within the workspace (1, 2, ...).",
+              "format": "uint",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
             },
             "revision": {
               "format": "uint64",
@@ -6234,6 +6316,18 @@
                 "pattern": "^[A-Za-z0-9_-]{1,32}$"
               },
               "type": "object"
+            },
+            "visible_blocker": {
+              "description": "True when the latest screen detection visibly showed a blocking prompt.",
+              "type": "boolean"
+            },
+            "visible_idle": {
+              "description": "True when the latest screen detection visibly showed idle chrome.",
+              "type": "boolean"
+            },
+            "visible_working": {
+              "description": "True when the latest screen detection visibly showed working chrome.",
+              "type": "boolean"
             },
             "workspace_id": {
               "type": "string"
@@ -6319,6 +6413,13 @@
             "kind": {
               "$ref": "#/schemas/success_response/$defs/AgentSessionRefKind"
             },
+            "session_start_source": {
+              "description": "How the session started (`startup`, `resume`, `clear`, `compact`,\n`new`, or `fork`), when reported by the agent hook.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "source": {
               "type": "string"
             },
@@ -6358,6 +6459,34 @@
             "no_foreground_client"
           ],
           "type": "string"
+        },
+        "ClipboardEntry": {
+          "description": "One row returned to callers.",
+          "properties": {
+            "seq": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "source": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "timestamp": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "seq",
+            "timestamp",
+            "source",
+            "text"
+          ],
+          "type": "object"
         },
         "ConfigReloadStatus": {
           "enum": [
@@ -6488,38 +6617,6 @@
                 "type",
                 "workspace_id",
                 "insert_index",
-                "workspaces"
-              ],
-              "type": "object"
-            },
-            {
-              "properties": {
-                "before_workspace_id": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "type": {
-                  "const": "workspace_reordered",
-                  "type": "string"
-                },
-                "workspace_ids": {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                "workspaces": {
-                  "items": {
-                    "$ref": "#/schemas/success_response/$defs/WorkspaceInfo"
-                  },
-                  "type": "array"
-                }
-              },
-              "required": [
-                "type",
-                "workspace_ids",
                 "workspaces"
               ],
               "type": "object"
@@ -7011,6 +7108,47 @@
                 "layout"
               ],
               "type": "object"
+            },
+            {
+              "description": "Fired when a Pi session JSONL stops growing. Payload mirrors what\nchef-pi-eval ingests.",
+              "properties": {
+                "cwd": {
+                  "type": "string"
+                },
+                "event_count": {
+                  "format": "uint64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "last_stop_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "session_file": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "type": {
+                  "const": "pi_session_ended",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "session_id",
+                "cwd",
+                "host",
+                "event_count",
+                "session_file"
+              ],
+              "type": "object"
             }
           ]
         },
@@ -7030,35 +7168,43 @@
           "type": "object"
         },
         "EventKind": {
-          "enum": [
-            "workspace_created",
-            "workspace_updated",
-            "workspace_metadata_updated",
-            "workspace_closed",
-            "workspace_renamed",
-            "workspace_moved",
-            "workspace_reordered",
-            "workspace_focused",
-            "worktree_created",
-            "worktree_opened",
-            "worktree_removed",
-            "tab_created",
-            "tab_closed",
-            "tab_renamed",
-            "tab_moved",
-            "tab_focused",
-            "pane_created",
-            "pane_closed",
-            "pane_updated",
-            "pane_focused",
-            "pane_moved",
-            "pane_output_changed",
-            "pane_exited",
-            "pane_agent_detected",
-            "pane_agent_status_changed",
-            "layout_updated"
-          ],
-          "type": "string"
+          "oneOf": [
+            {
+              "enum": [
+                "workspace_created",
+                "workspace_updated",
+                "workspace_metadata_updated",
+                "workspace_closed",
+                "workspace_renamed",
+                "workspace_moved",
+                "workspace_focused",
+                "worktree_created",
+                "worktree_opened",
+                "worktree_removed",
+                "tab_created",
+                "tab_closed",
+                "tab_renamed",
+                "tab_moved",
+                "tab_focused",
+                "pane_created",
+                "pane_closed",
+                "pane_updated",
+                "pane_focused",
+                "pane_moved",
+                "pane_output_changed",
+                "pane_exited",
+                "pane_agent_detected",
+                "pane_agent_status_changed",
+                "layout_updated"
+              ],
+              "type": "string"
+            },
+            {
+              "const": "pi_session_ended",
+              "description": "A Pi coding-agent session JSONL has stopped growing. Emitted by the\nbuilt-in `pi_sessions` watcher (see `src/pi_sessions.rs`) so plugins can\nreact the moment a session finishes — e.g. chef-pi-eval's `ingest`.",
+              "type": "string"
+            }
+          ]
         },
         "InstalledPluginInfo": {
           "properties": {
@@ -7191,7 +7337,9 @@
             "cursor",
             "mastracode",
             "antigravity_cli",
-            "grok"
+            "grok",
+            "command_code",
+            "freebuff"
           ],
           "type": "string"
         },
@@ -9270,30 +9418,6 @@
             },
             {
               "properties": {
-                "revision": {
-                  "format": "uint64",
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "sequence": {
-                  "format": "uint64",
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "type": {
-                  "const": "pane_graphics_frame_ack",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "type",
-                "sequence",
-                "revision"
-              ],
-              "type": "object"
-            },
-            {
-              "properties": {
                 "cell_height_px": {
                   "format": "uint32",
                   "minimum": 0,
@@ -9304,59 +9428,6 @@
                   "minimum": 0,
                   "type": "integer"
                 },
-                "file_frame_damage": {
-                  "default": false,
-                  "description": "Accepts damage metadata while still consuming a complete canonical file.",
-                  "type": "boolean"
-                },
-                "file_frame_direct_max_bytes": {
-                  "format": "uint",
-                  "minimum": 0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                },
-                "file_frame_directory": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "file_frame_formats": {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                "file_frame_max_bytes": {
-                  "format": "uint",
-                  "minimum": 0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                },
-                "file_frame_transport": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "max_layers_per_pane": {
-                  "default": 0,
-                  "format": "uint",
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "pane_visible": {
-                  "description": "True only when this pane is on the currently rendered terminal surface.",
-                  "type": "boolean"
-                },
-                "pixel_mouse": {
-                  "default": false,
-                  "type": "boolean"
-                },
                 "type": {
                   "const": "pane_graphics_info",
                   "type": "string"
@@ -9365,8 +9436,7 @@
               "required": [
                 "type",
                 "cell_width_px",
-                "cell_height_px",
-                "pane_visible"
+                "cell_height_px"
               ],
               "type": "object"
             },
@@ -9800,6 +9870,37 @@
               "properties": {
                 "type": {
                   "const": "ok",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "entries": {
+                  "items": {
+                    "$ref": "#/schemas/success_response/$defs/ClipboardEntry"
+                  },
+                  "type": "array"
+                },
+                "type": {
+                  "const": "clipboard_history",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "entries"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "type": {
+                  "const": "clipboard_cleared",
                   "type": "string"
                 }
               },

@@ -26,17 +26,12 @@ impl std::error::Error for ServerNotRunningReported {}
 /// Builds the friendly `server_not_running` ErrorResponse shown when no
 /// server is listening on the resolved API socket.
 pub(super) fn response(request_id: &str, socket_path: &Path) -> ErrorResponse {
-    let attach_command = if crate::session::explicit_session_requested() {
-        crate::session::local_attach_command()
-    } else {
-        "herdr".to_string()
-    };
     ErrorResponse {
         id: request_id.to_string(),
         error: ErrorBody {
             code: "server_not_running".into(),
             message: format!(
-                "no herdr server is running at {}; run `{attach_command}` to start or attach it",
+                "no herdr server is running at {}; run `herdr` to start one",
                 socket_path.display()
             ),
         },
