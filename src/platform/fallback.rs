@@ -3,6 +3,7 @@ use std::process::Command;
 
 use super::{ClipboardImage, ForegroundJob, Signal};
 
+#[cfg(not(unix))]
 pub(crate) fn process_info_shows_shell_initialization(_process_info: &serde_json::Value) -> bool {
     false
 }

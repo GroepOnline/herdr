@@ -207,8 +207,6 @@ pub use windows::*;
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 mod fallback;
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
-pub(crate) use fallback::process_info_shows_shell_initialization;
-#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 pub use fallback::*;
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
