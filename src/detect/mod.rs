@@ -61,16 +61,17 @@ pub enum Agent {
     Hermes,
     Kilo,
     Qodercli,
+    Maki,
     Freebuff,
     Junie,
     OpenClaude,
     Qwen,
-    Maki,
     CommandCode,
+    Muse,
 }
 
 impl Agent {
-    pub const ALL: [Self; 26] = [
+    pub const ALL: [Self; 27] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -91,15 +92,16 @@ impl Agent {
         Self::Hermes,
         Self::Kilo,
         Self::Qodercli,
+        Self::Maki,
         Self::Freebuff,
         Self::Junie,
         Self::OpenClaude,
         Self::Qwen,
-        Self::Maki,
         Self::CommandCode,
+        Self::Muse,
     ];
 
-    pub const SCREEN_MANIFEST_AGENTS: [Self; 24] = [
+    pub const SCREEN_MANIFEST_AGENTS: [Self; 25] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -118,12 +120,13 @@ impl Agent {
         Self::Hermes,
         Self::Kilo,
         Self::Qodercli,
+        Self::Maki,
         Self::Freebuff,
         Self::Junie,
         Self::OpenClaude,
         Self::Qwen,
-        Self::Maki,
         Self::CommandCode,
+        Self::Muse,
     ];
 }
 
@@ -149,12 +152,13 @@ pub fn agent_label(agent: Agent) -> &'static str {
         Agent::Hermes => "hermes",
         Agent::Kilo => "kilo",
         Agent::Qodercli => "qodercli",
+        Agent::Maki => "maki",
         Agent::Freebuff => "freebuff",
         Agent::Junie => "junie",
         Agent::OpenClaude => "openclaude",
         Agent::Qwen => "qwen",
-        Agent::Maki => "maki",
         Agent::CommandCode => "commandcode",
+        Agent::Muse => "muse",
     }
 }
 
@@ -186,12 +190,13 @@ pub fn interactive_agent_executable(agent: Agent) -> &'static str {
         Agent::Hermes => "hermes",
         Agent::Kilo => "kilo",
         Agent::Qodercli => "qodercli",
+        Agent::Maki => "maki",
         Agent::Freebuff => "freebuff",
         Agent::Junie => "junie",
         Agent::OpenClaude => "openclaude",
         Agent::Qwen => "qwen",
-        Agent::Maki => "maki",
-        Agent::CommandCode => "cmd",
+        Agent::CommandCode => "command-code",
+        Agent::Muse => "muse",
     }
 }
 
@@ -206,6 +211,7 @@ pub(crate) fn parse_canonical_agent_label(label: &str) -> Option<Agent> {
 }
 
 fn lookup_agent(name: &str) -> Option<Agent> {
+    let name = path_basename(name);
     match name {
         "pi" => Some(Agent::Pi),
         "claude" | "claude-code" => Some(Agent::Claude),
@@ -227,14 +233,29 @@ fn lookup_agent(name: &str) -> Option<Agent> {
         "hermes" | "hermes-agent" => Some(Agent::Hermes),
         "kilo" | "kilo-code" | "kilo code" => Some(Agent::Kilo),
         "qodercli" | "qoderclicn" | "qoder" | "qodercn" => Some(Agent::Qodercli),
+        "maki" => Some(Agent::Maki),
         "freebuff" | "freebuff-cli" => Some(Agent::Freebuff),
         "junie" | "junie-cli" => Some(Agent::Junie),
         "openclaude" | "open-claude" | "openclaude-cli" => Some(Agent::OpenClaude),
         "qwen" | "qwen-code" | "qwen code" => Some(Agent::Qwen),
-        "maki" => Some(Agent::Maki),
-        "cmd" | "command-code" | "commandcode" | "commandcode-cli" => Some(Agent::CommandCode),
+        "commandcode" | "command-code" | "commandcode-cli" => Some(Agent::CommandCode),
+        "muse" | "muse-code" | "muse-cli" => Some(Agent::Muse),
+        _ if is_muse_versioned_binary(name) => Some(Agent::Muse),
         _ => None,
     }
+}
+
+/// Muse's install-dir launcher script resolves the active release and execs
+/// `muse-bin-<version>` (e.g. `muse-bin-0.1.0-R708.1`), so the running
+/// process never carries a bare `muse`/`muse-bin` alias. Require a digit
+/// immediately after the `muse-bin-` prefix so unrelated binaries such as
+/// `muse-binary` or a bare `muse-bin` stay unmatched.
+/// Accepts path-qualified `argv0` values by checking only the basename, since
+/// the launcher may `exec` with an absolute install-dir path.
+fn is_muse_versioned_binary(name: &str) -> bool {
+    path_basename(name)
+        .strip_prefix("muse-bin-")
+        .is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_digit()))
 }
 
 /// Identify which agent is running from the process name.
@@ -369,19 +390,6 @@ fn normalized_process_name(process: &crate::platform::ForegroundProcess) -> Stri
         return effective.to_string();
     }
 
-    if let Some(runtime) = process.argv.as_deref().and_then(|argv| argv.first()) {
-        let runtime_name = normalized_agent_lookup_name(path_basename(runtime));
-        if matches!(runtime_name.as_str(), "node" | "bun") {
-            if let Some(wrapped_agent) =
-                wrapped_agent_name_from_runtime_argv(runtime, process.argv.as_deref())
-            {
-                if identify_agent(&wrapped_agent) == Some(Agent::Qwen) {
-                    return wrapped_agent;
-                }
-            }
-        }
-    }
-
     if let Some(wrapped_agent) = argv0_agent_name(process.argv.as_deref())
         .or_else(|| cmdline_argv0_agent_name(process.cmdline.as_deref().unwrap_or_default()))
     {
@@ -393,11 +401,11 @@ fn normalized_process_name(process: &crate::platform::ForegroundProcess) -> Stri
 
 fn wrapped_agent_name_from_runtime_argv(runtime: &str, argv: Option<&[String]>) -> Option<String> {
     let argv = argv?;
-    let runtime = normalized_agent_lookup_name(path_basename(runtime));
+    let runtime_name = normalized_agent_lookup_name(path_basename(runtime));
 
-    match runtime.as_str() {
+    match runtime_name.as_str() {
         "node" | "bun" => script_arg_agent_name(argv, &["-e", "--eval", "-p", "--print"], &[]),
-        "python" | "python3" => script_arg_agent_name(argv, &["-c"], &["-m"]),
+        name if is_python_runtime(name) => script_arg_agent_name(argv, &["-c"], &["-m"]),
         "sh" | "bash" | "zsh" | "fish" => script_arg_agent_name(argv, &["-c"], &[]),
         "cmd" => windows_cmd_arg_agent_name(argv),
         "powershell" | "pwsh" => powershell_arg_agent_name(argv),
@@ -576,6 +584,11 @@ fn agent_name_from_known_package_path(path: &str) -> Option<String> {
         .collect();
 
     for window in components.windows(5) {
+        if window == ["node_modules", "@qwen-code", "qwen-code", "dist", "index"] {
+            return Some(agent_label(Agent::Qwen).to_string());
+        }
+    }
+    for window in components.windows(5) {
         if window
             == [
                 "node_modules",
@@ -586,9 +599,6 @@ fn agent_name_from_known_package_path(path: &str) -> Option<String> {
             ]
         {
             return Some(agent_label(Agent::Pi).to_string());
-        }
-        if window == ["node_modules", "@qwen-code", "qwen-code", "dist", "index"] {
-            return Some(agent_label(Agent::Qwen).to_string());
         }
     }
     for window in components.windows(4) {
@@ -645,20 +655,29 @@ fn process_priority(process: &crate::platform::ForegroundProcess, normalized_nam
 
 fn is_generic_runtime_or_shell(name: &str) -> bool {
     let name = normalized_agent_lookup_name(path_basename(name));
-    matches!(
-        name.as_str(),
-        "sh" | "bash"
-            | "zsh"
-            | "fish"
-            | "tmux"
-            | "node"
-            | "bun"
-            | "python"
-            | "python3"
-            | "cmd"
-            | "powershell"
-            | "pwsh"
-    )
+    is_python_runtime(&name)
+        || matches!(
+            name.as_str(),
+            "sh" | "bash"
+                | "zsh"
+                | "fish"
+                | "tmux"
+                | "node"
+                | "bun"
+                | "cmd"
+                | "powershell"
+                | "pwsh"
+        )
+}
+
+fn is_python_runtime(name: &str) -> bool {
+    name == "python"
+        || name.strip_prefix("python").is_some_and(|version| {
+            !version.is_empty()
+                && version
+                    .split('.')
+                    .all(|part| !part.is_empty() && part.chars().all(|ch| ch.is_ascii_digit()))
+        })
 }
 
 // ---------------------------------------------------------------------------
@@ -728,7 +747,6 @@ mod tests {
         assert_eq!(identify_agent("opencode.exe"), Some(Agent::OpenCode));
         assert_eq!(identify_agent("opencode2"), Some(Agent::OpenCode));
         assert_eq!(identify_agent("opencode2.exe"), Some(Agent::OpenCode));
-        assert_eq!(identify_agent("open-code-2"), Some(Agent::OpenCode));
         assert_eq!(identify_agent("kimi"), Some(Agent::Kimi));
         assert_eq!(identify_agent("Kimi Code"), Some(Agent::Kimi));
         assert_eq!(identify_agent("kiro"), Some(Agent::Kiro));
@@ -741,9 +759,17 @@ mod tests {
         assert_eq!(identify_agent("hermes-agent"), Some(Agent::Hermes));
         assert_eq!(identify_agent("kilo"), Some(Agent::Kilo));
         assert_eq!(identify_agent("kilo-code"), Some(Agent::Kilo));
-        assert_eq!(identify_agent("qwen"), Some(Agent::Qwen));
-        assert_eq!(identify_agent("Qwen Code"), Some(Agent::Qwen));
         assert_eq!(identify_agent("maki"), Some(Agent::Maki));
+        assert_eq!(identify_agent("freebuff-cli"), Some(Agent::Freebuff));
+        assert_eq!(identify_agent("junie-cli"), Some(Agent::Junie));
+        assert_eq!(identify_agent("openclaude-cli"), Some(Agent::OpenClaude));
+        assert_eq!(identify_agent("qwen code"), Some(Agent::Qwen));
+        assert_eq!(identify_agent("commandcode-cli"), Some(Agent::CommandCode));
+        assert_eq!(identify_agent("muse"), Some(Agent::Muse));
+        assert_eq!(identify_agent("muse-code"), Some(Agent::Muse));
+        assert_eq!(identify_agent("muse-cli"), Some(Agent::Muse));
+        assert_eq!(identify_agent("muse-bin-0.1.0-R708.1"), Some(Agent::Muse));
+        assert_eq!(identify_agent("muse-bin-1.2.3"), Some(Agent::Muse));
     }
 
     #[test]
@@ -768,7 +794,6 @@ mod tests {
         assert_eq!(parse_agent_label("kiro-cli"), Some(Agent::Kiro));
         assert_eq!(parse_agent_label("grok-build"), Some(Agent::Grok));
         assert_eq!(parse_agent_label("hermes-agent"), Some(Agent::Hermes));
-        assert_eq!(parse_agent_label("qwen-code"), Some(Agent::Qwen));
         assert_eq!(parse_agent_label("maki"), Some(Agent::Maki));
         assert_eq!(parse_agent_label("kilo-code"), Some(Agent::Kilo));
     }
@@ -816,8 +841,9 @@ mod tests {
             (Agent::Junie, "junie"),
             (Agent::OpenClaude, "openclaude"),
             (Agent::Qwen, "qwen"),
+            (Agent::CommandCode, "command-code"),
             (Agent::Maki, "maki"),
-            (Agent::CommandCode, "cmd"),
+            (Agent::Muse, "muse"),
         ];
         assert_eq!(expected.len(), Agent::ALL.len());
         for (agent, executable) in expected {
@@ -843,12 +869,19 @@ mod tests {
     }
 
     #[test]
-
     fn identify_unknown_processes() {
         assert_eq!(identify_agent("bash"), None);
         assert_eq!(identify_agent("zsh"), None);
         assert_eq!(identify_agent("vim"), None);
         assert_eq!(identify_agent("node"), None);
+        assert_eq!(identify_agent("museum"), None);
+        assert_eq!(identify_agent("muse-helper"), None);
+        assert_eq!(identify_agent("muser"), None);
+        assert_eq!(identify_agent("musescore"), None);
+        assert_eq!(identify_agent("muse-bin"), None);
+        assert_eq!(identify_agent("muse-bin-"), None);
+        assert_eq!(identify_agent("muse-binary"), None);
+        assert_eq!(identify_agent("cmd"), None);
     }
 
     #[test]
@@ -873,27 +906,6 @@ mod tests {
             identify_agent_in_job(&job),
             Some((Agent::Codex, "codex".to_string()))
         );
-    }
-
-    #[test]
-    fn identify_agent_in_job_detects_node_wrapped_qwen() {
-        for argv in [
-            vec!["node", "/home/user/.fnm/bin/qwen"],
-            vec![
-                "node.exe",
-                r"C:\Users\user\AppData\Roaming\npm\node_modules\@qwen-code\qwen-code\dist\index.js",
-            ],
-        ] {
-            let job = crate::platform::ForegroundJob {
-                process_group_id: 123,
-                processes: vec![foreground_process(123, "MainThread", &argv)],
-            };
-
-            assert_eq!(
-                identify_agent_in_job(&job),
-                Some((Agent::Qwen, "qwen".to_string()))
-            );
-        }
     }
 
     #[test]
@@ -925,6 +937,28 @@ mod tests {
         assert_eq!(
             identify_agent_in_job(&job),
             Some((Agent::Codex, "codex".to_string()))
+        );
+    }
+
+    #[test]
+    fn identify_agent_in_job_detects_python_version_wrapped_hermes() {
+        let job = crate::platform::ForegroundJob {
+            process_group_id: 123,
+            processes: vec![foreground_process(
+                123,
+                "python3.12",
+                &[
+                    "/nix/store/example/bin/python3.12",
+                    "/nix/store/example/bin/hermes",
+                    "--resume",
+                    "session-id",
+                ],
+            )],
+        };
+
+        assert_eq!(
+            identify_agent_in_job(&job),
+            Some((Agent::Hermes, "hermes".to_string()))
         );
     }
 
@@ -1121,6 +1155,23 @@ mod tests {
     }
 
     #[test]
+    fn identify_agent_in_job_detects_opencode2_as_opencode() {
+        let job = crate::platform::ForegroundJob {
+            process_group_id: 123,
+            processes: vec![foreground_process(
+                123,
+                "opencode2",
+                &["opencode2", "--standalone"],
+            )],
+        };
+
+        assert_eq!(
+            identify_agent_in_job(&job),
+            Some((Agent::OpenCode, "opencode2".to_string()))
+        );
+    }
+
+    #[test]
     fn identify_agent_in_job_detects_opencode_exe_from_pnpm_package() {
         let job = crate::platform::ForegroundJob {
             process_group_id: 123,
@@ -1151,23 +1202,6 @@ mod tests {
         assert_eq!(
             identify_agent_in_job(&job),
             Some((Agent::OpenCode, "opencode".to_string()))
-        );
-    }
-
-    #[test]
-    fn identify_agent_in_job_detects_opencode2_as_opencode() {
-        let job = crate::platform::ForegroundJob {
-            process_group_id: 123,
-            processes: vec![foreground_process(
-                123,
-                "opencode2",
-                &["opencode2", "--standalone"],
-            )],
-        };
-
-        assert_eq!(
-            identify_agent_in_job(&job),
-            Some((Agent::OpenCode, "opencode2".to_string()))
         );
     }
 

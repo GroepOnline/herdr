@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- Muse agent with generic Pick blocked detection. (upstream #2489)
+
 ### Fixed
 - Wayland clipboard copies no longer freeze Herdr while `wl-copy` remains alive to serve the selection. (upstream #3014)
 - The Pi integration now preserves short blocked transitions while an earlier lifecycle report is still in flight. (upstream #2971)
