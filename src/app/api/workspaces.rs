@@ -52,7 +52,12 @@ impl App {
             Ok(env) => env,
             Err((code, message)) => return encode_error(id, &code, message),
         };
-        match self.create_workspace_with_launch_env(cwd, params.focus, extra_env) {
+        let create_result = match params.command.as_deref() {
+            Some(command) if !command.is_empty() => self
+                .create_workspace_argv_command_with_launch_env(cwd, params.focus, extra_env, command),
+            _ => self.create_workspace_with_launch_env(cwd, params.focus, extra_env),
+        };
+        match create_result {
             Ok(index) => {
                 if let Some(label) = params.label {
                     if let Some(workspace) = self.state.workspaces.get_mut(index) {
