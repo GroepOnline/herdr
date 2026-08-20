@@ -2741,7 +2741,7 @@ mod tests {
             if value <= 0.04045 {
                 value / 12.92
             } else {
-                ((value + 0.055) / 1.055).powi(2)
+                ((value + 0.055) / 1.055).powf(2.4)
             }
         };
         0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
