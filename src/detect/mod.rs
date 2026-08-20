@@ -234,11 +234,11 @@ fn lookup_agent(name: &str) -> Option<Agent> {
         "kilo" | "kilo-code" | "kilo code" => Some(Agent::Kilo),
         "qodercli" | "qoderclicn" | "qoder" | "qodercn" => Some(Agent::Qodercli),
         "maki" => Some(Agent::Maki),
-        "freebuff" => Some(Agent::Freebuff),
-        "junie" => Some(Agent::Junie),
-        "openclaude" | "open-claude" => Some(Agent::OpenClaude),
-        "qwen" | "qwen-code" => Some(Agent::Qwen),
-        "commandcode" | "command-code" => Some(Agent::CommandCode),
+        "freebuff" | "freebuff-cli" => Some(Agent::Freebuff),
+        "junie" | "junie-cli" => Some(Agent::Junie),
+        "openclaude" | "open-claude" | "openclaude-cli" => Some(Agent::OpenClaude),
+        "qwen" | "qwen-code" | "qwen code" => Some(Agent::Qwen),
+        "commandcode" | "command-code" | "commandcode-cli" => Some(Agent::CommandCode),
         "muse" | "muse-code" | "muse-cli" => Some(Agent::Muse),
         _ if is_muse_versioned_binary(name) => Some(Agent::Muse),
         _ => None,
@@ -760,6 +760,11 @@ mod tests {
         assert_eq!(identify_agent("kilo"), Some(Agent::Kilo));
         assert_eq!(identify_agent("kilo-code"), Some(Agent::Kilo));
         assert_eq!(identify_agent("maki"), Some(Agent::Maki));
+        assert_eq!(identify_agent("freebuff-cli"), Some(Agent::Freebuff));
+        assert_eq!(identify_agent("junie-cli"), Some(Agent::Junie));
+        assert_eq!(identify_agent("openclaude-cli"), Some(Agent::OpenClaude));
+        assert_eq!(identify_agent("qwen code"), Some(Agent::Qwen));
+        assert_eq!(identify_agent("commandcode-cli"), Some(Agent::CommandCode));
         assert_eq!(identify_agent("muse"), Some(Agent::Muse));
         assert_eq!(identify_agent("muse-code"), Some(Agent::Muse));
         assert_eq!(identify_agent("muse-cli"), Some(Agent::Muse));
@@ -876,6 +881,7 @@ mod tests {
         assert_eq!(identify_agent("muse-bin"), None);
         assert_eq!(identify_agent("muse-bin-"), None);
         assert_eq!(identify_agent("muse-binary"), None);
+        assert_eq!(identify_agent("cmd"), None);
     }
 
     #[test]
