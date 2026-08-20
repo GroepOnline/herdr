@@ -206,10 +206,10 @@ pub use windows::*;
 
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 mod fallback;
-#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
-pub use fallback::*;
 #[cfg(not(unix))]
 pub(crate) use fallback::process_info_shows_shell_initialization;
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+pub use fallback::*;
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(crate) fn available_pane_shell_from_job(child_pid: u32, job: ForegroundJob) -> Option<String> {

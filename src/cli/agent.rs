@@ -626,7 +626,9 @@ fn pane_shell_is_initializing(pane_id: &str) -> std::io::Result<bool> {
             pane_id: Some(pane_id.to_owned()),
         }),
     })?;
-    Ok(crate::platform::process_info_shows_shell_initialization(&response["result"]["process_info"]))
+    Ok(crate::platform::process_info_shows_shell_initialization(
+        &response["result"]["process_info"],
+    ))
 }
 
 #[cfg(unix)]
