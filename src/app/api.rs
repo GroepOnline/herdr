@@ -183,6 +183,20 @@ impl App {
             return;
         }
 
+        if let AppEvent::TabBarCommandFinished {
+            generation,
+            segment_index,
+            result,
+        } = ev
+        {
+            let changed = self.handle_tab_bar_command_finished(generation, segment_index, result);
+            if changed {
+                self.render_dirty.store(true, Ordering::Release);
+                self.render_notify.notify_one();
+            }
+            return;
+        }
+
         if let AppEvent::PluginCommandFinished {
             log_id,
             finished_unix_ms,

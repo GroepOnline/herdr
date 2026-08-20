@@ -750,6 +750,7 @@ impl App {
             self.session_save_deadline,
             self.selection_autoscroll_deadline,
             self.selection_highlight_clear_deadline,
+            self.next_tab_bar_status_deadline(),
             render_deadline,
         ]
         .into_iter()

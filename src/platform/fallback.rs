@@ -192,3 +192,30 @@ pub fn read_clipboard_image() -> Option<ClipboardImage> {
 pub fn show_desktop_notification(_title: &str, _body: Option<&str>) -> std::io::Result<bool> {
     Ok(false)
 }
+
+/// Unsupported platform stub: tab bar status features need platform APIs.
+pub(crate) fn hostname() -> Option<String> {
+    None
+}
+
+/// Unsupported platform stub.
+pub(crate) fn local_datetime() -> Option<time::PrimitiveDateTime> {
+    None
+}
+
+/// Unsupported platform stub: status commands are not available here.
+pub(crate) fn status_commands_supported() -> bool {
+    false
+}
+
+/// Unsupported platform stub.
+pub(crate) fn configure_status_command(_process: &mut std::process::Command) {}
+
+/// Unsupported platform stub: no process-group cleanup needed.
+pub(crate) struct StatusCommandGuard;
+
+impl StatusCommandGuard {
+    pub(crate) fn new(_child: &tokio::process::Child) -> std::io::Result<Self> {
+        Ok(Self)
+    }
+}

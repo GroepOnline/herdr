@@ -1731,7 +1731,7 @@ impl AppState {
     }
 
     pub(crate) fn refresh_tab_bar_view(&mut self) {
-        let area = self.view.tab_bar_rect;
+        let area = crate::ui::tab_bar_content_area(self, self.view.tab_bar_rect);
         let Some(ws) = self.active.and_then(|idx| self.workspaces.get(idx)) else {
             self.tab_scroll = 0;
             self.view.tab_hit_areas.clear();
@@ -2956,6 +2956,7 @@ impl AppState {
             AppEvent::WorkspaceAutoNameResolved { .. } => Vec::new(),
             AppEvent::WorktreeAddFinished(_) => Vec::new(),
             AppEvent::WorktreeRemoveFinished(_) => Vec::new(),
+            AppEvent::TabBarCommandFinished { .. } => Vec::new(),
             AppEvent::PluginCommandFinished { .. } => Vec::new(),
             AppEvent::PluginInstallFinished { .. } => Vec::new(),
             AppEvent::GithubStatusRefreshed { results } => {
