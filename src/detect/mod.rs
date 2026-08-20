@@ -343,16 +343,10 @@ pub(crate) fn full_lifecycle_hook_authority(source: &str, agent_label: &str) -> 
         ("herdr:pi", "pi")
             | ("herdr:omp", "omp")
             | ("herdr:mastracode", "mastracode")
+            | ("herdr:hermes", "hermes")
             | ("herdr:opencode", "opencode")
             | ("herdr:kilo", "kilo")
             | ("herdr:kimi", "kimi")
-    )
-}
-
-pub(crate) fn session_identity_only_integration(source: &str, agent_label: &str) -> bool {
-    matches!(
-        (source, agent_label),
-        ("herdr:hermes", "hermes") | ("herdr:antigravity_cli", "agy")
     )
 }
 
@@ -862,18 +856,6 @@ mod tests {
             "mastracode"
         ));
         assert!(!Agent::SCREEN_MANIFEST_AGENTS.contains(&Agent::Mastracode));
-    }
-
-    #[test]
-    fn session_identity_integrations_leave_state_to_screen_detection() {
-        for (source, label, agent) in [
-            ("herdr:hermes", "hermes", Agent::Hermes),
-            ("herdr:antigravity_cli", "agy", Agent::Antigravity),
-        ] {
-            assert!(!full_lifecycle_hook_authority(source, label));
-            assert!(session_identity_only_integration(source, label));
-            assert!(Agent::SCREEN_MANIFEST_AGENTS.contains(&agent));
-        }
     }
 
     #[test]
