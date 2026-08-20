@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 /// Current protocol version. Bumped when wire format changes incompatibly.
-pub const PROTOCOL_VERSION: u32 = 21;
+pub const PROTOCOL_VERSION: u32 = 19;
 
 /// Maximum allowed frame payload size (2 MB). Frames larger than this are
 /// rejected to prevent denial-of-service via oversized length prefixes.
@@ -359,6 +359,17 @@ pub enum ClientMessage {
         keybindings: ClientKeybindings,
         /// Whether this connection will render the full app or attach directly to a pane terminal.
         launch_mode: ClientLaunchMode,
+        /// Whether this client can query and parse palette reports from its physical host terminal.
+        host_palette_queries: bool,
+    },
+
+    /// Correlated response to a host palette query issued by the server.
+    HostPaletteResponse {
+        request_id: u64,
+        index: u8,
+        r: u8,
+        g: u8,
+        b: u8,
     },
 
     /// Raw input bytes read from the client's stdin.
@@ -696,6 +707,18 @@ pub enum ServerMessage {
         message: String,
         /// Optional human-readable notification body.
         body: Option<String>,
+    },
+
+    /// Request a palette color from the client's host terminal.
+    HostPaletteQuery { request_id: u64, index: u8 },
+
+    /// Correlated response to a host palette query issued by the server.
+    HostPaletteResponse {
+        request_id: u64,
+        index: u8,
+        r: u8,
+        g: u8,
+        b: u8,
     },
 
     /// OSC 52 clipboard data forwarded from a PTY through the server.

@@ -1824,7 +1824,7 @@ async fn run_client_loop(
                         &mut state.remote_image_paste_key,
                     );
                 }
-                ServerMessage::MouseCapture { enabled } => {
+                ServerMessage::MouseCapture { enabled, sgr_pixels: _ } => {
                     let desired = enabled;
                     if desired != state.mouse_capture_active {
                         set_mouse_capture(desired).map_err(ClientError::ConnectionFailed)?;
@@ -1858,7 +1858,11 @@ async fn run_client_loop(
                     #[cfg(windows)]
                     let _ = (request_id, index);
                 }
-                ServerMessage::Welcome { .. } => {
+                ServerMessage::KittyKeyboardReportAll { .. }
+                  | ServerMessage::TerminalBell { .. }
+                  | ServerMessage::GraphicsFile { .. }
+                  | ServerMessage::GraphicsTransmissionRetired { .. }
+                  | ServerMessage::Welcome { .. } => {
                     debug!("received unexpected Welcome in main loop");
                 }
             },
