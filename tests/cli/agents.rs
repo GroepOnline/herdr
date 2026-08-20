@@ -1,3 +1,5 @@
+#![cfg(unix)]
+
 use super::harness::*;
 
 fn write_delayed_shell_and_fake_pi(
