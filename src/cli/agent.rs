@@ -378,7 +378,7 @@ fn agent_start(args: &[String]) -> std::io::Result<i32> {
         }
 
         let deadline = *retry_deadline
-            .get_or_insert_with(|| Instant::now() + PANE_SHELL_READINESS_RETRY_TIMEOUT);
+            .get_or_insert_with(|| Instant::now().checked_add(PANE_SHELL_READINESS_RETRY_TIMEOUT));
         previous_busy_response = Some(response);
         let remaining = deadline.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
@@ -626,9 +626,7 @@ fn pane_shell_is_initializing(pane_id: &str) -> std::io::Result<bool> {
             pane_id: Some(pane_id.to_owned()),
         }),
     })?;
-    Ok(process_info_shows_shell_initialization(
-        &response["result"]["process_info"],
-    ))
+    Ok(crate::platform::process_info_shows_shell_initialization(&response["result"]["process_info"]))
 }
 
 #[cfg(unix)]

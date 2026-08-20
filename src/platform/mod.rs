@@ -186,6 +186,8 @@ pub(crate) struct RemoteSshConfigPaths {
 
 #[cfg(unix)]
 mod unix_common;
+#[cfg(unix)]
+pub(crate) use unix_common::process_info_shows_shell_initialization;
 
 #[cfg(target_os = "linux")]
 mod linux;
@@ -206,6 +208,8 @@ pub use windows::*;
 mod fallback;
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 pub use fallback::*;
+#[cfg(not(unix))]
+pub(crate) use fallback::process_info_shows_shell_initialization;
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(crate) fn available_pane_shell_from_job(child_pid: u32, job: ForegroundJob) -> Option<String> {
