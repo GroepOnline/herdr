@@ -85,6 +85,9 @@ impl Config {
             .chain(keybind_diags)
             .chain(self.remote_image_paste_key().err())
             .chain(self.ui.sound.diagnostics())
+            .chain(crate::config::tab_bar::tab_bar_right_diagnostics(
+                &self.ui.tab_bar_right,
+            ))
             .chain(self.invalid_sidebar_bounds_diagnostic())
             .chain(self.invalid_headless_size_diagnostic())
             .collect()
