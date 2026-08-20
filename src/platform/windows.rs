@@ -28,14 +28,15 @@ use windows_sys::{
             Diagnostics::{
                 Debug::ReadProcessMemory,
                 ToolHelp::{
-                    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, Thread32First,
-                    Thread32Next, PROCESSENTRY32W, TH32CS_SNAPPROCESS, TH32CS_SNAPTHREAD,
-                    THREADENTRY32,
+                    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+                    TH32CS_SNAPPROCESS, TH32CS_SNAPTHREAD, THREADENTRY32, Thread32First,
+                    Thread32Next,
                 },
             },
             JobObjects::{
                 AssignProcessToJobObject, CreateJobObjectW, IsProcessInJob,
-                JobObjectExtendedLimitInformation, SetInformationJobObject,
+                JobObjectExtendedLimitInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+                SetInformationJobObject,
             },
             Memory::{GlobalAlloc, GlobalLock, GlobalSize, GlobalUnlock, GMEM_MOVEABLE},
             Ole::{CF_DIB, CF_DIBV5, CF_UNICODETEXT},
