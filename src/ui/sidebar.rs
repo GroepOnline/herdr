@@ -806,7 +806,7 @@ pub(super) fn render_sidebar_collapsed(app: &AppState, frame: &mut Frame, area: 
         let divider_color = if app.agent_view_override.is_some() {
             p.accent
         } else {
-            p.active_row_bg
+            p.surface_dim
         };
         for x in ws_area.x..ws_area.x + ws_area.width {
             buf[(x, divider_y)].set_symbol("─");
@@ -1166,7 +1166,7 @@ fn render_workspace_list(
             } else if is_dragged {
                 p.surface1
             } else {
-                p.surface_dim
+                p.active_row_bg
             };
             let buf = frame.buffer_mut();
             for y in row_y..row_y + row_height {
