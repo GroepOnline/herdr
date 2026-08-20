@@ -1415,11 +1415,13 @@ mod tests {
 
     #[test]
     fn windows_shell_is_not_reported_as_initializing() {
-        assert!(!super::process_info_shows_shell_initialization(&serde_json::json!({
-            "shell_pid": 42,
-            "foreground_process_group_id": 42,
-            "foreground_processes": [{"pid": 42, "name": "powershell.exe"}]
-        })));
+        assert!(!super::process_info_shows_shell_initialization(
+            &serde_json::json!({
+                "shell_pid": 42,
+                "foreground_process_group_id": 42,
+                "foreground_processes": [{"pid": 42, "name": "powershell.exe"}]
+            })
+        ));
     }
 
     #[test]

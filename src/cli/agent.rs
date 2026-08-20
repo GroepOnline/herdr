@@ -378,9 +378,8 @@ fn agent_start(args: &[String]) -> std::io::Result<i32> {
             return super::print_response(&response);
         }
 
-        let deadline = *retry_deadline.get_or_insert_with(|| {
-            Instant::now() + PANE_SHELL_READINESS_RETRY_TIMEOUT
-        });
+        let deadline = *retry_deadline
+            .get_or_insert_with(|| Instant::now() + PANE_SHELL_READINESS_RETRY_TIMEOUT);
         previous_busy_response = Some(response);
         let remaining = deadline.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
@@ -946,20 +945,12 @@ mod tests {
 
     #[test]
     fn should_abort_retry_when_terminal_changes() {
-        assert!(should_abort_agent_start_retry(
-            false,
-            false,
-            true,
-        ));
+        assert!(should_abort_agent_start_retry(false, false, true,));
     }
 
     #[test]
     fn should_abort_retry_when_shell_is_ready() {
-        assert!(should_abort_agent_start_retry(
-            false,
-            true,
-            false,
-        ));
+        assert!(should_abort_agent_start_retry(false, true, false,));
     }
 
     #[test]
