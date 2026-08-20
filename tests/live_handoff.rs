@@ -1751,8 +1751,7 @@ fn live_handoff_import_failure_rolls_back_old_server_at(failure_point: &str) {
             "params": {"pane_id": pane_id, "text": command, "keys": ["Enter"]}
         }),
     ));
-    support::wait_for_file(&marker, Duration::from_secs(5));
-    let pid_text = fs::read_to_string(&marker).unwrap();
+    let pid_text = wait_for_file_contains(&marker, "READY", Duration::from_secs(5));
     let child_pid: u32 = pid_text.split_whitespace().last().unwrap().parse().unwrap();
 
     let failed = request(
