@@ -77,18 +77,6 @@
           "description": "Set the desktop sidebar background without changing other panel surfaces. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
         },
         {
-          "key": "theme.custom.active_row_bg",
-          "type": "color",
-          "default": "unset",
-          "description": "Set the active Space and focused Agent row background without affecting separators or scrollbar tracks. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
-        },
-        {
-          "key": "theme.custom.selection_bg",
-          "type": "color",
-          "default": "unset",
-          "description": "Set the Navigate-mode cursor row background in the sidebar without changing other selection surfaces. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
-        },
-        {
           "key": "theme.custom.surface0",
           "type": "color",
           "default": "unset",
@@ -760,25 +748,6 @@
           ]
         },
         {
-          "key": "ui.tab_bar_right",
-          "type": "array",
-          "default": "[]",
-          "description": "Right-side tab bar status entries. Each entry is a table with type = \"zoom\" | \"hostname\" | \"datetime\" | \"text\" | \"command\". Default: empty. Datetime entries use type = \"datetime\" with format = \"%H:%M\" (strftime, rejects %z/%s/%Z). Text entries use type = \"text\" with text = \"string\". Command entries use type = \"command\" with command = \"string\", interval_seconds (1..31536000, default 5) and timeout_seconds (1..3600, default 2).",
-          "values": [
-            "zoom",
-            "hostname",
-            "datetime",
-            "text",
-            "command"
-          ]
-        },
-        {
-          "key": "ui.tab_bar_right_separator",
-          "type": "string",
-          "default": "\" \"",
-          "description": "Text inserted between visible right-side tab bar entries. Default: one space."
-        },
-        {
           "key": "ui.agent_panel_sort",
           "type": "enum",
           "default": "\"spaces\"",
@@ -832,7 +801,7 @@
           "key": "ui.sidebar_section_split",
           "type": "number",
           "default": "0.5",
-          "description": "Ratio of sidebar height allocated to workspaces in the expanded sidebar. Values are clamped to 0.1\u20130.9."
+          "description": "Ratio of sidebar height allocated to workspaces in the expanded sidebar. Values are clamped to 0.1–0.9."
         },
         {
           "key": "ui.accent",

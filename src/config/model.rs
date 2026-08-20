@@ -5,8 +5,8 @@ use serde::{de, Deserialize, Deserializer, Serialize};
 
 use super::{
     ActionKeybinds, BindingConfig, CommandKeybindConfig, IndexedKeybind, Keybinds, SidebarConfig,
-    SoundConfig, TabBarRightEntryConfig, ThemeConfig, DEFAULT_MOBILE_WIDTH_THRESHOLD,
-    DEFAULT_MOUSE_SCROLL_LINES, DEFAULT_SCROLLBACK_LIMIT_BYTES,
+    SoundConfig, ThemeConfig, DEFAULT_MOBILE_WIDTH_THRESHOLD, DEFAULT_MOUSE_SCROLL_LINES,
+    DEFAULT_SCROLLBACK_LIMIT_BYTES,
 };
 
 pub const MAX_TOAST_DELAY_SECONDS: u64 = 3600;
@@ -1550,10 +1550,6 @@ pub struct UiConfig {
     pub hide_tab_bar_when_single_tab: bool,
     /// Desktop tab row placement. Default: top.
     pub tab_bar_position: TabBarPositionConfig,
-    /// Right-side tab bar status entries. Default: empty.
-    pub tab_bar_right: Vec<TabBarRightEntryConfig>,
-    /// Text inserted between visible right-side tab bar entries. Default: one space.
-    pub tab_bar_right_separator: String,
     /// Agent sidebar ordering. Saved values are "spaces" or "priority". Default: "spaces".
     pub agent_panel_sort: AgentPanelSortConfig,
     /// Agent working spinner animation style. Default: "braille".
@@ -1780,8 +1776,6 @@ impl Default for UiConfig {
             fleet_ops_bar: true,
             hide_tab_bar_when_single_tab: false,
             tab_bar_position: TabBarPositionConfig::Top,
-            tab_bar_right: Vec::new(),
-            tab_bar_right_separator: " ".into(),
             agent_panel_sort: AgentPanelSortConfig::Spaces,
             spinner_style: SpinnerStyle::Dots,
             status_indicators: StatusIndicatorStyle::Dots,
@@ -2099,52 +2093,6 @@ tab_bar_position = "bottom"
         assert!(config.ui.show_agent_labels_on_pane_borders);
         assert!(config.ui.hide_tab_bar_when_single_tab);
         assert_eq!(config.ui.tab_bar_position, TabBarPositionConfig::Bottom);
-    }
-
-    #[test]
-    fn tab_bar_right_defaults_and_parse() {
-        let default_config = Config::default();
-        assert!(default_config.ui.tab_bar_right.is_empty());
-        assert_eq!(default_config.ui.tab_bar_right_separator, " ");
-
-        let toml = r#"
-[ui]
-tab_bar_right = [
-  { type = "zoom" },
-  { type = "hostname" },
-  { type = "datetime", format = "%H:%M" },
-  { type = "text", text = "prod" },
-  { type = "command", command = "status.sh", interval_seconds = 5, timeout_seconds = 2 },
-]
-tab_bar_right_separator = " · "
-"#;
-        let config: Config = toml::from_str(toml).unwrap();
-        assert_eq!(config.ui.tab_bar_right.len(), 5);
-        assert!(matches!(
-            &config.ui.tab_bar_right[0],
-            TabBarRightEntryConfig::Zoom
-        ));
-        assert!(matches!(
-            &config.ui.tab_bar_right[1],
-            TabBarRightEntryConfig::Hostname
-        ));
-        assert!(matches!(
-            &config.ui.tab_bar_right[2],
-            TabBarRightEntryConfig::Datetime { format } if format == "%H:%M"
-        ));
-        assert!(matches!(
-            &config.ui.tab_bar_right[3],
-            TabBarRightEntryConfig::Text { text } if text == "prod"
-        ));
-        assert!(matches!(
-            &config.ui.tab_bar_right[4],
-            TabBarRightEntryConfig::Command {
-                command,
-                interval_seconds: 5,
-                timeout_seconds: 2,
-            } if command == "status.sh"
-        ));
-        assert_eq!(config.ui.tab_bar_right_separator, " · ");
     }
 
     #[test]
