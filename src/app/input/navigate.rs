@@ -464,7 +464,19 @@ impl App {
 
     pub(crate) fn close_workspace_idx_via_api(&mut self, ws_idx: usize) {
         let workspace_id = self.public_workspace_id(ws_idx);
-        self.runtime_workspace_close("tui.workspace.close", workspace_id);
+        let previous_toast = self.state.toast.clone();
+        let response = self.runtime_workspace_close("tui.workspace.close", workspace_id);
+        if let Some(message) = super::super::worktrees::immediate_api_error_message(Some(&response))
+        {
+            self.state.toast = Some(crate::app::state::ToastNotification {
+                kind: crate::app::state::ToastKind::NeedsAttention,
+                title: "workspace close failed".to_string(),
+                context: message,
+                position: None,
+                target: None,
+            });
+            self.sync_toast_deadline(previous_toast);
+        }
     }
 
     pub(crate) fn close_workspace_idx_with_group_via_api(&mut self, ws_idx: usize) {
@@ -3393,6 +3405,13 @@ navigate_pane_down = "ctrl+j"
         assert_eq!(app.state.workspaces.len(), 2);
         assert_eq!(app.state.mode, Mode::Navigate);
         assert_eq!(app.event_hub.events_after(0).len(), 0);
+        let toast = app
+            .state
+            .toast
+            .as_ref()
+            .expect("group close rejection should surface a toast");
+        assert_eq!(toast.title, "workspace close failed");
+        assert!(toast.context.contains("close_group"));
     }
 
     #[test]

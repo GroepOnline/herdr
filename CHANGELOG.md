@@ -1,10 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Fixed
-- `workspace close` now rejects implicit worktree-group closure and supports explicit group closure with `--group`. (upstream #2874)
-
 ## [0.8.6] - 2026-08-19
 
 ### Added

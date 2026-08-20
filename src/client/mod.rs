@@ -1865,6 +1865,7 @@ async fn run_client_loop(
                 | ServerMessage::TerminalBell { .. }
                 | ServerMessage::GraphicsFile { .. }
                 | ServerMessage::GraphicsTransmissionRetired { .. }
+                | ServerMessage::HostPaletteResponse { .. }
                 | ServerMessage::Welcome { .. } => {
                     debug!("received unexpected Welcome in main loop");
                 }
