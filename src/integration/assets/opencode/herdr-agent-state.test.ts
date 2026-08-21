@@ -79,7 +79,7 @@ test("serializes lifecycle reports", async () => {
   const working = plugin.event({
     event: {
       type: "session.status",
-      properties: { sessionID: "root-session", status: { type: "busy" } },
+      properties: { sessionID: "ses_root-session", status: { type: "busy" } },
     },
   });
   await firstDispatched;
@@ -88,7 +88,7 @@ test("serializes lifecycle reports", async () => {
   const idle = plugin.event({
     event: {
       type: "session.status",
-      properties: { sessionID: "root-session", status: { type: "idle" } },
+      properties: { sessionID: "ses_root-session", status: { type: "idle" } },
     },
   });
   expect(clients).toHaveLength(1);
@@ -111,21 +111,21 @@ test("suppresses redundant same-session updates", async () => {
   await plugin.event({
     event: {
       type: "session.status",
-      properties: { sessionID: "root-session", status: { type: "busy" } },
+      properties: { sessionID: "ses_root-session", status: { type: "busy" } },
     },
   });
   await plugin.event({
-    event: { type: "session.updated", properties: { sessionID: "root-session" } },
+    event: { type: "session.updated", properties: { sessionID: "ses_root-session" } },
   });
   await plugin.event({
-    event: { type: "session.updated", properties: { sessionID: "replacement-session" } },
+    event: { type: "session.updated", properties: { sessionID: "ses_replacement-session" } },
   });
 
   expect(requests.map(requestMethod)).toEqual([
     "pane.report_agent",
     "pane.report_agent_session",
   ]);
-  expect(requests.map(requestSessionID)).toEqual(["root-session", "replacement-session"]);
+  expect(requests.map(requestSessionID)).toEqual(["ses_root-session", "ses_replacement-session"]);
 });
 
 function requestMethod(request: unknown): unknown {
