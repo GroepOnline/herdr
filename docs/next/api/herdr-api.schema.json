@@ -4197,6 +4197,20 @@
           ],
           "type": "string"
         },
+        "WorkspaceCloseParams": {
+          "properties": {
+            "close_group": {
+              "type": "boolean"
+            },
+            "workspace_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "workspace_id"
+          ],
+          "type": "object"
+        },
         "WorkspaceCreateParams": {
           "properties": {
             "command": {
@@ -4747,7 +4761,7 @@
               "type": "string"
             },
             "params": {
-              "$ref": "#/schemas/request/$defs/WorkspaceTarget"
+              "$ref": "#/schemas/request/$defs/WorkspaceCloseParams"
             }
           },
           "required": [
