@@ -52,7 +52,7 @@ const socketPlugins = [
   {
     name: "OpenCode",
     modulePath: "./opencode/herdr-agent-state.js",
-    sessionID: "opencode-session",
+    sessionID: "ses_opencode-session",
   },
   { name: "Kilo", modulePath: "./kilo/herdr-agent-state.js", sessionID: "kilo-session" },
 ] as const;
