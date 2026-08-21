@@ -2,7 +2,7 @@
 // managed by herdr; reinstalling or updating the integration overwrites this file.
 // add custom hooks/plugins beside this file instead of editing it.
 // HERDR_INTEGRATION_ID=opencode
-// HERDR_INTEGRATION_VERSION=9
+// HERDR_INTEGRATION_VERSION=10
 
 import net from "node:net";
 
@@ -22,10 +22,25 @@ function nextReportSeq() {
   return reportSeq;
 }
 
-function sessionIDFromProperties(properties) {
+function isOpenCodeSessionID(id) {
+  // OpenCode 2 schema is `ses_*`. Herdr resume / `-c` can pass "dummy".
+  return typeof id === "string" && id.startsWith("ses_");
+}
+
+function rawSessionID(properties) {
   return typeof properties?.sessionID === "string" && properties.sessionID
     ? properties.sessionID
     : undefined;
+}
+
+function sessionIDFromProperties(properties) {
+  const id = rawSessionID(properties);
+  return isOpenCodeSessionID(id) ? id : undefined;
+}
+
+function shouldDropSessionEvent(properties) {
+  const id = rawSessionID(properties);
+  return Boolean(id) && !isOpenCodeSessionID(id);
 }
 
 function stateFromSessionStatus(status) {
@@ -99,7 +114,7 @@ function requestOnce(method, params) {
 }
 
 function reportSession(sessionID, sessionStartSource) {
-  if (!sessionID) {
+  if (!isOpenCodeSessionID(sessionID)) {
     return Promise.resolve();
   }
   const params = { agent_session_id: sessionID };
@@ -111,7 +126,7 @@ function reportSession(sessionID, sessionStartSource) {
 
 function reportState(state, sessionID) {
   const params = { state };
-  if (sessionID) {
+  if (isOpenCodeSessionID(sessionID)) {
     reportedRootSessionID = sessionID;
     params.agent_session_id = sessionID;
   }
@@ -129,6 +144,9 @@ export const HerdrAgentStatePlugin = async () => {
 
   return {
     "chat.message": async ({ sessionID }) => {
+      if (sessionID && !isOpenCodeSessionID(sessionID)) {
+        return;
+      }
       if (sessionID && childSessions.has(sessionID)) {
         return;
       }
@@ -137,6 +155,9 @@ export const HerdrAgentStatePlugin = async () => {
     event: async ({ event }) => {
       const type = event?.type;
       const properties = event?.properties ?? {};
+      if (shouldDropSessionEvent(properties)) {
+        return;
+      }
       const sessionID = sessionIDFromProperties(properties);
 
       const info = properties.info;
@@ -210,11 +231,12 @@ export const HerdrAgentStatePlugin = async () => {
   };
 };
 
-// OpenCode 2 beta plugin loader requires a default export with both `setup`
-// and `effect`. Hook registration stays on the legacy `server` function.
+// next-16033/beta: union `{ id, effect }` or `{ id, setup }`. An empty
+// effect callback hangs plugin activate (empty model picker). `effect`
+// MUST return an Effect. `host.agent.transform` is a real Effect here.
 export default {
   id: "herdr-agent-state",
   server: HerdrAgentStatePlugin,
   setup: async () => {},
-  effect: () => {},
+  effect: (host) => host.agent.transform(() => {}),
 };
