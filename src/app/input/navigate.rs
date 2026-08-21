@@ -476,7 +476,7 @@ impl App {
         let workspace_id = self.public_workspace_id(ws_idx);
         let previous_toast = self.state.toast.clone();
         let response = self.runtime_workspace_close("tui.workspace.close", workspace_id);
-        if let Some(message) = immediate_api_error_message(response.as_deref()) {
+        if let Some(message) = immediate_api_error_message(Some(response.as_str())) {
             self.state.toast = Some(crate::app::state::ToastNotification {
                 kind: crate::app::state::ToastKind::NeedsAttention,
                 title: "workspace close failed".to_string(),
