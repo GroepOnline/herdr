@@ -8,6 +8,24 @@ fn agent_start_accepts_durable_readiness_during_detection_gap() {
     let listener = UnixListener::bind(&socket_path).unwrap();
 
     let server = thread::spawn(move || {
+        let (mut pane_stream, pane_line) = accept_fake_cli_operation(&listener);
+        let pane: serde_json::Value = serde_json::from_str(&pane_line).unwrap();
+        assert_eq!(pane["method"], "pane.get");
+        assert_eq!(pane["params"]["pane_id"], "w1:p1");
+        writeln!(
+            pane_stream,
+            "{}",
+            serde_json::json!({
+                "id": pane["id"],
+                "result": {
+                    "type": "pane_info",
+                    "pane": { "terminal_id": "term_1" }
+                }
+            })
+        )
+        .unwrap();
+        pane_stream.flush().unwrap();
+
         let (mut start_stream, start_line) = accept_fake_cli_operation(&listener);
         let start: serde_json::Value = serde_json::from_str(&start_line).unwrap();
         assert_eq!(start["method"], "agent.start");

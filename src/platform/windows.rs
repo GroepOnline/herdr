@@ -402,6 +402,12 @@ pub(crate) fn available_pane_shell(child_pid: u32) -> Option<String> {
     available_pane_shell_from_snapshot(child_pid, &snapshot_processes())
 }
 
+// Windows exposes no foreground process group, so shell initialization is not
+// observable and a busy `agent.start` is not retried there.
+pub(crate) fn process_info_shows_shell_initialization(_process_info: &serde_json::Value) -> bool {
+    false
+}
+
 fn available_pane_shell_from_snapshot(
     child_pid: u32,
     entries: &[WindowsProcessEntry],
@@ -1406,6 +1412,17 @@ mod tests {
     use windows_sys::Win32::System::Console::{
         AllocConsole, FreeConsole, GetConsoleProcessList, GetConsoleWindow,
     };
+
+    #[test]
+    fn windows_shell_is_not_reported_as_initializing() {
+        assert!(!super::process_info_shows_shell_initialization(
+            &serde_json::json!({
+                "shell_pid": 42,
+                "foreground_process_group_id": 42,
+                "foreground_processes": [{"pid": 42, "name": "powershell.exe"}]
+            })
+        ));
+    }
 
     #[test]
     fn private_remote_directory_supports_long_paths() {
