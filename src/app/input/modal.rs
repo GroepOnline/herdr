@@ -1125,7 +1125,14 @@ impl App {
     pub(super) fn confirm_close_accept_via_api(&mut self) {
         let ws_idx = self.state.selected;
         if ws_idx < self.state.workspaces.len() {
-            self.close_workspace_idx_via_api(ws_idx);
+            if self
+                .state
+                .workspace_close_would_close_worktree_group(ws_idx)
+            {
+                self.close_workspace_idx_with_group_via_api(ws_idx);
+            } else {
+                self.close_workspace_idx_via_api(ws_idx);
+            }
         }
         self.state.mode = if self.state.active.is_some() {
             Mode::Terminal
@@ -1246,16 +1253,46 @@ impl App {
                 | ContextMenuKind::GitWorkspace { ws_idx, .. },
                 Some("Rename"),
             ) => open_rename_workspace(&mut self.state, &self.terminal_runtimes, ws_idx),
-            (
-                ContextMenuKind::Workspace { ws_idx }
-                | ContextMenuKind::GitWorkspace { ws_idx, .. },
-                Some("Close" | "Close group"),
+            (ContextMenuKind::Workspace { ws_idx }, Some("Close"))
+            | (
+                ContextMenuKind::GitWorkspace {
+                    ws_idx,
+                    is_linked_worktree: true,
+                    ..
+                },
+                Some("Close"),
+            )
+            | (
+                ContextMenuKind::GitWorkspace {
+                    ws_idx,
+                    is_linked_worktree: false,
+                    has_worktree_children: false,
+                    ..
+                },
+                Some("Close"),
             ) => {
                 self.state.selected = ws_idx;
                 if self.state.confirm_close {
                     open_confirm_close(&mut self.state);
                 } else {
                     self.close_workspace_idx_via_api(ws_idx);
+                    self.state.mode = Mode::Navigate;
+                }
+            }
+            (
+                ContextMenuKind::GitWorkspace {
+                    ws_idx,
+                    is_linked_worktree: false,
+                    has_worktree_children: true,
+                    ..
+                },
+                Some("Close group"),
+            ) => {
+                self.state.selected = ws_idx;
+                if self.state.confirm_close {
+                    open_confirm_close(&mut self.state);
+                } else {
+                    self.close_workspace_idx_with_group_via_api(ws_idx);
                     self.state.mode = Mode::Navigate;
                 }
             }
@@ -2321,6 +2358,21 @@ mod tests {
         assert_eq!(state.selected, 0);
         assert_eq!(state.mode, Mode::ConfirmClose);
         assert_eq!(state.workspaces.len(), 2);
+    }
+
+    #[test]
+    fn api_confirm_close_accept_closes_parent_worktree_group() {
+        let mut app = app_with_test_workspaces(&["main", "issue"]);
+        mark_worktree_space_member(&mut app.state, 0, "repo-key");
+        mark_worktree_space_member(&mut app.state, 1, "repo-key");
+        app.state.mode = Mode::ConfirmClose;
+        app.state.selected = 0;
+
+        app.handle_confirm_close_key_via_api(KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()));
+
+        assert!(app.state.workspaces.is_empty());
+        assert_eq!(app.state.mode, Mode::Navigate);
+        assert_eq!(app.event_hub.events_after(0).len(), 2);
     }
 
     #[test]

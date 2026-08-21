@@ -1010,7 +1010,7 @@ impl App {
     }
 }
 
-fn immediate_api_error_message(response: Option<&str>) -> Option<String> {
+pub(crate) fn immediate_api_error_message(response: Option<&str>) -> Option<String> {
     response
         .and_then(|response| {
             serde_json::from_str::<crate::api::schema::ErrorResponse>(response).ok()

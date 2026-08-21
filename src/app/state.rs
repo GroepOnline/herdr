@@ -115,6 +115,10 @@ pub struct Palette {
     pub surface0: Color,
     /// Slightly lighter surface for hover/active states.
     pub surface1: Color,
+    /// Background for active Space and focused Agent rows.
+    pub active_row_bg: Color,
+    /// Background for the Navigate-mode cursor row in the sidebar.
+    pub selection_bg: Color,
     /// Very dim surface for separators.
     pub surface_dim: Color,
     /// Muted text (secondary info, numbers).
@@ -150,6 +154,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(49, 50, 68),
             surface1: Color::Rgb(69, 71, 90),
+            active_row_bg: Color::Rgb(30, 30, 46),
+            selection_bg: Color::Rgb(49, 50, 68),
             surface_dim: Color::Rgb(30, 30, 46),
             overlay0: Color::Rgb(108, 112, 134),
             overlay1: Color::Rgb(127, 132, 156),
@@ -173,6 +179,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(204, 208, 218),
             surface1: Color::Rgb(188, 192, 204),
+            active_row_bg: Color::Rgb(230, 233, 239),
+            selection_bg: Color::Rgb(189, 208, 245),
             surface_dim: Color::Rgb(230, 233, 239),
             overlay0: Color::Rgb(156, 160, 176),
             overlay1: Color::Rgb(140, 143, 161),
@@ -196,6 +204,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Reset,
             surface1: Color::DarkGray,
+            active_row_bg: Color::DarkGray,
+            selection_bg: Color::Reset,
             surface_dim: Color::DarkGray,
             overlay0: Color::Gray,
             overlay1: Color::White,
@@ -219,6 +229,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(36, 40, 59),
             surface1: Color::Rgb(65, 72, 104),
+            active_row_bg: Color::Rgb(35, 38, 54),
+            selection_bg: Color::Rgb(45, 54, 80),
             surface_dim: Color::Rgb(26, 27, 38),
             overlay0: Color::Rgb(86, 95, 137),
             overlay1: Color::Rgb(105, 113, 150),
@@ -242,6 +254,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(196, 200, 218),
             surface1: Color::Rgb(168, 174, 203),
+            active_row_bg: Color::Rgb(210, 211, 218),
+            selection_bg: Color::Rgb(182, 202, 231),
             surface_dim: Color::Rgb(210, 211, 218),
             overlay0: Color::Rgb(137, 144, 179),
             overlay1: Color::Rgb(104, 112, 154),
@@ -265,6 +279,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(68, 71, 90),
             surface1: Color::Rgb(98, 114, 164),
+            active_row_bg: Color::Rgb(55, 60, 82),
+            selection_bg: Color::Rgb(70, 63, 93),
             surface_dim: Color::Rgb(40, 42, 54),
             overlay0: Color::Rgb(98, 114, 164),
             overlay1: Color::Rgb(130, 140, 180),
@@ -288,6 +304,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(59, 66, 82),
             surface1: Color::Rgb(67, 76, 94),
+            active_row_bg: Color::Rgb(67, 76, 94),
+            selection_bg: Color::Rgb(64, 80, 93),
             surface_dim: Color::Rgb(46, 52, 64),
             overlay0: Color::Rgb(76, 86, 106),
             overlay1: Color::Rgb(100, 110, 130),
@@ -311,6 +329,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(60, 56, 54),
             surface1: Color::Rgb(80, 73, 69),
+            active_row_bg: Color::Rgb(50, 49, 48),
+            selection_bg: Color::Rgb(75, 63, 39),
             surface_dim: Color::Rgb(40, 40, 40),
             overlay0: Color::Rgb(146, 131, 116),
             overlay1: Color::Rgb(168, 153, 132),
@@ -334,6 +354,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(235, 219, 178),
             surface1: Color::Rgb(213, 196, 161),
+            active_row_bg: Color::Rgb(242, 229, 188),
+            selection_bg: Color::Rgb(235, 219, 178),
             surface_dim: Color::Rgb(242, 229, 188),
             overlay0: Color::Rgb(146, 131, 116),
             overlay1: Color::Rgb(124, 111, 100),
@@ -357,6 +379,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(44, 49, 58),
             surface1: Color::Rgb(62, 68, 81),
+            active_row_bg: Color::Rgb(49, 54, 64),
+            selection_bg: Color::Rgb(51, 70, 89),
             surface_dim: Color::Rgb(40, 44, 52),
             overlay0: Color::Rgb(92, 99, 112),
             overlay1: Color::Rgb(115, 122, 135),
@@ -380,6 +404,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(240, 240, 241),
             surface1: Color::Rgb(229, 229, 230),
+            active_row_bg: Color::Rgb(216, 219, 226),
+            selection_bg: Color::Rgb(205, 219, 248),
             surface_dim: Color::Rgb(245, 245, 246),
             overlay0: Color::Rgb(160, 161, 167),
             overlay1: Color::Rgb(104, 107, 119),
@@ -403,6 +429,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(7, 54, 66),
             surface1: Color::Rgb(88, 110, 117),
+            active_row_bg: Color::Rgb(22, 75, 87),
+            selection_bg: Color::Rgb(8, 62, 85),
             surface_dim: Color::Rgb(0, 43, 54),
             overlay0: Color::Rgb(88, 110, 117),
             overlay1: Color::Rgb(101, 123, 131),
@@ -426,6 +454,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(238, 232, 213),
             surface1: Color::Rgb(147, 161, 161),
+            active_row_bg: Color::Rgb(238, 232, 213),
+            selection_bg: Color::Rgb(201, 220, 223),
             surface_dim: Color::Rgb(238, 232, 213),
             overlay0: Color::Rgb(147, 161, 161),
             overlay1: Color::Rgb(88, 110, 117),
@@ -449,6 +479,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(42, 42, 55),
             surface1: Color::Rgb(54, 54, 70),
+            active_row_bg: Color::Rgb(54, 54, 70),
+            selection_bg: Color::Rgb(50, 56, 75),
             surface_dim: Color::Rgb(31, 31, 40),
             overlay0: Color::Rgb(114, 113, 105),
             overlay1: Color::Rgb(135, 134, 125),
@@ -472,6 +504,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(220, 213, 172),
             surface1: Color::Rgb(201, 203, 209),
+            active_row_bg: Color::Rgb(213, 206, 163),
+            selection_bg: Color::Rgb(220, 213, 172),
             surface_dim: Color::Rgb(213, 206, 163),
             overlay0: Color::Rgb(160, 156, 172),
             overlay1: Color::Rgb(138, 137, 128),
@@ -495,6 +529,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(31, 29, 46),
             surface1: Color::Rgb(38, 35, 58),
+            active_row_bg: Color::Rgb(38, 35, 58),
+            selection_bg: Color::Rgb(59, 52, 75),
             surface_dim: Color::Rgb(25, 23, 36),
             overlay0: Color::Rgb(110, 106, 134),
             overlay1: Color::Rgb(144, 140, 170),
@@ -518,6 +554,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(242, 233, 225),
             surface1: Color::Rgb(255, 250, 243),
+            active_row_bg: Color::Rgb(227, 217, 207),
+            selection_bg: Color::Rgb(242, 233, 225),
             surface_dim: Color::Rgb(242, 233, 225),
             overlay0: Color::Rgb(152, 147, 165),
             overlay1: Color::Rgb(121, 117, 147),
@@ -541,6 +579,8 @@ impl Palette {
             sidebar_bg: Color::Reset,
             surface0: Color::Rgb(35, 35, 35),
             surface1: Color::Rgb(40, 40, 40),
+            active_row_bg: Color::Rgb(16, 16, 16),
+            selection_bg: Color::Rgb(35, 35, 35),
             surface_dim: Color::Rgb(16, 16, 16),
             overlay0: Color::Rgb(92, 92, 92),
             overlay1: Color::Rgb(126, 126, 126),
@@ -598,6 +638,12 @@ impl Palette {
         }
         if let Some(c) = &custom.surface1 {
             self.surface1 = parse_color(c);
+        }
+        if let Some(c) = &custom.active_row_bg {
+            self.active_row_bg = parse_color(c);
+        }
+        if let Some(c) = &custom.selection_bg {
+            self.selection_bg = parse_color(c);
         }
         if let Some(c) = &custom.surface_dim {
             self.surface_dim = parse_color(c);
@@ -2677,12 +2723,84 @@ mod tests {
         assert_eq!(navigator_first_row_at_or_after(&lines, 4), None);
     }
 
+    fn contrast_ratio(a: Color, b: Color) -> f64 {
+        let (lighter, darker) = {
+            let a = rgb_luminance(a);
+            let b = rgb_luminance(b);
+            (a.max(b), a.min(b))
+        };
+        (lighter + 0.05) / (darker + 0.05)
+    }
+
+    fn rgb_luminance(color: Color) -> f64 {
+        let Color::Rgb(r, g, b) = color else {
+            panic!("expected RGB color, got {color:?}");
+        };
+        let channel = |value: u8| {
+            let value = f64::from(value) / 255.0;
+            if value <= 0.04045 {
+                value / 12.92
+            } else {
+                ((value + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+    }
+
     #[test]
     fn built_in_theme_names_resolve() {
         for name in THEME_NAMES {
             assert!(
                 Palette::from_name(name).is_some(),
                 "theme should resolve: {name}"
+            );
+        }
+    }
+
+    #[test]
+    fn built_in_active_rows_remain_visible_with_matching_terminal_backgrounds() {
+        for name in THEME_NAMES
+            .iter()
+            .copied()
+            .filter(|name| *name != "terminal")
+        {
+            let palette = Palette::from_name(name).unwrap();
+            let background_contrast = contrast_ratio(palette.panel_bg, palette.active_row_bg);
+            assert!(
+                background_contrast >= 1.05,
+                "active row blends into the matching terminal background for {name}: {background_contrast:.2}:1"
+            );
+
+            let text_contrast = contrast_ratio(palette.text, palette.active_row_bg);
+            assert!(
+                text_contrast >= 3.0,
+                "active row text loses contrast for {name}: {text_contrast:.2}:1"
+            );
+        }
+    }
+
+    #[test]
+    fn built_in_selection_rows_stay_distinct_from_background_and_active_rows() {
+        for name in THEME_NAMES
+            .iter()
+            .copied()
+            .filter(|name| *name != "terminal")
+        {
+            let palette = Palette::from_name(name).unwrap();
+            let background_contrast = contrast_ratio(palette.panel_bg, palette.selection_bg);
+            assert!(
+                background_contrast >= 1.05,
+                "selection row blends into the matching terminal background for {name}: {background_contrast:.2}:1"
+            );
+
+            let text_contrast = contrast_ratio(palette.text, palette.selection_bg);
+            assert!(
+                text_contrast >= 3.0,
+                "selection row text loses contrast for {name}: {text_contrast:.2}:1"
+            );
+            assert_ne!(
+                palette.selection_bg, palette.active_row_bg,
+                "selection row shares the active row color for {name}"
             );
         }
     }
@@ -2700,16 +2818,18 @@ mod tests {
     }
 
     #[test]
-    fn custom_sidebar_background_overrides_the_default() {
+    fn custom_sidebar_colors_override_the_defaults() {
         let custom = crate::config::CustomThemeColors {
             sidebar_bg: Some("#181825".to_string()),
+            active_row_bg: Some("#313244".to_string()),
+            selection_bg: Some("#45475a".to_string()),
             ..Default::default()
         };
+        let palette = Palette::catppuccin().with_overrides(&custom);
 
-        assert_eq!(
-            Palette::catppuccin().with_overrides(&custom).sidebar_bg,
-            Color::Rgb(24, 24, 37)
-        );
+        assert_eq!(palette.sidebar_bg, Color::Rgb(24, 24, 37));
+        assert_eq!(palette.active_row_bg, Color::Rgb(49, 50, 68));
+        assert_eq!(palette.selection_bg, Color::Rgb(69, 71, 90));
     }
 
     #[test]

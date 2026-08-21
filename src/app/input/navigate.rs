@@ -14,6 +14,7 @@ use ratatui::layout::Direction;
 use crate::{
     app::{
         state::{AppState, Mode},
+        worktrees::immediate_api_error_message,
         App,
     },
     input::TerminalKey,
@@ -231,8 +232,10 @@ impl App {
                     self.state.selected = ws_idx;
                     if self.state.confirm_close {
                         super::modal::open_confirm_close(&mut self.state);
-                    } else {
-                        self.close_workspace_idx_via_api(ws_idx);
+                    } else if self.close_workspace_idx_via_api(ws_idx) {
+                        // Only leave navigate mode on success. A rejected
+                        // group close keeps Navigate so the toast stays
+                        // visible.
                         leave_navigate_mode(&mut self.state);
                     }
                 }
@@ -462,9 +465,29 @@ impl App {
         self.runtime_workspace_focus("tui.workspace.focus", workspace_id);
     }
 
-    pub(crate) fn close_workspace_idx_via_api(&mut self, ws_idx: usize) {
+    pub(crate) fn close_workspace_idx_with_group_via_api(&mut self, ws_idx: usize) {
         let workspace_id = self.public_workspace_id(ws_idx);
-        self.runtime_workspace_close("tui.workspace.close", workspace_id);
+        self.runtime_workspace_close_group("tui.workspace.close", workspace_id);
+    }
+
+    /// Returns `true` when the workspace was closed; `false` when the API
+    /// rejected the request (e.g. group close required without intent).
+    pub(crate) fn close_workspace_idx_via_api(&mut self, ws_idx: usize) -> bool {
+        let workspace_id = self.public_workspace_id(ws_idx);
+        let previous_toast = self.state.toast.clone();
+        let response = self.runtime_workspace_close("tui.workspace.close", workspace_id);
+        if let Some(message) = immediate_api_error_message(Some(response.as_str())) {
+            self.state.toast = Some(crate::app::state::ToastNotification {
+                kind: crate::app::state::ToastKind::NeedsAttention,
+                title: "workspace close failed".to_string(),
+                context: message,
+                position: None,
+                target: None,
+            });
+            self.sync_toast_deadline(previous_toast);
+            return false;
+        }
+        true
     }
 
     pub(crate) fn move_workspace_via_api(&mut self, source_ws_idx: usize, insert_idx: usize) {
@@ -501,7 +524,7 @@ impl App {
             if self.state.confirm_implicit_worktree_group_close(ws_idx) {
                 return true;
             }
-            self.close_workspace_idx_via_api(ws_idx);
+            self.close_workspace_idx_with_group_via_api(ws_idx);
             return false;
         }
         let tab_idx = self.state.workspaces[ws_idx].active_tab_index();
@@ -3371,6 +3394,25 @@ navigate_pane_down = "ctrl+j"
         assert_eq!(state.workspaces.len(), 1);
         assert_eq!(state.workspaces[0].display_name(), "main");
         assert_eq!(state.mode, Mode::Terminal);
+    }
+
+    #[test]
+    fn tui_close_parent_group_requires_explicit_group_close_when_confirmation_disabled() {
+        let mut app = app_with_test_workspaces(&["main", "issue"]);
+        mark_worktree_space_member(&mut app.state, 0, "repo-key");
+        mark_worktree_space_member(&mut app.state, 1, "repo-key");
+        app.state.active = Some(0);
+        app.state.selected = 0;
+        app.state.mode = Mode::Navigate;
+        app.state.confirm_close = false;
+
+        app.execute_tui_navigate_action(NavigateAction::CloseWorkspace, ActionContext::Navigate);
+
+        assert_eq!(app.state.workspaces.len(), 2);
+        assert_eq!(app.state.mode, Mode::Navigate);
+        let toast = app.state.toast.clone().expect("rejection surfaces a toast");
+        assert_eq!(toast.kind, crate::app::state::ToastKind::NeedsAttention);
+        assert!(toast.context.contains("linked worktree"));
     }
 
     #[test]
