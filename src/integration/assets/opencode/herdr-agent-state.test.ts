@@ -54,9 +54,54 @@ async function loadPlugin() {
   return HerdrAgentStatePlugin();
 }
 
+async function loadDefaultExport() {
+  importCounter += 1;
+  const module = await import(`./herdr-agent-state.js?test=${importCounter}`);
+  return module.default;
+}
+
 function waitForNextRequest(): Promise<void> {
   return new Promise((resolve) => requestWaiters.push(resolve));
 }
+
+test("default export satisfies OpenCode 2 plugin schema", async () => {
+  const plugin = await loadDefaultExport();
+  expect(plugin.id).toBe("herdr-agent-state");
+  expect(plugin.server).toBeTypeOf("function");
+  expect(plugin.setup).toBeTypeOf("function");
+  expect(plugin.effect).toBeTypeOf("function");
+});
+
+test("effect returns the host.agent.transform Effect", async () => {
+  const plugin = await loadDefaultExport();
+  const sentinel = { kind: "effect" };
+  const host = {
+    agent: {
+      transform: (fn: () => void) => {
+        fn();
+        return sentinel;
+      },
+    },
+  };
+  expect(plugin.effect(host)).toBe(sentinel);
+});
+
+test("ignores session IDs that are not ses_*", async () => {
+  const plugin = await loadPlugin();
+  await plugin.event({
+    event: {
+      type: "session.updated",
+      properties: { sessionID: "dummy" },
+    },
+  });
+  await plugin.event({
+    event: {
+      type: "session.status",
+      properties: { sessionID: "root-session", status: { type: "busy" } },
+    },
+  });
+  expect(requests).toEqual([]);
+});
 
 test("serializes lifecycle reports", async () => {
   autoAcknowledge = false;
@@ -65,7 +110,7 @@ test("serializes lifecycle reports", async () => {
   const working = plugin.event({
     event: {
       type: "session.status",
-      properties: { sessionID: "root-session", status: { type: "busy" } },
+      properties: { sessionID: "ses_root-session", status: { type: "busy" } },
     },
   });
   await firstDispatched;
@@ -74,7 +119,7 @@ test("serializes lifecycle reports", async () => {
   const idle = plugin.event({
     event: {
       type: "session.status",
-      properties: { sessionID: "root-session", status: { type: "idle" } },
+      properties: { sessionID: "ses_root-session", status: { type: "idle" } },
     },
   });
   expect(clients).toHaveLength(1);
@@ -97,21 +142,21 @@ test("suppresses redundant same-session updates", async () => {
   await plugin.event({
     event: {
       type: "session.status",
-      properties: { sessionID: "root-session", status: { type: "busy" } },
+      properties: { sessionID: "ses_root-session", status: { type: "busy" } },
     },
   });
   await plugin.event({
-    event: { type: "session.updated", properties: { sessionID: "root-session" } },
+    event: { type: "session.updated", properties: { sessionID: "ses_root-session" } },
   });
   await plugin.event({
-    event: { type: "session.updated", properties: { sessionID: "replacement-session" } },
+    event: { type: "session.updated", properties: { sessionID: "ses_replacement-session" } },
   });
 
   expect(requests.map(requestMethod)).toEqual([
     "pane.report_agent",
     "pane.report_agent_session",
   ]);
-  expect(requests.map(requestSessionID)).toEqual(["root-session", "replacement-session"]);
+  expect(requests.map(requestSessionID)).toEqual(["ses_root-session", "ses_replacement-session"]);
 });
 
 function requestMethod(request: unknown): unknown {

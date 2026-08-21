@@ -689,6 +689,7 @@ fn run_clipboard_command(command: &ClipboardCommand, bytes: &[u8]) -> bool {
         .stderr(Stdio::null());
 
     let bytes = bytes.to_vec();
+    let is_wl_copy = command.program == "wl-copy";
     run_clipboard_child_with_timeout(cmd, CLIPBOARD_CHILD_TIMEOUT, move |mut child| {
         let Some(mut stdin) = child.stdin.take() else {
             let _ = child.kill();
@@ -703,9 +704,29 @@ fn run_clipboard_command(command: &ClipboardCommand, bytes: &[u8]) -> bool {
         }
         drop(stdin);
 
+        if is_wl_copy {
+            return Some(detach_clipboard_owner(child));
+        }
+
         Some(child.wait().map(|status| status.success()).unwrap_or(false))
     })
     .unwrap_or(false)
+}
+
+fn detach_clipboard_owner(mut child: std::process::Child) -> bool {
+    let pid = child.id();
+
+    // wl-copy may fail immediately (for example when no Wayland compositor is
+    // available). Wait for the initial process to finish before reporting success:
+    // without --foreground it forks after establishing the selection, so this
+    // waits only for startup and lets callers fall back when it fails.
+    match child.wait() {
+        Ok(status) => status.success(),
+        Err(err) => {
+            tracing::warn!(pid, %err, "failed to wait for wl-copy startup");
+            false
+        }
+    }
 }
 
 fn process_session_id(pid: u32) -> Option<i32> {
