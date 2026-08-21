@@ -1682,7 +1682,10 @@ mod tests {
 
     #[test]
     fn automatic_selection_background_contrasts_when_host_background_is_unknown() {
-        for panel_bg in [Color::Rgb(0x2d, 0x35, 0x3b), Color::Rgb(239, 241, 245)] {
+        for (panel_bg, should_lighten) in [
+            (Color::Rgb(0x2d, 0x35, 0x3b), true),
+            (Color::Rgb(239, 241, 245), false),
+        ] {
             let mut palette = Palette::catppuccin();
             palette.panel_bg = panel_bg;
 
@@ -1692,6 +1695,11 @@ mod tests {
             let selected_luminance = relative_luminance(color_to_rgb(selected).unwrap());
 
             assert!((selected_luminance - base_luminance).abs() > 0.08);
+            if should_lighten {
+                assert!(selected_luminance > base_luminance);
+            } else {
+                assert!(selected_luminance < base_luminance);
+            }
         }
     }
 }
