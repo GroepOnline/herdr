@@ -2852,6 +2852,10 @@ fn bundled_integration_assets_report_session_refs() {
     assert!(OPENCODE_PLUGIN_ASSET.contains("params.agent_session_id = sessionID"));
     assert!(OPENCODE_PLUGIN_ASSET.contains("pane.report_agent_session"));
     assert!(OPENCODE_PLUGIN_ASSET.contains("reportState"));
+    assert!(OPENCODE_PLUGIN_ASSET.contains("host.agent.transform"));
+    assert!(OPENCODE_PLUGIN_ASSET.contains("startsWith(\"ses_\")"));
+    assert!(OPENCODE_PLUGIN_ASSET.contains("isOpenCodeSessionID"));
+    assert!(!OPENCODE_PLUGIN_ASSET.contains("effect: () => {}"));
     assert!(!OPENCODE_PLUGIN_ASSET.contains("pane.release_agent"));
     assert!(KILO_PLUGIN_ASSET.contains("SOURCE = \"herdr:kilo\""));
     assert!(KILO_PLUGIN_ASSET.contains("AGENT = \"kilo\""));
