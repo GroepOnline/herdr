@@ -72,6 +72,37 @@ test("default export satisfies OpenCode 2 plugin schema", async () => {
   expect(plugin.effect).toBeTypeOf("function");
 });
 
+test("effect returns the host.agent.transform Effect", async () => {
+  const plugin = await loadDefaultExport();
+  const sentinel = { kind: "effect" };
+  const host = {
+    agent: {
+      transform: (fn: () => void) => {
+        fn();
+        return sentinel;
+      },
+    },
+  };
+  expect(plugin.effect(host)).toBe(sentinel);
+});
+
+test("ignores session IDs that are not ses_*", async () => {
+  const plugin = await loadPlugin();
+  await plugin.event({
+    event: {
+      type: "session.updated",
+      properties: { sessionID: "dummy" },
+    },
+  });
+  await plugin.event({
+    event: {
+      type: "session.status",
+      properties: { sessionID: "root-session", status: { type: "busy" } },
+    },
+  });
+  expect(requests).toEqual([]);
+});
+
 test("serializes lifecycle reports", async () => {
   autoAcknowledge = false;
   const plugin = await loadPlugin();

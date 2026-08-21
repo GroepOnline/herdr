@@ -27,12 +27,20 @@ function isOpenCodeSessionID(id) {
   return typeof id === "string" && id.startsWith("ses_");
 }
 
+function rawSessionID(properties) {
+  return typeof properties?.sessionID === "string" && properties.sessionID
+    ? properties.sessionID
+    : undefined;
+}
+
 function sessionIDFromProperties(properties) {
-  const id =
-    typeof properties?.sessionID === "string" && properties.sessionID
-      ? properties.sessionID
-      : undefined;
+  const id = rawSessionID(properties);
   return isOpenCodeSessionID(id) ? id : undefined;
+}
+
+function shouldDropSessionEvent(properties) {
+  const id = rawSessionID(properties);
+  return Boolean(id) && !isOpenCodeSessionID(id);
 }
 
 function stateFromSessionStatus(status) {
@@ -136,6 +144,9 @@ export const HerdrAgentStatePlugin = async () => {
 
   return {
     "chat.message": async ({ sessionID }) => {
+      if (sessionID && !isOpenCodeSessionID(sessionID)) {
+        return;
+      }
       if (sessionID && childSessions.has(sessionID)) {
         return;
       }
@@ -144,6 +155,9 @@ export const HerdrAgentStatePlugin = async () => {
     event: async ({ event }) => {
       const type = event?.type;
       const properties = event?.properties ?? {};
+      if (shouldDropSessionEvent(properties)) {
+        return;
+      }
       const sessionID = sessionIDFromProperties(properties);
 
       const info = properties.info;
