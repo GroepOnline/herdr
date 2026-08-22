@@ -3,18 +3,31 @@
   "channel": "dev",
   "enabled": true,
   "base_version": "0.8.6",
-  "build_id": "2026-08-22-e3bee55833b8",
-  "commit": "e3bee55833b8bb7b05aad04d0323348a26446fe5",
-  "built_at": "2026-08-22T07:08:30Z",
+  "build_id": "2026-08-22-7e6527292e3e",
+  "commit": "7e6527292e3eac3fb8312b1119168258befc12f7",
+  "built_at": "2026-08-22T16:14:52Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-22-e3bee55833b8\n\nBuilt from `e3bee55833b8` on `main`.\nBase stable: v0.8.6\nCompare: https://github.com/GroepOnline/herdr/compare/739dc88c3b9d1173b743fac342f2706cf27b29c3...e3bee55833b8bb7b05aad04d0323348a26446fe5\n\n### Maintenance\n- Bump node20-deprecated GitHub Actions to current majors",
+  "notes": "Dev build 2026-08-22-7e6527292e3e\n\nBuilt from `7e6527292e3e` on `main`.\nBase stable: v0.8.6\nCompare: https://github.com/GroepOnline/herdr/compare/e3bee55833b8bb7b05aad04d0323348a26446fe5...7e6527292e3eac3fb8312b1119168258befc12f7\n\n### Added\n- Add Aider agent detection (rebased revival of #41) (#75)",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-22-e3bee55833b8/herdr-linux-x86_64",
-      "sha256": "4c4c17f7f1657bb76a2e61d68411c7bf66894f98d7971bd88869740d09da9d44"
+      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-22-7e6527292e3e/herdr-linux-x86_64",
+      "sha256": "f00fc953f979c1d1a64cbd11f0cbd126fa5c399d33a9fe4383ac892bee5614ea"
     }
   },
   "builds": {
+    "2026-08-22-7e6527292e3e": {
+      "base_version": "0.8.6",
+      "commit": "7e6527292e3eac3fb8312b1119168258befc12f7",
+      "built_at": "2026-08-22T16:14:52Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-22-7e6527292e3e",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-22-7e6527292e3e/herdr-linux-x86_64",
+          "sha256": "f00fc953f979c1d1a64cbd11f0cbd126fa5c399d33a9fe4383ac892bee5614ea"
+        }
+      }
+    },
     "2026-08-22-e3bee55833b8": {
       "base_version": "0.8.6",
       "commit": "e3bee55833b8bb7b05aad04d0323348a26446fe5",
@@ -259,19 +272,6 @@
         "linux-x86_64": {
           "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-f2f18084b97c/herdr-linux-x86_64",
           "sha256": "70a805c6bfa275e02738e76595277c75a6bd0fc466b0775461a62d398a9a01fd"
-        }
-      }
-    },
-    "2026-08-01-7462fcfae603": {
-      "base_version": "0.7.6",
-      "commit": "7462fcfae6030bcd70ec0c20d0bba796d305d3d9",
-      "built_at": "2026-08-01T00:33:59Z",
-      "protocol": 18,
-      "tag": "dev-2026-08-01-7462fcfae603",
-      "assets": {
-        "linux-x86_64": {
-          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-7462fcfae603/herdr-linux-x86_64",
-          "sha256": "0fe3dc93763d32b6369833573bc595a4fb9bd79a5232c99ef3489f8dbff9bb29"
         }
       }
     }
