@@ -97,11 +97,7 @@ fn latest_release_notes(
     bundled_changelog: &str,
 ) -> Option<ReleaseNotes> {
     let stored = stored.and_then(|stored| release_notes_from_stored(stored, current_version));
-    let matching_prerelease = current_version.contains('-')
-        && stored
-            .as_ref()
-            .is_some_and(|notes| notes.version == current_version);
-    if stored.as_ref().is_some_and(|notes| notes.preview) || matching_prerelease {
+    if stored.as_ref().is_some_and(|notes| notes.preview) {
         return stored;
     }
 
@@ -130,12 +126,25 @@ fn release_notes_from_stored(
         return None;
     }
 
+    let normalize_version = |version: &str| {
+        version
+            .split_once(['-', '+'])
+            .map_or(version, |(base, _)| base)
+    };
+    let stored_base = normalize_version(&stored.version);
+    let current_base = normalize_version(current_version);
     let preview = match (
-        crate::update::Version::parse(&stored.version),
-        crate::update::Version::parse(current_version),
+        crate::update::Version::parse(stored_base),
+        crate::update::Version::parse(current_base),
     ) {
-        (Some(stored_version), Some(current_version)) => stored_version > current_version,
-        _ => false,
+        (Some(stored_version), Some(current_base_version)) => {
+            stored_version > current_base_version
+                || (stored.version != current_version
+                    && stored.version.contains('-')
+                    && current_version.contains('-')
+                    && stored_base == current_base)
+        }
+        _ => stored.version != current_version,
     };
 
     Some(ReleaseNotes {
@@ -339,22 +348,20 @@ mod tests {
     }
 
     #[test]
-    fn current_prerelease_uses_matching_persisted_channel_notes() {
-        let current_version = "0.8.6-dev.2026-08-22-ed0e658b";
+    fn prerelease_notes_are_preferred_over_bundled_notes() {
         let notes = latest_release_notes(
             Some(StoredReleaseNotes {
-                version: current_version.to_string(),
-                body: "### Changed\n- Current dev build".to_string(),
-                show_on_startup: false,
+                version: "0.8.6-preview.101".to_string(),
+                body: "### Fixed\n- Preview notes".to_string(),
+                show_on_startup: true,
             }),
-            current_version,
+            "0.8.6-preview.100",
             "# Changelog\n\n## [0.8.6]\n\n### Fixed\n- Stable notes\n",
         )
-        .expect("current dev notes");
+        .expect("preview notes");
 
-        assert_eq!(notes.version, current_version);
-        assert_eq!(notes.body, "### Changed\n- Current dev build");
-        assert!(!notes.preview);
+        assert_eq!(notes.body, "### Fixed\n- Preview notes");
+        assert!(notes.preview);
     }
 
     #[test]
