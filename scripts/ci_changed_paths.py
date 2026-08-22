@@ -44,101 +44,134 @@ def matches(path: str, prefixes: tuple[str, ...], exact: tuple[str, ...] = ()) -
     return any(path == p or path.startswith(p.rstrip("/") + "/") or path.startswith(p) for p in prefixes)
 
 
-def main() -> int:
-    files = changed_files()
+DOCS_ONLY_PREFIXES = (
+    "docs/",
+    "website/",
+    ".cursor/",
+    ".codex/",
+    ".claude/",
+)
+DOCS_ONLY_EXACT = (
+    "README.md",
+    "DOWNSTREAM.md",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    ".github/design-system.json",
+)
+# Release/install metadata and CI tooling stay on their dedicated lanes.
+DOCS_ONLY_EXCLUDE_EXACT = (
+    "website/install.sh",
+    "website/install.ps1",
+    "website/latest.json",
+)
+DOCS_ONLY_EXCLUDE_PREFIXES = (
+    "scripts/",
+    ".github/workflows/",
+)
+
+
+def is_docs_only_path(path: str) -> bool:
+    if path in DOCS_ONLY_EXCLUDE_EXACT:
+        return False
+    if matches(path, DOCS_ONLY_EXCLUDE_PREFIXES):
+        return False
+    return matches(path, DOCS_ONLY_PREFIXES, exact=DOCS_ONLY_EXACT)
+
+
+def classify(files: list[str]) -> dict[str, bool]:
     if not files:
-        # Safe default: run core lanes
-        rust = maintenance = release_meta = platform_heavy = True
-        docs_only = False
-    else:
-        rust = any(
-            matches(
-                f,
-                (
-                    "src/",
-                    "assets/",
-                    "vendor/",
-                    "tests/",
-                    "build.rs",
-                    "rust-toolchain.toml",
-                ),
-                exact=("Cargo.toml", "Cargo.lock"),
-            )
-            for f in files
+        return {
+            "rust": True,
+            "maintenance": True,
+            "release_meta": True,
+            "platform_heavy": True,
+            "docs_only": False,
+        }
+
+    rust = any(
+        matches(
+            f,
+            (
+                "src/",
+                "assets/",
+                "vendor/",
+                "tests/",
+                "build.rs",
+                "rust-toolchain.toml",
+            ),
+            exact=("Cargo.toml", "Cargo.lock"),
         )
-        maintenance = any(
-            matches(
-                f,
-                (
-                    "scripts/",
-                    "src/integration/assets/",
-                    "workers/plugin-marketplace/",
-                    "docs/next/",
-                    "website/src/content/docs/",
-                    "plugins/",
-                    ".pi/",
-                ),
-                exact=("justfile", "AGENTS.md", "DOWNSTREAM.md", "website/install.sh"),
-            )
-            for f in files
+        for f in files
+    )
+    maintenance = any(
+        matches(
+            f,
+            (
+                "scripts/",
+                "src/integration/assets/",
+                "workers/plugin-marketplace/",
+                "docs/next/",
+                "website/src/content/docs/",
+                "plugins/",
+                ".pi/",
+            ),
+            exact=("justfile", "AGENTS.md", "DOWNSTREAM.md", "website/install.sh"),
         )
-        release_meta = any(
-            matches(
-                f,
-                ("npm/", "scripts/"),
-                exact=(
-                    "Cargo.toml",
-                    "Cargo.lock",
-                    "CHANGELOG.md",
-                    "docs/next/CHANGELOG.md",
-                    "docs/next/product-announcement.json",
-                    "website/latest.json",
-                    "website/install.sh",
-                    "justfile",
-                ),
-            )
-            for f in files
+        for f in files
+    )
+    release_meta = any(
+        matches(
+            f,
+            ("npm/", "scripts/"),
+            exact=(
+                "Cargo.toml",
+                "Cargo.lock",
+                "CHANGELOG.md",
+                "docs/next/CHANGELOG.md",
+                "docs/next/product-announcement.json",
+                "website/latest.json",
+                "website/install.sh",
+                "justfile",
+            ),
         )
-        platform_heavy = any(
-            matches(
-                f,
-                (
-                    "src/platform/",
-                    "src/pty/",
-                    "src/client/input/",
-                    "vendor/",
-                    "nix/",
-                    ".github/workflows/",
-                ),
-                exact=("Cargo.toml", "Cargo.lock", "build.rs", "flake.nix", "flake.lock"),
-            )
-            for f in files
+        for f in files
+    )
+    platform_heavy = any(
+        matches(
+            f,
+            (
+                "src/platform/",
+                "src/pty/",
+                "src/client/input/",
+                "vendor/",
+                "nix/",
+                ".github/workflows/",
+            ),
+            exact=("Cargo.toml", "Cargo.lock", "build.rs", "flake.nix", "flake.lock"),
         )
-        docs_only = all(
-            matches(
-                f,
-                (
-                    "docs/",
-                    "website/src/content/",
-                    ".cursor/",
-                    ".codex/",
-                ),
-                exact=("README.md", "DOWNSTREAM.md", "AGENTS.md", "CONTRIBUTING.md"),
-            )
-            for f in files
-        )
-        if docs_only:
-            rust = False
-            platform_heavy = False
+        for f in files
+    )
+    docs_only = all(is_docs_only_path(f) for f in files)
+    if docs_only:
+        rust = False
+        platform_heavy = False
+
+    return {
+        "rust": rust,
+        "maintenance": maintenance,
+        "release_meta": release_meta,
+        "platform_heavy": platform_heavy,
+        "docs_only": docs_only,
+    }
+
+
+def main() -> int:
+    outputs = classify(changed_files())
 
     out_path = os.environ.get("GITHUB_OUTPUT")
-    lines = [
-        f"rust={str(rust).lower()}",
-        f"maintenance={str(maintenance).lower()}",
-        f"release_meta={str(release_meta).lower()}",
-        f"platform_heavy={str(platform_heavy).lower()}",
-        f"docs_only={str(docs_only).lower()}",
-    ]
+    lines = [f"{key}={str(value).lower()}" for key, value in outputs.items()]
     text = "\n".join(lines) + "\n"
     if out_path:
         Path(out_path).write_text(text, encoding="utf-8")
