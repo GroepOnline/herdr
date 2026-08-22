@@ -103,7 +103,7 @@ impl Agent {
         Self::Aider,
     ];
 
-    pub const SCREEN_MANIFEST_AGENTS: [Self; 25] = [
+    pub const SCREEN_MANIFEST_AGENTS: [Self; 26] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -129,6 +129,7 @@ impl Agent {
         Self::Qwen,
         Self::CommandCode,
         Self::Muse,
+        Self::Aider,
     ];
 }
 
