@@ -31,11 +31,12 @@ jobs:
     name: Prepare remediation brief
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Skip ubuntu-latest when CI completed as skipped/cancelled noise (no actionable failure).
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (
         github.event.workflow_run.event == 'pull_request' &&
-        github.event.workflow_run.conclusion == 'failure' &&
+        contains(fromJSON('["failure", "timed_out"]'), github.event.workflow_run.conclusion) &&
         github.event.workflow_run.head_repository.full_name == github.repository
       )
     env:
@@ -114,8 +115,13 @@ jobs:
 
           mkdir -p remediation-logs
           gh api --paginate "/repos/$REPO/actions/runs/$run_id/jobs?filter=latest&per_page=100" \
-            --jq '.jobs[] | select(.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled") | [.id, .name, .conclusion] | @tsv' \
+            --jq '.jobs[] | select(.conclusion == "failure" or .conclusion == "timed_out") | [.id, .name, .conclusion] | @tsv' \
             > failed_jobs.tsv
+
+          if [ ! -s failed_jobs.tsv ]; then
+            echo "CI run had no actionable failed jobs (skipped/cancelled noise only); skipping remediation."
+            exit 0
+          fi
 
           if [ -s failed_jobs.tsv ]; then
             while IFS=$'\t' read -r job_id job_name conclusion; do
@@ -266,6 +272,7 @@ jobs:
     timeout-minutes: 5
     # Only clear after green CI for the same PR head. Manual workflow_dispatch is
     # prepare-only; clearing on dispatch would race prepare and wipe the brief.
+    # Skip ubuntu-latest when CI completed as skipped/cancelled noise (non-success).
     if: >-
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' &&
