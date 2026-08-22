@@ -3,18 +3,31 @@
   "channel": "dev",
   "enabled": true,
   "base_version": "0.8.6",
-  "build_id": "2026-08-22-74f857f8f430",
-  "commit": "74f857f8f430ccf832686ffb4464d02e17cdf1bc",
-  "built_at": "2026-08-22T21:48:42Z",
+  "build_id": "2026-08-22-c96020cd8930",
+  "commit": "c96020cd893096950e964cba2d4f292970fccc21",
+  "built_at": "2026-08-22T21:57:54Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-22-74f857f8f430\n\nBuilt from `74f857f8f430` on `main`.\nBase stable: v0.8.6\nCompare: https://github.com/GroepOnline/herdr/compare/7e6527292e3eac3fb8312b1119168258befc12f7...74f857f8f430ccf832686ffb4464d02e17cdf1bc\n\n### Maintenance\n- Tighten docs/website-only path classification for rust lanes (#79)\n- Path-filter quality-autofix on rust/release-meta PR changes (#78)\n- Path-filter design-system contract workflow (#77)\n- Sweep OnlineChefGroep -> GroepOnline org references (#76)",
+  "notes": "Dev build 2026-08-22-c96020cd8930\n\nBuilt from `c96020cd8930` on `main`.\nBase stable: v0.8.6\nCompare: https://github.com/GroepOnline/herdr/compare/74f857f8f430ccf832686ffb4464d02e17cdf1bc...c96020cd893096950e964cba2d4f292970fccc21\n\n### Fixed\n- Skip quality-remediation on skipped/cancelled CI noise (#80)",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-22-74f857f8f430/herdr-linux-x86_64",
-      "sha256": "3b87f4282da281bbb6f9c08957f8802f3b739564f255844732b7b7ab4dd4b383"
+      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-22-c96020cd8930/herdr-linux-x86_64",
+      "sha256": "a0efd9a35d3ea2bdf85e22d9f1badcc0eed3b6003b4cf1718cd6d512c3a468a5"
     }
   },
   "builds": {
+    "2026-08-22-c96020cd8930": {
+      "base_version": "0.8.6",
+      "commit": "c96020cd893096950e964cba2d4f292970fccc21",
+      "built_at": "2026-08-22T21:57:54Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-22-c96020cd8930",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-22-c96020cd8930/herdr-linux-x86_64",
+          "sha256": "a0efd9a35d3ea2bdf85e22d9f1badcc0eed3b6003b4cf1718cd6d512c3a468a5"
+        }
+      }
+    },
     "2026-08-22-74f857f8f430": {
       "base_version": "0.8.6",
       "commit": "74f857f8f430ccf832686ffb4464d02e17cdf1bc",
@@ -259,19 +272,6 @@
         "linux-x86_64": {
           "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-88367852d101/herdr-linux-x86_64",
           "sha256": "76f982f7e96b4aab96d1f8f5a7e17b01e00d493c90d042fc5d6ba91de128a5b2"
-        }
-      }
-    },
-    "2026-08-01-b0d5272626d8": {
-      "base_version": "0.7.7",
-      "commit": "b0d5272626d8ed578ecc3c07d80111be08eb9fce",
-      "built_at": "2026-08-01T15:22:42Z",
-      "protocol": 18,
-      "tag": "dev-2026-08-01-b0d5272626d8",
-      "assets": {
-        "linux-x86_64": {
-          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-b0d5272626d8/herdr-linux-x86_64",
-          "sha256": "e0880c8eaa06d527559eaedfb49e9c634b11375c7da882dd9f7f89fd9299b231"
         }
       }
     }
