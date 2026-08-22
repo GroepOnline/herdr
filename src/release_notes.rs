@@ -109,16 +109,19 @@ fn latest_release_notes(
 }
 
 fn bundled_release_notes(current_version: &str, changelog: &str) -> Option<ReleaseNotes> {
-    let base_version = current_version
-        .split_once('-')
-        .map_or(current_version, |(base, _)| base);
-    let version = crate::update::Version::parse(base_version)?.to_string();
+    let version = crate::update::Version::parse(base_version(current_version))?.to_string();
     let body = extract_version_section(changelog, &version)?;
     Some(ReleaseNotes {
         version,
         body: normalize_body(&body),
         preview: false,
     })
+}
+
+fn base_version(version: &str) -> &str {
+    version
+        .split_once(['-', '+'])
+        .map_or(version, |(base, _)| base)
 }
 
 fn release_notes_from_stored(
@@ -130,13 +133,8 @@ fn release_notes_from_stored(
         return None;
     }
 
-    let normalize_version = |version: &str| {
-        version
-            .split_once(['-', '+'])
-            .map_or(version, |(base, _)| base)
-    };
-    let stored_base = normalize_version(&stored.version);
-    let current_base = normalize_version(current_version);
+    let stored_base = base_version(&stored.version);
+    let current_base = base_version(current_version);
     let preview = match (
         crate::update::Version::parse(stored_base),
         crate::update::Version::parse(current_base),
