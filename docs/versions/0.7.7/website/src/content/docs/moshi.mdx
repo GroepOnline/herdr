@@ -42,7 +42,7 @@ When many hosts are online, prefer unique `HERDR_HOST_NAME` values and the
 gateway `GET /v1/ops/context` endpoint so operators can see **what runs where**
 before attaching from the phone. See [Fleet ops and gateway](/docs/fleet-ops/)
 for the full HTTP surface. Production inventory plugins belong in
-`OnlineChefGroep/herdr-ops` (`com.chefgroep.ops`).
+`GroepOnline/herdr-ops` (`com.chefgroep.ops`).
 
 The gateway binds to `127.0.0.1`, so a phone cannot reach `/v1/ops/context`
 directly. Query it from the host itself, or forward the port over SSH first
