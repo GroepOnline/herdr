@@ -3,6 +3,26 @@ name: Quality autofix
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    # Skip the workflow entirely on docs-only / no-autofix PRs so no ubuntu-latest
+    # seat is consumed. Paths mirror ci_changed_paths.py rust + release_meta lanes.
+    paths:
+      - ".github/workflows/quality-autofix.yml"
+      - "assets/**"
+      - "build.rs"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "CHANGELOG.md"
+      - "docs/next/CHANGELOG.md"
+      - "docs/next/product-announcement.json"
+      - "justfile"
+      - "npm/**"
+      - "rust-toolchain.toml"
+      - "scripts/**"
+      - "src/**"
+      - "tests/**"
+      - "vendor/**"
+      - "website/install.sh"
+      - "website/latest.json"
   workflow_dispatch:
     inputs:
       pr_number:
