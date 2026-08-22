@@ -3,8 +3,11 @@ use std::time::{Duration, Instant};
 use crate::api::schema::{
     AgentPromptParams, AgentPromptWaitOptions, AgentReadParams, AgentRenameParams,
     AgentSendKeysParams, AgentStartParams, AgentTarget, AgentWaitParams, EmptyParams, Method,
-    ReadFormat, ReadSource, Request,
+    PaneProcessInfoParams, PaneTarget, ReadFormat, ReadSource, Request,
 };
+
+const AGENT_START_POLL_INTERVAL: Duration = Duration::from_millis(100);
+const PANE_SHELL_READINESS_RETRY_TIMEOUT: Duration = Duration::from_secs(2);
 
 pub(super) fn run_agent_command(args: &[String]) -> std::io::Result<i32> {
     let Some(subcommand) = args.first().map(|arg| arg.as_str()) else {
@@ -330,24 +333,63 @@ fn agent_start(args: &[String]) -> std::io::Result<i32> {
         return Ok(2);
     };
     let expected_kind = crate::detect::agent_label(expected_kind).to_string();
-    let mut response = super::send_request(&Request {
-        id: "cli:agent:start".into(),
-        method: Method::AgentStart(AgentStartParams {
-            name: name.clone(),
-            kind,
-            pane_id: pane_id.clone(),
-            args: if separator < args.len() {
-                args[separator + 1..].to_vec()
-            } else {
-                Vec::new()
-            },
-            timeout_ms,
-        }),
-    })?;
-    if response.get("error").is_some() {
-        return super::print_response(&response);
-    }
+    let agent_args = if separator < args.len() {
+        args[separator + 1..].to_vec()
+    } else {
+        Vec::new()
+    };
     let timeout = Duration::from_millis(timeout_ms.unwrap_or(30_000));
+    let retryable_timeout = timeout > crate::app::AGENT_START_SETTLE_DELAY
+        && timeout <= crate::app::MAX_AGENT_START_TIMEOUT;
+    let pinned_terminal_id = pane_terminal_id(&pane_id)?;
+    let mut retry_deadline = None;
+    let mut previous_busy_response = None;
+    let mut response = loop {
+        if let Some(previous_busy_response) = previous_busy_response.as_ref() {
+            if should_abort_agent_start_retry(
+                agent_start_retry_expired(retry_deadline, Instant::now()),
+                agent_start_terminals_match(&pinned_terminal_id, &pane_terminal_id(&pane_id)?),
+                pane_shell_is_initializing(&pane_id)?,
+            ) {
+                return super::print_response(previous_busy_response);
+            }
+        }
+
+        let response = super::send_request(&Request {
+            id: "cli:agent:start".into(),
+            method: Method::AgentStart(AgentStartParams {
+                name: name.clone(),
+                kind: kind.clone(),
+                pane_id: pane_id.clone(),
+                args: agent_args.clone(),
+                timeout_ms,
+            }),
+        })?;
+        if response.get("error").is_none() {
+            break response;
+        }
+        if !should_retry_agent_pane_busy(
+            response["error"]["code"].as_str(),
+            retryable_timeout,
+            &pinned_terminal_id,
+            &pane_terminal_id(&pane_id)?,
+            pane_shell_is_initializing(&pane_id)?,
+        ) {
+            return super::print_response(&response);
+        }
+
+        let deadline = *retry_deadline
+            .get_or_insert_with(|| Instant::now() + PANE_SHELL_READINESS_RETRY_TIMEOUT);
+        previous_busy_response = Some(response);
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            if let Some(previous_busy_response) = previous_busy_response.as_ref() {
+                return super::print_response(previous_busy_response);
+            }
+        }
+        std::thread::sleep(AGENT_START_POLL_INTERVAL.min(remaining));
+    };
+
     let Some(expected_terminal_id) = response["result"]["agent"]["terminal_id"].as_str() else {
         return super::print_response(&cli_agent_error(
             "cli:agent:start",
@@ -355,6 +397,12 @@ fn agent_start(args: &[String]) -> std::io::Result<i32> {
             "agent start response did not include terminal_id",
         ));
     };
+    if pinned_terminal_id
+        .as_deref()
+        .is_some_and(|pinned| pinned != expected_terminal_id)
+    {
+        return super::print_response(&agent_name_lost_error("cli:agent:start", name));
+    }
     let waited = wait_for_named_agent(
         name,
         &pane_id,
@@ -525,7 +573,7 @@ fn wait_for_named_agent(
         if response.get("error").is_some() {
             response = resolve_agent_target_unchecked(fallback_pane_id, poll_id)?;
             if response.get("error").is_some() {
-                std::thread::sleep(Duration::from_millis(100));
+                std::thread::sleep(AGENT_START_POLL_INTERVAL);
                 continue;
             }
         }
@@ -557,8 +605,65 @@ fn wait_for_named_agent(
         if let Some(outcome) = outcome {
             return Ok(outcome);
         }
-        std::thread::sleep(Duration::from_millis(100));
+        std::thread::sleep(AGENT_START_POLL_INTERVAL);
     }
+}
+
+fn agent_start_retry_expired(deadline: Option<Instant>, now: Instant) -> bool {
+    deadline.is_some_and(|deadline| now >= deadline)
+}
+
+fn agent_start_terminals_match(
+    pinned_terminal_id: &Option<String>,
+    current_terminal_id: &Option<String>,
+) -> bool {
+    pinned_terminal_id == current_terminal_id
+}
+
+fn should_abort_agent_start_retry(
+    retry_expired: bool,
+    terminals_match: bool,
+    shell_initializing: bool,
+) -> bool {
+    retry_expired || !terminals_match || !shell_initializing
+}
+
+fn should_retry_agent_pane_busy(
+    error_code: Option<&str>,
+    retryable_timeout: bool,
+    pinned_terminal_id: &Option<String>,
+    current_terminal_id: &Option<String>,
+    shell_initializing: bool,
+) -> bool {
+    error_code == Some("agent_pane_busy")
+        && retryable_timeout
+        && pinned_terminal_id.is_some()
+        && pinned_terminal_id == current_terminal_id
+        && shell_initializing
+}
+
+fn pane_terminal_id(pane_id: &str) -> std::io::Result<Option<String>> {
+    let response = super::send_request(&Request {
+        id: "cli:agent:start:pane".into(),
+        method: Method::PaneGet(PaneTarget {
+            pane_id: pane_id.to_owned(),
+        }),
+    })?;
+    Ok(response["result"]["pane"]["terminal_id"]
+        .as_str()
+        .map(str::to_owned))
+}
+
+fn pane_shell_is_initializing(pane_id: &str) -> std::io::Result<bool> {
+    let response = super::send_request(&Request {
+        id: "cli:agent:start:process_info".into(),
+        method: Method::PaneProcessInfo(PaneProcessInfoParams {
+            pane_id: Some(pane_id.to_owned()),
+        }),
+    })?;
+    Ok(crate::platform::process_info_shows_shell_initialization(
+        &response["result"]["process_info"],
+    ))
 }
 
 fn agent_name_lost_error(request_id: &str, expected_name: &str) -> serde_json::Value {
@@ -820,4 +925,113 @@ fn parse_timeout(value: &str) -> Result<u64, i32> {
         eprintln!("{err}");
         2
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn agent_start_retry_expired_when_deadline_passed() {
+        let deadline = Instant::now() - Duration::from_millis(1);
+        assert!(agent_start_retry_expired(Some(deadline), Instant::now()));
+    }
+
+    #[test]
+    fn agent_start_retry_not_expired_without_deadline() {
+        assert!(!agent_start_retry_expired(None, Instant::now()));
+    }
+
+    #[test]
+    fn should_abort_retry_when_terminal_changes() {
+        assert!(should_abort_agent_start_retry(false, false, true,));
+    }
+
+    #[test]
+    fn should_abort_retry_when_shell_is_ready() {
+        assert!(should_abort_agent_start_retry(false, true, false,));
+    }
+
+    #[test]
+    fn should_retry_busy_when_shell_initializing() {
+        assert!(should_retry_agent_pane_busy(
+            Some("agent_pane_busy"),
+            true,
+            &Some("term-1".into()),
+            &Some("term-1".into()),
+            true,
+        ));
+    }
+
+    #[test]
+    fn should_not_retry_busy_when_timeout_not_retryable() {
+        assert!(!should_retry_agent_pane_busy(
+            Some("agent_pane_busy"),
+            false,
+            &Some("term-1".into()),
+            &Some("term-1".into()),
+            true,
+        ));
+    }
+
+    #[test]
+    fn should_not_retry_non_busy_errors() {
+        assert!(!should_retry_agent_pane_busy(
+            Some("agent_name_taken"),
+            true,
+            &Some("term-1".into()),
+            &Some("term-1".into()),
+            true,
+        ));
+    }
+
+    #[test]
+    fn shell_initialization_rejects_missing_shell_pid() {
+        assert!(!crate::platform::process_info_shows_shell_initialization(
+            &serde_json::json!({})
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shell_initialization_detects_foreground_shell() {
+        let process_info = serde_json::json!({
+            "shell_pid": 42,
+            "foreground_process_group_id": 42,
+            "foreground_processes": [{
+                "pid": 42,
+                "name": "bash"
+            }]
+        });
+        assert!(crate::platform::process_info_shows_shell_initialization(
+            &process_info
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shell_initialization_rejects_replaced_shell() {
+        let process_info = serde_json::json!({
+            "shell_pid": 42,
+            "foreground_process_group_id": 99,
+            "foreground_processes": [{"pid": 99, "name": "vim"}]
+        });
+        assert!(!crate::platform::process_info_shows_shell_initialization(
+            &process_info
+        ));
+    }
+
+    #[cfg(not(unix))]
+    #[test]
+    fn shell_initialization_is_not_observable_off_unix() {
+        let process_info = serde_json::json!({
+            "shell_pid": 42,
+            "foreground_process_group_id": 42,
+            "foreground_processes": [{"pid": 42, "name": "bash"}]
+        });
+        assert!(!crate::platform::process_info_shows_shell_initialization(
+            &process_info
+        ));
+    }
 }

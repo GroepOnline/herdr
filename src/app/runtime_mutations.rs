@@ -2,8 +2,8 @@ use crate::api::schema::{
     EmptyParams, LayoutSetSplitRatioParams, Method, PaneFocusDirectionParams, PaneInputSetParams,
     PaneRenameParams, PaneResizeParams, PaneSplitParams, PaneSwapParams, PaneTarget,
     PaneZoomParams, TabCreateParams, TabMoveParams, TabRenameParams, TabTarget,
-    WorkspaceCreateParams, WorkspaceMoveParams, WorkspaceRenameParams, WorkspaceTarget,
-    WorktreeCreateParams, WorktreeOpenParams, WorktreeRemoveParams,
+    WorkspaceCloseParams, WorkspaceCreateParams, WorkspaceMoveParams, WorkspaceRenameParams,
+    WorkspaceTarget, WorktreeCreateParams, WorktreeOpenParams, WorktreeRemoveParams,
 };
 
 use super::App;
@@ -58,7 +58,27 @@ impl App {
         id: &'static str,
         workspace_id: String,
     ) -> String {
-        self.dispatch_runtime_mutation(id, Method::WorkspaceClose(WorkspaceTarget { workspace_id }))
+        self.dispatch_runtime_mutation(
+            id,
+            Method::WorkspaceClose(WorkspaceCloseParams {
+                workspace_id,
+                close_group: false,
+            }),
+        )
+    }
+
+    pub(crate) fn runtime_workspace_close_group(
+        &mut self,
+        id: &'static str,
+        workspace_id: String,
+    ) -> String {
+        self.dispatch_runtime_mutation(
+            id,
+            Method::WorkspaceClose(WorkspaceCloseParams {
+                workspace_id,
+                close_group: true,
+            }),
+        )
     }
 
     pub(crate) fn runtime_tab_create(

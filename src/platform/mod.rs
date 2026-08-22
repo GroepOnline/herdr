@@ -186,6 +186,8 @@ pub(crate) struct RemoteSshConfigPaths {
 
 #[cfg(unix)]
 mod unix_common;
+#[cfg(unix)]
+pub(crate) use unix_common::process_info_shows_shell_initialization;
 
 #[cfg(target_os = "linux")]
 mod linux;
