@@ -68,10 +68,11 @@ pub enum Agent {
     Qwen,
     CommandCode,
     Muse,
+    Aider,
 }
 
 impl Agent {
-    pub const ALL: [Self; 27] = [
+    pub const ALL: [Self; 28] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -99,9 +100,10 @@ impl Agent {
         Self::Qwen,
         Self::CommandCode,
         Self::Muse,
+        Self::Aider,
     ];
 
-    pub const SCREEN_MANIFEST_AGENTS: [Self; 25] = [
+    pub const SCREEN_MANIFEST_AGENTS: [Self; 26] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -127,6 +129,7 @@ impl Agent {
         Self::Qwen,
         Self::CommandCode,
         Self::Muse,
+        Self::Aider,
     ];
 }
 
@@ -159,6 +162,7 @@ pub fn agent_label(agent: Agent) -> &'static str {
         Agent::Qwen => "qwen",
         Agent::CommandCode => "commandcode",
         Agent::Muse => "muse",
+        Agent::Aider => "aider",
     }
 }
 
@@ -197,6 +201,7 @@ pub fn interactive_agent_executable(agent: Agent) -> &'static str {
         Agent::Qwen => "qwen",
         Agent::CommandCode => "command-code",
         Agent::Muse => "muse",
+        Agent::Aider => "aider",
     }
 }
 
@@ -240,6 +245,7 @@ fn lookup_agent(name: &str) -> Option<Agent> {
         "qwen" | "qwen-code" | "qwen code" => Some(Agent::Qwen),
         "commandcode" | "command-code" | "commandcode-cli" => Some(Agent::CommandCode),
         "muse" | "muse-code" | "muse-cli" => Some(Agent::Muse),
+        "aider" | "aider-cli" => Some(Agent::Aider),
         _ if is_muse_versioned_binary(name) => Some(Agent::Muse),
         _ => None,
     }
@@ -844,6 +850,7 @@ mod tests {
             (Agent::CommandCode, "command-code"),
             (Agent::Maki, "maki"),
             (Agent::Muse, "muse"),
+            (Agent::Aider, "aider"),
         ];
         assert_eq!(expected.len(), Agent::ALL.len());
         for (agent, executable) in expected {

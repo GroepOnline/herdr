@@ -262,6 +262,7 @@ const BUNDLED_MANIFESTS: &[(&str, &str)] = &[
     ("junie", include_str!("manifests/junie.toml")),
     ("openclaude", include_str!("manifests/openclaude.toml")),
     ("commandcode", include_str!("manifests/commandcode.toml")),
+    ("aider", include_str!("manifests/aider.toml")),
 ];
 
 static MANIFEST_CACHE: OnceLock<RwLock<ManifestCache>> = OnceLock::new();

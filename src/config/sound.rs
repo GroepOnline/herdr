@@ -152,6 +152,7 @@ impl AgentSoundOverrides {
             Some(Agent::Qwen) => self.qwen,
             Some(Agent::CommandCode) => self.command_code,
             Some(Agent::Muse) => self.muse,
+            Some(Agent::Aider) => AgentSoundSetting::Default,
             None => AgentSoundSetting::Default,
         }
     }
