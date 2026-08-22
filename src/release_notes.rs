@@ -97,7 +97,11 @@ fn latest_release_notes(
     bundled_changelog: &str,
 ) -> Option<ReleaseNotes> {
     let stored = stored.and_then(|stored| release_notes_from_stored(stored, current_version));
-    if stored.as_ref().is_some_and(|notes| notes.preview) {
+    let matching_prerelease = current_version.contains('-')
+        && stored
+            .as_ref()
+            .is_some_and(|notes| notes.version == current_version);
+    if stored.as_ref().is_some_and(|notes| notes.preview) || matching_prerelease {
         return stored;
     }
 
@@ -331,6 +335,25 @@ mod tests {
 
         assert_eq!(notes.version, crate::build_info::BASE_VERSION);
         assert!(!notes.body.is_empty());
+        assert!(!notes.preview);
+    }
+
+    #[test]
+    fn current_prerelease_uses_matching_persisted_channel_notes() {
+        let current_version = "0.8.6-dev.2026-08-22-ed0e658b";
+        let notes = latest_release_notes(
+            Some(StoredReleaseNotes {
+                version: current_version.to_string(),
+                body: "### Changed\n- Current dev build".to_string(),
+                show_on_startup: false,
+            }),
+            current_version,
+            "# Changelog\n\n## [0.8.6]\n\n### Fixed\n- Stable notes\n",
+        )
+        .expect("current dev notes");
+
+        assert_eq!(notes.version, current_version);
+        assert_eq!(notes.body, "### Changed\n- Current dev build");
         assert!(!notes.preview);
     }
 
