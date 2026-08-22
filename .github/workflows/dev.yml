@@ -201,7 +201,9 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          persist-credentials: false
+          # The repository-scoped deploy key is the established protected-main
+          # writer for generated release manifests (see release-portable-assets).
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
       # Match release.yml: download-artifact v8 nests as ./herdr-linux-x86_64/...
       # (path: artifacts previously made softprops miss the binary).
@@ -306,14 +308,10 @@ jobs:
             --retain 20
 
       - name: Commit dev manifest
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # checkout uses persist-credentials: false; wire the Actions token for push.
-          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git add website/dev.json
           git diff --cached --quiet || git commit -m "docs: update dev manifest"
           git push origin HEAD:main

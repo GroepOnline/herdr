@@ -6,6 +6,7 @@
 - Muse agent with generic Pick blocked detection. (upstream #2489)
 
 ### Fixed
+- Dev builds now publish their generated manifest through the repository-scoped release deploy key, so protected `main` no longer rejects the manifest update made after a successful build.
 - `workspace close` now rejects implicit worktree-group closure and supports explicit group closure with `--group`; without `--group` / `close_group: true` the API returns `workspace_group_close_required`. (upstream #2874)
 - Wayland clipboard copies no longer freeze Herdr while `wl-copy` remains alive to serve the selection. (upstream #3014)
 - The Pi integration now preserves short blocked transitions while an earlier lifecycle report is still in flight. (upstream #2971)
