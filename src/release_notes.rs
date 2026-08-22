@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 const PENDING_RELEASE_NOTES_PATH: &str = "release-notes.json";
+const BUNDLED_CHANGELOG: &str = include_str!("../CHANGELOG.md");
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReleaseNotes {
@@ -71,12 +72,56 @@ fn load_stored_from_path(path: &Path) -> Option<StoredReleaseNotes> {
 }
 
 pub fn load_latest() -> Option<ReleaseNotes> {
-    load_latest_from_path(&pending_path(), &crate::build_info::version())
+    load_latest_from_path(
+        &pending_path(),
+        &crate::build_info::version(),
+        BUNDLED_CHANGELOG,
+    )
 }
 
-fn load_latest_from_path(path: &Path, current_version: &str) -> Option<ReleaseNotes> {
-    let stored = load_stored_from_path(path)?;
-    release_notes_from_stored(stored, current_version)
+fn load_latest_from_path(
+    path: &Path,
+    current_version: &str,
+    bundled_changelog: &str,
+) -> Option<ReleaseNotes> {
+    latest_release_notes(
+        load_stored_from_path(path),
+        current_version,
+        bundled_changelog,
+    )
+}
+
+fn latest_release_notes(
+    stored: Option<StoredReleaseNotes>,
+    current_version: &str,
+    bundled_changelog: &str,
+) -> Option<ReleaseNotes> {
+    let stored = stored.and_then(|stored| release_notes_from_stored(stored, current_version));
+    let matching_prerelease = current_version.contains('-')
+        && stored
+            .as_ref()
+            .is_some_and(|notes| notes.version == current_version);
+    if stored.as_ref().is_some_and(|notes| notes.preview) || matching_prerelease {
+        return stored;
+    }
+
+    bundled_release_notes(current_version, bundled_changelog).or(stored)
+}
+
+fn bundled_release_notes(current_version: &str, changelog: &str) -> Option<ReleaseNotes> {
+    let version = crate::update::Version::parse(base_version(current_version))?.to_string();
+    let body = extract_version_section(changelog, &version)?;
+    Some(ReleaseNotes {
+        version,
+        body: normalize_body(&body),
+        preview: false,
+    })
+}
+
+fn base_version(version: &str) -> &str {
+    version
+        .split_once(['-', '+'])
+        .map_or(version, |(base, _)| base)
 }
 
 fn release_notes_from_stored(
@@ -88,12 +133,20 @@ fn release_notes_from_stored(
         return None;
     }
 
+    let stored_base = base_version(&stored.version);
+    let current_base = base_version(current_version);
     let preview = match (
-        crate::update::Version::parse(&stored.version),
-        crate::update::Version::parse(current_version),
+        crate::update::Version::parse(stored_base),
+        crate::update::Version::parse(current_base),
     ) {
-        (Some(stored_version), Some(current_version)) => stored_version > current_version,
-        _ => false,
+        (Some(stored_version), Some(current_base_version)) => {
+            stored_version > current_base_version
+                || (stored.version != current_version
+                    && stored.version.contains('-')
+                    && current_version.contains('-')
+                    && stored_base == current_base)
+        }
+        _ => stored.version != current_version,
     };
 
     Some(ReleaseNotes {
@@ -201,7 +254,7 @@ mod tests {
         let _ = clear_pending_at(&path);
         save_pending_to_path(&path, "0.3.2", "### Changed\n- One").unwrap();
 
-        let notes = load_latest_from_path(&path, "0.3.1").expect("latest notes");
+        let notes = load_latest_from_path(&path, "0.3.1", "").expect("latest notes");
         assert_eq!(notes.version, "0.3.2");
         assert_eq!(notes.body, "### Changed\n- One");
         assert!(notes.preview);
@@ -210,18 +263,23 @@ mod tests {
     }
 
     #[test]
-    fn load_latest_does_not_mark_older_saved_version_as_preview() {
+    fn upgrading_from_0_8_1_to_0_8_6_replaces_stale_notes_with_bundled_release() {
         let path = std::env::temp_dir().join(format!(
             "herdr-release-notes-{}-{}.json",
             std::process::id(),
             "stale"
         ));
         let _ = clear_pending_at(&path);
-        save_pending_to_path(&path, "0.3.0", "### Changed\n- One").unwrap();
+        save_pending_to_path(&path, "0.8.1", "### Changed\n- Old notes").unwrap();
 
-        let notes = load_latest_from_path(&path, "0.3.1").expect("latest notes");
-        assert_eq!(notes.version, "0.3.0");
-        assert_eq!(notes.body, "### Changed\n- One");
+        let notes = load_latest_from_path(
+            &path,
+            "0.8.6",
+            "# Changelog\n\n## [0.8.6] - 2026-08-19\n\n### Fixed\n- Current notes\n\n## [0.8.1] - 2026-08-15\n\n### Changed\n- Old notes\n",
+        )
+        .expect("latest notes");
+        assert_eq!(notes.version, "0.8.6");
+        assert_eq!(notes.body, "### Fixed\n- Current notes");
         assert!(!notes.preview);
 
         clear_pending_at(&path).unwrap();
@@ -241,7 +299,7 @@ mod tests {
 
         let stored = load_stored_from_path(&path).expect("stored notes");
         assert!(!stored.show_on_startup);
-        let latest = load_latest_from_path(&path, "0.3.1").expect("latest notes");
+        let latest = load_latest_from_path(&path, "0.3.1", "").expect("latest notes");
         assert_eq!(latest.version, "0.3.1");
         assert!(!latest.preview);
 
@@ -262,8 +320,86 @@ mod tests {
         )
         .unwrap();
 
-        assert!(load_latest_from_path(&path, "0.3.1").is_some());
+        assert!(load_latest_from_path(&path, "0.3.1", "").is_some());
 
         clear_pending_at(&path).unwrap();
+    }
+
+    #[test]
+    fn fresh_install_uses_bundled_notes_for_the_package_version() {
+        let notes = latest_release_notes(
+            None,
+            "0.8.6",
+            "# Changelog\n\n## [0.8.6]\n\n### Fixed\n- Current notes\n",
+        )
+        .expect("bundled notes");
+
+        assert_eq!(notes.version, "0.8.6");
+        assert_eq!(notes.body, "### Fixed\n- Current notes");
+        assert!(!notes.preview);
+    }
+
+    #[test]
+    fn bundled_changelog_contains_notes_for_cargo_package_version() {
+        let notes = bundled_release_notes(crate::build_info::BASE_VERSION, BUNDLED_CHANGELOG)
+            .expect("Cargo package version must have bundled release notes");
+
+        assert_eq!(notes.version, crate::build_info::BASE_VERSION);
+        assert!(!notes.body.is_empty());
+        assert!(!notes.preview);
+    }
+
+    #[test]
+    fn prerelease_notes_are_preferred_over_bundled_notes() {
+        let notes = latest_release_notes(
+            Some(StoredReleaseNotes {
+                version: "0.8.6-preview.101".to_string(),
+                body: "### Fixed\n- Preview notes".to_string(),
+                show_on_startup: true,
+            }),
+            "0.8.6-preview.100",
+            "# Changelog\n\n## [0.8.6]\n\n### Fixed\n- Stable notes\n",
+        )
+        .expect("preview notes");
+
+        assert_eq!(notes.body, "### Fixed\n- Preview notes");
+        assert!(notes.preview);
+    }
+
+    #[test]
+    fn current_prerelease_uses_matching_persisted_channel_notes() {
+        let current_version = "0.8.6-dev.2026-08-22-ed0e658b";
+        let notes = latest_release_notes(
+            Some(StoredReleaseNotes {
+                version: current_version.to_string(),
+                body: "### Changed\n- Current dev build".to_string(),
+                show_on_startup: false,
+            }),
+            current_version,
+            "# Changelog\n\n## [0.8.6]\n\n### Fixed\n- Stable notes\n",
+        )
+        .expect("current dev notes");
+
+        assert_eq!(notes.version, current_version);
+        assert_eq!(notes.body, "### Changed\n- Current dev build");
+        assert!(!notes.preview);
+    }
+
+    #[test]
+    fn already_seen_current_release_uses_canonical_bundled_notes() {
+        let notes = latest_release_notes(
+            Some(StoredReleaseNotes {
+                version: "0.8.6".to_string(),
+                body: "### Fixed\n- Non-canonical cached notes".to_string(),
+                show_on_startup: false,
+            }),
+            "0.8.6",
+            "# Changelog\n\n## [0.8.6]\n\n### Fixed\n- Canonical notes\n",
+        )
+        .expect("bundled notes");
+
+        assert_eq!(notes.version, "0.8.6");
+        assert_eq!(notes.body, "### Fixed\n- Canonical notes");
+        assert!(!notes.preview);
     }
 }
