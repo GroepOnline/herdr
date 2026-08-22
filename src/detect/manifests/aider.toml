@@ -30,7 +30,7 @@ any = [
 
 [[rules]]
 id = "file_edit_done"
-state = "done"
+state = "idle"
 priority = 90
 region = "whole_recent"
 any = [
@@ -42,11 +42,12 @@ any = [
 [[rules]]
 id = "error_detected"
 state = "blocked"
-priority = 80
-region = "whole_recent"
+priority = 120
+region = "recent"
 visible_blocker = true
 any = [
-  { contains = ["error:"] },
   { contains = ["API error"] },
-  { line_regex = ['(?i).*(rate limit|timeout|connection error)'] },
+  { contains = ["rate limit"] },
+  { contains = ["connection error"] },
+  { contains = ["timeout while"] },
 ]
