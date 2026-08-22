@@ -8,6 +8,16 @@ import scripts.dev as dev
 import scripts.preview as preview
 from scripts.product_config import PRODUCT_GITHUB_REPO
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEV_WORKFLOW_PATH = REPO_ROOT / ".github/workflows/dev.yml"
+
+
+def workflow_step(workflow: str, name: str) -> str:
+    marker = f"      - name: {name}\n"
+    start = workflow.index(marker)
+    end = workflow.find("\n      - name: ", start + len(marker))
+    return workflow[start:] if end == -1 else workflow[start:end]
+
 
 class DevManifestTests(unittest.TestCase):
     def test_build_manifest_uses_dev_channel(self):
@@ -62,6 +72,24 @@ class DevManifestTests(unittest.TestCase):
     def test_dev_defaults(self):
         self.assertEqual(dev.CHANNEL, "dev")
         self.assertEqual(dev.DEFAULT_MANIFEST, "website/dev.json")
+
+    def test_publish_checkout_uses_release_deploy_key(self):
+        workflow = DEV_WORKFLOW_PATH.read_text(encoding="utf-8")
+        publish_job = workflow.split("\n  publish:\n", maxsplit=1)[1]
+        checkout = publish_job.split("      - name: Download all artifacts", maxsplit=1)[0]
+
+        self.assertIn("ref: main", checkout)
+        self.assertIn("ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}", checkout)
+        self.assertNotIn("persist-credentials: false", checkout)
+
+    def test_manifest_push_never_rewires_origin_to_github_token(self):
+        workflow = DEV_WORKFLOW_PATH.read_text(encoding="utf-8")
+        commit_step = workflow_step(workflow, "Commit dev manifest")
+
+        self.assertIn("git push origin HEAD:main", commit_step)
+        self.assertNotIn("GH_TOKEN", commit_step)
+        self.assertNotIn("x-access-token", commit_step)
+        self.assertNotIn("git remote set-url", commit_step)
 
 
 if __name__ == "__main__":
