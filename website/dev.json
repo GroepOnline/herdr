@@ -3,18 +3,31 @@
   "channel": "dev",
   "enabled": true,
   "base_version": "0.8.6",
-  "build_id": "2026-08-22-739dc88c3b9d",
-  "commit": "739dc88c3b9d1173b743fac342f2706cf27b29c3",
-  "built_at": "2026-08-22T05:49:40Z",
+  "build_id": "2026-08-22-e3bee55833b8",
+  "commit": "e3bee55833b8bb7b05aad04d0323348a26446fe5",
+  "built_at": "2026-08-22T07:08:30Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-22-739dc88c3b9d\n\nBuilt from `739dc88c3b9d` on `main`.\nBase stable: v0.8.6\nCompare: https://github.com/GroepOnline/herdr/compare/v0.8.6...739dc88c3b9d1173b743fac342f2706cf27b29c3\n\n### Added\n- Add Muse agent with generic Pick blocked detection (#66)\n- Add configurable tab bar status (#58)\n\n### Fixed\n- Publish dev manifest with release deploy key (#72)\n- Bundle canonical release notes for current version (#71)\n- Keep selections visible without host colors (#64)\n- Throwaway repros silently used the live session (#65)\n- Restore theme config reference entries (#73)\n- Require explicit workspace group close (#63)\n- Port upstream theme highlights and shell-initialization retry for agent start (#59)\n- Effect-returning plugin and drop dummy session IDs (#70)\n- Order ui accent before nested config tables (#62)\n- Refresh shared agent manifest caches (#61)\n- Export v2 plugin schema for OpenCode 2 beta (#69)\n- Port upstream wayland clipboard, pi blocked transition and file link handling (#60)\n\n### Maintenance\n- Consolidate approved internal contributors (#74)\n- Atomically promote v0.8.6\n- Rewrite README for clarity and flow\n\n### Other\n- Revert \"feat: add configurable tab bar status (#58)\" (#68)",
+  "notes": "Dev build 2026-08-22-e3bee55833b8\n\nBuilt from `e3bee55833b8` on `main`.\nBase stable: v0.8.6\nCompare: https://github.com/GroepOnline/herdr/compare/739dc88c3b9d1173b743fac342f2706cf27b29c3...e3bee55833b8bb7b05aad04d0323348a26446fe5\n\n### Maintenance\n- Bump node20-deprecated GitHub Actions to current majors",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-22-739dc88c3b9d/herdr-linux-x86_64",
-      "sha256": "f48c2765f5af90460e515e96aa48c7279a4a2c0074c08160ec11cb4abae8e2c9"
+      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-22-e3bee55833b8/herdr-linux-x86_64",
+      "sha256": "4c4c17f7f1657bb76a2e61d68411c7bf66894f98d7971bd88869740d09da9d44"
     }
   },
   "builds": {
+    "2026-08-22-e3bee55833b8": {
+      "base_version": "0.8.6",
+      "commit": "e3bee55833b8bb7b05aad04d0323348a26446fe5",
+      "built_at": "2026-08-22T07:08:30Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-22-e3bee55833b8",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-22-e3bee55833b8/herdr-linux-x86_64",
+          "sha256": "4c4c17f7f1657bb76a2e61d68411c7bf66894f98d7971bd88869740d09da9d44"
+        }
+      }
+    },
     "2026-08-22-739dc88c3b9d": {
       "base_version": "0.8.6",
       "commit": "739dc88c3b9d1173b743fac342f2706cf27b29c3",
@@ -259,19 +272,6 @@
         "linux-x86_64": {
           "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-7462fcfae603/herdr-linux-x86_64",
           "sha256": "0fe3dc93763d32b6369833573bc595a4fb9bd79a5232c99ef3489f8dbff9bb29"
-        }
-      }
-    },
-    "2026-08-01-9ff3f027c1ef": {
-      "base_version": "0.7.6",
-      "commit": "9ff3f027c1ef73fea947d7f117c84cff1459aa49",
-      "built_at": "2026-08-01T00:24:37Z",
-      "protocol": 18,
-      "tag": "dev-2026-08-01-9ff3f027c1ef",
-      "assets": {
-        "linux-x86_64": {
-          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-9ff3f027c1ef/herdr-linux-x86_64",
-          "sha256": "ab7318d844cc8eaba9a2166829395d6e289afeaf1f8dd885c8659bbf7a34a036"
         }
       }
     }
