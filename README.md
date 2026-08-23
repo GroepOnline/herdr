@@ -1,11 +1,12 @@
 # herdr
 
+
 <p align="center">
-  <img src="assets/logo.png" alt="herdr" width="100" />
+  <img src="../../assets/logo.png" alt="herdr" width="100" />
 </p>
 
 <p align="center">
-  <a href="https://herdr.chefgroep.nl">website</a> · <a href="#install">install</a> · <a href="#quick-start">quick start</a> · <a href="#supported-agents">agents</a> · <a href="https://herdr.chefgroep.nl/docs/integrations/">integrations</a> · <a href="https://herdr.chefgroep.nl/docs/configuration/">config</a> · <a href="https://herdr.chefgroep.nl/docs/socket-api/">socket api</a> · <a href="#sponsors">sponsor</a>
+  <a href="https://herdr.chefgroep.nl">herdr.chefgroep.nl</a> · <a href="#install">install</a> · <a href="#quick-start">quick start</a> · <a href="#supported-agents">supported agents</a> · <a href="https://herdr.chefgroep.nl/docs/integrations/">integrations</a> · <a href="https://herdr.chefgroep.nl/docs/configuration/">configuration</a> · <a href="https://herdr.chefgroep.nl/docs/socket-api/">socket api</a> · <a href="#sponsors">sponsor</a>
 </p>
 
 ---
@@ -14,106 +15,110 @@
 
 **agent multiplexer that lives in your terminal.**
 
-workspaces, tabs, panes. mouse-native: click, drag, split. every agent at a glance — blocked, working, done. detach and reattach, agents keep running. no gui app, no electron, no mac-only wrapper. you see the agent's own terminal, not someone's interpretation of it.
+workspaces, tabs, panes. mouse-native: click, drag, split. every agent at a glance: blocked, working, done. detach and reattach, agents keep running. no gui app, no electron, no mac-only native wrapper. you see the agent's own terminal, not someone's interpretation of it.
 
 ---
 
 ## install
 
-**one-liner (Linux / macOS):**
-
 ```bash
 curl -fsSL https://herdr.chefgroep.nl/install.sh | sh
 ```
 
-the installer verifies the manifest SHA-256 before atomically replacing the binary.
+The Linux/macOS installer verifies the selected manifest SHA-256 before atomically replacing the binary.
 
-**windows (preview beta):**
+on windows preview beta:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -c "irm https://herdr.chefgroep.nl/install.ps1 | iex"
 ```
 
-**homebrew:**
+or install with homebrew:
 
 ```bash
 brew tap GroepOnline/tap
 brew install GroepOnline/tap/groeponline-herdr
 ```
 
-**npm / bun:**
+update later with `brew update && brew upgrade GroepOnline/tap/groeponline-herdr`. The GroepOnline tap and [herdr.chefgroep.nl/latest.json](https://herdr.chefgroep.nl/latest.json) are the canonical distribution sources.
+
+or install with npm/bun (Linux/macOS, Intel/ARM):
 
 ```bash
 npm install --global groeponline-herdr
 # or: bun add --global groeponline-herdr
 ```
 
-the npm postinstall verifies `SHA256SUMS` before installing the native binary.
+The npm postinstall verifies the release `SHA256SUMS` before installing the native binary.
 
-**mise:**
+or install with mise:
 
 ```bash
 mise use -g herdr
 ```
 
-**nix:**
+if mise reports `herdr not found in mise tool registry`, update mise and retry. older mise versions predate the herdr registry entry; `mise use -g github:GroepOnline/herdr` works as a temporary fallback.
 
-```nix
-# flake.nix — herdr is available as a flake
-```
-
-**direct download:** stable Linux/macOS binaries from [releases](https://github.com/GroepOnline/herdr/releases). native Windows binaries are beta; preview and dev channels publish Linux (musl) binaries only.
-
-the [GroepOnline tap](https://github.com/GroepOnline/homebrew-tap) and [herdr.chefgroep.nl/latest.json](https://herdr.chefgroep.nl/latest.json) are the canonical distribution sources.
+or download the stable Linux/macOS binary from [releases](https://github.com/GroepOnline/herdr/releases). Native Windows binaries are beta builds; the preview and dev channels currently publish Linux (musl) binaries only.
 
 ## quick start
+
+Start Herdr in the directory where the work lives:
 
 ```bash
 herdr
 ```
 
-start in the directory where the work lives. herdr starts or attaches to one background session server and opens a workspace if none exists. run an agent in the root pane, then split:
+Herdr starts or attaches to one background session server. When a session has no workspaces, Herdr opens one automatically. Run an agent in the root pane. Press `ctrl+b`, then `shift+n` to create another workspace, `ctrl+b`, then `v` or `minus` to split panes, `ctrl+b`, then `c` to create a tab, and `ctrl+b`, then `w` to switch workspaces.
 
-| action | key |
-|--------|-----|
-| new workspace | `prefix+shift+n` |
-| split pane (right) | `prefix+v` |
-| split pane (down) | `prefix+minus` |
-| new tab | `prefix+c` |
-| switch workspace | `prefix+w` |
-| detach | `prefix+q` |
-
-detach closes the client only — the server and all pane processes keep running. open another terminal and run `herdr` again to reattach.
+Press `ctrl+b q` to detach the client. The server and pane processes keep running. Open another terminal and run `herdr` again to reattach.
 
 ## core concepts
 
-**server and client.** `herdr` attaches to a background server by default. detaching closes only the client. `herdr server stop` stops the default server and kills its panes. named sessions are separate server namespaces: `herdr session attach work`, `herdr session stop work`, `herdr session list`.
+**Server and client.** By default, `herdr` attaches to a background server. Detaching closes only the client. `herdr server stop` stops the default server and kills its panes. Named sessions are separate server namespaces: use `herdr session attach work`, `herdr session stop work`, and `herdr session list` when you want fully separate runtime state.
 
-**workspaces, tabs, panes.** a workspace is the project-level container. tabs group panes inside a workspace. panes are real terminal processes, not rewritten agent views.
+**Workspaces, tabs, panes.** A workspace is the project-level container. Tabs group panes inside a workspace. Panes are real terminal processes, not rewritten agent views.
 
-**copy.** herdr copies pane text, not the sidebar. drag-select inside a pane, double-click a word or token, or press `prefix+[` for keyboard copy mode. in copy mode: `h/j/k/l` to move, `w/b/e` for words, `{`/`}` for paragraphs, `v` for visual, `y` to yank.
+**Copy.** Herdr copies pane text, not the sidebar. Drag-select inside a pane, double-click a word or token, or press `prefix+[` for keyboard copy mode. In copy mode, move with `h/j/k/l`, `w/b/e`, and `{`/`}`, start selection with `v` or Space, copy with `y` or Enter, and leave with `q` or Esc. In PuTTY and some SSH terminals, hold `Shift` while dragging to use the terminal's own selection, and `Shift` + right click to paste.
 
-**keybindings.** herdr uses explicit keybinding strings. `prefix+n` means press the configured prefix, then `n`. `ctrl+alt+n`, `cmd+k`, `alt+1`, and function-key chords are direct terminal-mode shortcuts — no prefix needed. plain printable keys like `n` steal normal typing, so use `prefix+n` unless you intentionally want a modifier-gated direct binding.
+**Update and restore.** `herdr update` installs a new binary, but a running server keeps using the old process until it is stopped or handed off. Stop the old server to use the new version. Stopping exits pane processes. Run `herdr server stop`, then run `herdr` again for the default session. For a named session, run `herdr session stop <name>`, then run `herdr session attach <name>` again. `herdr update --handoff` is experimental and tries to move live panes, including foreground processes such as dev servers, from the old server to the new one. With current official integrations installed, supported agent panes can restart from their native agent sessions after a server restart or update.
 
-**agent awareness.** the sidebar and navigator use one explicit projection: `working`, `blocked`, `done`, `idle`, or `unknown`. `unknown` means insufficient evidence, not idle. detection works with process names and terminal output by default; official integrations can add native session identity for restore, semantic state reports, or both.
+**Keybindings.** Herdr uses explicit keybinding strings. `prefix+n` means press the configured prefix, then `n`. `ctrl+alt+n`, `cmd+k`, `alt+1`, and function-key chords are direct terminal-mode shortcuts and do not need the prefix. Plain direct printable keys such as `n` steal normal typing, so use `prefix+n` unless you intentionally want a modifier-gated direct binding.
+
+**Agent awareness.** The sidebar and navigator use one explicit projection: `working`, `blocked`, `done`, `idle`, or `unknown`. `unknown` means insufficient evidence, not idle. Detection works with process names and terminal output by default; official integrations can add native session identity for restore, semantic state reports, or both.
 
 ## update
+
+Herdr notifies you when a new version is available. Run manually:
 
 ```bash
 herdr update
 ```
 
-`herdr update` updates the binary that is first on `PATH`. direct installs download from the configured channel. homebrew, npm, and mise installs run their package-manager upgrade. a leftover `~/.local/bin/herdr` that shadows a later homebrew, npm, or mise install is renamed to `herdr.direct.bak` after that upgrade succeeds; `herdr update --force-direct` keeps updating the leftover. `herdr --version` prints the binary path and install kind on stderr, and `herdr channel` prints the configured channel.
+`herdr update` updates the binary that is first on `PATH`. Direct installs download from the configured channel. Homebrew, npm, and mise installs run their package-manager upgrade. A leftover `~/.local/bin/herdr` that shadows a later Homebrew, npm, or mise install is renamed to `herdr.direct.bak` after that upgrade succeeds; `herdr update --force-direct` keeps updating the leftover. `herdr --version` prints the binary path and install kind on stderr, and `herdr channel` prints the configured channel. Direct installs can opt into preview builds with `herdr channel set preview`, dev builds with `herdr channel set dev`, and return to stable with `herdr channel set stable` on Linux and macOS. See [install docs](https://herdr.chefgroep.nl/docs/install/) and [session state docs](https://herdr.chefgroep.nl/docs/session-state/) for the full update, restart, restore, and handoff matrix.
 
-**channels:**
+Linux and macOS direct installs use the stable update channel by default. Windows beta installs default to preview. To test preview builds from `main` before the next stable release:
 
-| channel | command | purpose |
-|---------|---------|---------|
-| stable (default) | `herdr channel set stable` | production |
-| preview | `herdr channel set preview` | test before next stable |
-| dev | `herdr channel set dev` | smoke-test merges to `main` |
+```bash
+herdr channel set preview
+```
 
-preview and dev are direct-install only (homebrew, mise, and nix stay on stable). see [install docs](https://herdr.chefgroep.nl/docs/install/) and [session state docs](https://herdr.chefgroep.nl/docs/session-state/) for the full update, restart, restore, and handoff matrix.
+To test dev builds published from merges to `main`:
+
+```bash
+herdr channel set dev
+```
+
+To return Linux and macOS direct installs to stable:
+
+```bash
+herdr channel set stable
+```
+
+`herdr channel set` writes the channel only. Run `herdr update` afterwards to refresh a direct install from the new channel.
+
+Preview is only for direct installs managed by Herdr's updater. Homebrew, mise, and Nix stay on stable and update through their package managers.
+Dev is also direct-install only. It follows merges to `main` and is meant for smoke testing merge results.
 
 ## how it compares
 
@@ -125,7 +130,7 @@ preview and dev are direct-install only (homebrew, mise, and nix stay on stable)
 | agent awareness          | —    | ✓            | ✓     |
 | lives in your terminal   | ✓    | —            | ✓     |
 | real terminal views      | ✓    | —            | ✓     |
-| mouse-native             | —    | ✓            | ✓     |
+| mouse-native            | —    | ✓            | ✓     |
 | lightweight binary       | ✓    | —            | ✓     |
 | agents can orchestrate   | ?    | ?            | ✓     |
 
@@ -133,44 +138,44 @@ tmux gives you persistence and panes, but it was built before agents existed. gu
 
 ## remote and attach
 
-herdr works over normal SSH. run it on the remote host, detach, and reattach later:
+Herdr works over normal SSH. Run it on the remote host, detach, and reattach later:
 
 ```
 ssh you@yourserver
 herdr
 ```
 
-attach from your local terminal without opening a shell first:
+You can also attach from your local terminal without opening a shell first:
 
 ```bash
 herdr --remote workbox
 herdr --remote ssh://you@yourserver:2222
 ```
 
-remote attach adds fallback SSH keepalives and connection reuse by default while preserving your own SSH config. set `[remote].manage_ssh_config = false` for plain `ssh`.
+Remote attach adds fallback SSH keepalives and connection reuse by default while preserving your own SSH config. Set `[remote].manage_ssh_config = false` to use plain `ssh`.
 
-direct attach connects your current terminal to one server-owned terminal:
+Direct attach connects your current terminal to one server-owned terminal:
 
 ```bash
 herdr agent attach <target>
 herdr terminal attach <terminal_id>
 ```
 
-see [persistence and remote docs](https://herdr.chefgroep.nl/docs/persistence-remote/) for remote keybinding, named-session, and handoff details.
+See [persistence and remote docs](https://herdr.chefgroep.nl/docs/persistence-remote/) for remote keybinding, named-session, and handoff details.
 
 ## agent awareness
 
-the sidebar shows which agents are blocked, working, done, idle, or unknown. workspaces roll up to their most urgent state so you can scan the full list at a glance. `unknown` is intentionally visible instead of being presented as idle; use `herdr agent explain <target>` to inspect the evidence and authority behind a live state.
+the sidebar shows which agents are blocked, working, done, idle, or unknown. Workspaces roll up to their most urgent state so you can scan the full list at a glance. `unknown` is intentionally visible instead of being presented as idle; use `herdr agent explain <target>` to inspect the evidence and authority behind a live state.
 
-**states:**
+states:
 
 - 🔴 **blocked** — agent needs input or approval
 - 🟡 **working** — agent is actively running
 - 🔵 **done** — work finished, you have not looked at it yet
 - 🟢 **idle** — done and seen
-- ⚪ **unknown** — herdr does not have enough evidence to claim another state
+- ⚪ **unknown** — Herdr does not have enough evidence to claim another state
 
-detection works by reading foreground process and terminal output. zero config, no hooks required. official integrations provide session restore identity (claude code, codex, github copilot cli, devin, droid, qodercli, cursor agent cli) or both semantic state and session identity (pi, omp, kimi code cli, opencode, kilo code cli, hermes, mastracode).
+detection works by reading foreground process and terminal output. zero config, no hooks required. official claude code, codex, github copilot cli, devin, droid, kimi code cli, qodercli, and cursor agent cli integrations provide session restore identity; pi, omp, kimi code cli, opencode, kilo code cli, hermes, mastracode, and custom socket integrations can report their own state.
 
 ## lives in your terminal
 
@@ -180,26 +185,26 @@ not a gui window, not a web dashboard, not electron. herdr runs inside whatever 
 
 - **workspaces** — organized around git repos or folder names, each with its own tabs and panes
 - **tabs** — first-class in the socket api and cli
-- **copy-friendly** — drag-select pane text, double-click tokens, or keyboard copy mode
+- **copy-friendly** — drag-select pane text, double-click tokens, or use keyboard copy mode with `prefix+[`, `h/j/k/l`, `{`/`}`, `v`, and `y`
 - **notifications** — sounds and toasts for background events; tab-aware suppression
-- **agent-aware presentation** — configurable sidebar rows, semantic state icons/text, per-agent layouts, terminal titles, git context, and plugin-reported metadata
-- **motion you can tune** — large spinner catalog, dots or symbols for status indicators, live preview in settings
-- **18 built-in themes** — catppuccin, terminal, tokyo night, gruvbox, one, solarized, kanagawa, rosé pine, vesper, and light variants
+- **agent-aware presentation** — configurable sidebar rows, semantic state icons/text, per-agent layouts, terminal titles, Git context, and plugin-reported metadata
+- **motion you can tune** — a large built-in spinner catalog, dots or symbols for status indicators, and live preview in Settings
+- **18 built-in themes** — catppuccin, terminal, tokyo night, gruvbox, one, solarized, kanagawa, rosé pine, vesper, and light variants for the main palettes
 - **session persistence** — pane processes survive client detach; sessions restore panes after full restart, with opt-in recent screen history
 
 ## agents can use herdr too
 
-the local Unix socket lets agents create workspaces, split or zoom panes, spawn helpers, read output, and wait for state changes. install the reusable skill:
+The local Unix socket lets agents create workspaces, split or zoom panes, spawn helpers, read output, and wait for state changes. Install the reusable skill with:
 
 ```bash
 npx skills add GroepOnline/herdr --skill herdr -g
 ```
 
-start with the [agent skill docs](https://herdr.chefgroep.nl/docs/agent-skill/), [socket API docs](https://herdr.chefgroep.nl/docs/socket-api/), and [`SKILL.md`](./SKILL.md).
+Start with the [agent skill docs](https://herdr.chefgroep.nl/docs/agent-skill/), [socket API docs](https://herdr.chefgroep.nl/docs/socket-api/), and [`SKILL.md`](./SKILL.md).
 
 ## supported agents
 
-automatic detection works out of the box — process name matching plus terminal output heuristics.
+automatic detection works out of the box. process name matching plus terminal output heuristics.
 
 | agent | idle / done | working | blocked |
 |-------|-------------|---------|---------|
@@ -222,7 +227,7 @@ automatic detection works out of the box — process name matching plus terminal
 
 detected but not fully tested: gemini cli, cline.
 
-for agents outside the built-in list, herdr still works as a terminal multiplexer with workspaces, panes, and tiling. custom integrations can report agent labels over the socket api — see the [socket api docs](https://herdr.chefgroep.nl/docs/socket-api/).
+for agents outside the built-in list, herdr still works as a terminal multiplexer with workspaces, panes, and tiling. custom integrations can report agent labels over the socket api. see the [socket api docs](https://herdr.chefgroep.nl/docs/socket-api/).
 
 ### direct integrations
 
@@ -249,7 +254,7 @@ see the [integrations docs](https://herdr.chefgroep.nl/docs/integrations/) for s
 
 ## keybindings
 
-press `ctrl+b` to enter prefix mode. default actions are prefix-first and tmux-like:
+Press `ctrl+b` to enter prefix mode. Default actions are prefix-first and tmux-like:
 
 | key | action |
 |-----|--------|
@@ -271,7 +276,7 @@ press `ctrl+b` to enter prefix mode. default actions are prefix-first and tmux-l
 | `prefix+r` | resize mode |
 | `prefix+q` | detach |
 
-mouse is supported throughout. resize mode uses `h`/`l` for width, `j`/`k` for height, and `esc` to exit. full syntax, optional actions, indexed bindings, and custom command bindings live in the [configuration docs](https://herdr.chefgroep.nl/docs/configuration/).
+Mouse is supported throughout. Resize mode uses `h`/`l` for width, `j`/`k` for height, and `esc` to exit. Full syntax, optional actions, indexed bindings, and custom command bindings live in the [configuration docs](https://herdr.chefgroep.nl/docs/configuration/).
 
 ## configuration
 
@@ -281,21 +286,21 @@ config file: `~/.config/herdr/config.toml`
 herdr --default-config   # print full default config
 ```
 
-in-app settings cover theme, sound, and toast preferences. herdr writes logs under `~/.config/herdr/`; in persistent session mode, `herdr-client.log` and `herdr-server.log` are usually the useful files. full configuration and logging details live in the [configuration docs](https://herdr.chefgroep.nl/docs/configuration/).
+In-app settings cover theme, sound, and toast preferences. Herdr writes logs under `~/.config/herdr/`; in persistent session mode, `herdr-client.log` and `herdr-server.log` are usually the useful files. Full configuration and logging details live in the [configuration docs](https://herdr.chefgroep.nl/docs/configuration/).
 
 ## docs
 
-- [quick start](https://herdr.chefgroep.nl/docs/quick-start/) — first session, panes, copy, named sessions
-- [install](https://herdr.chefgroep.nl/docs/install/) — install, update, homebrew, mise, nix
-- [session state](https://herdr.chefgroep.nl/docs/session-state/) — detach, restart restore, agent restore, live handoff
+- [quick start](https://herdr.chefgroep.nl/docs/quick-start/) — first session, panes, copy, and named sessions
+- [install](https://herdr.chefgroep.nl/docs/install/) — install, update, Homebrew, mise, and Nix
+- [session state](https://herdr.chefgroep.nl/docs/session-state/) — detach, restart restore, agent restore, and live handoff
 - [configuration](https://herdr.chefgroep.nl/docs/configuration/) — keybindings, themes, notifications, environment variables
-- [integrations](https://herdr.chefgroep.nl/docs/integrations/) — pi, omp, claude code, codex, cursor agent cli, github copilot cli, droid, kimi code cli, opencode, kilo code cli, hermes, mastracode, qodercli
+- [integrations](https://herdr.chefgroep.nl/docs/integrations/) — pi, omp, claude code, codex, cursor agent cli, github copilot cli, droid, kimi code cli, opencode, kilo code cli, hermes, mastracode, qodercli integrations
 - [`SKILL.md`](./SKILL.md) — reusable agent skill
 - [socket api](https://herdr.chefgroep.nl/docs/socket-api/) — socket protocol and cli reference
 
 ## agent instructions
 
-if you are an ai agent helping with this repository, read [`AGENTS.md`](./AGENTS.md) before making changes and [`CONTRIBUTING.md`](./CONTRIBUTING.md) before opening issues or PRs.
+if you are an ai agent helping with this repository, read [`AGENTS.md`](./AGENTS.md) before making changes and read [`CONTRIBUTING.md`](./CONTRIBUTING.md) before opening issues or PRs.
 
 ## development
 
@@ -317,9 +322,9 @@ herdr is built full-time, in the open, with no revenue behind it. sponsoring dir
 
 ## license
 
-herdr is dual-licensed:
+Herdr is dual-licensed:
 
-1. **open source** — GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)
-2. **commercial** — commercial licenses available for organizations that cannot comply with AGPL
+1. Open source: GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later).
+2. Commercial: commercial licenses are available for organizations that cannot comply with AGPL.
 
-contact: hey@herdr.chefgroep.nl
+Contact: hey@herdr.chefgroep.nl
