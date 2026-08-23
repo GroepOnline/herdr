@@ -140,7 +140,7 @@ tmux gives you persistence and panes, but it was built before agents existed. gu
 
 Herdr works over normal SSH. Run it on the remote host, detach, and reattach later:
 
-```
+```bash
 ssh you@yourserver
 herdr
 ```
