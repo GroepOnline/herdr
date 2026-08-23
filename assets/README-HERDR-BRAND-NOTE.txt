@@ -1,1 +1,0 @@
-Herdr README branding asset is generated separately and intentionally kept independent from the runtime logo asset.
