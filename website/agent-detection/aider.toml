@@ -1,0 +1,53 @@
+id = "aider"
+version = "2026.07.01.1"
+min_engine_version = 1
+updated_at = "2026-07-01T00:00:00Z"
+aliases = ["aider-ai", "herdr:aider"]
+
+[[rules]]
+id = "thinking_working"
+state = "working"
+priority = 110
+region = "whole_recent"
+visible_working = true
+any = [
+  { contains = ["aider is thinking"] },
+  { contains = ["analyzing code"] },
+  { contains = ["reading file"] },
+  { contains = ["applying edit"] },
+]
+
+[[rules]]
+id = "prompt_idle"
+state = "idle"
+priority = 100
+region = "bottom_non_empty_lines(5)"
+any = [
+  { contains = ["describe the change"] },
+  { contains = ["how can I help"] },
+  { line_regex = ['(?i).*aider.*waiting for input'] },
+]
+
+[[rules]]
+id = "file_edit_done"
+state = "idle"
+priority = 90
+region = "whole_recent"
+any = [
+  { line_regex = ['^Diff apply: .* edited'] },
+  { contains = ["changes applied successfully"] },
+  { contains = ["no changes needed"] },
+]
+
+[[rules]]
+id = "error_detected"
+state = "blocked"
+priority = 120
+region = "bottom_non_empty_lines(5)"
+visible_blocker = true
+any = [
+  { contains = ["API error"] },
+  { contains = ["rate limit"] },
+  { contains = ["connection error"] },
+  { contains = ["timeout while"] },
+]

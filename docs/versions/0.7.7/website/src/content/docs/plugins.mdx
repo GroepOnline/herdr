@@ -172,7 +172,7 @@ available on the user's machine.
 Install an example plugin:
 
 ```bash
-herdr plugin install GroepOnline/herdr-plugin-examples/agent-telegram-notify
+herdr plugin install OnlineChefGroep/herdr-plugin-examples/agent-telegram-notify
 herdr plugin config-dir examples.agent-telegram-notify
 herdr plugin list
 herdr plugin action list --plugin examples.agent-telegram-notify
@@ -211,7 +211,7 @@ id or the same `owner/repo[/subdir...]` shorthand used by install.
 useful for local development. There is no separate `plugin update` in v1;
 reinstall from GitHub to refresh a managed plugin.
 
-The example cookbook repo is `GroepOnline/herdr-plugin-examples`. It contains
+The example cookbook repo is `OnlineChefGroep/herdr-plugin-examples`. It contains
 separate example plugins in subdirectories, including `agent-telegram-notify`,
 `github-link-preview`, and `dev-layout-bootstrap`. These are examples to copy,
 not maintained official plugins.
@@ -384,6 +384,6 @@ Cloudflare APIs for runtime health. Do not store secrets in `fleet_ops.json`.
 Toggle the bar in **Settings → Plugins** (`ui.fleet_ops_bar`).
 
 The in-repo scaffold `com.chefgroep.ops` documents the contract; production
-inventory belongs in [GroepOnline/herdr-ops](https://github.com/GroepOnline/herdr-ops).
+inventory belongs in [OnlineChefGroep/herdr-ops](https://github.com/OnlineChefGroep/herdr-ops).
 See [Fleet ops and gateway](/docs/fleet-ops/) for `HERDR_HOST_NAME`, the
 `herdr-gateway` HTTP surface, and `/v1/ops/context`.
