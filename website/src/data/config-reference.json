@@ -13,6 +13,24 @@
       ]
     },
     {
+      "id": "server",
+      "title": "Server",
+      "keys": [
+        {
+          "key": "server.headless_cols",
+          "type": "integer",
+          "default": "120",
+          "description": "Virtual terminal width used for layout and newly created panes when no client is attached. Must be greater than zero."
+        },
+        {
+          "key": "server.headless_rows",
+          "type": "integer",
+          "default": "40",
+          "description": "Virtual terminal height used for layout and newly created panes when no client is attached. Must be greater than zero."
+        }
+      ]
+    },
+    {
       "id": "theme",
       "title": "Theme",
       "keys": [
@@ -393,6 +411,18 @@
           "description": "Select the next tab."
         },
         {
+          "key": "keys.move_tab_previous",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Move the active tab one position toward the front. Unset by default."
+        },
+        {
+          "key": "keys.move_tab_next",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Move the active tab one position toward the back. Unset by default."
+        },
+        {
           "key": "keys.switch_tab",
           "type": "keybinding",
           "default": "\"prefix+1..9\"",
@@ -523,6 +553,30 @@
           "type": "keybinding",
           "default": "\"prefix+r\"",
           "description": "Enter resize mode."
+        },
+        {
+          "key": "keys.resize_pane_left",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Resize the focused pane toward the left. Unset by default."
+        },
+        {
+          "key": "keys.resize_pane_down",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Resize the focused pane downward. Unset by default."
+        },
+        {
+          "key": "keys.resize_pane_up",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Resize the focused pane upward. Unset by default."
+        },
+        {
+          "key": "keys.resize_pane_right",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Resize the focused pane toward the right. Unset by default."
         },
         {
           "key": "keys.toggle_sidebar",
@@ -1134,6 +1188,17 @@
           ]
         },
         {
+          "key": "ui.sound.agents.qwen",
+          "type": "enum",
+          "default": "\"default\"",
+          "description": "Sound override for detected Qwen Code agents.",
+          "values": [
+            "default",
+            "on",
+            "off"
+          ]
+        },
+        {
           "key": "ui.sound.agents.maki",
           "type": "enum",
           "default": "\"default\"",
@@ -1171,6 +1236,17 @@
           "type": "enum",
           "default": "\"default\"",
           "description": "Sound override for detected OpenClaude agents.",
+          "values": [
+            "default",
+            "on",
+            "off"
+          ]
+        },
+        {
+          "key": "ui.sound.agents.command_code",
+          "type": "enum",
+          "default": "\"default\"",
+          "description": "Sound override for detected Command Code agents.",
           "values": [
             "default",
             "on",
@@ -1283,7 +1359,7 @@
           "key": "experimental.cjk_ime_agents",
           "type": "list of strings",
           "default": "[]",
-          "description": "Restrict `reveal_hidden_cursor_for_cjk_ime` to focused panes whose detected agent matches one of these names (case-insensitive). Empty list means apply to any focused pane. Unknown agent names are ignored; if the list contains no valid names, the reveal does not apply. Accepted names: pi, claude, codex, gemini, cursor, devin, cline, opencode, copilot, kimi, kiro, droid, amp, grok, hermes, kilo, qodercli, qoder, maki."
+          "description": "Restrict `reveal_hidden_cursor_for_cjk_ime` to focused panes whose detected agent matches one of these names (case-insensitive). Empty list means apply to any focused pane. Unknown agent names are ignored; if the list contains no valid names, the reveal does not apply. Accepted names: pi, claude, codex, gemini, cursor, devin, cline, opencode, copilot, kimi, kiro, droid, amp, grok, hermes, kilo, qodercli, qoder, qwen, qwen-code, maki."
         },
         {
           "key": "experimental.cjk_ime_cursor_shape",
