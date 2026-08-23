@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.8.7] - 2026-08-23
+
 ### Added
 - Muse agent with generic Pick blocked detection. (upstream #2489)
 
