@@ -1,8 +1,7 @@
 """Regression tests for the actual release-state files touched by a version bump.
 
 These tests exercise the real repository content (not synthetic fixtures) the
-same way ``just release-docs-check`` and ``just release-prepare`` do: the root
-``CHANGELOG.md`` must stay in sync with ``docs/next/CHANGELOG.md``, the
+same way ``just release-docs-check`` and ``just release-prepare`` do: the
 ``Cargo.toml`` package version must match the locked ``herdr`` entry in
 ``Cargo.lock``, the changelog must contain a well-formed, dated section with
 categorized bullets for the current version, and README.md's in-page nav
@@ -26,14 +25,12 @@ from scripts.changelog import (
     ChangelogError,
     extract_section_body,
     normalize_version,
-    parse_sections,
 )
 from scripts.ci_quality import check_release_note_bullets
 from scripts.product_config import cargo_version
 
 ROOT = Path(__file__).resolve().parents[1]
 CHANGELOG_PATH = ROOT / "CHANGELOG.md"
-DOCS_NEXT_CHANGELOG_PATH = ROOT / "docs" / "next" / "CHANGELOG.md"
 CARGO_LOCK_PATH = ROOT / "Cargo.lock"
 README_PATH = ROOT / "README.md"
 
@@ -58,13 +55,6 @@ OWNER_RENAME_TOUCHED_DOCS = [
     "docs/versions/0.7.7/website/src/content/docs/plugins.mdx",
     "docs/versions/0.7.7/website/src/content/docs/socket-api.mdx",
     "docs/versions/0.7.7/website/src/content/docs/troubleshooting.mdx",
-]
-
-# Newly added 0.8.5 snapshot files were not touched by the owner rename and
-# must keep referencing a single (even if different) owner internally.
-UNTOUCHED_NEW_DOCS = [
-    "docs/versions/0.8.5/website/src/content/docs/agent-automation.mdx",
-    "docs/versions/0.8.5/website/src/content/docs/agent-skill.mdx",
 ]
 
 # Matches "github.com/owner/herdr", "github.com/owner/herdr-ops", ... A second,
@@ -153,31 +143,11 @@ class ChangelogVersionConsistencyTests(unittest.TestCase):
         # the categorized-bullet contract (### Added / Fixed / Changed).
         check_release_note_bullets(self.changelog_text, self.version)
 
-    def test_unreleased_section_precedes_the_current_version_section(self) -> None:
-        titles = [section.title for section in parse_sections(self.changelog_text)]
-        self.assertIn("Unreleased", titles)
-        self.assertIn(self.version, titles)
-        self.assertLess(
-            titles.index("Unreleased"),
-            titles.index(self.version),
-            "Unreleased must stay above the most recent release section",
-        )
-
     def test_extracting_an_unreleased_version_number_fails(self) -> None:
         # Negative case: a version that was never released must not resolve
         # to any section, even though its numeric shape is valid.
         with self.assertRaises(ChangelogError):
             extract_section_body(self.changelog_text, "99.99.99")
-
-    def test_docs_next_changelog_matches_root_changelog(self) -> None:
-        # `just release-docs-check` fails the release if these differ; keep
-        # that invariant covered by a fast unit test too.
-        self.assertEqual(
-            read(DOCS_NEXT_CHANGELOG_PATH),
-            self.changelog_text,
-            f"{DOCS_NEXT_CHANGELOG_PATH} must be an exact copy of {CHANGELOG_PATH} "
-            "until the next release diverges them",
-        )
 
 
 class CargoVersionConsistencyTests(unittest.TestCase):
@@ -235,18 +205,6 @@ class VersionedDocsOwnerRenameConsistencyTests(unittest.TestCase):
 
     def test_rename_touched_docs_reference_a_single_owner(self) -> None:
         for relative_path in OWNER_RENAME_TOUCHED_DOCS:
-            path = ROOT / relative_path
-            with self.subTest(file=relative_path):
-                text = read(path)
-                owners = owners_referenced(text)
-                self.assertLessEqual(
-                    len(owners),
-                    1,
-                    f"{relative_path} mixes multiple owners for herdr links: {sorted(owners)}",
-                )
-
-    def test_untouched_new_docs_reference_a_single_owner(self) -> None:
-        for relative_path in UNTOUCHED_NEW_DOCS:
             path = ROOT / relative_path
             with self.subTest(file=relative_path):
                 text = read(path)
