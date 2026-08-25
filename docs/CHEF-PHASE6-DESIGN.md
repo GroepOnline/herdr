@@ -15,12 +15,19 @@
 
 ## Priority 2: Aider Detection
 
-**Status:** NOT SHIPPED — the stale `feat/aider-integration` branch was partial and must not be merged. Current `main` has no Aider manifest, enum variant, process lookup, CLI/docs/schema/website integration, or regression tests.
+**Status:** SHIPPED (screen detection) — landed on `main` as #75 (`7e652729`). Current `main` has `Agent::Aider`, bundled `src/detect/manifests/aider.toml`, `SCREEN_MANIFEST_AGENTS` registration, parse/process lookup (`aider` / `aider-cli`), website `agent-detection/aider.toml`, and a `docs/next/README.md` listing.
 
-**Required before DONE:**
-- Capture live Aider terminal states and process evidence first.
-- Design precise idle/working/blocked/error detection without generic whole-buffer false positives (avoid broad matches such as bare `error:`).
-- Implement the full current integration contract: `Agent::Aider`, detection manifest registration, `SCREEN_MANIFEST_AGENTS`, parse/process lookup, CLI/API/schema/docs/website manifest, and regression tests.
+The deleted `feat/aider-integration` branch was a different, partial tree and must not be revived or cherry-picked. The previous DONE note in this doc was also stale in a second way: it described `yes_no_confirmation` / `spinner_working` rules that are not what shipped.
+
+**Shipped rules:**
+- `thinking_working` (working)
+- `prompt_idle` (idle)
+- `file_edit_done` (idle)
+- `error_detected` (blocked; specific API/rate-limit/connection/timeout strings, not bare `error:`)
+
+**Remaining after detection:**
+- Capture live Aider terminal states and process evidence before treating detection quality as finished.
+- Keep error matching narrow; do not add generic whole-buffer `error:` rules.
 - Screen detection only — Aider has no hooks system (GitHub issue #2557).
 
 **Historical intent only:** branch `feat/aider-integration` @ `a2ba5194` (deleted); do not cherry-pick.
