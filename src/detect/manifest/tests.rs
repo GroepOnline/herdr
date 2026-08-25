@@ -894,3 +894,94 @@ fn codex_osc_working_beats_weak_blocker_screen() {
         Some("osc_title_working")
     );
 }
+
+#[test]
+fn aider_manifest_covers_idle_working_and_blocked_without_generic_error() {
+    // Shipped-contract fixtures for GRO-1477. These strings are what current
+    // aider.toml matches; they are not live-captured Aider chrome yet.
+    let working = explain(Agent::Aider, "aider is thinking\nabout the next edit");
+    assert_eq!(working.state, AgentState::Working);
+    assert_eq!(
+        working.matched_rule.as_ref().map(|rule| rule.id.as_str()),
+        Some("thinking_working")
+    );
+    assert!(working.visible_working);
+
+    let idle = explain(
+        Agent::Aider,
+        "Tokens: 1.2k\n\ndescribe the change you want to make",
+    );
+    assert_eq!(idle.state, AgentState::Idle);
+    assert_eq!(
+        idle.matched_rule.as_ref().map(|rule| rule.id.as_str()),
+        Some("prompt_idle")
+    );
+
+    let waiting = explain(Agent::Aider, "Aider is waiting for input\n>");
+    assert_eq!(waiting.state, AgentState::Idle);
+    assert_eq!(
+        waiting.matched_rule.as_ref().map(|rule| rule.id.as_str()),
+        Some("prompt_idle")
+    );
+
+    let edited = explain(Agent::Aider, "Diff apply: src/main.rs edited");
+    assert_eq!(edited.state, AgentState::Idle);
+    assert_eq!(
+        edited.matched_rule.as_ref().map(|rule| rule.id.as_str()),
+        Some("file_edit_done")
+    );
+
+    let blocked = explain(Agent::Aider, "OpenAI API error: 429\nrate limit exceeded");
+    assert_eq!(blocked.state, AgentState::Blocked);
+    assert_eq!(
+        blocked.matched_rule.as_ref().map(|rule| rule.id.as_str()),
+        Some("error_detected")
+    );
+    assert!(blocked.visible_blocker);
+
+    let generic_error = explain(
+        Agent::Aider,
+        "error: unused variable `x`\nerror: aborting due to previous errors\n>",
+    );
+    assert_eq!(generic_error.state, AgentState::Idle);
+    assert_ne!(
+        generic_error
+            .matched_rule
+            .as_ref()
+            .map(|rule| rule.id.as_str()),
+        Some("error_detected")
+    );
+    assert!(!generic_error.visible_blocker);
+    assert_eq!(
+        generic_error.fallback_reason.as_deref(),
+        Some(DEFAULT_KNOWN_AGENT_IDLE_FALLBACK)
+    );
+
+    let stale_api_error = explain(
+        Agent::Aider,
+        "API error: 500 from earlier turn\n\n\
+         line a\nline b\nline c\nline d\nline e\nline f\n\
+         describe the change",
+    );
+    assert_eq!(stale_api_error.state, AgentState::Idle);
+    assert_eq!(
+        stale_api_error
+            .matched_rule
+            .as_ref()
+            .map(|rule| rule.id.as_str()),
+        Some("prompt_idle")
+    );
+
+    let error_beats_thinking = explain(
+        Agent::Aider,
+        "aider is thinking\nAPI error: 401 unauthorized",
+    );
+    assert_eq!(error_beats_thinking.state, AgentState::Blocked);
+    assert_eq!(
+        error_beats_thinking
+            .matched_rule
+            .as_ref()
+            .map(|rule| rule.id.as_str()),
+        Some("error_detected")
+    );
+}

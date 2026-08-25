@@ -189,5 +189,69 @@ class AgentDetectionManifestCheckTests(unittest.TestCase):
                     )
 
 
+GENERIC_ERROR_MATCHERS = {"error", "error:", "err", "err:", "failed", "failure"}
+
+
+def iter_matchers(node: object):
+    if not isinstance(node, dict):
+        return
+    for key in ("contains", "regex", "line_regex"):
+        for value in node.get(key, []):
+            yield key, value
+    for nested_key in ("any", "all", "not"):
+        for nested in node.get(nested_key, []):
+            yield from iter_matchers(nested)
+
+
+def is_generic_error_matcher(kind: str, value: str) -> bool:
+    compact = value.strip().lower()
+    if compact in GENERIC_ERROR_MATCHERS:
+        return True
+    if kind in {"regex", "line_regex"}:
+        stripped = (
+            compact.replace("(?i)", "").replace("^", "").replace("$", "").replace(".*", "")
+        )
+        if stripped in GENERIC_ERROR_MATCHERS:
+            return True
+    return False
+
+
+class AiderDetectionContractTests(unittest.TestCase):
+    def test_aider_manifest_forbids_generic_error_and_keeps_error_bottom_scoped(self):
+        path = check.DEFAULT_BUNDLED_DIR / "aider.toml"
+        manifest = check.load_toml(path)
+        states = {rule["state"] for rule in manifest["rules"]}
+        self.assertEqual(states, {"idle", "working", "blocked"})
+
+        error_rules = [rule for rule in manifest["rules"] if rule["id"] == "error_detected"]
+        self.assertEqual(len(error_rules), 1)
+        error_rule = error_rules[0]
+        self.assertEqual(error_rule["state"], "blocked")
+        self.assertTrue(str(error_rule.get("region", "")).startswith("bottom_"))
+
+        generic = [
+            (rule["id"], kind, value)
+            for rule in manifest["rules"]
+            for kind, value in iter_matchers(rule)
+            if is_generic_error_matcher(kind, value)
+        ]
+        self.assertEqual(generic, [])
+
+    def test_aider_has_no_hooks_integration(self):
+        project = check.PROJECT_ROOT
+        integrations = (project / "src/api/schema/integrations.rs").read_text(encoding="utf-8")
+        self.assertNotRegex(integrations, r"\bAider\b")
+        self.assertFalse((project / "src/integration/assets/aider").exists())
+        cli = (project / "src/cli/integration.rs").read_text(encoding="utf-8")
+        self.assertNotIn('"aider"', cli)
+
+    def test_capture_script_maps_error_chrome_to_blocked(self):
+        from scripts import capture_agent_screen
+
+        self.assertEqual(capture_agent_screen.STATE_CHOICES["error"], "blocked")
+        self.assertEqual(capture_agent_screen.STATE_CHOICES["e"], "blocked")
+        self.assertEqual(capture_agent_screen.STATE_CHOICES["blocked"], "blocked")
+
+
 if __name__ == "__main__":
     unittest.main()

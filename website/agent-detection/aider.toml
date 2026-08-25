@@ -4,6 +4,14 @@ min_engine_version = 1
 updated_at = "2026-07-01T00:00:00Z"
 aliases = ["aider-ai", "herdr:aider"]
 
+# Screen detection only. Aider has no hooks system (paul-gauthier/aider#2557),
+# so there is no `herdr integration install aider` path. The `herdr:aider`
+# alias is manifest identity, not hook authority.
+#
+# GRO-1477: live terminal/process evidence is still outstanding. Do not add
+# generic whole-buffer matchers such as `error:`. Herdr has no AgentState::Error;
+# error chrome maps to `blocked` via `error_detected`.
+
 [[rules]]
 id = "thinking_working"
 state = "working"

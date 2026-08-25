@@ -776,6 +776,8 @@ mod tests {
         assert_eq!(identify_agent("muse-cli"), Some(Agent::Muse));
         assert_eq!(identify_agent("muse-bin-0.1.0-R708.1"), Some(Agent::Muse));
         assert_eq!(identify_agent("muse-bin-1.2.3"), Some(Agent::Muse));
+        assert_eq!(identify_agent("aider"), Some(Agent::Aider));
+        assert_eq!(identify_agent("aider-cli"), Some(Agent::Aider));
     }
 
     #[test]
@@ -802,6 +804,8 @@ mod tests {
         assert_eq!(parse_agent_label("hermes-agent"), Some(Agent::Hermes));
         assert_eq!(parse_agent_label("maki"), Some(Agent::Maki));
         assert_eq!(parse_agent_label("kilo-code"), Some(Agent::Kilo));
+        assert_eq!(parse_agent_label("aider"), Some(Agent::Aider));
+        assert_eq!(parse_agent_label("aider-cli"), Some(Agent::Aider));
     }
 
     #[test]
@@ -873,6 +877,26 @@ mod tests {
             "mastracode"
         ));
         assert!(!Agent::SCREEN_MANIFEST_AGENTS.contains(&Agent::Mastracode));
+    }
+
+    #[test]
+    fn aider_is_screen_detected_without_hook_authority() {
+        assert!(Agent::SCREEN_MANIFEST_AGENTS.contains(&Agent::Aider));
+        assert!(!full_lifecycle_hook_authority("herdr:aider", "aider"));
+        assert_eq!(identify_agent("Aider"), Some(Agent::Aider));
+        assert_eq!(identify_agent("aider-cli"), Some(Agent::Aider));
+    }
+
+    #[test]
+    fn identify_agent_in_job_detects_aider() {
+        let job = crate::platform::ForegroundJob {
+            process_group_id: 7,
+            processes: vec![foreground_process(7, "aider", &["aider"])],
+        };
+        assert_eq!(
+            identify_agent_in_job(&job),
+            Some((Agent::Aider, "aider".to_string()))
+        );
     }
 
     #[test]
