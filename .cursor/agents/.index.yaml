@@ -6,6 +6,11 @@ items:
   kind: agent
   summary: CHEF fleet specialist for Linear/GitHub/UDO/Kater contracts, Fleet Ops Bar, plugin state dirs, and core-vs-plugin boundaries.
   when: CHEF fleet specialist for Linear/GitHub/UDO/Kater contracts…
+- name: commandcode
+  path: .cursor/agents/commandcode.md
+  kind: agent
+  summary: Command Code (cmd) agent specialist for herdr's agent-detection manifest, integration hook, and pane state reporting.
+  when: Command Code (cmd) agent specialist for herdr's agent-detec…
 - name: herdr-quality-ci-diagnoser
   path: .cursor/agents/herdr-quality-ci-diagnoser.md
   kind: agent

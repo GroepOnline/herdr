@@ -19,6 +19,7 @@
 | Name | Path | Summary |
 | --- | --- | --- |
 | `chef-fleet` | `.cursor/agents/chef-fleet.md` | CHEF fleet specialist for Linear/GitHub/UDO/Kater contracts, Fleet Ops Bar, plugin state dirs, and core-vs-plugin boundaries. |
+| `commandcode` | `.cursor/agents/commandcode.md` | Command Code (cmd) agent specialist for herdr's agent-detection manifest, integration hook, and pane state reporting. |
 | `herdr-quality-ci-diagnoser` | `.cursor/agents/herdr-quality-ci-diagnoser.md` | Read-only Herdr Quality CI diagnoser. |
 | `herdr-quality-ci-remediator` | `.cursor/agents/herdr-quality-ci-remediator.md` | Herdr Quality CI remediation specialist. |
 | `herdr-ui` | `.cursor/agents/herdr-ui.md` | Herdr TUI specialist for premium mouse-first UI polish, visual consistency, modal/sidebar/overlay UX, render purity, and hunting memory leaks or UI bugs. |

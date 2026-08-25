@@ -530,6 +530,16 @@ mod tests {
             .argv,
             vec!["grok", "--resume", "grok-session"]
         );
+        assert_eq!(
+            plan(
+                "herdr:commandcode",
+                "commandcode",
+                &AgentSessionRef::id("commandcode-session").unwrap()
+            )
+            .unwrap()
+            .argv,
+            vec!["cmd", "--resume", "commandcode-session"]
+        );
     }
 
     #[test]
