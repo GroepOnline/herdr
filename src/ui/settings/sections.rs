@@ -283,7 +283,7 @@ fn render_spinner_hero(app: &AppState, frame: &mut Frame, layout: &SettingsLayou
 }
 
 fn focused_spinner_style(app: &AppState) -> crate::config::SpinnerStyle {
-    let rows = section_rows(app, SettingsSection::Ui);
+    let rows = section_rows(app, SettingsSection::Look);
     if let Some(row) = rows.get(app.settings.list.selected) {
         if row.kind == SettingsRowKind::Spinner {
             if let Some(idx) = spinner_index(row.id) {
