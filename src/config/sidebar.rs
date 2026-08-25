@@ -600,35 +600,7 @@ rows = [[{ token = "git_status", fg = "#ff00aa" }], [{ token = "$jj", bold = tru
 
     #[test]
     fn accepts_every_canonical_agent_override_key() {
-        let agents = [
-            Agent::Pi,
-            Agent::Claude,
-            Agent::Codex,
-            Agent::Gemini,
-            Agent::Cursor,
-            Agent::Devin,
-            Agent::Antigravity,
-            Agent::Cline,
-            Agent::Omp,
-            Agent::Mastracode,
-            Agent::OpenCode,
-            Agent::GithubCopilot,
-            Agent::Kimi,
-            Agent::Kiro,
-            Agent::Droid,
-            Agent::Amp,
-            Agent::Grok,
-            Agent::Hermes,
-            Agent::Kilo,
-            Agent::Qodercli,
-            Agent::Freebuff,
-            Agent::Junie,
-            Agent::OpenClaude,
-            Agent::Qwen,
-            Agent::Maki,
-            Agent::CommandCode,
-        ];
-        let entries = agents
+        let entries = Agent::ALL
             .iter()
             .map(|agent| format!("{} = [[\"agent\"]]", crate::detect::agent_label(*agent)))
             .collect::<Vec<_>>()
@@ -636,7 +608,10 @@ rows = [[{ token = "git_status", fg = "#ff00aa" }], [{ token = "$jj", bold = tru
         let input = format!("[ui.sidebar.agents.rows_by_agent]\n{entries}\n");
         let config: crate::config::Config = toml::from_str(&input).expect("canonical keys");
 
-        assert_eq!(config.ui.sidebar.agents.rows_by_agent.len(), agents.len());
+        assert_eq!(
+            config.ui.sidebar.agents.rows_by_agent.len(),
+            Agent::ALL.len()
+        );
     }
 
     #[test]
