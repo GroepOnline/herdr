@@ -483,11 +483,11 @@ mod tests {
     fn spinner_category_hit_matches_category_rect_row() {
         let mut app = AppState::test_new();
         app.mode = Mode::Settings;
-        app.settings.section = SettingsSection::Ui;
+        app.settings.section = SettingsSection::Look;
         let layout = SettingsLayout::compute(Rect::new(0, 0, 120, 40), &app).expect("layout");
         let rect = layout
             .spinner_category_rect(&app)
-            .expect("ui should expose category row");
+            .expect("look should expose category row");
         assert_eq!(
             layout.spinner_category_index_at(&app, rect.x + 2, rect.y),
             Some(0)

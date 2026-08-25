@@ -919,13 +919,13 @@ mod tests {
             &mut state,
             KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::Ui);
+        assert_eq!(state.settings.section, SettingsSection::Look);
     }
 
     #[test]
     fn ui_rows_expose_sidebar_layout_config_without_token_reimplementation() {
         let state = state_with_workspaces(&["test"]);
-        let rows = section_rows(&state, SettingsSection::Ui);
+        let rows = section_rows(&state, SettingsSection::Chrome);
 
         assert!(rows.iter().any(|row| row.label == "sidebar width"));
         assert!(rows.iter().any(|row| row.label == "collapsed mode"));
@@ -937,7 +937,7 @@ mod tests {
     #[test]
     fn ui_sidebar_choice_ids_map_to_existing_persistence_actions() {
         let state = state_with_workspaces(&["test"]);
-        let rows = section_rows(&state, SettingsSection::Ui);
+        let rows = section_rows(&state, SettingsSection::Chrome);
 
         for row in rows.iter().filter(|row| {
             matches!(
