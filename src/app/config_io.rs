@@ -337,6 +337,10 @@ impl App {
             crate::config::SpinnerStyle::Confetti => "\"confetti\"",
             crate::config::SpinnerStyle::Cthulhu => "\"cthulhu\"",
             crate::config::SpinnerStyle::DwarfFortress => "\"dwarf-fortress\"",
+            crate::config::SpinnerStyle::BarVertical => "\"bar-vertical\"",
+            crate::config::SpinnerStyle::BarPulse => "\"bar-pulse\"",
+            crate::config::SpinnerStyle::Blocks => "\"blocks\"",
+            crate::config::SpinnerStyle::Braille => "\"braille\"",
         };
         self.state.spinner_style = style;
         if self.update_config_file("spinner style", |content| {
