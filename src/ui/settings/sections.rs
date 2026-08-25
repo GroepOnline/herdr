@@ -82,7 +82,7 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
         ),
     );
 
-    if section == SettingsSection::Ui {
+    if section == SettingsSection::Look {
         render_spinner_categories(app, frame, layout);
         render_spinner_hero(app, frame, layout);
     }

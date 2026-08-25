@@ -1115,8 +1115,12 @@ pub enum AgentPanelSort {
 pub enum SettingsSection {
     /// Theme picker.
     Theme,
-    /// Spinner grid, status indicators, pane chrome, sidebar, and input.
-    Ui,
+    /// Spinner packs, status indicators, and theme live preview.
+    Look,
+    /// Pane chrome, sidebar, and tab bar layout.
+    Chrome,
+    /// Mouse, clipboard, cursor, confirms, and keybind help.
+    Keys,
     /// Sound alerts and toast delivery.
     Sound,
     /// Shell, updates, experiments, and system config.
@@ -1132,7 +1136,9 @@ pub enum SettingsSection {
 impl SettingsSection {
     pub const ALL: &[Self] = &[
         Self::Theme,
-        Self::Ui,
+        Self::Look,
+        Self::Chrome,
+        Self::Keys,
         Self::Sound,
         Self::System,
         Self::RemoteGraphics,
@@ -1143,7 +1149,9 @@ impl SettingsSection {
     pub fn label(self) -> &'static str {
         match self {
             Self::Theme => "theme",
-            Self::Ui => "ui",
+            Self::Look => "look",
+            Self::Chrome => "chrome",
+            Self::Keys => "keys & pointer",
             Self::Sound => "sound",
             Self::System => "system",
             Self::RemoteGraphics => "remote & graphics",
@@ -1155,7 +1163,9 @@ impl SettingsSection {
     pub fn title(self) -> &'static str {
         match self {
             Self::Theme => "Theme",
-            Self::Ui => "UI",
+            Self::Look => "Look",
+            Self::Chrome => "Chrome",
+            Self::Keys => "Keys & pointer",
             Self::Sound => "Sound",
             Self::System => "System",
             Self::RemoteGraphics => "Remote & graphics",
@@ -1167,7 +1177,9 @@ impl SettingsSection {
     pub fn description(self) -> &'static str {
         match self {
             Self::Theme => "theme picker — live preview above",
-            Self::Ui => "spinner, indicators, pane chrome, sidebar, and input",
+            Self::Look => "spinner packs, status indicators, and preview",
+            Self::Chrome => "pane chrome, sidebar, and tab bar layout",
+            Self::Keys => "mouse, clipboard, cursor, confirms, and keybind help",
             Self::Sound => "sound alerts, toasts, and clipboard notices",
             Self::System => "shell, updates, experiments, and system config",
             Self::RemoteGraphics => "ssh config and clipboard history for remote sessions",

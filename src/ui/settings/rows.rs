@@ -80,7 +80,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 });
             }
         }
-        SettingsSection::Ui => {
+        SettingsSection::Look => {
             if show_headers {
                 rows.push(header_row("spinner"));
             }
@@ -110,6 +110,8 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     ),
                 });
             }
+        }
+        SettingsSection::Chrome => {
             if show_headers {
                 rows.push(header_row("pane chrome"));
             }
@@ -194,6 +196,8 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 id: SettingsItemId::ConfigFile,
                 search_extra: Some("agents spaces rows rows_by_agent token custom".to_string()),
             });
+        }
+        SettingsSection::Keys => {
             if show_headers {
                 rows.push(header_row("mouse & clipboard"));
             }
