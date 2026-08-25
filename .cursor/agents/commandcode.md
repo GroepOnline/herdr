@@ -41,6 +41,6 @@ for panes running the plain TUI without the native integration. Assets live in
 1. Scope changes to one concern; do not mix manifest edits with integration
    asset changes unless required.
 2. Verify detection rules against live captures as above; never guess chrome.
-3. Run `just check` before commit; on Cursor Cloud VMs where local cargo is
-   blocked, push and validate via `gh pr checks`.
+3. Push the branch and validate with `gh pr checks`; CI is the sole validation
+   authority, including on Cursor Cloud VMs.
 4. Commits: lowercase conventional commits, no emojis, no AI co-author lines.
