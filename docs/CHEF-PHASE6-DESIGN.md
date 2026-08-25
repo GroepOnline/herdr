@@ -15,13 +15,22 @@
 
 ## Priority 2: Aider Detection
 
-**Status:** DONE — `src/detect/manifests/aider.toml` created with:
-- `yes_no_confirmation` (blocked) — matches `(y)es/(n)o` confirmation prompts
-- `spinner_working` (working) — matches Aider's ░█ bounce spinner + "waiting for llm"
+**Status:** SHIPPED (screen detection) — landed on `main` as #75 (`7e652729`). Current `main` has `Agent::Aider`, bundled `src/detect/manifests/aider.toml`, `SCREEN_MANIFEST_AGENTS` registration, parse/process lookup (`aider` / `aider-cli`), website `agent-detection/aider.toml`, and a `docs/next/README.md` listing.
 
-**Code changes:** Agent::Aider variant added to enum, agent_label, parse_agent_label, SCREEN_MANIFEST_AGENTS, BUNDLED_MANIFESTS.
+The deleted `feat/aider-integration` branch was a different, partial tree and must not be revived or cherry-picked. The previous DONE note in this doc was also stale in a second way: it described `yes_no_confirmation` / `spinner_working` rules that are not what shipped.
 
-**No lifecycle integration possible** — Aider has no hooks system (confirmed via GitHub issue #2557). Screen detection only.
+**Shipped rules:**
+- `thinking_working` (working)
+- `prompt_idle` (idle)
+- `file_edit_done` (idle)
+- `error_detected` (blocked; specific API/rate-limit/connection/timeout strings, not bare `error:`)
+
+**Remaining after detection:**
+- Capture live Aider terminal states and process evidence before treating detection quality as finished.
+- Keep error matching narrow; do not add generic whole-buffer `error:` rules.
+- Screen detection only — Aider has no hooks system (GitHub issue #2557).
+
+**Historical intent only:** branch `feat/aider-integration` @ `a2ba5194` (deleted); do not cherry-pick.
 
 ## Priority 3: Continue.dev — SKIP
 
