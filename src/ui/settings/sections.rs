@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::app::{state::SettingsSection, AppState};
-use crate::ui::text::{display_width_u16, truncate_end};
+use crate::ui::text::{display_width_u16, truncate_end_word};
 
 use super::{
     catalog::{catalog_plugin_id, integration_index, spinner_index},
@@ -60,7 +60,7 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
     let description = if desc_budget == 0 {
         String::new()
     } else {
-        truncate_end(section.description(), desc_budget)
+        truncate_end_word(section.description(), desc_budget)
     };
 
     frame.render_widget(

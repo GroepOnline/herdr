@@ -1121,6 +1121,8 @@ pub enum SettingsSection {
     Sound,
     /// Shell, updates, experiments, and system config.
     System,
+    /// Kitty graphics, nested sessions, SSH config, and clipboard history.
+    RemoteGraphics,
     /// Pane layout templates.
     Templates,
     /// Resume sessions, agent integrations, and plugins.
@@ -1133,6 +1135,7 @@ impl SettingsSection {
         Self::Ui,
         Self::Sound,
         Self::System,
+        Self::RemoteGraphics,
         Self::Templates,
         Self::Integrations,
     ];
@@ -1143,6 +1146,7 @@ impl SettingsSection {
             Self::Ui => "ui",
             Self::Sound => "sound",
             Self::System => "system",
+            Self::RemoteGraphics => "remote & graphics",
             Self::Templates => "templates",
             Self::Integrations => "integrations",
         }
@@ -1154,6 +1158,7 @@ impl SettingsSection {
             Self::Ui => "UI",
             Self::Sound => "Sound",
             Self::System => "System",
+            Self::RemoteGraphics => "Remote & graphics",
             Self::Templates => "Templates",
             Self::Integrations => "Integrations",
         }
@@ -1165,6 +1170,7 @@ impl SettingsSection {
             Self::Ui => "spinner, indicators, pane chrome, sidebar, and input",
             Self::Sound => "sound alerts, toasts, and clipboard notices",
             Self::System => "shell, updates, experiments, and system config",
+            Self::RemoteGraphics => "ssh config and clipboard history for remote sessions",
             Self::Templates => "pane layout templates applied to the current tab",
             Self::Integrations => "resume sessions, agent CLIs, and plugins",
         }
