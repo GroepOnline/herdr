@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::app::{state::SettingsSection, AppState};
-use crate::ui::text::{display_width_u16, truncate_end_word};
+use crate::ui::text::{display_width_u16, truncate_end};
 
 use super::{
     catalog::{catalog_plugin_id, integration_index, spinner_index},
@@ -60,7 +60,7 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
     let description = if desc_budget == 0 {
         String::new()
     } else {
-        truncate_end_word(section.description(), desc_budget)
+        truncate_end(section.description(), desc_budget)
     };
 
     frame.render_widget(
@@ -82,7 +82,7 @@ pub(crate) fn render_settings_content(app: &AppState, frame: &mut Frame, layout:
         ),
     );
 
-    if section == SettingsSection::Look {
+    if section == SettingsSection::Ui {
         render_spinner_categories(app, frame, layout);
         render_spinner_hero(app, frame, layout);
     }
@@ -283,7 +283,7 @@ fn render_spinner_hero(app: &AppState, frame: &mut Frame, layout: &SettingsLayou
 }
 
 fn focused_spinner_style(app: &AppState) -> crate::config::SpinnerStyle {
-    let rows = section_rows(app, SettingsSection::Look);
+    let rows = section_rows(app, SettingsSection::Ui);
     if let Some(row) = rows.get(app.settings.list.selected) {
         if row.kind == SettingsRowKind::Spinner {
             if let Some(idx) = spinner_index(row.id) {

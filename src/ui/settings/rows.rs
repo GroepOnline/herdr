@@ -80,7 +80,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 });
             }
         }
-        SettingsSection::Look => {
+        SettingsSection::Ui => {
             if show_headers {
                 rows.push(header_row("spinner"));
             }
@@ -110,8 +110,6 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     ),
                 });
             }
-        }
-        SettingsSection::Chrome => {
             if show_headers {
                 rows.push(header_row("pane chrome"));
             }
@@ -196,8 +194,6 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 id: SettingsItemId::ConfigFile,
                 search_extra: Some("agents spaces rows rows_by_agent token custom".to_string()),
             });
-        }
-        SettingsSection::Keys => {
             if show_headers {
                 rows.push(header_row("mouse & clipboard"));
             }
@@ -406,6 +402,26 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 id: SettingsItemId::FleetOpsBar,
                 search_extra: None,
             });
+            for (label, detail, id) in [
+                (
+                    "manage ssh config",
+                    "add keepalive fallbacks for herdr --remote",
+                    SettingsItemId::ManageSshConfig,
+                ),
+                (
+                    "clipboard history",
+                    "retain recent global clipboard entries",
+                    SettingsItemId::ClipboardHistory,
+                ),
+            ] {
+                rows.push(SettingsRow {
+                    label: label.to_string(),
+                    detail: Some(detail.to_string()),
+                    kind: SettingsRowKind::Toggle,
+                    id,
+                    search_extra: None,
+                });
+            }
             if show_headers {
                 rows.push(header_row("paths & config"));
             }
@@ -430,31 +446,6 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 id: SettingsItemId::ConfigFile,
                 search_extra: None,
             });
-        }
-        SettingsSection::RemoteGraphics => {
-            if show_headers {
-                rows.push(header_row("remote & graphics"));
-            }
-            for (label, detail, id) in [
-                (
-                    "manage ssh config",
-                    "add keepalive fallbacks for herdr --remote",
-                    SettingsItemId::ManageSshConfig,
-                ),
-                (
-                    "clipboard history",
-                    "retain recent global clipboard entries",
-                    SettingsItemId::ClipboardHistory,
-                ),
-            ] {
-                rows.push(SettingsRow {
-                    label: label.to_string(),
-                    detail: Some(detail.to_string()),
-                    kind: SettingsRowKind::Toggle,
-                    id,
-                    search_extra: None,
-                });
-            }
         }
         SettingsSection::Templates => {
             if show_headers {

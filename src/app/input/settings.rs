@@ -439,14 +439,13 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             expand_all_groups(state);
         }
         KeyCode::Char('<') => {
-            if state.settings.section == SettingsSection::Look
-                && state.settings.spinner_category > 0
+            if state.settings.section == SettingsSection::Ui && state.settings.spinner_category > 0
             {
                 state.settings.spinner_category -= 1;
             }
         }
         KeyCode::Char('>') => {
-            if state.settings.section == SettingsSection::Look {
+            if state.settings.section == SettingsSection::Ui {
                 let max = crate::ui::settings::spinner::SPINNER_CATEGORIES
                     .len()
                     .saturating_sub(1);
@@ -710,7 +709,7 @@ mod tests {
             &mut state,
             KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::Look);
+        assert_eq!(state.settings.section, SettingsSection::Ui);
 
         update_settings_state(
             &mut state,
@@ -733,7 +732,7 @@ mod tests {
             &mut state,
             KeyEvent::new(KeyCode::Down, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::Look);
+        assert_eq!(state.settings.section, SettingsSection::Ui);
 
         update_settings_state(
             &mut state,
@@ -896,7 +895,7 @@ mod tests {
     #[test]
     fn settings_angle_brackets_cycle_spinner_categories_in_ui() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Look);
+        open_settings_at(&mut state, SettingsSection::Ui);
         state.settings.spinner_category = 1;
 
         update_settings_state(

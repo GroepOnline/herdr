@@ -23,25 +23,6 @@ pub(crate) fn truncate_end(text: &str, max_width: usize) -> String {
     format!("{prefix}…")
 }
 
-pub(crate) fn truncate_end_word(text: &str, max_width: usize) -> String {
-    if display_width(text) <= max_width {
-        return text.to_string();
-    }
-    if max_width <= 1 {
-        return truncate_end(text, max_width);
-    }
-
-    let prefix = take_prefix_width(text, max_width.saturating_sub(1));
-    let trimmed = match prefix.rfind(' ') {
-        Some(idx) if idx > 0 => prefix[..idx].trim_end(),
-        _ => prefix.trim_end(),
-    };
-    if trimmed.is_empty() {
-        return truncate_end(text, max_width);
-    }
-    format!("{trimmed}…")
-}
-
 pub(crate) fn middle_elide(text: &str, max_width: usize) -> String {
     if display_width(text) <= max_width {
         return text.to_string();
@@ -96,22 +77,6 @@ mod tests {
 
         assert_eq!(text, "提交 herdr 的反…");
         assert!(display_width(&text) <= 16);
-    }
-
-    #[test]
-    fn truncate_end_word_breaks_on_word_boundary() {
-        let text = truncate_end_word("spinner, indicators, pane chrome", 20);
-
-        assert_eq!(text, "spinner,…");
-        assert!(display_width(&text) <= 20);
-    }
-
-    #[test]
-    fn truncate_end_word_falls_back_when_no_space_fits() {
-        let text = truncate_end_word("verylongsinglewordhere", 8);
-
-        assert!(text.ends_with('…'));
-        assert!(display_width(&text) <= 8);
     }
 
     #[test]

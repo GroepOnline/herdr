@@ -106,28 +106,4 @@ mod tests {
 
         assert!(rendered.contains("[✓] pane screen history"));
     }
-
-    #[test]
-    fn remote_and_graphics_contains_ssh_and_clipboard_rows() {
-        let app = AppState::test_new();
-        let labels = super::rows::section_rows(&app, SettingsSection::RemoteGraphics)
-            .iter()
-            .map(|row| row.label.clone())
-            .collect::<Vec<_>>();
-
-        assert!(labels.iter().any(|label| label == "manage ssh config"));
-        assert!(labels.iter().any(|label| label == "clipboard history"));
-    }
-
-    #[test]
-    fn system_section_no_longer_contains_ssh_or_clipboard() {
-        let app = AppState::test_new();
-        let labels = super::rows::section_rows(&app, SettingsSection::System)
-            .iter()
-            .map(|row| row.label.clone())
-            .collect::<Vec<_>>();
-
-        assert!(!labels.iter().any(|label| label == "manage ssh config"));
-        assert!(!labels.iter().any(|label| label == "clipboard history"));
-    }
 }
