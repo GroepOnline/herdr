@@ -1,0 +1,42 @@
+name: Release state
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - CHANGELOG.md
+      - README.md
+      - docs/versions/**
+      - scripts/test_release_state.py
+      - .github/workflows/release-state.yml
+  push:
+    branches: [main]
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - CHANGELOG.md
+      - README.md
+      - docs/versions/**
+      - scripts/test_release_state.py
+      - .github/workflows/release-state.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-state-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+      - name: Release-state regression tests
+        run: python3 -m unittest scripts.test_release_state
