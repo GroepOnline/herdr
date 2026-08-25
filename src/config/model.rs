@@ -186,10 +186,6 @@ pub enum SpinnerStyle {
     Confetti,
     Cthulhu,
     DwarfFortress,
-    BarVertical,
-    BarPulse,
-    Blocks,
-    Braille,
 }
 
 impl SpinnerStyle {
@@ -280,10 +276,6 @@ impl SpinnerStyle {
         Self::Confetti,
         Self::Cthulhu,
         Self::DwarfFortress,
-        Self::BarVertical,
-        Self::BarPulse,
-        Self::Blocks,
-        Self::Braille,
     ];
 
     pub fn label(self) -> &'static str {
@@ -374,10 +366,6 @@ impl SpinnerStyle {
             Self::Confetti => "confetti",
             Self::Cthulhu => "cthulhu",
             Self::DwarfFortress => "dwarf fortress",
-            Self::BarVertical => "bar vertical",
-            Self::BarPulse => "bar pulse",
-            Self::Blocks => "blocks",
-            Self::Braille => "braille",
         }
     }
 
@@ -685,10 +673,6 @@ impl SpinnerStyle {
                 " ▒█████£££  ",
                 " ██████£££  ",
             ],
-            Self::BarVertical => &["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆", "▅", "▄"],
-            Self::BarPulse => &["█", "▉", "▊", "▋", "▌", "▍", "▎", "▏", "▎", "▍", "▌", "▋"],
-            Self::Blocks => &["▌", "▀", "▐", "▄"],
-            Self::Braille => &["⡀", "⡄", "⡆", "⡇", "⣇", "⣧", "⣷", "⣿", "⣷", "⣧", "⣇", "⡇"],
         }
     }
 
@@ -768,7 +752,6 @@ impl SpinnerStyle {
             Self::Pizza | Self::Unicorn | Self::Pumpkin | Self::Confetti | Self::Rocket => 200,
             Self::DwarfFortress => 80,
             Self::Static => 1000,
-            Self::BarVertical | Self::BarPulse | Self::Blocks | Self::Braille => 80,
         };
         ((interval_ms as f32 / 16.67).round() as u32).max(1)
     }

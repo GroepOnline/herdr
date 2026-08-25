@@ -15,14 +15,14 @@ test "${HERDR_ENV:-}" = 1
 
 When the check passes, the `herdr` binary in `PATH` talks to the current session. Use it to inspect neighboring work, create terminal layout, start agents and commands, read output, and wait for state changes.
 
-When the check fails, external control is allowed only when the user explicitly directed Herdr and the execution surface is already authorized to run commands on the Herdr host. Do not infer or discover a different user's session. Select an explicit session when more than one exists, use explicit pane/agent IDs for mutations, and never use the UI-focused pane as an implicit target. Set `HERDR_CONTROLLER_ID` to a stable lowercase controller name such as `chatgpt` before CLI calls. Herdr prefixes API request IDs with that controller identity, so server logs and returned evidence retain who initiated the action without granting extra authority.
+When the check fails, external control is allowed only when the user explicitly directed Herdr and the execution surface is already authorized to run commands on the Herdr host. Do not infer or discover a different user's session. Name the target session on every command with `herdr --session <name> ...` (or `HERDR_SESSION`), including when only one session exists; never infer a default session. Use explicit pane/agent IDs for mutations, and never use the UI-focused pane as an implicit target. Set `HERDR_CONTROLLER_ID` to a stable lowercase controller name such as `chatgpt` before CLI calls. Herdr prefixes API request IDs with that controller identity, so server logs and returned evidence retain who initiated the action without granting extra authority.
 
 Example external-controller setup:
 
 ```bash
 export HERDR_CONTROLLER_ID=chatgpt
-herdr status --json
-herdr agent list
+herdr --session <name> status --json
+herdr --session <name> agent list
 ```
 
 `HERDR_CONTROLLER_ID` is attribution, not authentication. The surrounding execution surface remains responsible for host/session authorization.

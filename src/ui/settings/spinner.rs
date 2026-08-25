@@ -122,15 +122,6 @@ pub(crate) const SPINNER_CATEGORIES: &[SpinnerCategory] = &[
             SpinnerStyle::DwarfFortress,
         ],
     },
-    SpinnerCategory {
-        label: "bars",
-        styles: &[
-            SpinnerStyle::BarVertical,
-            SpinnerStyle::BarPulse,
-            SpinnerStyle::Blocks,
-            SpinnerStyle::Braille,
-        ],
-    },
 ];
 
 pub(crate) fn active_spinner_category(index: usize) -> &'static SpinnerCategory {
