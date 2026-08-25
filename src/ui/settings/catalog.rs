@@ -310,13 +310,10 @@ pub(crate) fn activate_item(state: &AppState, id: SettingsItemId) -> Option<Sett
                 .copied()
                 .map(SettingsAction::SaveSpinnerStyle)
         }
-        SettingsItemId::StatusIndicators { index } => {
-            Some(SettingsAction::SaveStatusIndicators(if index == 0 {
-                StatusIndicatorStyle::Dots
-            } else {
-                StatusIndicatorStyle::Symbols
-            }))
-        }
+        SettingsItemId::StatusIndicators { index } => StatusIndicatorStyle::ALL
+            .get(index)
+            .copied()
+            .map(SettingsAction::SaveStatusIndicators),
         SettingsItemId::SidebarWidth => {
             let next = if state.sidebar_width >= state.sidebar_max_width {
                 state.sidebar_min_width

@@ -97,6 +97,12 @@ pub enum ToastClipboardPosition {
 pub enum SpinnerStyle {
     #[default]
     Dots,
+    Static,
+    Pulse,
+    Bars,
+    BrailleWave,
+    Comet,
+    Orbit,
     DotsFull,
     DotsCorner,
     Arc,
@@ -185,6 +191,12 @@ pub enum SpinnerStyle {
 impl SpinnerStyle {
     pub const ALL: &[Self] = &[
         Self::Dots,
+        Self::Static,
+        Self::Pulse,
+        Self::Bars,
+        Self::BrailleWave,
+        Self::Comet,
+        Self::Orbit,
         Self::DotsFull,
         Self::DotsCorner,
         Self::Arc,
@@ -269,6 +281,12 @@ impl SpinnerStyle {
     pub fn label(self) -> &'static str {
         match self {
             Self::Dots => "dots",
+            Self::Static => "static",
+            Self::Pulse => "pulse",
+            Self::Bars => "bars",
+            Self::BrailleWave => "braille wave",
+            Self::Comet => "comet",
+            Self::Orbit => "orbit",
             Self::DotsFull => "dots full",
             Self::DotsCorner => "dots corner",
             Self::Arc => "arc",
@@ -354,6 +372,14 @@ impl SpinnerStyle {
     pub fn frames(self) -> &'static [&'static str] {
         match self {
             Self::Dots => &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
+            Self::Static => &["●"],
+            Self::Pulse => &["·", "∙", "●", "∙"],
+            Self::Bars => &[
+                "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆", "▅", "▄", "▃", "▂",
+            ],
+            Self::BrailleWave => &["⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈"],
+            Self::Comet => &["●··", "·●·", "··●", "·●·"],
+            Self::Orbit => &["◜", "◝", "◞", "◟"],
             Self::DotsFull => &["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"],
             Self::DotsCorner => &["⢹", "⢺", "⢼", "⣸", "⣇", "⡧", "⡗", "⡏"],
             Self::Arc => &["◜", "◠", "◝", "◞", "◡", "◟"],
@@ -653,6 +679,11 @@ impl SpinnerStyle {
     pub fn speed_divisor(self) -> u32 {
         let interval_ms = match self {
             Self::Dots
+            | Self::Pulse
+            | Self::Bars
+            | Self::BrailleWave
+            | Self::Comet
+            | Self::Orbit
             | Self::DotsFull
             | Self::DotsCorner
             | Self::Bounce
@@ -720,6 +751,7 @@ impl SpinnerStyle {
             Self::Christmas => 400,
             Self::Pizza | Self::Unicorn | Self::Pumpkin | Self::Confetti | Self::Rocket => 200,
             Self::DwarfFortress => 80,
+            Self::Static => 1000,
         };
         ((interval_ms as f32 / 16.67).round() as u32).max(1)
     }
@@ -740,13 +772,41 @@ pub enum StatusIndicatorStyle {
     #[default]
     Dots,
     Symbols,
+    Signal,
+    Ascii,
 }
 
 impl StatusIndicatorStyle {
+    pub const ALL: &[Self] = &[Self::Dots, Self::Symbols, Self::Signal, Self::Ascii];
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Dots => "dots",
             Self::Symbols => "symbols",
+            Self::Signal => "signal",
+            Self::Ascii => "ascii",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        self.as_str()
+    }
+
+    pub fn detail(self) -> &'static str {
+        match self {
+            Self::Dots => "animated working spinner with semantic dots",
+            Self::Symbols => "distinct static unicode shapes per state",
+            Self::Signal => "high-contrast action symbols without animation",
+            Self::Ascii => "portable ASCII fallback for limited terminals",
+        }
+    }
+
+    pub fn preview(self) -> &'static str {
+        match self {
+            Self::Dots => "◉ ⠋ ● ✓ ○",
+            Self::Symbols => "× ◐ ✓ ○ ·",
+            Self::Signal => "! ▶ ◆ ○ ?",
+            Self::Ascii => "! > + . ?",
         }
     }
 }
@@ -1554,7 +1614,7 @@ pub struct UiConfig {
     pub agent_panel_sort: AgentPanelSortConfig,
     /// Agent working spinner animation style. Default: "braille".
     pub spinner_style: SpinnerStyle,
-    /// Agent status indicator style. Saved values are "dots" or "symbols". Default: "dots".
+    /// Agent status indicator style. Saved values are "dots", "symbols", "signal", or "ascii". Default: "dots".
     pub status_indicators: StatusIndicatorStyle,
     /// Expanded sidebar row composition.
     pub sidebar: SidebarConfig,
@@ -2048,7 +2108,7 @@ agent_panel_scope = "current"
     }
 
     #[test]
-    fn status_indicator_style_defaults_to_dots_and_parses_symbols() {
+    fn status_indicator_style_defaults_to_dots_and_parses_all_modes() {
         assert_eq!(
             Config::default().ui.status_indicators,
             StatusIndicatorStyle::Dots
@@ -2062,6 +2122,15 @@ status_indicators = "symbols"
         )
         .unwrap();
         assert_eq!(config.ui.status_indicators, StatusIndicatorStyle::Symbols);
+
+        for (raw, expected) in [
+            ("signal", StatusIndicatorStyle::Signal),
+            ("ascii", StatusIndicatorStyle::Ascii),
+        ] {
+            let config: Config =
+                toml::from_str(&format!("[ui]\nstatus_indicators = \"{raw}\"\n")).unwrap();
+            assert_eq!(config.ui.status_indicators, expected);
+        }
     }
 
     #[test]

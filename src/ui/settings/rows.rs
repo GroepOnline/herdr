@@ -99,19 +99,15 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
             if show_headers {
                 rows.push(header_row("status indicators"));
             }
-            for (idx, (label, detail)) in [
-                ("dots", "animated spinner dots"),
-                ("symbols", "distinct static shapes per state"),
-            ]
-            .iter()
-            .enumerate()
-            {
+            for (idx, style) in crate::config::StatusIndicatorStyle::ALL.iter().enumerate() {
                 rows.push(SettingsRow {
-                    label: (*label).to_string(),
-                    detail: Some((*detail).to_string()),
+                    label: style.label().to_string(),
+                    detail: Some(format!("{}  ·  {}", style.preview(), style.detail())),
                     kind: SettingsRowKind::Choice,
                     id: SettingsItemId::StatusIndicators { index: idx },
-                    search_extra: None,
+                    search_extra: Some(
+                        "working blocked done idle unknown accessible motion".to_string(),
+                    ),
                 });
             }
             if show_headers {
@@ -653,9 +649,10 @@ pub(crate) fn row_choice_selected(
                 == crate::config::UpdateChannelConfig::Preview
         }
         SettingsItemId::ToastDelivery { delivery } => app.toast_delivery() == delivery,
-        SettingsItemId::StatusIndicators { index } => {
-            (index == 0) == (app.status_indicators == crate::config::StatusIndicatorStyle::Dots)
-        }
+        SettingsItemId::StatusIndicators { index } => crate::config::StatusIndicatorStyle::ALL
+            .get(index)
+            .copied()
+            .is_some_and(|style| style == app.status_indicators),
         _ => false,
     }
 }

@@ -204,7 +204,7 @@ pub(super) fn state_dot(state: AgentState, seen: bool, p: &Palette) -> (&'static
     }
 }
 
-/// Static distinct symbols per state (upstream `status_indicators = "symbols"`).
+/// Static distinct symbols per state (`status_indicators = "symbols"`).
 pub(super) fn state_icon_symbol(state: AgentState, seen: bool) -> &'static str {
     match crate::status::project(state, seen).agent_status {
         AgentStatus::Blocked => "×",
@@ -212,6 +212,26 @@ pub(super) fn state_icon_symbol(state: AgentState, seen: bool) -> &'static str {
         AgentStatus::Done => "✓",
         AgentStatus::Idle => "○",
         AgentStatus::Unknown => "·",
+    }
+}
+
+fn state_icon_signal(state: AgentState, seen: bool) -> &'static str {
+    match crate::status::project(state, seen).agent_status {
+        AgentStatus::Blocked => "!",
+        AgentStatus::Working => "▶",
+        AgentStatus::Done => "◆",
+        AgentStatus::Idle => "○",
+        AgentStatus::Unknown => "?",
+    }
+}
+
+fn state_icon_ascii(state: AgentState, seen: bool) -> &'static str {
+    match crate::status::project(state, seen).agent_status {
+        AgentStatus::Blocked => "!",
+        AgentStatus::Working => ">",
+        AgentStatus::Done => "+",
+        AgentStatus::Idle => ".",
+        AgentStatus::Unknown => "?",
     }
 }
 
@@ -223,11 +243,26 @@ pub(super) fn agent_icon(
     style: crate::config::SpinnerStyle,
     p: &Palette,
 ) -> (&'static str, Style) {
-    if indicator_style == StatusIndicatorStyle::Symbols {
-        return (
-            state_icon_symbol(state, seen),
-            Style::default().fg(state_label_color(state, seen, p)),
-        );
+    match indicator_style {
+        StatusIndicatorStyle::Symbols => {
+            return (
+                state_icon_symbol(state, seen),
+                Style::default().fg(state_label_color(state, seen, p)),
+            );
+        }
+        StatusIndicatorStyle::Signal => {
+            return (
+                state_icon_signal(state, seen),
+                Style::default().fg(state_label_color(state, seen, p)),
+            );
+        }
+        StatusIndicatorStyle::Ascii => {
+            return (
+                state_icon_ascii(state, seen),
+                Style::default().fg(state_label_color(state, seen, p)),
+            );
+        }
+        StatusIndicatorStyle::Dots => {}
     }
     match crate::status::project(state, seen).agent_status {
         AgentStatus::Blocked => ("◉", Style::default().fg(p.red)),
@@ -274,6 +309,36 @@ mod tests {
         CopyFeedback {
             message: "copied to clipboard".to_string(),
         }
+    }
+
+    #[test]
+    fn static_status_indicator_modes_cover_all_semantic_states() {
+        let states = [
+            (AgentState::Blocked, true),
+            (AgentState::Working, true),
+            (AgentState::Idle, false),
+            (AgentState::Idle, true),
+            (AgentState::Unknown, true),
+        ];
+
+        for (state, seen) in states {
+            assert_ne!(state_icon_symbol(state, seen), "");
+            assert_ne!(state_icon_signal(state, seen), "");
+            assert_ne!(state_icon_ascii(state, seen), "");
+            assert!(state_icon_ascii(state, seen).is_ascii());
+        }
+    }
+
+    #[test]
+    fn signal_and_ascii_keep_blocked_distinct_from_working() {
+        assert_ne!(
+            state_icon_signal(AgentState::Blocked, true),
+            state_icon_signal(AgentState::Working, true)
+        );
+        assert_ne!(
+            state_icon_ascii(AgentState::Blocked, true),
+            state_icon_ascii(AgentState::Working, true)
+        );
     }
 
     #[test]

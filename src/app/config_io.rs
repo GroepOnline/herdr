@@ -252,6 +252,12 @@ impl App {
     pub(super) fn save_spinner_style(&mut self, style: crate::config::SpinnerStyle) {
         let value = match style {
             crate::config::SpinnerStyle::Dots => "\"dots\"",
+            crate::config::SpinnerStyle::Static => "\"static\"",
+            crate::config::SpinnerStyle::Pulse => "\"pulse\"",
+            crate::config::SpinnerStyle::Bars => "\"bars\"",
+            crate::config::SpinnerStyle::BrailleWave => "\"braille-wave\"",
+            crate::config::SpinnerStyle::Comet => "\"comet\"",
+            crate::config::SpinnerStyle::Orbit => "\"orbit\"",
             crate::config::SpinnerStyle::DotsFull => "\"dots-full\"",
             crate::config::SpinnerStyle::DotsCorner => "\"dots-corner\"",
             crate::config::SpinnerStyle::Arc => "\"arc\"",

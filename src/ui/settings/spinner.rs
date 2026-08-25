@@ -7,6 +7,17 @@ pub(crate) struct SpinnerCategory {
 
 pub(crate) const SPINNER_CATEGORIES: &[SpinnerCategory] = &[
     SpinnerCategory {
+        label: "focus",
+        styles: &[
+            SpinnerStyle::Static,
+            SpinnerStyle::Pulse,
+            SpinnerStyle::Bars,
+            SpinnerStyle::BrailleWave,
+            SpinnerStyle::Comet,
+            SpinnerStyle::Orbit,
+        ],
+    },
+    SpinnerCategory {
         label: "classic",
         styles: &[
             SpinnerStyle::Dots,
@@ -119,6 +130,13 @@ pub(crate) fn active_spinner_category(index: usize) -> &'static SpinnerCategory 
         .unwrap_or(&SPINNER_CATEGORIES[0])
 }
 
+pub(crate) fn spinner_category_for_style(style: SpinnerStyle) -> usize {
+    SPINNER_CATEGORIES
+        .iter()
+        .position(|category| category.styles.contains(&style))
+        .unwrap_or(0)
+}
+
 pub(crate) fn spinner_frame_at(style: SpinnerStyle, tick: u32) -> &'static str {
     let frames = style.frames();
     let divisor = style.speed_divisor().max(1);
@@ -151,6 +169,22 @@ mod tests {
     fn spinner_categories_cover_all_styles() {
         let categorized: usize = SPINNER_CATEGORIES.iter().map(|c| c.styles.len()).sum();
         assert_eq!(categorized, SpinnerStyle::ALL.len());
+    }
+
+    #[test]
+    fn spinner_catalog_has_no_duplicate_styles() {
+        let mut seen = Vec::new();
+        for style in SpinnerStyle::ALL {
+            assert!(!seen.contains(style), "duplicate spinner style: {style:?}");
+            seen.push(*style);
+        }
+    }
+
+    #[test]
+    fn spinner_category_tracks_active_style() {
+        assert_eq!(spinner_category_for_style(SpinnerStyle::Static), 0);
+        assert_eq!(spinner_category_for_style(SpinnerStyle::Dots), 1);
+        assert_eq!(spinner_category_for_style(SpinnerStyle::Cthulhu), 5);
     }
 
     #[test]
