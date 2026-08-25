@@ -1,5 +1,6 @@
 name: Release state
 
+# Dedicated regression lane for release metadata and README contract checks.
 on:
   pull_request:
     branches: [main]
