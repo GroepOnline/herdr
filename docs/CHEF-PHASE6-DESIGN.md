@@ -15,13 +15,15 @@
 
 ## Priority 2: Aider Detection
 
-**Status:** DONE — `src/detect/manifests/aider.toml` created with:
-- `yes_no_confirmation` (blocked) — matches `(y)es/(n)o` confirmation prompts
-- `spinner_working` (working) — matches Aider's ░█ bounce spinner + "waiting for llm"
+**Status:** NOT SHIPPED — the stale `feat/aider-integration` branch was partial and must not be merged. Current `main` has no Aider manifest, enum variant, process lookup, CLI/docs/schema/website integration, or regression tests.
 
-**Code changes:** Agent::Aider variant added to enum, agent_label, parse_agent_label, SCREEN_MANIFEST_AGENTS, BUNDLED_MANIFESTS.
+**Required before DONE:**
+- Capture live Aider terminal states and process evidence first.
+- Design precise idle/working/blocked/error detection without generic whole-buffer false positives (avoid broad matches such as bare `error:`).
+- Implement the full current integration contract: `Agent::Aider`, detection manifest registration, `SCREEN_MANIFEST_AGENTS`, parse/process lookup, CLI/API/schema/docs/website manifest, and regression tests.
+- Screen detection only — Aider has no hooks system (GitHub issue #2557).
 
-**No lifecycle integration possible** — Aider has no hooks system (confirmed via GitHub issue #2557). Screen detection only.
+**Historical intent only:** branch `feat/aider-integration` @ `a2ba5194` (deleted); do not cherry-pick.
 
 ## Priority 3: Continue.dev — SKIP
 
