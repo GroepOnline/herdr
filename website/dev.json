@@ -3,18 +3,31 @@
   "channel": "dev",
   "enabled": true,
   "base_version": "0.8.7",
-  "build_id": "2026-08-26-183a06c2537c",
-  "commit": "183a06c2537cef70742a9ff6cf71f97316f49d42",
-  "built_at": "2026-08-25T22:39:08Z",
+  "build_id": "2026-08-26-9d3b29c85d72",
+  "commit": "9d3b29c85d728cbcf15f4d053adcd0af066382b2",
+  "built_at": "2026-08-25T23:43:21Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-26-183a06c2537c\n\nBuilt from `183a06c2537c` on `main`.\nBase stable: v0.8.7\nCompare: https://github.com/GroepOnline/herdr/compare/87484f3e37bcf441ba4adb442e1ab2def3b8cc17...183a06c2537cef70742a9ff6cf71f97316f49d42\n\n### Added\n- Add Command Code control + external controller recognition (#83)",
+  "notes": "Dev build 2026-08-26-9d3b29c85d72\n\nBuilt from `9d3b29c85d72` on `main`.\nBase stable: v0.8.7\nCompare: https://github.com/GroepOnline/herdr/compare/183a06c2537cef70742a9ff6cf71f97316f49d42...9d3b29c85d728cbcf15f4d053adcd0af066382b2\n\n### Maintenance\n- Lock Aider state coverage without generic error: (GRO-1477) (#86)\n- Correct stale Aider DONE claim (GRO-1477) (#85)",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-26-183a06c2537c/herdr-linux-x86_64",
-      "sha256": "72c794ed5a70d620fd72525195e20e1ce1a70626ded7a00bce537b2a189b8213"
+      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-26-9d3b29c85d72/herdr-linux-x86_64",
+      "sha256": "f350373b22565f5d08f2b6e1465fef266a52084067cfacc6b1bff1adfc337115"
     }
   },
   "builds": {
+    "2026-08-26-9d3b29c85d72": {
+      "base_version": "0.8.7",
+      "commit": "9d3b29c85d728cbcf15f4d053adcd0af066382b2",
+      "built_at": "2026-08-25T23:43:21Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-26-9d3b29c85d72",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-26-9d3b29c85d72/herdr-linux-x86_64",
+          "sha256": "f350373b22565f5d08f2b6e1465fef266a52084067cfacc6b1bff1adfc337115"
+        }
+      }
+    },
     "2026-08-26-183a06c2537c": {
       "base_version": "0.8.7",
       "commit": "183a06c2537cef70742a9ff6cf71f97316f49d42",
@@ -259,19 +272,6 @@
         "linux-x86_64": {
           "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-08-6c617fdb7b3e/herdr-linux-x86_64",
           "sha256": "3a2dc5326b4777cfda1bc823a441e276bd65e03f534c6cc443d771a00811988d"
-        }
-      }
-    },
-    "2026-08-08-eff384390036": {
-      "base_version": "0.7.7",
-      "commit": "eff3843900362683bd2353394283e2a9094aa521",
-      "built_at": "2026-08-07T23:48:55Z",
-      "protocol": 18,
-      "tag": "dev-2026-08-08-eff384390036",
-      "assets": {
-        "linux-x86_64": {
-          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-08-eff384390036/herdr-linux-x86_64",
-          "sha256": "ff682031ce8cd10dba7a38ac246bd7e7d702f62ce3fe8b1799c91c583728e11d"
         }
       }
     }
