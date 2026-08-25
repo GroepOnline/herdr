@@ -439,7 +439,8 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             expand_all_groups(state);
         }
         KeyCode::Char('<') => {
-            if state.settings.section == SettingsSection::Look && state.settings.spinner_category > 0
+            if state.settings.section == SettingsSection::Look
+                && state.settings.spinner_category > 0
             {
                 state.settings.spinner_category -= 1;
             }
