@@ -11,10 +11,11 @@ use super::sidebar::{
     next_entry_is_indented_workspace, workspace_list_entries_expanded, AgentPanelEntry,
     WorkspaceListEntry,
 };
-use super::status::{agent_icon, state_dot, state_icon_symbol, state_label_color};
+use super::status::{agent_icon, state_dot};
 use super::text::{display_width_u16, truncate_end};
 use crate::app::state::{Palette, ToastKind, ToastNotification};
 use crate::app::AppState;
+#[cfg(test)]
 use crate::detect::AgentState;
 use crate::layout::PaneId;
 use crate::terminal::TerminalRuntimeRegistry;
@@ -327,19 +328,14 @@ fn render_header_status(
     let ws = &app.workspaces[active_idx];
 
     let (state, seen) = ws.aggregate_state(&app.terminals);
-    let (dot, dot_style) = if matches!(state, AgentState::Working) {
-        (
-            super::spinner_frame(app.spinner_tick, app.spinner_style),
-            Style::default().fg(p.yellow),
-        )
-    } else if app.status_indicators == crate::config::StatusIndicatorStyle::Symbols {
-        (
-            state_icon_symbol(state, seen),
-            Style::default().fg(state_label_color(state, seen, p)),
-        )
-    } else {
-        state_dot(state, seen, p)
-    };
+    let (dot, dot_style) = agent_icon(
+        state,
+        seen,
+        app.spinner_tick,
+        app.status_indicators,
+        app.spinner_style,
+        p,
+    );
     let tab_label = mobile_tab_status(ws);
     let row1 = Rect::new(area.x, area.y, area.width, 1);
     let tab_w = display_width_u16(&tab_label)

@@ -319,15 +319,15 @@ Herdr keeps runtime facts and presentation choices separate. The server/runtime 
 
 `unknown` is intentionally not rendered as `idle`. If a status seems wrong, inspect the authority and evidence with `herdr agent explain <target>` rather than inferring from a color alone.
 
-Working indicators are presentation-only. Choose a spinner from the built-in catalog and choose semantic dots or symbols independently:
+Working indicators are presentation-only. Choose a spinner from the built-in catalog and choose the status language independently. Herdr ships animated dots, static Unicode symbols, a high-contrast signal set, and an ASCII fallback:
 
 ```toml
 [ui]
-spinner_style = "dots-full"
-status_indicators = "symbols"
+spinner_style = "pulse"
+status_indicators = "signal"
 ```
 
-The Settings surface previews spinner styles before saving. Use a restrained style such as `dots`, `arc`, or `circle` for dense sidebars; reserve emoji and wide multi-cell frames for a panel with enough width. Status icons must remain understandable when animation is paused, when the terminal cannot render a glyph, and for users who prefer reduced visual motion. No spinner changes the underlying agent state or notification authority.
+The Settings surface previews spinner styles before saving. The `focus` pack adds `static`, `pulse`, `bars`, `braille-wave`, `comet`, and `orbit` for compact operational use. Choose `status_indicators = "signal"` when shape needs to carry more meaning than color, or `"ascii"` for limited terminals and fonts. Status icons remain understandable when animation is paused. No spinner changes the underlying agent state or notification authority.
 
 Set `tab_bar_position = "bottom"` under `[ui]` to place the desktop tab row below the terminal panes. Prefix, Navigate, Copy, and Resize mode bars temporarily replace the bottom tab row while active. The default is `"top"`.
 

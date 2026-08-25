@@ -554,7 +554,11 @@ pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
     state.settings.section = section;
     state.settings.search.clear();
     state.settings.focus = SettingsFocus::Content;
-    state.settings.spinner_category = 0;
+    state.settings.spinner_category = if section == SettingsSection::Ui {
+        crate::ui::settings::spinner::spinner_category_for_style(state.spinner_style)
+    } else {
+        0
+    };
     state.settings.content_scroll = 0;
     state.settings.list.selected = default_selection_for_section(state, section);
     state.settings.plugin_detail = None;

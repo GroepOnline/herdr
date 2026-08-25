@@ -773,10 +773,12 @@
           "key": "ui.status_indicators",
           "type": "enum",
           "default": "\"dots\"",
-          "description": "Choose compact color dots or distinct static symbols for agent states.",
+          "description": "Choose animated dots, static Unicode symbols, high-contrast signal glyphs, or an ASCII fallback for agent states.",
           "values": [
             "dots",
-            "symbols"
+            "symbols",
+            "signal",
+            "ascii"
           ]
         },
         {
@@ -834,6 +836,12 @@
           "description": "Agent working spinner animation style.",
           "values": [
             "dots",
+            "static",
+            "pulse",
+            "bars",
+            "braille-wave",
+            "comet",
+            "orbit",
             "dots-full",
             "dots-corner",
             "arc",
