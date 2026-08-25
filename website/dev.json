@@ -3,18 +3,31 @@
   "channel": "dev",
   "enabled": true,
   "base_version": "0.8.7",
-  "build_id": "2026-08-25-87484f3e37bc",
-  "commit": "87484f3e37bcf441ba4adb442e1ab2def3b8cc17",
-  "built_at": "2026-08-25T18:28:29Z",
+  "build_id": "2026-08-26-183a06c2537c",
+  "commit": "183a06c2537cef70742a9ff6cf71f97316f49d42",
+  "built_at": "2026-08-25T22:39:08Z",
   "protocol": 18,
-  "notes": "Dev build 2026-08-25-87484f3e37bc\n\nBuilt from `87484f3e37bc` on `main`.\nBase stable: v0.8.7\nCompare: https://github.com/GroepOnline/herdr/compare/cea874fda293d6735c311a79c86b84c0195d29e8...87484f3e37bcf441ba4adb442e1ab2def3b8cc17\n\n### Added\n- Overhaul status indicators and spinner system",
+  "notes": "Dev build 2026-08-26-183a06c2537c\n\nBuilt from `183a06c2537c` on `main`.\nBase stable: v0.8.7\nCompare: https://github.com/GroepOnline/herdr/compare/87484f3e37bcf441ba4adb442e1ab2def3b8cc17...183a06c2537cef70742a9ff6cf71f97316f49d42\n\n### Added\n- Add Command Code control + external controller recognition (#83)",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-25-87484f3e37bc/herdr-linux-x86_64",
-      "sha256": "d4c88cdbbc129f769afee5ab757eaa8ba64a264ffb5a8e31813b1147d2f4f88a"
+      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-26-183a06c2537c/herdr-linux-x86_64",
+      "sha256": "72c794ed5a70d620fd72525195e20e1ce1a70626ded7a00bce537b2a189b8213"
     }
   },
   "builds": {
+    "2026-08-26-183a06c2537c": {
+      "base_version": "0.8.7",
+      "commit": "183a06c2537cef70742a9ff6cf71f97316f49d42",
+      "built_at": "2026-08-25T22:39:08Z",
+      "protocol": 18,
+      "tag": "dev-2026-08-26-183a06c2537c",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-26-183a06c2537c/herdr-linux-x86_64",
+          "sha256": "72c794ed5a70d620fd72525195e20e1ce1a70626ded7a00bce537b2a189b8213"
+        }
+      }
+    },
     "2026-08-25-87484f3e37bc": {
       "base_version": "0.8.7",
       "commit": "87484f3e37bcf441ba4adb442e1ab2def3b8cc17",
@@ -259,19 +272,6 @@
         "linux-x86_64": {
           "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-08-eff384390036/herdr-linux-x86_64",
           "sha256": "ff682031ce8cd10dba7a38ac246bd7e7d702f62ce3fe8b1799c91c583728e11d"
-        }
-      }
-    },
-    "2026-08-01-c940c3369f9b": {
-      "base_version": "0.7.7",
-      "commit": "c940c3369f9bfd36329d20ce71fcf4a17b658639",
-      "built_at": "2026-08-01T21:50:42Z",
-      "protocol": 18,
-      "tag": "dev-2026-08-01-c940c3369f9b",
-      "assets": {
-        "linux-x86_64": {
-          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-01-c940c3369f9b/herdr-linux-x86_64",
-          "sha256": "a94733132a46a3f453eb4a473c4fd32c2d01c81f89c4e34ab157fa5a79b311be"
         }
       }
     }
