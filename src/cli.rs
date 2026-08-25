@@ -785,18 +785,48 @@ pub(super) fn send_ok_request(method: Method) -> std::io::Result<i32> {
     Ok(0)
 }
 
+const HERDR_CONTROLLER_ID_ENV_VAR: &str = "HERDR_CONTROLLER_ID";
+
+fn controller_request_id(request_id: &str, controller: &str) -> Option<String> {
+    let valid = !controller.is_empty()
+        && controller.len() <= 32
+        && controller.bytes().enumerate().all(|(index, byte)| {
+            if index == 0 {
+                byte.is_ascii_lowercase()
+            } else {
+                byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')
+            }
+        });
+    valid.then(|| format!("controller:{controller}:{request_id}"))
+}
+
+fn request_with_controller(request: &Request) -> Request {
+    let Ok(controller) = std::env::var(HERDR_CONTROLLER_ID_ENV_VAR) else {
+        return request.clone();
+    };
+    let Some(id) = controller_request_id(&request.id, &controller) else {
+        return request.clone();
+    };
+    Request {
+        id,
+        method: request.method.clone(),
+    }
+}
+
 pub(super) fn send_request(request: &Request) -> std::io::Result<serde_json::Value> {
+    let request = request_with_controller(request);
     let client = ApiClient::local();
     ensure_server_protocol_compatible(&client, &request.id)?;
     client
-        .request_value(request)
+        .request_value(&request)
         .map_err(|err| map_server_not_running_or_io(err, &request.id, &client))
 }
 
 pub(super) fn send_request_unchecked(request: &Request) -> std::io::Result<serde_json::Value> {
+    let request = request_with_controller(request);
     let client = ApiClient::local();
     client
-        .request_value(request)
+        .request_value(&request)
         .map_err(|err| map_server_not_running_or_io(err, &request.id, &client))
 }
 
@@ -1050,6 +1080,21 @@ fn _print_json<T: Serialize>(value: &T) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn controller_request_ids_are_explicit_and_bounded() {
+        assert_eq!(
+            super::controller_request_id("cli:agent:list", "chatgpt").as_deref(),
+            Some("controller:chatgpt:cli:agent:list")
+        );
+        assert_eq!(
+            super::controller_request_id("cli:agent:get", "command-code").as_deref(),
+            Some("controller:command-code:cli:agent:get")
+        );
+        assert!(super::controller_request_id("cli:agent:list", "ChatGPT").is_none());
+        assert!(super::controller_request_id("cli:agent:list", "-bad").is_none());
+        assert!(super::controller_request_id("cli:agent:list", &"a".repeat(33)).is_none());
+    }
+
     #[test]
     fn channel_without_args_shows_configured_channel() {
         assert_eq!(
