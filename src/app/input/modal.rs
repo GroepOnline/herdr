@@ -7,6 +7,7 @@ use crate::{
     app::{
         state::{
             AppState, ContextMenuKind, ContextMenuState, MenuListState, Mode, NavigatorStateFilter,
+            SettingsSection,
         },
         App,
     },
@@ -79,11 +80,27 @@ pub(crate) enum GlobalMenuAction {
     Keybinds,
     ReloadConfig,
     Settings,
+    Integrations,
+}
+
+impl GlobalMenuAction {
+    pub(super) fn label(self, state: &AppState) -> &'static str {
+        match self {
+            Self::Settings => "settings",
+            Self::Integrations => "plugins & integrations",
+            Self::Keybinds => "keybinds",
+            Self::ReloadConfig => "reload config",
+            Self::WhatsNew if state.update_available.is_some() => "update ready",
+            Self::WhatsNew => "what's new",
+            Self::Detach => "detach",
+        }
+    }
 }
 
 pub(super) fn global_menu_actions(state: &AppState) -> Vec<GlobalMenuAction> {
     let mut actions = vec![
         GlobalMenuAction::Settings,
+        GlobalMenuAction::Integrations,
         GlobalMenuAction::Keybinds,
         GlobalMenuAction::ReloadConfig,
     ];
@@ -141,6 +158,9 @@ pub(super) fn apply_global_menu_action(state: &mut AppState, action: GlobalMenuA
             leave_modal(state);
         }
         GlobalMenuAction::Settings => super::settings::open_settings(state),
+        GlobalMenuAction::Integrations => {
+            super::settings::open_settings_at(state, SettingsSection::Integrations)
+        }
     }
 }
 

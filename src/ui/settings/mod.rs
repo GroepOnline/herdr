@@ -106,4 +106,59 @@ mod tests {
 
         assert!(rendered.contains("[✓] pane screen history"));
     }
+
+    #[test]
+    fn remote_and_graphics_owns_remote_graphics_and_nesting_rows() {
+        let app = AppState::test_new();
+        let labels = super::rows::section_rows(&app, SettingsSection::RemoteGraphics)
+            .iter()
+            .map(|row| row.label.clone())
+            .collect::<Vec<_>>();
+
+        for expected in [
+            "kitty graphics protocol",
+            "allow nested herdr sessions",
+            "manage ssh config",
+            "clipboard history",
+        ] {
+            assert!(labels.iter().any(|label| label == expected), "{expected}");
+        }
+    }
+
+    #[test]
+    fn keys_and_pointer_owns_input_experiments() {
+        let app = AppState::test_new();
+        let labels = super::rows::section_rows(&app, SettingsSection::Keys)
+            .iter()
+            .map(|row| row.label.clone())
+            .collect::<Vec<_>>();
+
+        assert!(labels
+            .iter()
+            .any(|label| label == "switch to ascii input source in prefix (macOS/Windows)"));
+        assert!(labels
+            .iter()
+            .any(|label| label == "reveal hidden cursor for cjk ime"));
+    }
+
+    #[test]
+    fn system_keeps_only_system_experiment_rows() {
+        let app = AppState::test_new();
+        let labels = super::rows::section_rows(&app, SettingsSection::System)
+            .iter()
+            .map(|row| row.label.clone())
+            .collect::<Vec<_>>();
+
+        assert!(labels.iter().any(|label| label == "pane screen history"));
+        for moved in [
+            "kitty graphics protocol",
+            "allow nested herdr sessions",
+            "switch to ascii input source in prefix (macOS/Windows)",
+            "reveal hidden cursor for cjk ime",
+            "manage ssh config",
+            "clipboard history",
+        ] {
+            assert!(!labels.iter().any(|label| label == moved), "{moved}");
+        }
+    }
 }

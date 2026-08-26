@@ -439,13 +439,14 @@ pub(super) fn update_settings_state(state: &mut AppState, key: KeyEvent) -> Opti
             expand_all_groups(state);
         }
         KeyCode::Char('<') => {
-            if state.settings.section == SettingsSection::Ui && state.settings.spinner_category > 0
+            if state.settings.section == SettingsSection::Look
+                && state.settings.spinner_category > 0
             {
                 state.settings.spinner_category -= 1;
             }
         }
         KeyCode::Char('>') => {
-            if state.settings.section == SettingsSection::Ui {
+            if state.settings.section == SettingsSection::Look {
                 let max = crate::ui::settings::spinner::SPINNER_CATEGORIES
                     .len()
                     .saturating_sub(1);
@@ -554,7 +555,7 @@ pub(crate) fn open_settings_at(state: &mut AppState, section: SettingsSection) {
     state.settings.section = section;
     state.settings.search.clear();
     state.settings.focus = SettingsFocus::Content;
-    state.settings.spinner_category = if section == SettingsSection::Ui {
+    state.settings.spinner_category = if section == SettingsSection::Look {
         crate::ui::settings::spinner::spinner_category_for_style(state.spinner_style)
     } else {
         0
@@ -709,7 +710,7 @@ mod tests {
             &mut state,
             KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::Ui);
+        assert_eq!(state.settings.section, SettingsSection::Look);
 
         update_settings_state(
             &mut state,
@@ -732,7 +733,7 @@ mod tests {
             &mut state,
             KeyEvent::new(KeyCode::Down, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::Ui);
+        assert_eq!(state.settings.section, SettingsSection::Look);
 
         update_settings_state(
             &mut state,
@@ -895,7 +896,7 @@ mod tests {
     #[test]
     fn settings_angle_brackets_cycle_spinner_categories_in_ui() {
         let mut state = state_with_workspaces(&["test"]);
-        open_settings_at(&mut state, SettingsSection::Ui);
+        open_settings_at(&mut state, SettingsSection::Look);
         state.settings.spinner_category = 1;
 
         update_settings_state(
@@ -919,13 +920,13 @@ mod tests {
             &mut state,
             KeyEvent::new(KeyCode::Tab, KeyModifiers::empty()),
         );
-        assert_eq!(state.settings.section, SettingsSection::Ui);
+        assert_eq!(state.settings.section, SettingsSection::Look);
     }
 
     #[test]
-    fn ui_rows_expose_sidebar_layout_config_without_token_reimplementation() {
+    fn chrome_rows_expose_sidebar_layout_config_without_token_reimplementation() {
         let state = state_with_workspaces(&["test"]);
-        let rows = section_rows(&state, SettingsSection::Ui);
+        let rows = section_rows(&state, SettingsSection::Chrome);
 
         assert!(rows.iter().any(|row| row.label == "sidebar width"));
         assert!(rows.iter().any(|row| row.label == "collapsed mode"));
@@ -935,9 +936,9 @@ mod tests {
     }
 
     #[test]
-    fn ui_sidebar_choice_ids_map_to_existing_persistence_actions() {
+    fn chrome_sidebar_choice_ids_map_to_existing_persistence_actions() {
         let state = state_with_workspaces(&["test"]);
-        let rows = section_rows(&state, SettingsSection::Ui);
+        let rows = section_rows(&state, SettingsSection::Chrome);
 
         for row in rows.iter().filter(|row| {
             matches!(

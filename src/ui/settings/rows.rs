@@ -1,5 +1,5 @@
 use crate::{
-    app::state::{AppState, SettingsSection, THEME_NAMES},
+    app::state::{AppState, ExperimentSetting, SettingsSection, THEME_NAMES},
     config::ToastDelivery,
     pane_template::PaneTemplateId,
 };
@@ -43,6 +43,16 @@ fn header_row(label: &str) -> SettingsRow {
     }
 }
 
+fn experiment_row(setting: ExperimentSetting) -> SettingsRow {
+    SettingsRow {
+        label: setting.label().to_string(),
+        detail: None,
+        kind: SettingsRowKind::Toggle,
+        id: SettingsItemId::Experiment(setting),
+        search_extra: None,
+    }
+}
+
 fn matches_filter(filter: &str, label: &str, detail: Option<&str>, extra: Option<&str>) -> bool {
     if filter.is_empty() {
         return true;
@@ -80,7 +90,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 });
             }
         }
-        SettingsSection::Ui => {
+        SettingsSection::Look => {
             if show_headers {
                 rows.push(header_row("spinner"));
             }
@@ -110,6 +120,8 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                     ),
                 });
             }
+        }
+        SettingsSection::Chrome => {
             if show_headers {
                 rows.push(header_row("pane chrome"));
             }
@@ -194,6 +206,8 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 id: SettingsItemId::ConfigFile,
                 search_extra: Some("agents spaces rows rows_by_agent token custom".to_string()),
             });
+        }
+        SettingsSection::Keys => {
             if show_headers {
                 rows.push(header_row("mouse & clipboard"));
             }
@@ -255,6 +269,15 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 id: SettingsItemId::KeybindHelp,
                 search_extra: None,
             });
+            if show_headers {
+                rows.push(header_row("input experiments"));
+            }
+            for setting in [
+                ExperimentSetting::SwitchAsciiInputSourceInPrefix,
+                ExperimentSetting::RevealHiddenCursorForCjkIme,
+            ] {
+                rows.push(experiment_row(setting));
+            }
         }
         SettingsSection::Sound => {
             if show_headers {
@@ -383,15 +406,7 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
             if show_headers {
                 rows.push(header_row("experiments"));
             }
-            for setting in crate::app::state::ExperimentSetting::ALL {
-                rows.push(SettingsRow {
-                    label: setting.label().to_string(),
-                    detail: None,
-                    kind: SettingsRowKind::Toggle,
-                    id: SettingsItemId::Experiment(setting),
-                    search_extra: None,
-                });
-            }
+            rows.push(experiment_row(ExperimentSetting::PaneHistory));
             if show_headers {
                 rows.push(header_row("system"));
             }
@@ -402,26 +417,6 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 id: SettingsItemId::FleetOpsBar,
                 search_extra: None,
             });
-            for (label, detail, id) in [
-                (
-                    "manage ssh config",
-                    "add keepalive fallbacks for herdr --remote",
-                    SettingsItemId::ManageSshConfig,
-                ),
-                (
-                    "clipboard history",
-                    "retain recent global clipboard entries",
-                    SettingsItemId::ClipboardHistory,
-                ),
-            ] {
-                rows.push(SettingsRow {
-                    label: label.to_string(),
-                    detail: Some(detail.to_string()),
-                    kind: SettingsRowKind::Toggle,
-                    id,
-                    search_extra: None,
-                });
-            }
             if show_headers {
                 rows.push(header_row("paths & config"));
             }
@@ -446,6 +441,40 @@ pub(crate) fn section_rows(app: &AppState, section: SettingsSection) -> Vec<Sett
                 id: SettingsItemId::ConfigFile,
                 search_extra: None,
             });
+        }
+        SettingsSection::RemoteGraphics => {
+            if show_headers {
+                rows.push(header_row("graphics & nesting"));
+            }
+            for setting in [
+                ExperimentSetting::KittyGraphics,
+                ExperimentSetting::AllowNested,
+            ] {
+                rows.push(experiment_row(setting));
+            }
+            if show_headers {
+                rows.push(header_row("remote & clipboard"));
+            }
+            for (label, detail, id) in [
+                (
+                    "manage ssh config",
+                    "add keepalive fallbacks for herdr --remote",
+                    SettingsItemId::ManageSshConfig,
+                ),
+                (
+                    "clipboard history",
+                    "retain recent global clipboard entries",
+                    SettingsItemId::ClipboardHistory,
+                ),
+            ] {
+                rows.push(SettingsRow {
+                    label: label.to_string(),
+                    detail: Some(detail.to_string()),
+                    kind: SettingsRowKind::Toggle,
+                    id,
+                    search_extra: None,
+                });
+            }
         }
         SettingsSection::Templates => {
             if show_headers {
