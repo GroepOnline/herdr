@@ -1323,12 +1323,17 @@ mod tests {
 
         let viewport = mobile_switcher_areas(&app).viewport;
         app.mobile_switcher_scroll = 100;
+        let clamped_scroll = mobile_switcher_max_scroll(&app);
         let agent_hit = mobile_switcher_target_at(&app, viewport.x + 2, viewport.y + 1);
         assert!(matches!(
             agent_hit,
             Some(MobileSwitcherTarget::Agent { .. })
         ));
-        let workspace_hit = mobile_switcher_target_at(&app, viewport.x + 2, viewport.y + 7);
+        let workspace_doc_row = mobile_switcher_workspace_doc_range(&app, 0).start;
+        assert!(workspace_doc_row >= clamped_scroll);
+        let workspace_view_row = workspace_doc_row - clamped_scroll;
+        let workspace_hit =
+            mobile_switcher_target_at(&app, viewport.x + 2, viewport.y + workspace_view_row as u16);
         assert_eq!(workspace_hit, Some(MobileSwitcherTarget::Workspace(0)));
     }
 

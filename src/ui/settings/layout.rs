@@ -119,7 +119,7 @@ impl SettingsLayout {
         let mut y = self.content.y;
         let height = self.content.height;
         y += SETTINGS_SECTION_DESC_ROWS + SETTINGS_SECTION_GAP_ROWS;
-        if app.settings.section == SettingsSection::Ui {
+        if app.settings.section == SettingsSection::Look {
             y += SETTINGS_SPINNER_CATEGORY_ROWS
                 + SETTINGS_SECTION_GAP_ROWS
                 + SETTINGS_SPINNER_HERO_ROWS
@@ -140,7 +140,7 @@ impl SettingsLayout {
     }
 
     pub(crate) fn spinner_category_rect(&self, app: &AppState) -> Option<Rect> {
-        if app.settings.section != SettingsSection::Ui {
+        if app.settings.section != SettingsSection::Look {
             return None;
         }
         let y = self.content.y + SETTINGS_SECTION_DESC_ROWS + SETTINGS_SECTION_GAP_ROWS;
@@ -153,7 +153,7 @@ impl SettingsLayout {
     }
 
     pub(crate) fn spinner_hero_rect(&self, app: &AppState) -> Option<Rect> {
-        if app.settings.section != SettingsSection::Ui {
+        if app.settings.section != SettingsSection::Look {
             return None;
         }
         let y = self.content.y
@@ -417,7 +417,7 @@ mod tests {
 
     #[test]
     fn search_rect_matches_search_index_at() {
-        let layout = layout_for_section(SettingsSection::Ui);
+        let layout = layout_for_section(SettingsSection::Look);
         let rect = layout.search_rect();
         assert!(layout.search_index_at(rect.x + 2, rect.y));
         assert!(!layout.search_index_at(rect.x, rect.y.saturating_sub(1)));
@@ -443,11 +443,11 @@ mod tests {
     fn content_index_at_returns_header_row_index() {
         let mut app = AppState::test_new();
         app.mode = Mode::Settings;
-        app.settings.section = SettingsSection::Ui;
+        app.settings.section = SettingsSection::Look;
         let layout = SettingsLayout::compute(Rect::new(0, 0, 120, 40), &app).expect("layout");
         let header_rect = layout
             .content_row_rect(&app, 0)
-            .expect("ui header should have geometry");
+            .expect("look header should have geometry");
         assert_eq!(
             layout.content_index_at(&app, header_rect.x + 1, header_rect.y),
             Some(0)
@@ -483,11 +483,11 @@ mod tests {
     fn spinner_category_hit_matches_category_rect_row() {
         let mut app = AppState::test_new();
         app.mode = Mode::Settings;
-        app.settings.section = SettingsSection::Ui;
+        app.settings.section = SettingsSection::Look;
         let layout = SettingsLayout::compute(Rect::new(0, 0, 120, 40), &app).expect("layout");
         let rect = layout
             .spinner_category_rect(&app)
-            .expect("ui should expose category row");
+            .expect("look should expose category row");
         assert_eq!(
             layout.spinner_category_index_at(&app, rect.x + 2, rect.y),
             Some(0)
