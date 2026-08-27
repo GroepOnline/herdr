@@ -353,3 +353,5 @@ Non-obvious caveats:
 - `tailscaled` runs as root here, so `tailscale status|ip|ping` need `sudo` (root-owned socket).
 - In userspace mode the host kernel cannot route `100.x`/`fd7a:` addresses directly. `tailscale ping` works (it goes through tailscaled), but for app egress onto the tailnet use the SOCKS5 proxy `localhost:1055` or HTTP proxy `localhost:1054` (e.g. `curl --socks5-hostname localhost:1055 ...`, or `export ALL_PROXY=socks5h://localhost:1055/`).
 - This is a per-session runtime setup (system package + running daemon); it is intentionally NOT in the update script.
+
+Compound Engineering overlay: `.compound-engineering/` (tracked `config.yaml`, gitignored `config.local.yaml`). Artifact root `.compound-engineering/artifacts/`. Portable skills `~/.agents/skills/ce-*`; native Cursor plugin is fallback only when this overlay is absent.

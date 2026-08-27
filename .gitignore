@@ -30,3 +30,6 @@ node_modules/
 /.zig-cache/
 /vendor/libghostty-vt/.zig-cache/
 /vendor/libghostty-vt/zig-out/
+
+# Compound Engineering checkout-local settings (tracked: config.yaml + example)
+.compound-engineering/*.local.yaml
