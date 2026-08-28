@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## [0.8.8] - 2026-08-28
+
+### Added
+- Added Command Code control support and external-controller recognition for managed agent sessions.
+
+### Changed
+- Converged settings/global-menu customization and refreshed status indicators and spinner presentation.
+- Added the repository Compound Engineering overlay so tracked repo configuration takes precedence over native plugin defaults.
+
+### Fixed
+- Added release-state regression coverage and tightened Aider detection evidence so stale DONE/error claims are not treated as current state.
+
 ## [0.8.7] - 2026-08-23
 
 ### Added
