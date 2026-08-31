@@ -14,6 +14,12 @@
 
 let
   manifest = lib.importTOML ../Cargo.toml;
+  cratesIoIndex = "registry+https://github.com/rust-lang/crates.io-index";
+  cratesIoNixIndexUrl = "https://herdr.invalid/nix-crates.io-index";
+  cratesIoNixIndex = "registry+${cratesIoNixIndexUrl}";
+  nixCargoLockContents = builtins.replaceStrings [ cratesIoIndex ] [ cratesIoNixIndex ] (
+    builtins.readFile ../Cargo.lock
+  );
   zigDeps = callPackage ../vendor/libghostty-vt/build.zig.zon.nix {
     name = "herdr-libghostty-vt-zig-cache";
     inherit zstd;
@@ -51,16 +57,20 @@ rustPlatform.buildRustPackage {
   };
 
   cargoLock = {
-    lockFile = ../Cargo.lock;
+    lockFileContents = nixCargoLockContents;
 
-    # crates.io rejects the builtin fetcher's curl User-Agent (HTTP 403 on the
-    # api download endpoint); static.crates.io serves the same tarballs and
-    # accepts it. Keep the registry index key in sync with the crates-io source
-    # in Cargo.lock.
+    # Nix needs an alternate download endpoint for crates.io, but mapping the
+    # real crates.io index directly makes Cargo define crates-io twice during
+    # the vendored build. Use a Nix-only registry alias for fetching instead.
     extraRegistries = {
-      "https://github.com/rust-lang/crates.io-index" = "https://static.crates.io/crates";
+      "${cratesIoNixIndexUrl}" = "https://static.crates.io/crates";
     };
   };
+
+  postPatch = ''
+    substituteInPlace Cargo.lock \
+      --replace-fail ${lib.escapeShellArg cratesIoIndex} ${lib.escapeShellArg cratesIoNixIndex}
+  '';
 
   nativeBuildInputs = [
     git
