@@ -52,6 +52,14 @@ rustPlatform.buildRustPackage {
 
   cargoLock = {
     lockFile = ../Cargo.lock;
+
+    # crates.io rejects the builtin fetcher's curl User-Agent (HTTP 403 on the
+    # api download endpoint); static.crates.io serves the same tarballs and
+    # accepts it. Keep the registry index key in sync with the crates-io source
+    # in Cargo.lock.
+    extraRegistries = {
+      "https://github.com/rust-lang/crates.io-index" = "https://static.crates.io/crates";
+    };
   };
 
   nativeBuildInputs = [
