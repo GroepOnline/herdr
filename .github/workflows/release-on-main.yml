@@ -1,7 +1,7 @@
 name: Release on main version bump
 
 # Keep this workflow path in the push filter so changes to the release trigger
-# can also reconcile an already-merged but still-untagged version bump.
+# can also reconcile an already-merged but still-unpublished version bump.
 on:
   push:
     branches: [main]
@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   tag-release:
-    name: Tag unreleased version
+    name: Reconcile stable release tag
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -34,9 +34,10 @@ jobs:
           fetch-depth: 0
           ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
-      - name: Validate version metadata and create missing stable tag
+      - name: Validate release identity and reconcile tag
         env:
           SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -49,13 +50,26 @@ jobs:
           python3 scripts/changelog.py extract --version "$VERSION" --output "$RUNNER_TEMP/release-notes.md"
           git fetch --tags --force
 
-          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-            echo "$TAG already exists; release is already tagged"
-            exit 0
+          if RELEASE_STATE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"' 2>/dev/null)"; then
+            if [ "$RELEASE_STATE" = "false false" ]; then
+              echo "$TAG already has a published stable GitHub Release"
+              exit 0
+            fi
+            echo "error: $TAG has an existing draft/prerelease; refusing to rewrite it" >&2
+            exit 1
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" "$SHA" -m "Release $TAG"
-          git push origin "refs/tags/$TAG"
-          echo "Created $TAG at $SHA; the tag-triggered Release workflow will publish it"
+
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            OLD_SHA="$(git rev-list -n 1 "$TAG")"
+            echo "$TAG exists without a GitHub Release at $OLD_SHA; moving dangling tag to $SHA"
+            git tag -f -a "$TAG" "$SHA" -m "Release $TAG"
+            git push --force origin "refs/tags/$TAG"
+          else
+            git tag -a "$TAG" "$SHA" -m "Release $TAG"
+            git push origin "refs/tags/$TAG"
+          fi
+
+          echo "Published release trigger $TAG at $SHA"
