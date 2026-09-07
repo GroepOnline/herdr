@@ -1,0 +1,59 @@
+name: Release on main version bump
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - npm/package.json
+      - CHANGELOG.md
+      - .github/workflows/release-on-main.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: release-on-main
+  cancel-in-progress: false
+
+jobs:
+  tag-release:
+    name: Tag unreleased version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
+      - name: Validate version metadata and create missing stable tag
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          VERSION="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')"
+          NPM_VERSION="$(node -p 'require("./npm/package.json").version')"
+          test "$VERSION" = "$NPM_VERSION"
+          printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
+
+          TAG="v$VERSION"
+          python3 scripts/changelog.py extract --version "$VERSION" --output "$RUNNER_TEMP/release-notes.md"
+          git fetch --tags --force
+
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "$TAG already exists; release is already tagged"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" "$SHA" -m "Release $TAG"
+          git push origin "refs/tags/$TAG"
+          echo "Created $TAG at $SHA; the tag-triggered Release workflow will publish it"
