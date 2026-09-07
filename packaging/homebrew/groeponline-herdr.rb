@@ -1,7 +1,7 @@
 class GroeponlineHerdr < Formula
   desc "Terminal workspace manager for AI coding agents"
   homepage "https://github.com/GroepOnline/herdr"
-  version "0.8.6"
+  version "0.8.8"
   license "AGPL-3.0-or-later"
 
   livecheck do
@@ -11,23 +11,23 @@ class GroeponlineHerdr < Formula
 
   on_linux do
     on_intel do
-      url "https://github.com/GroepOnline/herdr/releases/download/v0.8.6/herdr-linux-x86_64"
-      sha256 "f8163eb1e4883cc0650aec9a59d8e9f99824f25b210daa3fbe48221ee1f578f7"
+      url "https://github.com/GroepOnline/herdr/releases/download/v0.8.8/herdr-linux-x86_64"
+      sha256 "4dbbe467ede16945b415e881133bd30b751b0283cf868c55d19cccd025117b6d"
     end
     on_arm do
-      url "https://github.com/GroepOnline/herdr/releases/download/v0.8.6/herdr-linux-aarch64"
-      sha256 "086eb5cdce8739c611bda34d5768891ea9629805fc7cd0587fcfb68ceba55f75"
+      url "https://github.com/GroepOnline/herdr/releases/download/v0.8.8/herdr-linux-aarch64"
+      sha256 "85e994e01114e4d3d63733c9a3cda16d72951f3a67bfeee83d66a08a15b41bb0"
     end
   end
 
   on_macos do
     on_intel do
-      url "https://github.com/GroepOnline/herdr/releases/download/v0.8.6/herdr-macos-x86_64"
-      sha256 "073ccb2dbb58c7519668e7aeca1ac5cb9a1c1f00497f32ad4ffe69cb15d6c9fd"
+      url "https://github.com/GroepOnline/herdr/releases/download/v0.8.8/herdr-macos-x86_64"
+      sha256 "ca22bfa9f4d805e097579b670432456efe3f8e36b09ee232646ae61002ad8e72"
     end
     on_arm do
-      url "https://github.com/GroepOnline/herdr/releases/download/v0.8.6/herdr-macos-aarch64"
-      sha256 "daa61cacaee3857b940e67c5c2f409bdbea3b9dcd2d8643a0d1bf142cce9bb10"
+      url "https://github.com/GroepOnline/herdr/releases/download/v0.8.8/herdr-macos-aarch64"
+      sha256 "ae7d42e3f75ece2af88e0337c759b238bcc4430d8f256530e6e9d0f5b1ba03d1"
     end
   end
 
