@@ -1,5 +1,7 @@
 name: Release on main version bump
 
+# Keep this workflow path in the push filter so changes to the release trigger
+# can also reconcile an already-merged but still-untagged version bump.
 on:
   push:
     branches: [main]
