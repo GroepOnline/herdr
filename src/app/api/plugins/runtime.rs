@@ -279,7 +279,7 @@ impl App {
         }
     }
 
-    pub(super) fn persist_finished_plugin_command_log(&self, log: &PluginCommandLogInfo) {
+    pub(crate) fn persist_finished_plugin_command_log(&self, log: &PluginCommandLogInfo) {
         persist_plugin_command_log(log);
     }
 }
