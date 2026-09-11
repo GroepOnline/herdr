@@ -195,6 +195,7 @@ impl App {
             self.state.plugin_commands_in_flight =
                 self.state.plugin_commands_in_flight.saturating_sub(1);
             let mut succeeded = false;
+            let mut completed_log = None;
             if let Some(log) = self
                 .state
                 .plugin_command_logs
@@ -215,6 +216,10 @@ impl App {
                     log.status,
                     crate::api::schema::PluginCommandStatus::Succeeded
                 );
+                completed_log = Some(log.clone());
+            }
+            if let Some(log) = completed_log.as_ref() {
+                self.persist_finished_plugin_command_log(log);
             }
             // Follow configured `[plugins].chains` only after the trigger
             // command actually finished successfully.
