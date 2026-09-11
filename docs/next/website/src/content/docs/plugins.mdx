@@ -189,6 +189,15 @@ herdr plugin pane open --plugin example.layout --entrypoint board
 herdr plugin log list --plugin example.layout
 ```
 
+Herdr keeps the CLI/API command-log view intentionally bounded for fast live
+inspection. Plugin command lifecycle metadata is also persisted under
+`$XDG_STATE_HOME/herdr/plugin-history/<session>/` (or
+`~/.local/state/herdr/plugin-history/<session>/` by default). `commands.jsonl`
+contains metadata-only lifecycle records and rotates at 8 MiB; `summary.json`
+keeps per-plugin success/failure totals and latest status. Command arguments,
+stdout/stderr bodies, error text, pane contents, and environment values are not
+written to this persistent history.
+
 `plugin install` accepts GitHub shorthand only, such as
 `owner/repo/subdir`. It clones with `git`, shows a preview in interactive
 terminals, runs supported build commands, then stores the checkout under

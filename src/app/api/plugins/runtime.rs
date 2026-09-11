@@ -1,4 +1,7 @@
-use std::io::Read;
+use std::collections::BTreeMap;
+use std::fs::{self, OpenOptions};
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use super::manifest::{effective_platforms, ensure_platform_supported};
@@ -11,6 +14,8 @@ use crate::app::App;
 const PLUGIN_COMMAND_OUTPUT_MAX_BYTES: usize = 64 * 1024;
 pub(super) const MAX_PLUGIN_COMMANDS_IN_FLIGHT: usize = 32;
 const PLUGIN_COMMAND_LOG_LIMIT: usize = 200;
+const PLUGIN_COMMAND_HISTORY_MAX_BYTES: u64 = 8 * 1024 * 1024;
+const PLUGIN_COMMAND_HISTORY_ROTATIONS: usize = 7;
 
 impl App {
     pub(super) fn start_plugin_command(
@@ -266,12 +271,197 @@ impl App {
     }
 
     fn push_plugin_command_log(&mut self, log: PluginCommandLogInfo) {
+        persist_plugin_command_log(&log);
         self.state.plugin_command_logs.push(log);
         if self.state.plugin_command_logs.len() > PLUGIN_COMMAND_LOG_LIMIT {
             let extra = self.state.plugin_command_logs.len() - PLUGIN_COMMAND_LOG_LIMIT;
             self.state.plugin_command_logs.drain(0..extra);
         }
     }
+
+    pub(crate) fn persist_finished_plugin_command_log(&self, log: &PluginCommandLogInfo) {
+        persist_plugin_command_log(log);
+    }
+}
+
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+struct PersistentPluginSummary {
+    schema_version: u8,
+    session: String,
+    updated_unix_ms: u64,
+    plugins: BTreeMap<String, PersistentPluginStats>,
+}
+
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+struct PersistentPluginStats {
+    total: u64,
+    succeeded: u64,
+    failed: u64,
+    last_status: String,
+    last_action_id: Option<String>,
+    last_event: Option<String>,
+    last_finished_unix_ms: Option<u64>,
+    last_duration_ms: Option<u64>,
+}
+
+fn plugin_history_dir() -> PathBuf {
+    let session = crate::session::active_name()
+        .unwrap_or_else(|| crate::session::DEFAULT_SESSION_NAME.to_string());
+    crate::config::state_dir()
+        .join("plugin-history")
+        .join(session)
+}
+
+fn persistent_status(status: PluginCommandStatus) -> &'static str {
+    match status {
+        PluginCommandStatus::Running => "running",
+        PluginCommandStatus::Succeeded => "succeeded",
+        PluginCommandStatus::Failed => "failed",
+    }
+}
+
+fn persist_plugin_command_log(log: &PluginCommandLogInfo) {
+    if let Err(err) = persist_plugin_command_log_inner(log) {
+        tracing::warn!(err = %err, plugin_id = %log.plugin_id, log_id = %log.log_id, "failed to persist plugin command metadata");
+    }
+}
+
+fn persist_plugin_command_log_inner(log: &PluginCommandLogInfo) -> std::io::Result<()> {
+    let dir = plugin_history_dir();
+    fs::create_dir_all(&dir)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let _ = fs::set_permissions(&dir, fs::Permissions::from_mode(0o700));
+    }
+
+    let history = dir.join("commands.jsonl");
+    rotate_plugin_history(&history)?;
+    let status = persistent_status(log.status);
+    let duration_ms = log
+        .finished_unix_ms
+        .map(|finished| finished.saturating_sub(log.started_unix_ms));
+    let program = log
+        .command
+        .first()
+        .and_then(|value| Path::new(value).file_name())
+        .and_then(|value| value.to_str())
+        .unwrap_or("");
+    let session = crate::session::active_name()
+        .unwrap_or_else(|| crate::session::DEFAULT_SESSION_NAME.to_string());
+    let record = persistent_plugin_record(log, &session, status, duration_ms, program);
+    let mut options = OpenOptions::new();
+    options.create(true).append(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600);
+    }
+    let mut file = options.open(&history)?;
+    serde_json::to_writer(&mut file, &record).map_err(std::io::Error::other)?;
+    file.write_all(b"\n")?;
+
+    if !matches!(log.status, PluginCommandStatus::Running) {
+        update_plugin_summary(&dir, log, status, duration_ms)?;
+    }
+    Ok(())
+}
+
+fn persistent_plugin_record(
+    log: &PluginCommandLogInfo,
+    session: &str,
+    status: &str,
+    duration_ms: Option<u64>,
+    program: &str,
+) -> serde_json::Value {
+    serde_json::json!({
+        "schema_version": 1,
+        "session": session,
+        "log_id": log.log_id,
+        "plugin_id": log.plugin_id,
+        "action_id": log.action_id,
+        "event": log.event,
+        "status": status,
+        "started_unix_ms": log.started_unix_ms,
+        "finished_unix_ms": log.finished_unix_ms,
+        "duration_ms": duration_ms,
+        "exit_code": log.exit_code,
+        "program": program,
+        "stdout_bytes": log.stdout.as_ref().map(|value| value.len()).unwrap_or(0),
+        "stderr_bytes": log.stderr.as_ref().map(|value| value.len()).unwrap_or(0),
+        "error_present": log.error.is_some(),
+        "privacy": "metadata-only",
+    })
+}
+
+fn rotate_plugin_history(path: &Path) -> std::io::Result<()> {
+    let Ok(meta) = fs::metadata(path) else {
+        return Ok(());
+    };
+    if meta.len() < PLUGIN_COMMAND_HISTORY_MAX_BYTES {
+        return Ok(());
+    }
+    for index in (1..=PLUGIN_COMMAND_HISTORY_ROTATIONS).rev() {
+        let source = if index == 1 {
+            path.to_path_buf()
+        } else {
+            path.with_file_name(format!("commands.jsonl.{}", index - 1))
+        };
+        if !source.exists() {
+            continue;
+        }
+        let destination = path.with_file_name(format!("commands.jsonl.{index}"));
+        if destination.exists() {
+            let _ = fs::remove_file(&destination);
+        }
+        fs::rename(source, destination)?;
+    }
+    Ok(())
+}
+
+fn update_plugin_summary(
+    dir: &Path,
+    log: &PluginCommandLogInfo,
+    status: &str,
+    duration_ms: Option<u64>,
+) -> std::io::Result<()> {
+    let path = dir.join("summary.json");
+    let session = crate::session::active_name()
+        .unwrap_or_else(|| crate::session::DEFAULT_SESSION_NAME.to_string());
+    let mut summary = fs::read(&path)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<PersistentPluginSummary>(&bytes).ok())
+        .unwrap_or_else(|| PersistentPluginSummary {
+            schema_version: 1,
+            session: session.clone(),
+            updated_unix_ms: 0,
+            plugins: BTreeMap::new(),
+        });
+    summary.schema_version = 1;
+    summary.session = session;
+    summary.updated_unix_ms = log.finished_unix_ms.unwrap_or_else(current_unix_ms);
+    let stats = summary.plugins.entry(log.plugin_id.clone()).or_default();
+    stats.total = stats.total.saturating_add(1);
+    match log.status {
+        PluginCommandStatus::Succeeded => stats.succeeded = stats.succeeded.saturating_add(1),
+        PluginCommandStatus::Failed => stats.failed = stats.failed.saturating_add(1),
+        PluginCommandStatus::Running => {}
+    }
+    stats.last_status = status.to_string();
+    stats.last_action_id = log.action_id.clone();
+    stats.last_event = log.event.clone();
+    stats.last_finished_unix_ms = log.finished_unix_ms;
+    stats.last_duration_ms = duration_ms;
+
+    let temp = dir.join(format!("summary.json.{}.tmp", std::process::id()));
+    let bytes = serde_json::to_vec_pretty(&summary).map_err(std::io::Error::other)?;
+    fs::write(&temp, bytes)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let _ = fs::set_permissions(&temp, fs::Permissions::from_mode(0o600));
+    }
+    fs::rename(temp, path)
 }
 
 fn current_unix_ms() -> u64 {
@@ -308,4 +498,45 @@ pub(super) fn read_capped_plugin_output(mut reader: impl Read, cap: usize) -> St
         ));
     }
     output
+}
+
+#[cfg(test)]
+mod persistent_log_tests {
+    use super::*;
+
+    #[test]
+    fn persistent_plugin_record_is_metadata_only() {
+        let log = PluginCommandLogInfo {
+            log_id: "plugin-log-7".to_string(),
+            plugin_id: "com.chefgroep.example".to_string(),
+            action_id: Some("status".to_string()),
+            event: None,
+            command: vec!["node".to_string(), "secret-argument".to_string()],
+            status: PluginCommandStatus::Failed,
+            started_unix_ms: 1_000,
+            finished_unix_ms: Some(1_250),
+            exit_code: Some(1),
+            stdout: Some("sensitive stdout body".to_string()),
+            stderr: Some("sensitive stderr body".to_string()),
+            error: Some("sensitive error text".to_string()),
+        };
+        let record = persistent_plugin_record(&log, "default", "failed", Some(250), "node");
+        let encoded = serde_json::to_string(&record).unwrap();
+        assert!(encoded.contains("com.chefgroep.example"));
+        assert!(encoded.contains("\"stdout_bytes\":21"));
+        assert!(!encoded.contains("secret-argument"));
+        assert!(!encoded.contains("sensitive stdout body"));
+        assert!(!encoded.contains("sensitive stderr body"));
+        assert!(!encoded.contains("sensitive error text"));
+    }
+
+    #[test]
+    fn persistent_status_uses_stable_lowercase_values() {
+        assert_eq!(persistent_status(PluginCommandStatus::Running), "running");
+        assert_eq!(
+            persistent_status(PluginCommandStatus::Succeeded),
+            "succeeded"
+        );
+        assert_eq!(persistent_status(PluginCommandStatus::Failed), "failed");
+    }
 }
