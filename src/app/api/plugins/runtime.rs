@@ -359,7 +359,7 @@ fn persist_plugin_command_log_inner(log: &PluginCommandLogInfo) -> std::io::Resu
     }
     let mut file = options.open(&history)?;
     serde_json::to_writer(&mut file, &record)
-        .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
+        .map_err(|err| std::io::Error::other(err))?;
     file.write_all(b"\n")?;
 
     if !matches!(log.status, PluginCommandStatus::Running) {
@@ -456,7 +456,7 @@ fn update_plugin_summary(
 
     let temp = dir.join(format!("summary.json.{}.tmp", std::process::id()));
     let bytes = serde_json::to_vec_pretty(&summary)
-        .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
+        .map_err(|err| std::io::Error::other(err))?;
     fs::write(&temp, bytes)?;
     #[cfg(unix)]
     {
