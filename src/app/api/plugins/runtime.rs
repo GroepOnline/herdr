@@ -358,7 +358,8 @@ fn persist_plugin_command_log_inner(log: &PluginCommandLogInfo) -> std::io::Resu
         options.mode(0o600);
     }
     let mut file = options.open(&history)?;
-    serde_json::to_writer(&mut file, &record).map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
+    serde_json::to_writer(&mut file, &record)
+        .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
     file.write_all(b"\n")?;
 
     if !matches!(log.status, PluginCommandStatus::Running) {
@@ -454,7 +455,8 @@ fn update_plugin_summary(
     stats.last_duration_ms = duration_ms;
 
     let temp = dir.join(format!("summary.json.{}.tmp", std::process::id()));
-    let bytes = serde_json::to_vec_pretty(&summary).map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
+    let bytes = serde_json::to_vec_pretty(&summary)
+        .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
     fs::write(&temp, bytes)?;
     #[cfg(unix)]
     {
@@ -533,7 +535,10 @@ mod persistent_log_tests {
     #[test]
     fn persistent_status_uses_stable_lowercase_values() {
         assert_eq!(persistent_status(PluginCommandStatus::Running), "running");
-        assert_eq!(persistent_status(PluginCommandStatus::Succeeded), "succeeded");
+        assert_eq!(
+            persistent_status(PluginCommandStatus::Succeeded),
+            "succeeded"
+        );
         assert_eq!(persistent_status(PluginCommandStatus::Failed), "failed");
     }
 }
