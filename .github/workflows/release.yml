@@ -114,6 +114,7 @@ jobs:
         with:
           name: ${{ matrix.name }}
           path: ${{ matrix.name }}
+          retention-days: 7
 
   validate-release-inputs:
     runs-on: ubuntu-latest
