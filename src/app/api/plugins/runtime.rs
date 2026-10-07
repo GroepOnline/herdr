@@ -272,11 +272,34 @@ impl App {
 
     fn push_plugin_command_log(&mut self, log: PluginCommandLogInfo) {
         persist_plugin_command_log(&log);
+        // Track running commands durably, outside the bounded display window, so
+        // a completion can still be matched after the entry is evicted.
+        if log.status == PluginCommandStatus::Running {
+            self.state
+                .pending_plugin_command_logs
+                .insert(log.log_id.clone(), log.clone());
+        }
         self.state.plugin_command_logs.push(log);
         if self.state.plugin_command_logs.len() > PLUGIN_COMMAND_LOG_LIMIT {
             let extra = self.state.plugin_command_logs.len() - PLUGIN_COMMAND_LOG_LIMIT;
             self.state.plugin_command_logs.drain(0..extra);
         }
+    }
+
+    /// Take the durable record for a finishing command.
+    ///
+    /// Prefers the bounded live log (the common, in-window case) and falls back
+    /// to the pending registry when the entry has already been evicted. The
+    /// registry entry is always drained so it cannot leak.
+    pub(crate) fn take_plugin_command_log(&mut self, log_id: &str) -> Option<PluginCommandLogInfo> {
+        let from_registry = self.state.pending_plugin_command_logs.remove(log_id);
+        let live = self
+            .state
+            .plugin_command_logs
+            .iter()
+            .find(|log| log.log_id == log_id)
+            .cloned();
+        live.or(from_registry)
     }
 
     pub(crate) fn persist_finished_plugin_command_log(&self, log: &PluginCommandLogInfo) {
@@ -538,5 +561,88 @@ mod persistent_log_tests {
             "succeeded"
         );
         assert_eq!(persistent_status(PluginCommandStatus::Failed), "failed");
+    }
+
+    fn running_log(log_id: &str) -> PluginCommandLogInfo {
+        PluginCommandLogInfo {
+            log_id: log_id.to_string(),
+            plugin_id: "com.chefgroep.example".to_string(),
+            action_id: Some("status".to_string()),
+            event: None,
+            command: vec!["node".to_string()],
+            status: PluginCommandStatus::Running,
+            started_unix_ms: 1_000,
+            finished_unix_ms: None,
+            exit_code: None,
+            stdout: None,
+            stderr: None,
+            error: None,
+        }
+    }
+
+    fn test_app() -> App {
+        let (_api_tx, api_rx) = tokio::sync::mpsc::unbounded_channel();
+        App::new(
+            &crate::config::Config::default(),
+            true,
+            None,
+            api_rx,
+            crate::api::EventHub::default(),
+        )
+    }
+
+    #[test]
+    fn running_plugin_command_is_tracked_outside_the_bounded_log() {
+        let mut app = test_app();
+        app.push_plugin_command_log(running_log("plugin-log-1"));
+        assert!(
+            app.state
+                .pending_plugin_command_logs
+                .contains_key("plugin-log-1"),
+            "a running command must be tracked durably, not only in the bounded log"
+        );
+    }
+
+    #[test]
+    fn completion_survives_eviction_from_the_display_window() {
+        let mut app = test_app();
+        app.push_plugin_command_log(running_log("plugin-log-1"));
+        // Overflow the bounded display window so the original entry is evicted.
+        for i in 0..(PLUGIN_COMMAND_LOG_LIMIT + 5) {
+            app.push_plugin_command_log(running_log(&format!("plugin-log-filler-{i}")));
+        }
+        assert!(
+            !app.state
+                .plugin_command_logs
+                .iter()
+                .any(|log| log.log_id == "plugin-log-1"),
+            "the original entry should have been evicted from the bounded log"
+        );
+
+        // The durable registry must still resolve it so the terminal record is persisted.
+        let resolved = app.take_plugin_command_log("plugin-log-1");
+        assert!(
+            resolved.is_some(),
+            "completion must resolve after eviction instead of being dropped"
+        );
+        assert!(
+            !app.state
+                .pending_plugin_command_logs
+                .contains_key("plugin-log-1"),
+            "resolving a completion must drain the pending registry entry"
+        );
+    }
+
+    #[test]
+    fn take_prefers_live_entry_and_drains_registry() {
+        let mut app = test_app();
+        app.push_plugin_command_log(running_log("plugin-log-1"));
+        let resolved = app.take_plugin_command_log("plugin-log-1");
+        assert!(resolved.is_some());
+        assert!(!app
+            .state
+            .pending_plugin_command_logs
+            .contains_key("plugin-log-1"));
+        assert!(app.take_plugin_command_log("plugin-log-unknown").is_none());
     }
 }

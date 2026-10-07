@@ -195,13 +195,11 @@ impl App {
             self.state.plugin_commands_in_flight =
                 self.state.plugin_commands_in_flight.saturating_sub(1);
             let mut succeeded = false;
-            let mut completed_log = None;
-            if let Some(log) = self
-                .state
-                .plugin_command_logs
-                .iter_mut()
-                .find(|log| log.log_id == log_id)
-            {
+            // Resolve against the bounded live log first, then the durable
+            // pending registry: the command may have been evicted from the
+            // display window before it finished. Persisting must never depend on
+            // live-log membership, or the terminal record is silently dropped.
+            if let Some(mut log) = self.take_plugin_command_log(&log_id) {
                 log.finished_unix_ms = Some(finished_unix_ms);
                 log.exit_code = exit_code;
                 log.stdout = Some(stdout);
@@ -216,10 +214,21 @@ impl App {
                     log.status,
                     crate::api::schema::PluginCommandStatus::Succeeded
                 );
-                completed_log = Some(log.clone());
-            }
-            if let Some(log) = completed_log.as_ref() {
-                self.persist_finished_plugin_command_log(log);
+                // Keep the live display entry in sync when it is still present.
+                if let Some(live) = self
+                    .state
+                    .plugin_command_logs
+                    .iter_mut()
+                    .find(|entry| entry.log_id == log_id)
+                {
+                    *live = log.clone();
+                }
+                self.persist_finished_plugin_command_log(&log);
+            } else {
+                tracing::warn!(
+                    log_id = %log_id,
+                    "plugin command finished with no tracked record (live log and pending registry both missed)"
+                );
             }
             // Follow configured `[plugins].chains` only after the trigger
             // command actually finished successfully.

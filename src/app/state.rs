@@ -1844,6 +1844,15 @@ pub struct AppState {
     pub(crate) popup_pane: Option<PopupPaneState>,
     /// Recent plugin action/event command executions.
     pub(crate) plugin_command_logs: Vec<crate::api::schema::PluginCommandLogInfo>,
+    /// Running plugin commands keyed by their stable `log_id`.
+    ///
+    /// `plugin_command_logs` is a bounded window (see `PLUGIN_COMMAND_LOG_LIMIT`),
+    /// so a command started more than ~200 commands ago is evicted before it
+    /// finishes. The completion then cannot be matched against the live log and
+    /// its durable lifecycle record is lost. This registry keeps every running
+    /// command regardless of the display window, and is drained on completion.
+    pub(crate) pending_plugin_command_logs:
+        std::collections::HashMap<String, crate::api::schema::PluginCommandLogInfo>,
     pub(crate) next_plugin_command_log_id: u64,
     pub(crate) plugin_commands_in_flight: usize,
     /// Highlight state for the bottom-right global launcher menu.
@@ -2253,6 +2262,7 @@ impl AppState {
             pane_graphics_revision: 0,
             popup_pane: None,
             plugin_command_logs: Vec::new(),
+            pending_plugin_command_logs: std::collections::HashMap::new(),
             next_plugin_command_log_id: 1,
             plugin_commands_in_flight: 0,
             global_menu: MenuListState::new(0),
