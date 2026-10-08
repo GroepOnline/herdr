@@ -1,0 +1,9 @@
+{
+  "repo": "herdrdev/herdr",
+  "base_tag": "v0.9.3",
+  "base_commit": "7b116c05bfda646af39d2524c54e70c751f57ee8",
+  "reference": "master",
+  "reference_commit": "2563803dca97c040beaf3dc3acdcb5a3221b4238",
+  "window_since": "2026-04-01",
+  "generated_at": "2026-10-08T23:05:56Z"
+}

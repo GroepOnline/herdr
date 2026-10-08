@@ -1,0 +1,28 @@
+version: 1
+generated_by: scripts/generate_cursor_index.py
+items:
+- name: beforeShellExecution
+  path: .cursor/hooks.json
+  kind: hook
+  summary: Shell guard before command execution
+  when: beforeShellExecution → policy hook (e.g. deny local Rust bu…
+- name: beforeSubmitPrompt
+  path: .cursor/hooks.json
+  kind: hook
+  summary: Allow prompt submission without catalog inject
+  when: beforeSubmitPrompt → continue only (schema cannot inject he…
+- name: postToolUse
+  path: .cursor/hooks.json
+  kind: hook
+  summary: Inject catalog once per conversation (cloud cold-start substitute)
+  when: postToolUse → first tool use injects catalog; later calls d…
+- name: sessionStart
+  path: .cursor/hooks.json
+  kind: hook
+  summary: Inject artifact catalog at session start
+  when: sessionStart → fetch-cursor-artifacts.sh injects catalog +…
+- name: workspaceOpen
+  path: .cursor/hooks.json
+  kind: hook
+  summary: Register `.cursor/plugins` paths when workspace opens
+  when: workspaceOpen → returns pluginPaths for Cursor plugin disco…

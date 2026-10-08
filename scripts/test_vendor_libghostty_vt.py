@@ -108,9 +108,9 @@ class VendorLibghosttyVtTests(unittest.TestCase):
         self.assertTrue(index.exists())
         text = index.read_text()
         missing = [
-            path.relative_to(project_root).as_posix()
+            str(path.relative_to(project_root))
             for path in patches
-            if path.relative_to(project_root).as_posix() not in text
+            if str(path.relative_to(project_root)) not in text
         ]
         self.assertEqual(missing, [])
 

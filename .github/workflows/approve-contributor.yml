@@ -1,0 +1,195 @@
+name: Approve Contributor
+
+on:
+  issue_comment:
+    types: [created, edited]
+
+jobs:
+  approve:
+    if: ${{ !github.event.issue.pull_request && github.event.comment.user.login != 'kangal-bot' }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: approve-contributor-${{ github.event.comment.id }}
+      cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Evaluate contributor approval
+        id: update
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const issueAuthor = context.payload.issue.user.login;
+            const commenter = context.payload.comment.user.login;
+            const commentBody = context.payload.comment.body || '';
+            const action = context.payload.action;
+            const approvedFile = '.github/APPROVED_CONTRIBUTORS';
+            const approveMatch = commentBody.match(/(^|\s)\/approve(?:\s+@([A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?))?(?=$|\s)/i);
+            const maintainerPermissions = ['admin', 'maintain', 'write'];
+
+            if (!approveMatch) {
+              core.setOutput('status', 'skipped');
+              return;
+            }
+
+            const approvedUser = approveMatch[2] || issueAuthor;
+            core.setOutput('approved_user', approvedUser);
+
+            try {
+              const { data: permissionLevel } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: commenter,
+              });
+              if (!maintainerPermissions.includes(permissionLevel.permission)) {
+                core.setOutput('status', 'skipped');
+                return;
+              }
+            } catch {
+              core.setOutput('status', 'skipped');
+              return;
+            }
+
+            const { data: file } = await github.rest.repos.getContent({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              path: approvedFile,
+              ref: context.payload.repository.default_branch,
+            });
+            if (Array.isArray(file) || !('content' in file)) throw new Error(`${approvedFile} is not a file`);
+            const approvedList = Buffer.from(file.content, file.encoding)
+              .toString('utf8')
+              .split('\n')
+              .map((line) => line.trim().toLowerCase())
+              .filter((line) => line && !line.startsWith('#'));
+
+            if (approvedList.includes(approvedUser.toLowerCase())) {
+              if (action !== 'edited') {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: `@${approvedUser} is already in the approved contributors list.`,
+                });
+              }
+              core.setOutput('status', 'already');
+              return;
+            }
+
+            core.setOutput('status', 'added');
+
+      - name: Create or recover approval proposal
+        id: proposal
+        if: steps.update.outputs.status == 'added'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const approvedUser = '${{ steps.update.outputs.approved_user }}';
+            const approvedFile = '.github/APPROVED_CONTRIBUTORS';
+            const defaultBranch = context.payload.repository.default_branch;
+            const branch = `automation/approve-contributor-${{ github.event.comment.id }}`;
+            const head = `${context.repo.owner}:${branch}`;
+            const normalizedUser = approvedUser.toLowerCase();
+            const hasApprovedUser = (content) => content
+              .split('\n')
+              .map((line) => line.trim().toLowerCase())
+              .some((line) => line === normalizedUser);
+            const getFile = async (ref) => {
+              const { data } = await github.rest.repos.getContent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: approvedFile,
+                ref,
+              });
+              if (Array.isArray(data) || !('content' in data)) throw new Error(`${approvedFile} is not a file`);
+              return {
+                content: Buffer.from(data.content, data.encoding).toString('utf8'),
+                sha: data.sha,
+              };
+            };
+
+            try {
+              await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${branch}`,
+              });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              const { data: base } = await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${defaultBranch}`,
+              });
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/heads/${branch}`,
+                sha: base.object.sha,
+              });
+            }
+
+            const proposalFile = await getFile(branch);
+            if (!hasApprovedUser(proposalFile.content)) {
+              const nextContent = proposalFile.content.trimEnd() + `\n${approvedUser}\n`;
+              await github.rest.repos.createOrUpdateFileContents({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: approvedFile,
+                branch,
+                sha: proposalFile.sha,
+                message: `chore: propose contributor approval for ${approvedUser}`,
+                content: Buffer.from(nextContent, 'utf8').toString('base64'),
+              });
+            }
+
+            const { data: existing } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head,
+              state: 'open',
+              per_page: 1,
+            });
+            let proposal = existing[0];
+            let created = false;
+            if (!proposal) {
+              const { data } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                base: defaultBranch,
+                head: branch,
+                title: `chore: approve contributor ${approvedUser}`,
+                body: `Automated proposal following /approve to add @${approvedUser} to the approved contributors list.`,
+              });
+              proposal = data;
+              created = true;
+            }
+
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ci.yml',
+              ref: branch,
+            });
+            core.setOutput('proposal_url', proposal.html_url);
+            core.setOutput('proposal_created', String(created));
+
+      - name: Comment on newly created proposal
+        if: steps.proposal.outputs.proposal_created == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const approvedUser = '${{ steps.update.outputs.approved_user }}';
+            const proposalUrl = '${{ steps.proposal.outputs.proposal_url }}';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `@${approvedUser} has an approval proposal ready for maintainer review: ${proposalUrl}. You can submit PRs for maintainer-approved work after that proposal merges. Thanks for contributing!`,
+            });

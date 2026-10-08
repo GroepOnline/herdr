@@ -1,0 +1,21 @@
+---
+description: Forbid local Rust/Zig builds; validate only via GitHub Actions on this machine
+alwaysApply: true
+---
+
+# CI-only validation
+
+Never run local Rust/Zig compile or test recipes on this machine. The project hook denies them.
+
+Forbidden:
+- `cargo *`, `rustc`, `rustup`, `cargo-nextest`, `clippy`, `rustfmt`
+- `zig build`
+- `just test|check|lint|ci|build|fmt-check|windows-lint|build-libghostty-vt`
+
+Required loop:
+1. Commit and push the branch
+2. `gh pr checks --json name,bucket,state,workflow,link`
+3. On failure: `gh run view <run-id> --log-failed`
+4. Fix one actionable failure at a time, push again
+
+When the hook blocks a command, dispatch `settings-diagnose` (or inspect CI logs) instead of retrying locally.

@@ -1,0 +1,39 @@
+name: Design-system contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/design-system.json"
+      - ".github/design-system.yml"
+      - ".github/workflows/design-system-contract.yml"
+      - "DESIGN-SYSTEM.md"
+  pull_request:
+    paths:
+      - ".github/design-system.json"
+      - ".github/design-system.yml"
+      - ".github/workflows/design-system-contract.yml"
+      - "DESIGN-SYSTEM.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: design-system-contract-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Checkout pinned design-system validator
+        uses: actions/checkout@v7
+        with:
+          repository: GroepOnline/design-system
+          ref: 7a489b05d4d6de8e22e934dfa6368a86446dcf03
+          path: .design-system-validator
+          persist-credentials: false
+      - name: Validate consumer contract
+        run: python3 .design-system-validator/scripts/validate-consumer-contract.py .github/design-system.json

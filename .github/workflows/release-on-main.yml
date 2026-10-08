@@ -1,0 +1,75 @@
+name: Release on main version bump
+
+# Keep this workflow path in the push filter so changes to the release trigger
+# can also reconcile an already-merged but still-unpublished version bump.
+on:
+  push:
+    branches: [main]
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - npm/package.json
+      - CHANGELOG.md
+      - .github/workflows/release-on-main.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: release-on-main
+  cancel-in-progress: false
+
+jobs:
+  tag-release:
+    name: Reconcile stable release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
+      - name: Validate release identity and reconcile tag
+        env:
+          SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          VERSION="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')"
+          NPM_VERSION="$(node -p 'require("./npm/package.json").version')"
+          test "$VERSION" = "$NPM_VERSION"
+          printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
+
+          TAG="v$VERSION"
+          python3 scripts/changelog.py extract --version "$VERSION" --output "$RUNNER_TEMP/release-notes.md"
+          git fetch --tags --force
+
+          if RELEASE_STATE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"' 2>/dev/null)"; then
+            if [ "$RELEASE_STATE" = "false false" ]; then
+              echo "$TAG already has a published stable GitHub Release"
+              exit 0
+            fi
+            echo "error: $TAG has an existing draft/prerelease; refusing to rewrite it" >&2
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            OLD_SHA="$(git rev-list -n 1 "$TAG")"
+            echo "$TAG exists without a GitHub Release at $OLD_SHA; moving dangling tag to $SHA"
+            git tag -f -a "$TAG" "$SHA" -m "Release $TAG"
+            git push --force origin "refs/tags/$TAG"
+          else
+            git tag -a "$TAG" "$SHA" -m "Release $TAG"
+            git push origin "refs/tags/$TAG"
+          fi
+
+          echo "Published release trigger $TAG at $SHA"

@@ -11,8 +11,6 @@ __pycache__/
 /docs/*
 !/docs/next/
 !/docs/next/**
-!/docs/preview/
-!/docs/preview/**
 !/docs/versions/
 !/docs/versions/**
 /.local/
@@ -26,3 +24,37 @@ __pycache__/
 
 /.wrangler/
 **/.wrangler/
+bun.lock
+node_modules/
+
+/.zig-cache/
+/vendor/libghostty-vt/.zig-cache/
+/vendor/libghostty-vt/zig-out/
+
+# Compound Engineering checkout-local settings (tracked: config.yaml + example)
+.compound-engineering/*.local.yaml
+
+# ChefGroep standard ignores (OS / Xcode / local env)
+
+# OS / editors
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+Desktop.ini
+.idea/
+# Xcode / iOS
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+*.ipa
+*.dSYM
+*.dSYM.zip
+Pods/
+
+# Local env
+.env
+.env.local
+.env.*.local

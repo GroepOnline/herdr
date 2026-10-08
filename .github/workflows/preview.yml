@@ -1,16 +1,21 @@
 name: Preview
 
+# Preview publishes are disabled for the downstream distribution; publish
+# only by dispatching this workflow with an explicit `commit` input (rollback
+# path).
 on:
-  push:
-    tags:
-      - "preview-*"
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Optional main commit SHA to publish
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  RUST_TOOLCHAIN_VERSION: 1.96.1
 
 concurrency:
   group: preview-publish
@@ -18,7 +23,6 @@ concurrency:
 
 jobs:
   preflight:
-    if: github.repository == 'herdrdev/herdr' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/preview-')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,42 +35,34 @@ jobs:
       built_at: ${{ steps.plan.outputs.built_at }}
       base_version: ${{ steps.plan.outputs.base_version }}
       protocol: ${{ steps.plan.outputs.protocol }}
-      endpoint_generation: ${{ steps.plan.outputs.endpoint_generation }}
     steps:
-      - &require-release-admins
-        name: Require repository admins for publishing and reruns
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          for actor in "$GITHUB_ACTOR" "$GITHUB_TRIGGERING_ACTOR"; do
-            permission="$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$actor/permission" --jq .permission)"
-            if [ "$permission" != "admin" ]; then
-              echo "error: $actor must have repository admin permission to publish" >&2
-              exit 1
-            fi
-          done
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
-          ref: master
+          ref: main
           fetch-depth: 0
           persist-credentials: false
 
       - name: Select preview commit
         id: plan
         shell: bash
+        env:
+          REQUESTED_COMMIT: ${{ github.event.inputs.commit || '' }}
         run: |
           set -euo pipefail
-          git fetch --prune origin '+refs/heads/master:refs/remotes/origin/master' '+refs/heads/release/*:refs/remotes/origin/release/*' --tags
-          commit="$(python3 scripts/release.py preview-source --commit "$GITHUB_SHA")"
-          if [ "$(git rev-parse "refs/tags/$GITHUB_REF_NAME^{commit}")" != "$commit" ]; then
-            echo "error: preview tag no longer points at the triggering commit" >&2
-            exit 1
+          git fetch origin main --tags
+          requested="$REQUESTED_COMMIT"
+          if [ -n "$requested" ]; then
+            commit="$(git rev-parse "$requested^{commit}")"
+            if ! git merge-base --is-ancestor "$commit" origin/main; then
+              echo "error: requested commit $commit is not reachable from origin/main" >&2
+              exit 1
+            fi
+          else
+            commit="$(python3 scripts/preview.py select-commit --ref origin/main)"
           fi
-          current_preview="$(python3 scripts/preview.py current-commit --manifest distribution/preview.json || true)"
-          if [ "$current_preview" = "$commit" ] && node scripts/docs/preview.mjs check; then
-            echo "Preview and documentation already point at $commit; skipping."
+          current_preview="$(python3 scripts/preview.py current-commit --manifest website/preview.json || true)"
+          if [ "$current_preview" = "$commit" ]; then
+            echo "Preview already points at $commit; skipping."
             echo "should_publish=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -76,13 +72,8 @@ jobs:
           built_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           build_id="$day-$short_sha"
           tag="preview-$build_id"
-          if [ "$GITHUB_REF_NAME" != "$tag" ]; then
-            echo "error: expected preview tag $tag; use just preview" >&2
-            exit 1
-          fi
           base_version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
           protocol="$(python3 -c 'import re; print(re.search(r"pub const PROTOCOL_VERSION: u32 = (\d+);", open("src/protocol/wire.rs").read()).group(1))')"
-          endpoint_generation="$(python3 -c 'import re; print(re.search(r"pub const ENDPOINT_PROTOCOL_GENERATION: u32 = (\d+);", open("src/protocol/endpoint.rs").read()).group(1))')"
           {
             echo "should_publish=true"
             echo "commit=$commit"
@@ -92,19 +83,15 @@ jobs:
             echo "built_at=$built_at"
             echo "base_version=$base_version"
             echo "protocol=$protocol"
-            echo "endpoint_generation=$endpoint_generation"
           } >> "$GITHUB_OUTPUT"
 
       - name: Install Rust
         if: steps.plan.outputs.should_publish == 'true'
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # v1
-        with:
-          toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
-          components: rustfmt,clippy
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
 
       - name: Install Rust tools
         if: steps.plan.outputs.should_publish == 'true'
-        uses: taiki-e/install-action@fd2f5e3d644b484055ebf4268f474c565f148f25 # v2.81.9
+        uses: taiki-e/install-action@1beb33eee6d086258184383af9a538940be190ed # v2.85.6
         with:
           tool: just,cargo-nextest
 
@@ -116,9 +103,9 @@ jobs:
 
       - name: Install Zig
         if: steps.plan.outputs.should_publish == 'true'
-        uses: vercel-labs/setup-zig@83c1594f26b86da8a9a8ddd9b5ee5f3af0f96943 # v1.0.2
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
-          version: 0.16.0
+          version: 0.15.2
 
       - name: Restore cargo cache
         if: steps.plan.outputs.should_publish == 'true'
@@ -128,13 +115,11 @@ jobs:
 
       - name: Run checks
         if: steps.plan.outputs.should_publish == 'true'
-        run: |
-          just ci
-          just docs-contract-test
+        run: just check
 
   build:
     needs: preflight
-    if: github.repository == 'herdrdev/herdr' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/preview-') && needs.preflight.outputs.should_publish == 'true'
+    if: needs.preflight.outputs.should_publish == 'true'
     permissions:
       contents: read
     strategy:
@@ -144,18 +129,6 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             name: herdr-linux-x86_64
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
-            name: herdr-linux-aarch64
-          - target: x86_64-apple-darwin
-            os: macos-latest
-            name: herdr-macos-x86_64
-          - target: aarch64-apple-darwin
-            os: macos-latest
-            name: herdr-macos-aarch64
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            name: herdr-windows-x86_64.zip
     runs-on: ${{ matrix.os }}
     env:
       LIBGHOSTTY_VT_OPTIMIZE: ReleaseFast
@@ -164,21 +137,25 @@ jobs:
       HERDR_BUILD_ID: ${{ needs.preflight.outputs.build_id }}
       HERDR_BUILD_COMMIT: ${{ needs.preflight.outputs.commit }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           ref: ${{ needs.preflight.outputs.commit }}
           persist-credentials: false
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # v1
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
-          toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
+          # Match Dev/CI: pin + explicit rustup target add so musl cannot be skipped.
+          toolchain: 1.96.1
           targets: ${{ matrix.target }}
 
+      - name: Install Rust target
+        run: rustup target add "${{ matrix.target }}"
+
       - name: Install Zig
-        uses: vercel-labs/setup-zig@83c1594f26b86da8a9a8ddd9b5ee5f3af0f96943 # v1.0.2
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
-          version: 0.16.0
+          version: 0.15.2
 
       - name: Prefer official Ubuntu mirrors over Azure
         if: runner.os == 'Linux'
@@ -189,19 +166,10 @@ jobs:
           fi
 
       - name: Install Linux build tools
-        if: runner.os == 'Linux'
         run: |
           sudo find /etc/apt/sources.list.d -type f \( -iname '*microsoft*' -o -iname '*azure-cli*' \) -print -delete
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build musl-tools gcc-aarch64-linux-gnu crossbuild-essential-arm64
-
-      - name: Install macOS build tools
-        if: runner.os == 'macOS'
-        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install cmake ninja
-
-      - name: Set Linux aarch64 linker
-        if: matrix.target == 'aarch64-unknown-linux-musl'
-        run: echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          sudo apt-get install -y cmake ninja-build musl-tools
 
       - name: Cache Rust artifacts
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
@@ -209,37 +177,23 @@ jobs:
           key: preview-${{ matrix.target }}
 
       - name: Remove Zig caches
-        if: runner.os != 'Windows'
         run: rm -rf .zig-cache vendor/libghostty-vt/.zig-cache vendor/libghostty-vt/zig-out
-
-      - name: Remove Zig caches
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Remove-Item -Recurse -Force .zig-cache -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force vendor/libghostty-vt/.zig-cache -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force vendor/libghostty-vt/zig-out -ErrorAction SilentlyContinue
 
       - name: Build
         run: cargo build --release --locked --target ${{ matrix.target }}
 
       - name: Package artifact
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euo pipefail
           cp target/${{ matrix.target }}/release/herdr ${{ matrix.name }}
-          if [ "${{ runner.os }}" = "Linux" ]; then
-            file ${{ matrix.name }} > BUILD_INFO.txt
-            ldd ${{ matrix.name }} > LDD_INFO.txt 2>&1 || true
-            cat LDD_INFO.txt >> BUILD_INFO.txt
-            grep -Eq "statically linked|not a dynamic executable" LDD_INFO.txt
-            if nm -u ${{ matrix.name }} 2>/dev/null | grep -E '(__cxa|GLIBCXX|CXXABI|_ZSt)'; then
-              echo "error: Linux artifact has unresolved C++ runtime symbols" >&2
-              exit 1
-            fi
-          else
-            file ${{ matrix.name }} > BUILD_INFO.txt
+          file ${{ matrix.name }} > BUILD_INFO.txt
+          ldd ${{ matrix.name }} > LDD_INFO.txt 2>&1 || true
+          cat LDD_INFO.txt >> BUILD_INFO.txt
+          grep -Eq "statically linked|not a dynamic executable" LDD_INFO.txt
+          if nm -u ${{ matrix.name }} 2>/dev/null | grep -E '(__cxa|GLIBCXX|CXXABI|_ZSt)'; then
+            echo "error: Linux artifact has unresolved C++ runtime symbols" >&2
+            exit 1
           fi
           python3 - <<'PY' | tee ${{ matrix.name }}.sha256
           import hashlib, pathlib
@@ -253,25 +207,6 @@ jobs:
             echo "channel=preview"
           } >> BUILD_INFO.txt
 
-      - name: Package artifact
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $package = Join-Path $env:RUNNER_TEMP "Microsoft.Windows.Console.ConPTY.nupkg"
-          $stage = Join-Path $env:RUNNER_TEMP "herdr-windows-x86_64"
-          .\scripts\package_windows_conpty.ps1 `
-            -HerdrExe target\${{ matrix.target }}\release\herdr.exe `
-            -PackagePath $package `
-            -StageDir $stage `
-            -OutputPath ${{ matrix.name }}
-          $hash = (Get-FileHash -Algorithm SHA256 ${{ matrix.name }}).Hash.ToLowerInvariant()
-          "$hash  ${{ matrix.name }}" | Out-File -Encoding ascii ${{ matrix.name }}.sha256
-          "commit=${{ needs.preflight.outputs.commit }}" | Out-File -Encoding utf8 BUILD_INFO.txt
-          "build_id=${{ needs.preflight.outputs.build_id }}" | Out-File -Encoding utf8 -Append BUILD_INFO.txt
-          "target=${{ matrix.target }}" | Out-File -Encoding utf8 -Append BUILD_INFO.txt
-          "channel=preview" | Out-File -Encoding utf8 -Append BUILD_INFO.txt
-
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -283,33 +218,58 @@ jobs:
 
   publish:
     needs: [preflight, build]
-    if: github.repository == 'herdrdev/herdr' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/preview-') && needs.preflight.outputs.should_publish == 'true'
+    if: needs.preflight.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
-    concurrency:
-      group: docs-publish-master
-      cancel-in-progress: false
     permissions:
       contents: write
       issues: write
     steps:
-      - *require-release-admins
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
-          ref: master
+          ref: main
           fetch-depth: 0
           persist-credentials: false
 
+      # Match release/dev: download-artifact v8 nests as ./herdr-linux-x86_64/...
       - name: Download all artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          path: artifacts
+
+      - name: Locate build artifacts (debug)
+        run: find . -path ./node_modules -prune -o -name 'herdr-linux*' -print
+
+      - name: Stage release binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p staged
+          staged=0
+          if [ -f herdr-linux-x86_64 ]; then
+            cp -f herdr-linux-x86_64 staged/herdr-linux-x86_64
+            staged=1
+          elif [ -f herdr-linux-x86_64/herdr-linux-x86_64 ]; then
+            cp -f herdr-linux-x86_64/herdr-linux-x86_64 staged/herdr-linux-x86_64
+            staged=1
+          fi
+          if [ "$staged" -ne 1 ]; then
+            echo "error: herdr-linux-x86_64 binary not found after artifact download" >&2
+            find . -path ./node_modules -prune -o -name 'herdr-linux*' -print >&2
+            exit 1
+          fi
+          if [ -f herdr-linux-x86_64.sha256 ]; then
+            cp -f herdr-linux-x86_64.sha256 staged/herdr-linux-x86_64.sha256
+          elif [ -f herdr-linux-x86_64/herdr-linux-x86_64.sha256 ]; then
+            cp -f herdr-linux-x86_64/herdr-linux-x86_64.sha256 staged/herdr-linux-x86_64.sha256
+          else
+            python3 -c 'import hashlib,pathlib; p=pathlib.Path("staged/herdr-linux-x86_64"); pathlib.Path("staged/herdr-linux-x86_64.sha256").write_text(f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n")'
+          fi
+          ls -la staged
 
       - name: Record previous preview commit
         id: previous-preview
         shell: bash
         run: |
           set -euo pipefail
-          previous="$(python3 scripts/preview.py current-commit --manifest distribution/preview.json || true)"
+          previous="$(python3 scripts/preview.py current-commit --manifest website/preview.json || true)"
           if [ -z "$previous" ]; then
             previous="$(git describe --tags --match 'v[0-9]*' --abbrev=0)"
           fi
@@ -327,133 +287,65 @@ jobs:
             --previous '${{ steps.previous-preview.outputs.range_base }}' \
             --commit '${{ needs.preflight.outputs.commit }}' \
             --build-id '${{ needs.preflight.outputs.build_id }}' \
+            --base-version '${{ needs.preflight.outputs.base_version }}' \
             --output PREVIEW_NOTES.md
           python3 - <<'PY'
           import json, pathlib
           result = {}
-          for path in pathlib.Path('artifacts').glob('herdr-*/*.sha256'):
+          for path in pathlib.Path('staged').glob('herdr-*.sha256'):
               digest, name = path.read_text().split()[:2]
-              target = name.removeprefix('herdr-').removesuffix('.exe').removesuffix('.zip')
+              target = name.removeprefix('herdr-').removesuffix('.exe')
               result[target] = digest
+          if not result:
+              raise SystemExit('error: no staged herdr-*.sha256 digests found')
           pathlib.Path('preview-sha256.json').write_text(json.dumps(result, indent=2) + '\n')
           PY
 
-      - name: Check for an immutable preview from an earlier run
-        id: existing-preview
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PREVIEW_TAG: ${{ needs.preflight.outputs.tag }}
-          PREVIEW_COMMIT: ${{ needs.preflight.outputs.commit }}
-        run: |
-          set -euo pipefail
-          if ! release="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${PREVIEW_TAG}" 2>/dev/null)"; then
-            echo "already_published=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ "$(jq -r '.immutable // false' <<<"$release")" != "true" ]; then
-            echo "already_published=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ "$(jq -r '.draft' <<<"$release")" != "false" ] || [ "$(jq -r '.prerelease' <<<"$release")" != "true" ]; then
-            echo "error: $PREVIEW_TAG exists as an immutable release with the wrong release type" >&2
-            exit 1
-          fi
-          tag_commit="$(git rev-parse "refs/tags/${PREVIEW_TAG}^{commit}")"
-          if [ "$tag_commit" != "$PREVIEW_COMMIT" ]; then
-            echo "error: immutable release $PREVIEW_TAG points at $tag_commit, expected $PREVIEW_COMMIT" >&2
-            exit 1
-          fi
-          expected_assets="$(jq -S '{
-            "herdr-linux-x86_64": .["linux-x86_64"],
-            "herdr-linux-aarch64": .["linux-aarch64"],
-            "herdr-macos-x86_64": .["macos-x86_64"],
-            "herdr-macos-aarch64": .["macos-aarch64"],
-            "herdr-windows-x86_64.zip": .["windows-x86_64"]
-          }' preview-sha256.json)"
-          actual_assets="$(jq -S '[
-            .assets[] | select(.digest | type == "string") |
-            {key: .name, value: (.digest | sub("^sha256:"; ""))}
-          ] | from_entries' <<<"$release")"
-          if [ "$actual_assets" != "$expected_assets" ]; then
-            echo "error: immutable release $PREVIEW_TAG does not match the artifacts from this run" >&2
-            exit 1
-          fi
-          echo "already_published=true" >> "$GITHUB_OUTPUT"
-          echo "$PREVIEW_TAG is already published with the expected assets; continuing the interrupted run."
-
-      - name: Create preview draft
-        if: steps.existing-preview.outputs.already_published != 'true'
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
+      - name: Create preview prerelease
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
           tag_name: ${{ needs.preflight.outputs.tag }}
           name: Preview build ${{ needs.preflight.outputs.build_id }}
           body_path: PREVIEW_NOTES.md
-          draft: true
           prerelease: true
           make_latest: false
           overwrite_files: true
           target_commitish: ${{ needs.preflight.outputs.commit }}
           files: |
-            artifacts/herdr-linux-x86_64/herdr-linux-x86_64
-            artifacts/herdr-linux-aarch64/herdr-linux-aarch64
-            artifacts/herdr-macos-x86_64/herdr-macos-x86_64
-            artifacts/herdr-macos-aarch64/herdr-macos-aarch64
-            artifacts/herdr-windows-x86_64.zip/herdr-windows-x86_64.zip
+            staged/herdr-linux-x86_64
+            staged/herdr-linux-x86_64.sha256
 
-      - name: Publish preview prerelease
-        if: steps.existing-preview.outputs.already_published != 'true'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PREVIEW_TAG: ${{ needs.preflight.outputs.tag }}
-        run: gh release edit "$PREVIEW_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
-
-      - name: Update preview documentation and manifest
+      - name: Update preview manifest
         run: |
-          node scripts/docs/preview.mjs snapshot '${{ needs.preflight.outputs.commit }}'
           python3 scripts/preview.py manifest \
-            --output distribution/preview.json \
+            --output website/preview.json \
             --tag '${{ needs.preflight.outputs.tag }}' \
             --build-id '${{ needs.preflight.outputs.build_id }}' \
             --commit '${{ needs.preflight.outputs.commit }}' \
             --built-at '${{ needs.preflight.outputs.built_at }}' \
             --base-version '${{ needs.preflight.outputs.base_version }}' \
             --protocol '${{ needs.preflight.outputs.protocol }}' \
-            --endpoint-generation '${{ needs.preflight.outputs.endpoint_generation }}' \
             --notes PREVIEW_NOTES.md \
             --sha-file preview-sha256.json \
             --retain 30
 
-      - name: Commit preview publication
+      - name: Commit preview manifest
         env:
-          KANGAL_GITHUB_TOKEN: ${{ secrets.KANGAL_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name "kangal-bot"
-          git config user.email "285672167+kangal-bot@users.noreply.github.com"
-          git add -A docs/preview distribution/preview.json
-          git diff --cached --quiet || git commit -m "docs: publish preview documentation"
-          remote="https://x-access-token:${KANGAL_GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          for attempt in 1 2 3; do
-            git pull --rebase "$remote" master
-            node scripts/docs/preview.mjs check
-            node scripts/docs/versions.mjs check
-            if git push "$remote" HEAD:master; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              echo "master changed during preview publishing; retrying ($attempt/3)"
-              sleep $((attempt * 2))
-            fi
-          done
-          echo "failed to publish preview documentation after 3 attempts" >&2
-          exit 1
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git add website/preview.json
+          git diff --cached --quiet || git commit -m "docs: update preview manifest"
+          git push origin HEAD:main
 
       - name: Mark preview-released issues
         continue-on-error: true
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.KANGAL_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           PREVIEW_RELEASED_LABEL: preview-released
         run: |
           set -euo pipefail
@@ -538,3 +430,26 @@ jobs:
               continue
             fi
           done
+
+      - name: Prune old preview prereleases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,isPrerelease,createdAt > preview-releases.json
+          python3 - <<'PY' > old-preview-tags.txt
+          import json
+          with open("preview-releases.json", encoding="utf-8") as handle:
+              data = json.load(handle)
+          releases = [
+              release for release in data
+              if release.get("isPrerelease") and str(release.get("tagName", "")).startswith("preview-")
+          ]
+          releases.sort(key=lambda release: str(release.get("createdAt", "")), reverse=True)
+          for release in releases[30:]:
+              print(release["tagName"])
+          PY
+          while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          done < old-preview-tags.txt

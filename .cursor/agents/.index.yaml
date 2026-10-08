@@ -1,0 +1,63 @@
+version: 1
+generated_by: scripts/generate_cursor_index.py
+items:
+- name: chef-fleet
+  path: .cursor/agents/chef-fleet.md
+  kind: agent
+  summary: CHEF fleet specialist for Linear/GitHub/UDO/Kater contracts, Fleet Ops Bar, plugin state dirs, and core-vs-plugin boundaries.
+  when: CHEF fleet specialist for Linear/GitHub/UDO/Kater contracts…
+- name: commandcode
+  path: .cursor/agents/commandcode.md
+  kind: agent
+  summary: Command Code (cmd) agent specialist for herdr's agent-detection manifest, integration hook, and pane state reporting.
+  when: Command Code (cmd) agent specialist for herdr's agent-detec…
+- name: herdr-quality-ci-diagnoser
+  path: .cursor/agents/herdr-quality-ci-diagnoser.md
+  kind: agent
+  summary: Read-only Herdr Quality CI diagnoser.
+  when: Read-only Herdr Quality CI diagnoser. Use when checks are r…
+- name: herdr-quality-ci-remediator
+  path: .cursor/agents/herdr-quality-ci-remediator.md
+  kind: agent
+  summary: Herdr Quality CI remediation specialist.
+  when: Herdr Quality CI remediation specialist. Use proactively wh…
+- name: herdr-ui
+  path: .cursor/agents/herdr-ui.md
+  kind: agent
+  summary: Herdr TUI specialist for premium mouse-first UI polish, visual consistency, modal/sidebar/overlay UX, render purity, and hunting memory leaks or UI bugs.
+  when: Herdr TUI specialist for premium mouse-first UI polish, vis…
+- name: herdr
+  path: .cursor/agents/herdr.md
+  kind: agent
+  summary: Herdr codebase specialist for the terminal agent runtime.
+  when: Herdr codebase specialist for the terminal agent runtime. U…
+- name: settings-diagnose
+  path: .cursor/agents/settings-diagnose.md
+  kind: agent
+  summary: Diagnose failing GitHub Actions for settings UI work without local builds.
+  when: Diagnose failing GitHub Actions for settings UI work withou…
+- name: settings-explorer
+  path: .cursor/agents/settings-explorer.md
+  kind: agent
+  summary: Map Herdr settings UI codepaths and design-spec gaps before implementation.
+  when: Map Herdr settings UI codepaths and design-spec gaps before…
+- name: settings-implementer
+  path: .cursor/agents/settings-implementer.md
+  kind: agent
+  summary: Implement one settings UI redesign task with TDD-style tests and minimal diff.
+  when: Implement one settings UI redesign task with TDD-style test…
+- name: settings-reviewer
+  path: .cursor/agents/settings-reviewer.md
+  kind: agent
+  summary: Spec + quality review for settings UI diffs.
+  when: Spec + quality review for settings UI diffs. Find UX regres…
+- name: upstream-sync-reconciler
+  path: .cursor/agents/upstream-sync-reconciler.md
+  kind: agent
+  summary: Resolve one upstream-sync wave on the GroepOnline/herdr fork — carry upstream trunk commits plus the named overlay, resolve conflicts against upstream intent, and never weaken a test.
+  when: Resolve one upstream-sync wave on the GroepOnline/herdr for…
+- name: upstream-sync-verifier
+  path: .cursor/agents/upstream-sync-verifier.md
+  kind: agent
+  summary: Read-only verification of an upstream-sync wave on GroepOnline/herdr — run the verification protocol, check ledger honesty, and report pass/fail with evidence.
+  when: Read-only verification of an upstream-sync wave on GroepOnl…

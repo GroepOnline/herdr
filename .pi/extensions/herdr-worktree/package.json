@@ -1,0 +1,17 @@
+{
+  "name": "pi-herdr-worktree",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.79.0",
+    "@types/node": "latest",
+    "typebox": "latest",
+    "typescript": "latest"
+  }
+}

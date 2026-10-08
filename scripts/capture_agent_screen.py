@@ -24,6 +24,9 @@ STATE_CHOICES = {
     "working": "working",
     "b": "blocked",
     "blocked": "blocked",
+    # Herdr has no AgentState::Error; capture error chrome as blocked.
+    "e": "blocked",
+    "error": "blocked",
     "d": "done",
     "done": "done",
     "u": "unknown",
@@ -58,7 +61,10 @@ def main() -> int:
     run_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"writing captures under {run_dir}")
-    print("state shortcuts: i=idle, w=working, b=blocked, d=done, u=unknown, c=custom, q=quit")
+    print(
+        "state shortcuts: i=idle, w=working, b=blocked, e=error→blocked, "
+        "d=done, u=unknown, c=custom, q=quit"
+    )
 
     capture_index = 1
     while True:
@@ -368,7 +374,7 @@ def format_pane_context(pane: PaneMatch) -> str:
 
 def prompt_state() -> str | None:
     while True:
-        raw = input("state [idle/working/blocked/done/unknown/custom/q]: ").strip()
+        raw = input("state [idle/working/blocked/error/done/unknown/custom/q]: ").strip()
         if raw.lower() in {"q", "quit", "exit"}:
             return None
         if not raw:

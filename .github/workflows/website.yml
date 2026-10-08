@@ -1,0 +1,161 @@
+name: Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - ".github/workflows/website.yml"
+  pull_request:
+    paths:
+      - "website/**"
+      - ".github/workflows/website.yml"
+  workflow_dispatch:
+    inputs:
+      preview_branch:
+        description: Cloudflare Pages branch for a manual preview deploy
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Audit (high severity)
+        working-directory: website
+        run: npm audit --audit-level=high
+
+      - name: Build
+        working-directory: website
+        run: npm run build
+
+      - name: Check for stale upstream references
+        working-directory: website
+        run: node scripts/check-references.mjs
+
+      - name: Internal link check
+        working-directory: website
+        run: node scripts/link-check.mjs
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: website-dist
+          path: website/dist/
+          retention-days: 14
+
+  smoke:
+    name: Playwright smoke & axe
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: website
+        run: npx playwright install --with-deps chromium
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: website-dist
+          path: website/dist
+
+      - name: Run smoke tests
+        working-directory: website
+        run: npx playwright test
+
+  deploy:
+    name: Deploy to Cloudflare Pages
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: website-dist
+          path: website/dist
+
+      - name: Deploy to Cloudflare Pages (groeponline-herdr)
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=groeponline-herdr --branch main
+          workingDirectory: website
+
+  preview:
+    name: Deploy PR preview to Cloudflare Pages
+    needs: build
+    if: >-
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' && inputs.preview_branch != '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      PAGES_BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || inputs.preview_branch }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: website-dist
+          path: website/dist
+
+      - name: Deploy PR preview to Cloudflare Pages (groeponline-herdr)
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=groeponline-herdr --branch ${{ env.PAGES_BRANCH }}
+          workingDirectory: website
+
+      - name: Report PR preview URL
+        run: >-
+          echo "Preview URL: https://${PAGES_BRANCH}.groeponline-herdr.pages.dev"

@@ -1,0 +1,209 @@
+name: Publish distribution
+
+# Called only after Release portable assets has uploaded and verified all four
+# binaries plus SHA256SUMS. Cross-repository Homebrew writes require
+# HOMEBREW_TAP_DEPLOY_KEY; npm writes require NPM_TOKEN.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Existing stable tag, for example v0.7.6
+        required: true
+        type: string
+      dry_run:
+        description: Validate and package without publishing npm or Homebrew
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      NPM_TOKEN:
+        required: false
+      HOMEBREW_TAP_DEPLOY_KEY:
+        required: false
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable tag, for example v0.7.6
+        required: true
+        type: string
+      dry_run:
+        description: Validate and package without publishing npm or Homebrew
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  group: distribution-${{ inputs.tag }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  publish:
+    name: Verify and publish npm + Homebrew
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve and validate release identity
+        id: release
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "error: tag must match vX.Y.Z (got ${TAG:-empty})" >&2
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          CARGO_VERSION="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')"
+          NPM_VERSION="$(node -p 'require("./npm/package.json").version')"
+          test "$VERSION" = "$CARGO_VERSION"
+          test "$VERSION" = "$NPM_VERSION"
+          RELEASE_STATE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')"
+          if [ "$RELEASE_STATE" != "false false" ]; then
+            echo "error: $TAG must be a published, non-prerelease release (isDraft isPrerelease = $RELEASE_STATE)" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
+
+      - name: Download and verify complete release matrix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'herdr-linux-x86_64' \
+            --pattern 'herdr-linux-aarch64' \
+            --pattern 'herdr-macos-x86_64' \
+            --pattern 'herdr-macos-aarch64' \
+            --pattern 'SHA256SUMS' \
+            --dir release-assets
+
+          expected=(
+            herdr-linux-x86_64
+            herdr-linux-aarch64
+            herdr-macos-x86_64
+            herdr-macos-aarch64
+          )
+          for asset in "${expected[@]}"; do
+            test -s "release-assets/$asset"
+            grep -Eq "^[a-fA-F0-9]{64}[[:space:]]+\\*?${asset}$" release-assets/SHA256SUMS
+          done
+          test "$(grep -Ec '^[a-fA-F0-9]{64}[[:space:]]+\*?herdr-' release-assets/SHA256SUMS)" -eq 4
+          (cd release-assets && sha256sum --check --strict SHA256SUMS)
+
+      - name: Generate and validate Homebrew formula
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/homebrew_formula.py \
+            --version "$VERSION" \
+            --checksums release-assets/SHA256SUMS \
+            --output "$RUNNER_TEMP/groeponline-herdr.rb"
+          ruby -c "$RUNNER_TEMP/groeponline-herdr.rb"
+
+      - name: Pack npm artifact
+        id: npm_pack
+        run: |
+          set -euo pipefail
+          PACK_JSON="$(npm pack ./npm --pack-destination "$RUNNER_TEMP" --json)"
+          TARBALL="$RUNNER_TEMP/$(jq -r '.[0].filename' <<<"$PACK_JSON")"
+          test -s "$TARBALL"
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          npm publish "$TARBALL" --dry-run --access public
+
+      - name: Smoke-test npm postinstall and binary
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          TARBALL: ${{ steps.npm_pack.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/npm-smoke"
+          cd "$RUNNER_TEMP/npm-smoke"
+          npm init --yes >/dev/null
+          npm install "$TARBALL"
+          ./node_modules/.bin/herdr --version | grep -F "$VERSION"
+          test -x node_modules/groeponline-herdr/bin/herdr
+
+      - name: Require publication credentials
+        if: ${{ !inputs.dry_run }}
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          HOMEBREW_TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$NPM_TOKEN" || { echo "NPM_TOKEN is required" >&2; exit 1; }
+          test -n "$HOMEBREW_TAP_DEPLOY_KEY" || { echo "HOMEBREW_TAP_DEPLOY_KEY is required" >&2; exit 1; }
+
+      - name: Publish npm package when absent
+        if: ${{ !inputs.dry_run }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+          TARBALL: ${{ steps.npm_pack.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          if npm view "groeponline-herdr@$VERSION" version --json >/dev/null 2>&1; then
+            echo "groeponline-herdr@$VERSION already exists; publication is idempotently complete"
+          else
+            npm publish "$TARBALL" --access public --provenance
+          fi
+
+      - name: Check out Homebrew tap
+        if: ${{ !inputs.dry_run }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          repository: GroepOnline/homebrew-tap
+          path: homebrew-tap
+          ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+          persist-credentials: true
+
+      - name: Publish Homebrew formula
+        if: ${{ !inputs.dry_run }}
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p homebrew-tap/Formula
+          cp "$RUNNER_TEMP/groeponline-herdr.rb" \
+            homebrew-tap/Formula/groeponline-herdr.rb
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/groeponline-herdr.rb
+          git diff --cached --quiet || git commit -m "herdr: update formula to v$VERSION"
+          git push
+
+      - name: Upload dry-run evidence
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: distribution-dry-run-${{ inputs.tag }}
+          path: |
+            ${{ steps.npm_pack.outputs.tarball }}
+            ${{ runner.temp }}/groeponline-herdr.rb
+            release-assets/SHA256SUMS
+          if-no-files-found: error

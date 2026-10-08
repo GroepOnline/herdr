@@ -1,8 +1,6 @@
-import hashlib
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 from scripts import agent_detection_manifest_check as check
 
@@ -31,40 +29,21 @@ path = "{path}"
 
 def staged_grok_dirs(root: Path) -> tuple[Path, Path]:
     bundled = root / "bundled"
-    published = root / "published"
+    website = root / "website"
     bundled.mkdir()
-    published.mkdir()
+    website.mkdir()
     (bundled / "grok.toml").write_bytes(
         (check.DEFAULT_BUNDLED_DIR / "grok.toml").read_bytes()
     )
-    (published / "grok.toml").write_bytes(
-        (check.DEFAULT_PUBLISHED_DIR / "grok.toml").read_bytes()
+    (website / "grok.toml").write_bytes(
+        (check.DEFAULT_WEBSITE_DIR / "grok.toml").read_bytes()
     )
-    (published / "index.toml").write_text(catalog("grok", "grok.toml"))
-    return bundled, published
-
-
-UNPUBLISHED_TEST_MANIFEST = manifest("testagent", "2026.06.10.1")
-UNPUBLISHED_TEST_EXCEPTION = {
-    "testagent": (
-        "2026.06.10.1",
-        hashlib.sha256(UNPUBLISHED_TEST_MANIFEST.encode()).hexdigest(),
-    ),
-}
-
-
-def unpublished_manifest_dirs(root: Path) -> tuple[Path, Path]:
-    bundled = root / "bundled"
-    published = root / "published"
-    bundled.mkdir()
-    published.mkdir()
-    (bundled / "testagent.toml").write_text(UNPUBLISHED_TEST_MANIFEST, encoding="utf-8", newline="\n")
-    (published / "index.toml").write_text("schema_version = 1\nagents = []\n")
-    return bundled, published
+    (website / "index.toml").write_text(catalog("grok", "grok.toml"))
+    return bundled, website
 
 
 class AgentDetectionManifestCheckTests(unittest.TestCase):
-    def test_validates_bundled_and_matching_published_catalog(self):
+    def test_validates_bundled_and_matching_website_catalog(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             bundled = root / "bundled"
@@ -79,7 +58,7 @@ class AgentDetectionManifestCheckTests(unittest.TestCase):
             bundled_manifests = check.load_manifest_dir(bundled, engine_version=1)
             check.validate_catalog(website, bundled_manifests, engine_version=1)
 
-    def test_rejects_published_version_lower_than_bundled(self):
+    def test_rejects_website_version_lower_than_bundled(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             bundled = root / "bundled"
@@ -94,14 +73,14 @@ class AgentDetectionManifestCheckTests(unittest.TestCase):
             with self.assertRaisesRegex(check.CheckError, "lower than bundled"):
                 check.validate_catalog(website, bundled_manifests, engine_version=1)
 
-    def test_allows_explicitly_staged_published_manifest(self):
+    def test_allows_explicitly_staged_website_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
             bundled, website = staged_grok_dirs(Path(tmp))
 
             bundled_manifests = check.load_manifest_dir(bundled, engine_version=3)
             check.validate_catalog(website, bundled_manifests, engine_version=3)
 
-    def test_rejects_mutated_staged_published_manifest(self):
+    def test_rejects_mutated_staged_website_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
             bundled, website = staged_grok_dirs(Path(tmp))
             with (website / "grok.toml").open("a") as manifest_file:
@@ -111,7 +90,7 @@ class AgentDetectionManifestCheckTests(unittest.TestCase):
             with self.assertRaisesRegex(check.CheckError, "lower than bundled"):
                 check.validate_catalog(website, bundled_manifests, engine_version=3)
 
-    def test_rejects_unlisted_published_manifest_lag_for_new_engine(self):
+    def test_rejects_unlisted_website_manifest_lag_for_new_engine(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             bundled = root / "bundled"
@@ -143,41 +122,6 @@ class AgentDetectionManifestCheckTests(unittest.TestCase):
             bundled_manifests = check.load_manifest_dir(bundled, engine_version=1)
             with self.assertRaisesRegex(check.CheckError, "same version"):
                 check.validate_catalog(website, bundled_manifests, engine_version=1)
-
-    @patch.dict(check.UNPUBLISHED_BUNDLED_MANIFESTS, UNPUBLISHED_TEST_EXCEPTION, clear=True)
-    def test_allows_exact_unpublished_bundled_manifest(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            bundled, published = unpublished_manifest_dirs(Path(tmp))
-            bundled_manifests = check.load_manifest_dir(bundled, engine_version=3)
-            check.validate_catalog(
-                published,
-                bundled_manifests,
-                engine_version=3,
-                allow_unpublished=True,
-            )
-
-    @patch.dict(check.UNPUBLISHED_BUNDLED_MANIFESTS, UNPUBLISHED_TEST_EXCEPTION, clear=True)
-    def test_release_gate_rejects_exact_unpublished_bundled_manifest(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            bundled, published = unpublished_manifest_dirs(Path(tmp))
-            bundled_manifests = check.load_manifest_dir(bundled, engine_version=3)
-            with self.assertRaisesRegex(check.CheckError, "missing bundled agent"):
-                check.validate_catalog(published, bundled_manifests, engine_version=3)
-
-    @patch.dict(check.UNPUBLISHED_BUNDLED_MANIFESTS, UNPUBLISHED_TEST_EXCEPTION, clear=True)
-    def test_rejects_mutated_unpublished_bundled_manifest(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            bundled, published = unpublished_manifest_dirs(Path(tmp))
-            with (bundled / "testagent.toml").open("a") as manifest_file:
-                manifest_file.write("\n# unexpected mutation\n")
-            bundled_manifests = check.load_manifest_dir(bundled, engine_version=3)
-            with self.assertRaisesRegex(check.CheckError, "missing bundled agent"):
-                check.validate_catalog(
-                    published,
-                    bundled_manifests,
-                    engine_version=3,
-                    allow_unpublished=True,
-                )
 
     def test_rejects_unknown_catalog_agent(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -243,6 +187,70 @@ class AgentDetectionManifestCheckTests(unittest.TestCase):
                     check.validate_rule(
                         Path("test.toml"), 0, rule, {"gates": 0, "matchers": 0}
                     )
+
+
+GENERIC_ERROR_MATCHERS = {"error", "error:", "err", "err:", "failed", "failure"}
+
+
+def iter_matchers(node: object):
+    if not isinstance(node, dict):
+        return
+    for key in ("contains", "regex", "line_regex"):
+        for value in node.get(key, []):
+            yield key, value
+    for nested_key in ("any", "all", "not"):
+        for nested in node.get(nested_key, []):
+            yield from iter_matchers(nested)
+
+
+def is_generic_error_matcher(kind: str, value: str) -> bool:
+    compact = value.strip().lower()
+    if compact in GENERIC_ERROR_MATCHERS:
+        return True
+    if kind in {"regex", "line_regex"}:
+        stripped = (
+            compact.replace("(?i)", "").replace("^", "").replace("$", "").replace(".*", "")
+        )
+        if stripped in GENERIC_ERROR_MATCHERS:
+            return True
+    return False
+
+
+class AiderDetectionContractTests(unittest.TestCase):
+    def test_aider_manifest_forbids_generic_error_and_keeps_error_bottom_scoped(self):
+        path = check.DEFAULT_BUNDLED_DIR / "aider.toml"
+        manifest = check.load_toml(path)
+        states = {rule["state"] for rule in manifest["rules"]}
+        self.assertEqual(states, {"idle", "working", "blocked"})
+
+        error_rules = [rule for rule in manifest["rules"] if rule["id"] == "error_detected"]
+        self.assertEqual(len(error_rules), 1)
+        error_rule = error_rules[0]
+        self.assertEqual(error_rule["state"], "blocked")
+        self.assertTrue(str(error_rule.get("region", "")).startswith("bottom_"))
+
+        generic = [
+            (rule["id"], kind, value)
+            for rule in manifest["rules"]
+            for kind, value in iter_matchers(rule)
+            if is_generic_error_matcher(kind, value)
+        ]
+        self.assertEqual(generic, [])
+
+    def test_aider_has_no_hooks_integration(self):
+        project = check.PROJECT_ROOT
+        integrations = (project / "src/api/schema/integrations.rs").read_text(encoding="utf-8")
+        self.assertNotRegex(integrations, r"\bAider\b")
+        self.assertFalse((project / "src/integration/assets/aider").exists())
+        cli = (project / "src/cli/integration.rs").read_text(encoding="utf-8")
+        self.assertNotIn('"aider"', cli)
+
+    def test_capture_script_maps_error_chrome_to_blocked(self):
+        from scripts import capture_agent_screen
+
+        self.assertEqual(capture_agent_screen.STATE_CHOICES["error"], "blocked")
+        self.assertEqual(capture_agent_screen.STATE_CHOICES["e"], "blocked")
+        self.assertEqual(capture_agent_screen.STATE_CHOICES["blocked"], "blocked")
 
 
 if __name__ == "__main__":

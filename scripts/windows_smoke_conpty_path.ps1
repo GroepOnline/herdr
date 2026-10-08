@@ -59,11 +59,8 @@ Invoke-Checked rustc @("--crate-type", "cdylib", "--edition", "2021", $fakeSourc
 
 $oldPath = $env:PATH
 $oldSession = $env:HERDR_SESSION
-$oldSocket = $env:HERDR_SOCKET_PATH
-$oldClientSocket = $env:HERDR_CLIENT_SOCKET_PATH
 $env:PATH = "$fakeDir;$oldPath"
 $env:HERDR_SESSION = $Session
-Remove-Item Env:HERDR_SOCKET_PATH, Env:HERDR_CLIENT_SOCKET_PATH -ErrorAction SilentlyContinue
 
 $server = $null
 try {
@@ -87,16 +84,9 @@ try {
         throw "server did not become ready"
     }
 
-    $savedErrorActionPreference = $ErrorActionPreference
-    try {
-        $ErrorActionPreference = "Continue"
-        $created = & $exe workspace create --cwd $PWD.Path 2>&1
-        $createdExitCode = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = $savedErrorActionPreference
-    }
-    if ($createdExitCode -ne 0) {
-        throw "workspace create failed with exit code $createdExitCode`: $($created -join "`n")"
+    $created = & $exe workspace create --cwd $PWD.Path 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "workspace create failed with exit code $LASTEXITCODE`: $($created -join "`n")"
     }
     $paneId = (($created -join "`n") | ConvertFrom-Json).result.root_pane.pane_id
     if ([string]::IsNullOrWhiteSpace($paneId)) {
@@ -135,28 +125,10 @@ try {
         } catch {
             Write-Host "server stop during cleanup failed: $($_.Exception.Message)"
         }
-        $null = $server.WaitForExit(10000)
-        $server.Refresh()
-        if (-not $server.HasExited) {
-            & taskkill.exe /PID $server.Id /T /F 2>&1 | Out-Null
-        }
+        Wait-Process -Id $server.Id -Timeout 10 -ErrorAction SilentlyContinue
     }
     $global:LASTEXITCODE = 0
     $env:PATH = $oldPath
-    if ($null -eq $oldSession) {
-        Remove-Item Env:HERDR_SESSION -ErrorAction SilentlyContinue
-    } else {
-        $env:HERDR_SESSION = $oldSession
-    }
-    if ($null -eq $oldSocket) {
-        Remove-Item Env:HERDR_SOCKET_PATH -ErrorAction SilentlyContinue
-    } else {
-        $env:HERDR_SOCKET_PATH = $oldSocket
-    }
-    if ($null -eq $oldClientSocket) {
-        Remove-Item Env:HERDR_CLIENT_SOCKET_PATH -ErrorAction SilentlyContinue
-    } else {
-        $env:HERDR_CLIENT_SOCKET_PATH = $oldClientSocket
-    }
+    $env:HERDR_SESSION = $oldSession
     Remove-Item -Recurse -Force $fakeDir -ErrorAction SilentlyContinue
 }
