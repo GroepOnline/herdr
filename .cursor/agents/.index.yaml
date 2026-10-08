@@ -51,3 +51,13 @@ items:
   kind: agent
   summary: Spec + quality review for settings UI diffs.
   when: Spec + quality review for settings UI diffs. Find UX regres…
+- name: upstream-sync-reconciler
+  path: .cursor/agents/upstream-sync-reconciler.md
+  kind: agent
+  summary: Resolve one upstream-sync wave on the GroepOnline/herdr fork — carry upstream trunk commits plus the named overlay, resolve conflicts against upstream intent, and never weaken a test.
+  when: Resolve one upstream-sync wave on the GroepOnline/herdr for…
+- name: upstream-sync-verifier
+  path: .cursor/agents/upstream-sync-verifier.md
+  kind: agent
+  summary: Read-only verification of an upstream-sync wave on GroepOnline/herdr — run the verification protocol, check ledger honesty, and report pass/fail with evidence.
+  when: Read-only verification of an upstream-sync wave on GroepOnl…

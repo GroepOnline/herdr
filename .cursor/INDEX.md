@@ -7,9 +7,11 @@
 | Name | Path | Summary |
 | --- | --- | --- |
 | `chef-fleet` | `.cursor/skills/chef-fleet/SKILL.md` | CHEF fleet operations for herdr — Linear/GitHub/UDO/Kater SSOT rules, Fleet Ops Bar, plugin state-dir contracts, and when to touch core vs com.chefgroep.* plugins. |
+| `herdr-autopilot` | `.cursor/skills/herdr-autopilot/SKILL.md` | Project-specific autopilot facts for GroepOnline/herdr: CI-first verification, dedicated worktrees, and merge-gated delivery. |
 | `herdr-quality-ci-remediation` | `.cursor/skills/herdr-quality-ci-remediation/SKILL.md` | Remediate Herdr PR Quality CI failures end-to-end. |
 | `herdr-settings-ui-redesign` | `.cursor/skills/herdr-settings-ui-redesign/SKILL.md` | Plan and execute the bold Herdr settings modal redesign (section IA, config surfacing, animations, CI-only validation). |
 | `herdr-ui` | `.cursor/skills/herdr-ui/SKILL.md` | Polish and harden the herdr mouse-first TUI — premium consistent overlays, sidebar/tabs/dialogs, pure render, and fix memory leaks or UI errors. |
+| `herdr-upstream-sync` | `.cursor/skills/herdr-upstream-sync/SKILL.md` | Rebase the GroepOnline/herdr fork onto upstream herdrdev/herdr as real ancestry plus a named overlay, keep the ledger honest, and land each wave behind its gate. |
 | `herdr` | `.cursor/skills/herdr/SKILL.md` | Develop and change the herdr terminal agent runtime (Rust TUI, session server, socket API, detection manifests, integrations). |
 | `maintain-herdr` | `.cursor/skills/maintain-herdr/SKILL.md` | Maintain the GroepOnline/herdr fork — PR autopilot, rebase and conflict resolution, draft triage, quality-gate fixes, release/hygiene. |
 | `verify-herdr` | `.cursor/skills/verify-herdr/SKILL.md` | Drive Herdr like a user — headless CLI e2e, mouse-first TUI (settings/modals/pane splits), optional future sandbox. |
@@ -28,6 +30,8 @@
 | `settings-explorer` | `.cursor/agents/settings-explorer.md` | Map Herdr settings UI codepaths and design-spec gaps before implementation. |
 | `settings-implementer` | `.cursor/agents/settings-implementer.md` | Implement one settings UI redesign task with TDD-style tests and minimal diff. |
 | `settings-reviewer` | `.cursor/agents/settings-reviewer.md` | Spec + quality review for settings UI diffs. |
+| `upstream-sync-reconciler` | `.cursor/agents/upstream-sync-reconciler.md` | Resolve one upstream-sync wave on the GroepOnline/herdr fork — carry upstream trunk commits plus the named overlay, resolve conflicts against upstream intent, and never weaken a test. |
+| `upstream-sync-verifier` | `.cursor/agents/upstream-sync-verifier.md` | Read-only verification of an upstream-sync wave on GroepOnline/herdr — run the verification protocol, check ledger honesty, and report pass/fail with evidence. |
 
 ## Rules
 
