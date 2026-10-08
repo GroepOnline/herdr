@@ -63,6 +63,13 @@ class CiChangedPathsTests(unittest.TestCase):
         self.assertIn("platform_heavy=true", text)
         self.assertIn("rust=false", text)
 
+    def test_upstream_sync_ledger_changes_run_maintenance(self) -> None:
+        text = self._run_main(["sync/overlay.tsv", "scripts/upstream_sync_ledger.py"])
+        self.assertIn("maintenance=true", text)
+        self.assertIn("release_meta=true", text)
+        self.assertIn("rust=false", text)
+        self.assertIn("docs_only=false", text)
+
     def test_empty_diff_fail_open_runs_rust(self) -> None:
         outputs = ci_changed_paths.classify([])
         self.assertTrue(outputs["rust"])

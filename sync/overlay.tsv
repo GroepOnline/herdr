@@ -1,0 +1,57 @@
+path_glob	concern	owner	rationale	tests	removal_condition
+website/**	website-and-docs-site	maintainer	Downstream public site, docs mirror and install manifests served from herdr.chefgroep.nl.	just website-build	Drop only if the site moves out of this repository.
+docs/versions/**	archived-version-docs	maintainer	Versioned documentation archive generated for past releases.	just release-docs-check	Regenerated per release; entries age out with the archive policy.
+docs/CHEF-*	chef-design-docs	maintainer	Downstream product and design notes (fleet, settings UI, kater bridge, phases).	not tested (design notes)	Remove when the decisions they capture are superseded.
+docs/chef/**	chef-install-docs	maintainer	Fleet host install documentation for CHEF hosts.	not tested (docs)	Remove when the fleet install path changes.
+docs/next/website/src/content/docs/moshi.mdx	mobile-client-doc	maintainer	Downstream mobile client guidance (Moshi over SSH) replacing the Hermes story.	just release-docs-check	Drop when the upstream docs cover the mobile client story.
+docs/next/website/src/content/docs/fleet-ops.mdx	fleet-ops-doc	maintainer	Downstream gateway and fleet-ops HTTP surface documentation.	just release-docs-check	Drop when merged upstream.
+.cursor/**	agent-control-plane	kodex-agent	Cursor control plane: skills, agents, rules, hooks and generated indexes.	python3 scripts/generate_cursor_index.py --check	Keep in sync with the generator; remove entries that upstream adopts.
+.codex/**	agent-control-plane-codex	kodex-agent	Codex playbooks mirrored from the Cursor skills.	python3 scripts/generate_cursor_index.py --check	Keep the mirror; drop files whose Cursor source is deleted.
+.pi/**	agent-control-plane-pi	kodex-agent	Pi prompt and extension control plane.	not tested (agent config)	Keep in sync with upstream .pi when it lands there.
+.compound-engineering/**	compound-engineering-overlay	maintainer	Local engineering overlay configuration tracked for team workflows.	not tested (agent config)	Remove when the overlay moves to a separate repository.
+.coderabbit.yaml	review-bot-config	maintainer	Downstream review-bot configuration.	not tested (CI config)	Remove if review automation changes.
+.github/**	downstream-ci-and-governance	maintainer	Downstream workflows, CODEOWNERS, quality-ci spec and the upstream-sync process doc.	just maintenance	Keep; this is the CI contract for the distribution.
+plugins/**	chef-plugin-suite	maintainer	Downstream herdr plugins (fleet, ops, kater bridge, linear, session park).	cd plugins && bun test (per plugin)	Plugins ship from com.chefgroep.*; remove a plugin when it is retired.
+workers/**	plugin-marketplace-worker	maintainer	Cloudflare Worker serving the plugin marketplace index.	just plugin-marketplace-test	Drop if the marketplace moves out of this repository.
+npm/**	npm-distribution	maintainer	npm package metadata, installer and checksum verification.	just release-metadata	Keep; required for the npm distribution channel.
+packaging/**	homebrew-packaging	maintainer	Generated Homebrew formula staging.	just release-metadata	Regenerated per release.
+config/**	chef-config-templates	maintainer	Downstream fleet configuration templates (chef, dev, incident).	not tested (config)	Remove templates the fleet retires.
+setup.sh	chef-setup-script	maintainer	Fleet host bootstrap script.	sh -n setup.sh	Replace when provisioning moves to an installer.
+package.json	repo-root-package-metadata	maintainer	Root package metadata kept for tooling that expects it at the repo root.	just release-metadata	Align with npm/package.json version on the next release.
+CONTEXT.md	downstream-context-doc	maintainer	Downstream context summary for agents and maintainers.	not tested (docs)	Merge into DOWNSTREAM.md when redundant.
+DESIGN-SYSTEM.md	downstream-design-system	maintainer	Downstream design-system contract for the TUI and site.	just design-system (contract workflow)	Drop when the contract moves into .github/design-system.json only.
+DOWNSTREAM.md	downstream-distribution-contract	maintainer	Distribution contract, release trust chain and sync policy.	just maintenance	Keep; canonical downstream contract.
+SKILL.md	repo-root-skill-pointer	maintainer	Root pointer to the agent skill bundle.	not tested (docs)	Remove when the root pointer is redundant with .cursor/skills.
+assets/herdr-lockup.svg	downstream-branding-asset	maintainer	Branding lockup used by the site and docs.	covered by website build	Remove if branding changes.
+scripts/**	downstream-tooling	maintainer	Downstream release, CI, docs and fleet tooling plus its unit tests.	just maintenance	Keep; scripts are covered by maintenance tests.
+vendor/**	wave-a-vendor-revendor	wave-a	Vendored libghostty-vt and portable-pty sources plus the local patch index; re-vendored in wave A.	python3 -m unittest scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty	Patch entries are removed when their fix reaches the vendored upstream commit.
+src/ghostty/**	wave-a-ghostty-bindings	wave-a	Local ghostty bindings that wave A replaces with the upstream crates/ghostty-vt crate.	just lint (cargo) on CI	Delete the module once crates/ghostty-vt is adopted.
+src/fleet/**	fleet-ops-gateway	fleet	Downstream fleet ops bar and gateway HTTP surface.	cargo nextest (fleet) on CI	Keep while the gateway is downstream-owned.
+src/bin/**	herdr-gateway-binary	fleet	Gateway binary entrypoint for fleet operations.	cargo nextest on CI	Keep while the gateway is downstream-owned.
+src/ui/settings/**	settings-ui	maintainer	Downstream settings modal redesign (sections, rows, catalog, spinner).	cargo nextest (settings) on CI	Replace with upstream settings when it reaches feature parity.
+src/ui/*.rs	tui-additional-surfaces	wave-d	Downstream TUI surfaces: dialogs, menus, navigator, keybind help, tabs, mobile.	cargo nextest on CI	Reconcile per surface during wave D.
+src/app/input/**	tui-input-pipeline	wave-d	Downstream input pipeline (mouse, modal, navigate, selection, copy mode).	cargo nextest on CI	Adopt the upstream input pipeline during wave D and drop the overlay.
+src/app/api/**	pane-graphics-api	wave-d	Downstream pane graphics API surface.	cargo nextest on CI	Reconcile with upstream kitty-graphics during wave D.
+src/app/*.rs	app-overlay-singletons	wave-d	Downstream app-level singletons (config IO, runtime mutations).	cargo nextest on CI	Reconcile during wave D.
+src/api/server/**	pane-graphics-server	wave-d	Downstream pane graphics streaming server surface.	cargo nextest on CI	Reconcile with upstream kitty-graphics during wave D.
+src/server/headless/**	headless-pane-graphics	wave-d	Headless pane graphics support used by the gateway and tests.	cargo nextest on CI	Reconcile during wave D.
+src/cli/*.rs	cli-overlay	sync-waves	Downstream CLI helpers (browser, live completion).	cargo nextest on CI	Reconcile per helper during its wave.
+src/input/encode.rs	input-encoding-overlay	wave-d	Downstream key encoding helper pending the upstream encoder refactor.	cargo nextest on CI	Delete when upstream key encoding covers it.
+src/remote/host_unix.rs	remote-host-unix	sync-waves	Downstream unix host handling for remote workspaces.	cargo nextest on CI	Reconcile with upstream remote layer.
+src/clipboard_history.rs	clipboard-history	sync-waves	Downstream clipboard history feature.	cargo nextest on CI	Drop or upstream it.
+src/product_urls.rs	product-urls	sync-waves	Downstream product/domain constants that keep updates on the branded domain.	cargo nextest on CI	Keep; required by the distribution.
+src/status.rs	status-indicators	sync-waves	Downstream status indicator and spinner system.	cargo nextest on CI	Reconcile with upstream status work.
+src/template.rs	template-engine	sync-waves	Downstream pane template expansion (deprecated path).	cargo nextest on CI	Remove when pane_template.rs fully replaces it.
+src/pane_template.rs	pane-templates	sync-waves	Downstream pane template feature.	cargo nextest on CI	Keep or upstream it.
+src/opencode_sessions.rs	opencode-session-store	sync-waves	Downstream OpenCode session tracking.	cargo nextest on CI	Reconcile with upstream opencode integration.
+src/pi_sessions.rs	pi-session-store	sync-waves	Downstream Pi session tracking.	cargo nextest on CI	Reconcile with upstream pi integration.
+src/github/**	github-integration	sync-waves	Downstream GitHub API helpers used by fleet and plugins.	cargo nextest on CI	Keep while plugins depend on it.
+src/update/**	update-installer	sync-waves	Downstream update installer path handling.	cargo nextest on CI	Reconcile with upstream update.rs.
+src/detect/manifests/aider.toml	downstream-agent-manifest	wave-b	Aider detection manifest maintained downstream.	just maintenance (manifest check)	Port upstream once Aider detection lands there.
+src/detect/manifests/commandcode.toml	downstream-agent-manifest	wave-b	Command Code detection manifest maintained downstream.	just maintenance (manifest check)	Port upstream once it lands there.
+src/detect/manifests/freebuff.toml	downstream-agent-manifest	wave-b	Freebuff detection manifest maintained downstream.	just maintenance (manifest check)	Port upstream once it lands there.
+src/detect/manifests/junie.toml	downstream-agent-manifest	wave-b	Junie detection manifest maintained downstream.	just maintenance (manifest check)	Port upstream once it lands there.
+src/detect/manifests/openclaude.toml	downstream-agent-manifest	wave-b	OpenClaude detection manifest maintained downstream.	just maintenance (manifest check)	Port upstream once it lands there.
+src/integration/assets/commandcode/**	downstream-integration-asset	wave-c	Command Code hook assets installed by herdr integrations.	just integration-assets-test	Port upstream once it lands there.
+src/integration/assets/freebuff/**	downstream-integration-asset	wave-c	Freebuff hook assets installed by herdr integrations.	just integration-assets-test	Port upstream once it lands there.
+tests/skill_frontmatter.rs	skill-frontmatter-test	maintainer	Downstream test guarding skill frontmatter for the control plane.	just maintenance	Keep while the control plane exists.

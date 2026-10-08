@@ -7,9 +7,15 @@ test:
 
 # Run maintenance script and Bun tests
 maintenance:
-    python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_ci_changed_paths scripts.test_ci_quality scripts.test_config_reference_check scripts.test_dev scripts.test_homebrew_formula scripts.test_install_sh scripts.test_preview scripts.test_release_manifest_hardening scripts.test_release_portable_assets_workflow scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
+    python3 -m unittest scripts.test_agent_detection_manifest_check scripts.test_changelog scripts.test_ci_changed_paths scripts.test_ci_quality scripts.test_config_reference_check scripts.test_dev scripts.test_homebrew_formula scripts.test_install_sh scripts.test_preview scripts.test_release_manifest_hardening scripts.test_release_portable_assets_workflow scripts.test_upstream_sync_ledger scripts.test_vendor_libghostty_vt scripts.test_vendor_portable_pty
+    python3 scripts/upstream_sync_ledger.py --check --quiet
     just integration-assets-test
     just plugin-marketplace-test
+
+# Regenerate the upstream sync ledger snapshot (needs the .local/upstream.git cache)
+upstream-ledger:
+    python3 scripts/upstream_sync_ledger.py --generate
+    python3 scripts/upstream_sync_ledger.py --summary
 
 # Run one nextest filter, e.g. `just test-one codex_stale_working`
 test-one filter:

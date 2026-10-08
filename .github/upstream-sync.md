@@ -48,9 +48,9 @@ weekly drift gate compares the ledger against upstream and fails on a stale pin
   snapshot is inconsistent.
 - `python3 scripts/upstream_sync_ledger.py --generate` needs a blobless local
   upstream clone and refreshes `sync/ledger.json`.
-- `.github/workflows/upstream-drift.yml` refreshes the comparison weekly and
-  fails (or opens an issue) when the pin is older than the cadence or a
-  critical-path area moved.
+- `.github/workflows/upstream-drift.yml` (planned, wave G) refreshes the
+  comparison weekly and fails (or opens an issue) when the pin is older than
+  the cadence or a critical-path area moved.
 
 Critical paths for drift alerts: `src/integration`, `src/detect`, `src/protocol`,
 `vendor`, `crates`, `distribution/agent-detection`.

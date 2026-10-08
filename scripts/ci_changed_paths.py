@@ -115,6 +115,7 @@ def classify(files: list[str]) -> dict[str, bool]:
                 "docs/next/",
                 "website/src/content/docs/",
                 "plugins/",
+                "sync/",
                 ".pi/",
             ),
             exact=("justfile", "AGENTS.md", "DOWNSTREAM.md", "website/install.sh"),
