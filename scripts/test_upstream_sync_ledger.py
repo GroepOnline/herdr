@@ -17,6 +17,7 @@ from scripts.upstream_sync_ledger import (
     validate_ledger,
     validate_overlay,
     validate_pin,
+    validate_scope,
 )
 
 HEADER = "path_glob\tconcern\towner\trationale\ttests\tremoval_condition\n"
@@ -156,6 +157,18 @@ class CoverageTests(unittest.TestCase):
         rows = [overlay_row()]
         uncovered = uncovered_overlay_paths(["website/a.md", "src/other.rs"], rows)
         self.assertEqual(uncovered, ["src/other.rs"])
+
+
+class OverlayScopeTests(unittest.TestCase):
+    def test_flags_undeclared_overlay_path(self) -> None:
+        errors = validate_scope(["website/index.html", "src/random.rs"], [overlay_row()])
+        self.assertTrue(any("not declared" in error for error in errors))
+
+    def test_accepts_declared_overlay_paths(self) -> None:
+        self.assertEqual(validate_scope(["website/index.html"], [overlay_row()]), [])
+
+    def test_accepts_empty_scope(self) -> None:
+        self.assertEqual(validate_scope([], []), [])
 
 
 class ValidateLedgerTests(unittest.TestCase):

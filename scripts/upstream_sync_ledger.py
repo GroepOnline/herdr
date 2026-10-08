@@ -232,6 +232,30 @@ def uncovered_overlay_paths(downstream_only: list[str], rows: list[OverlayRow]) 
     return [path for path in downstream_only if not any(glob_matches(row.path_glob, path) for row in rows)]
 
 
+def overlay_scope(head_ref: str, base_commit: str, cwd: Path = REPO_ROOT) -> list[str]:
+    """Paths our overlay changed relative to the pinned upstream base.
+
+    Only meaningful on a sync branch whose trunk is the pinned base: it is the
+    exact footprint of the downstream overlay.
+    """
+    out = run_git(["diff", "--name-only", base_commit, head_ref], cwd)
+    return [line for line in out.splitlines() if line]
+
+
+def validate_scope(scope: list[str], rows: list[OverlayRow]) -> list[str]:
+    """Every path the overlay touches must be declared by an overlay glob."""
+    errors: list[str] = []
+    undeclared = [
+        path for path in scope if not any(glob_matches(row.path_glob, path) for row in rows)
+    ]
+    if undeclared:
+        errors.append(
+            f"overlay scope: {len(undeclared)} path(s) changed relative to the pinned base are not "
+            f"declared in sync/overlay.tsv (first: {undeclared[0]})"
+        )
+    return errors
+
+
 def validate_ledger(ledger: dict, pin: dict, rows: list[OverlayRow]) -> list[str]:
     errors: list[str] = []
     if ledger.get("schema_version") != SCHEMA_VERSION:
@@ -251,6 +275,7 @@ def validate_ledger(ledger: dict, pin: dict, rows: list[OverlayRow]) -> list[str
         errors.append(
             "ledger.json: counts.paths_only_downstream does not match the stored path list"
         )
+    errors.extend(validate_scope(ledger.get("overlay_scope") or [], rows))
     uncovered = uncovered_overlay_paths(downstream_only, rows)
     if uncovered:
         errors.append(
@@ -375,6 +400,7 @@ def command_generate(args: argparse.Namespace) -> int:
         by_month[date[:7]] = by_month.get(date[:7], 0) + 1
 
     rows, overlay_errors = load_overlay()
+    scope = overlay_scope(args.overlay_ref, base_commit)
     uncovered = uncovered_overlay_paths(classification["paths_only_downstream"], rows)
 
     pin = {
@@ -412,6 +438,10 @@ def command_generate(args: argparse.Namespace) -> int:
         },
         "critical_paths_changed": classification["critical_paths_changed"],
         "paths_only_downstream_list": classification["paths_only_downstream"],
+        "overlay_scope": scope,
+        "overlay_scope_undeclared": [
+            path for path in scope if not any(glob_matches(row.path_glob, path) for row in rows)
+        ],
         "unported_commits": [
             {"sha": sha, "date": date, "subject": subject} for sha, date, subject in backlog
         ],
@@ -425,6 +455,7 @@ def command_generate(args: argparse.Namespace) -> int:
     print(f"paths differing:   {len(classification['paths_differing'])}")
     print(f"paths only down:   {len(classification['paths_only_downstream'])} (relocated: {len(classification['relocated_only_downstream'])})")
     print(f"overlay uncovered: {len(uncovered)}")
+    print(f"overlay scope:     {len(scope)} changed path(s) vs {args.base_tag}")
     print(f"critical changed:  {len(classification['critical_paths_changed'])}")
     if overlay_errors:
         for error in overlay_errors[:10]:
@@ -490,6 +521,7 @@ def main() -> int:
     parser.add_argument("--reference", default=DEFAULT_REFERENCE, help="upstream comparison ref")
     parser.add_argument("--window-since", default=DEFAULT_WINDOW_SINCE, help="fork date for the backlog window")
     parser.add_argument("--downstream-ref", default="HEAD", help="ref used as the downstream side")
+    parser.add_argument("--overlay-ref", default="HEAD", help="ref whose diff against the base is the overlay footprint")
     args = parser.parse_args()
 
     if args.check:
