@@ -156,3 +156,18 @@ lanes only report through CI, which needs a pull request against `main`.
 Rules for the waves: a wave may not "fix" a gate by weakening it. Wave A resolves
 the vendor patch entries, wave B the manifest and config-reference drift, wave E
 the gateway overlay, and CI settles the Rust lanes.
+
+### Overlay lesson: tooling must be selective
+
+The first tooling overlay copied `scripts/` and `justfile` wholesale from the
+downstream branch, which overwrote upstream-owned scripts. Nine of them exist on
+both sides (`config_reference_check.py`, `preview.py`, `test_preview.py`,
+`test_changelog.py`, `test_agent_detection_manifest_check.py`,
+`test_config_reference_check.py`, `test_vendor_libghostty_vt.py`,
+`test_vendor_portable_pty.py`, `windows_smoke_conpty_path.ps1`).
+
+Rule from here on: a script or workflow that upstream owns stays upstream unless
+the downstream version carries a documented need. The remaining 24 scripts are
+downstream-only additions (release, docs, fleet and control-plane tooling) and
+are overlay by definition. Every wholesale directory copy is a red flag; overlay
+commits list the files they overwrite.
