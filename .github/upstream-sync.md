@@ -187,3 +187,31 @@ Catalog ownership is now explicit: upstream publishes from
 `distribution/agent-detection/`, downstream publishes from
 `website/agent-detection/` (tracked as an overlay concern with its removal
 condition).
+
+### Wave C baseline: the hook guarantee is already in the trunk
+
+The mobile-client (Moshi) complaint traces to the downstream integration code
+that predates upstream's rewrite. The trunk already carries the fixed design plus
+tests, so wave C does not need to invent it:
+
+- `src/integration/config_file.rs` — "Protected writes for user-owned integration
+  configuration": write-target checks, hard-link rejection, and refusal to
+  clobber a config that another writer owns.
+- `src/integration/claude_settings.rs` — CST-based edits that keep user
+  formatting and unrelated hooks, with tests such as
+  `install_preserves_untouched_formatting_and_complete_trailing_suffix`,
+  `install_migrates_wildcard_session_start_and_preserves_user_hook` and
+  `uninstall_preserves_unrelated_hook_text`.
+- `src/integration/tests.rs` — per-target preservation coverage:
+  `install_claude_removes_deprecated_completion_hooks_and_preserves_user_hooks`,
+  `uninstall_claude_removes_herdr_hooks_and_preserves_others` and the equivalent
+  copilot, devin, droid and kimi cases.
+- `src/integration/opencode_config.rs` — JSONC-preserving plugin registration
+  (`add_and_remove_tui_plugin_preserves_jsonc_config`,
+  `cli_registration_preserves_options_and_other_preferences`).
+
+Wave C therefore only has to: keep the five downstream-only integration targets
+as overlay (commandcode, freebuff, plus their assets), re-derive the downstream
+`*_INTEGRATION_VERSION` values once, and add one explicit end-to-end fixture that
+installs a hook set containing foreign (mobile-client) entries, runs
+install/uninstall/update, and asserts the foreign entries are byte-identical.
