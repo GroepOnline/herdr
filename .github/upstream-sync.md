@@ -171,3 +171,19 @@ the downstream version carries a documented need. The remaining 24 scripts are
 downstream-only additions (release, docs, fleet and control-plane tooling) and
 are overlay by definition. Every wholesale directory copy is a red flag; overlay
 commits list the files they overwrite.
+
+### M1 wave progress (2026-10-08)
+
+| Item | Before | Now | How |
+| --- | --- | --- | --- |
+| Vendor patch contract tests | fail | pass | restored upstream's `test_vendor_portable_pty.py`, `test_vendor_libghostty_vt.py` and `windows_smoke_conpty_path.ps1`; upstream's `0001-control-conpty-loading` (absolute-path loading, hash verification, no bare DLL search) supersedes the downstream `force-system-conpty` patch |
+| Config reference | fail | pass | restored upstream's `config_reference_check.py` and its test; the trunk config model already carries `ui.tab_bar_right` |
+| Agent manifests | fail | pass | brought the five downstream manifests into `src/detect/manifests/`, aligned `website/agent-detection/` with the bundled manifests, added `letta`, retired the now-dead grok staging entry |
+| Overlay footprint | not checked | checked | the ledger now records `overlay_scope` and `validate_scope` fails when a path changed against the pinned base is not declared in `sync/overlay.tsv` (543 paths, 0 undeclared) |
+| Release metadata | fail | fail | `src/bin/herdr-gateway.rs` is not overlaid yet (wave E) |
+| Vendored cargo test, Rust lanes | not run | not run | need `cargo`; CI-owned and only reachable once the sync PR exists |
+
+Catalog ownership is now explicit: upstream publishes from
+`distribution/agent-detection/`, downstream publishes from
+`website/agent-detection/` (tracked as an overlay concern with its removal
+condition).
