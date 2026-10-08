@@ -133,3 +133,26 @@ python3 scripts/upstream_sync_ledger.py --check
 - Rebase PR within 7 days of every upstream stable tag.
 - `upstream-drift.yml` fails when the pin is stale or a critical path changed.
 - A wave is not "done" until its overlay entries carry a test name.
+
+## M1 gate reconciliation (trunk `v0.9.3` plus overlay)
+
+Measured on `sync/upstream-v0.9.3` after `chore(sync): reapply downstream CI and
+tooling overlay` and `chore(sync): reapply downstream non-Rust distribution
+overlay`, using the gates that can run without Rust/Zig on the Cloud VM. Rust
+lanes only report through CI, which needs a pull request against `main`.
+
+| Gate | Result | Cause | Wave |
+| --- | --- | --- | --- |
+| `scripts.test_upstream_sync_ledger` | pass | ledger consistent on the trunk | — |
+| `scripts.test_ci_changed_paths`, `scripts.test_ci_quality` | pass | lane contract intact | — |
+| bun integration asset tests | pass (18) | assets unchanged | — |
+| `scripts.test_vendor_portable_pty` (2 tests) | fail | the downstream patch contract (`0001-force-system-conpty`) does not match the upstream vendored tree (`0001-control-conpty-loading`), plus `0002`/`0003` | A |
+| `scripts.test_agent_detection_manifest_check` (aider, staged website manifest) | fail | bundled manifests moved to upstream 2026.09.18.x while the website manifests and the `STAGED_WEBSITE_MANIFESTS` entry still assume the downstream baseline; downstream-only manifests are not overlaid yet | B |
+| `scripts.test_config_reference_check` (`ui.tab_bar_right`) | fail | `docs/next/.../config-reference.json` still allows `datetime`, `text`, `command`; the trunk config model allows `zoom`, `hostname` | B/D |
+| `scripts/ci_quality.py check-release-metadata` | fail | `src/bin/herdr-gateway.rs` (downstream gateway) is not overlaid yet | E |
+| `scripts.test_vendor_portable_pty::cargo metadata` | error | needs `cargo`; CI-owned on this VM | CI |
+| fmt, check, nextest, clippy, Windows lint, release smoke | not run | Rust lanes are CI-owned; they run once the sync PR exists | CI |
+
+Rules for the waves: a wave may not "fix" a gate by weakening it. Wave A resolves
+the vendor patch entries, wave B the manifest and config-reference drift, wave E
+the gateway overlay, and CI settles the Rust lanes.
