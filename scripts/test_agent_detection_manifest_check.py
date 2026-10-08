@@ -1,14 +1,18 @@
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts import agent_detection_manifest_check as check
 
 
-def manifest(agent_id: str, version: str, contains: str = "ready") -> str:
+def manifest(
+    agent_id: str, version: str, contains: str = "ready", min_engine_version: int = 1
+) -> str:
     return f'''id = "{agent_id}"
 version = "{version}"
-min_engine_version = 1
+min_engine_version = {min_engine_version}
 updated_at = "2026-06-10T00:00:00Z"
 
 [[rules]]
@@ -27,19 +31,25 @@ path = "{path}"
 '''
 
 
-def staged_grok_dirs(root: Path) -> tuple[Path, Path]:
+def staged_grok_dirs(root: Path) -> tuple[Path, Path, dict[str, tuple[str, str, str]]]:
+    """Synthesize a staged website manifest below a raised engine floor.
+
+    The staging entry is registered by the test instead of relying on a live
+    exception, so the mechanism keeps coverage while no exception is active.
+    """
     bundled = root / "bundled"
     website = root / "website"
     bundled.mkdir()
     website.mkdir()
-    (bundled / "grok.toml").write_bytes(
-        (check.DEFAULT_BUNDLED_DIR / "grok.toml").read_bytes()
+    bundled_version = "2026.09.18.2"
+    staged_version = "2026.07.16.1"
+    (bundled / "grok.toml").write_text(
+        manifest("grok", bundled_version, min_engine_version=3)
     )
-    (website / "grok.toml").write_bytes(
-        (check.DEFAULT_WEBSITE_DIR / "grok.toml").read_bytes()
-    )
+    (website / "grok.toml").write_text(manifest("grok", staged_version))
     (website / "index.toml").write_text(catalog("grok", "grok.toml"))
-    return bundled, website
+    digest = hashlib.sha256((website / "grok.toml").read_bytes()).hexdigest()
+    return bundled, website, {"grok": (bundled_version, staged_version, digest)}
 
 
 class AgentDetectionManifestCheckTests(unittest.TestCase):
@@ -75,20 +85,22 @@ class AgentDetectionManifestCheckTests(unittest.TestCase):
 
     def test_allows_explicitly_staged_website_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
-            bundled, website = staged_grok_dirs(Path(tmp))
+            bundled, website, staging = staged_grok_dirs(Path(tmp))
 
-            bundled_manifests = check.load_manifest_dir(bundled, engine_version=3)
-            check.validate_catalog(website, bundled_manifests, engine_version=3)
+            with patch.dict(check.STAGED_WEBSITE_MANIFESTS, staging):
+                bundled_manifests = check.load_manifest_dir(bundled, engine_version=3)
+                check.validate_catalog(website, bundled_manifests, engine_version=3)
 
     def test_rejects_mutated_staged_website_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
-            bundled, website = staged_grok_dirs(Path(tmp))
+            bundled, website, staging = staged_grok_dirs(Path(tmp))
             with (website / "grok.toml").open("a") as manifest_file:
                 manifest_file.write("\n# unexpected mutation\n")
 
-            bundled_manifests = check.load_manifest_dir(bundled, engine_version=3)
-            with self.assertRaisesRegex(check.CheckError, "lower than bundled"):
-                check.validate_catalog(website, bundled_manifests, engine_version=3)
+            with patch.dict(check.STAGED_WEBSITE_MANIFESTS, staging):
+                bundled_manifests = check.load_manifest_dir(bundled, engine_version=3)
+                with self.assertRaisesRegex(check.CheckError, "lower than bundled"):
+                    check.validate_catalog(website, bundled_manifests, engine_version=3)
 
     def test_rejects_unlisted_website_manifest_lag_for_new_engine(self):
         with tempfile.TemporaryDirectory() as tmp:

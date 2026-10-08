@@ -1,7 +1,7 @@
 id = "codex"
-version = "2026.07.18.1"
-min_engine_version = 2
-updated_at = "2026-07-18T00:00:00Z"
+version = "2026.09.23.1"
+min_engine_version = 3
+updated_at = "2026-09-23T22:12:00Z"
 
 [[rules]]
 id = "osc_title_blocked"
@@ -32,6 +32,26 @@ any = [
 ]
 
 [[rules]]
+id = "trust_directory"
+state = "blocked"
+priority = 950
+region = "top_non_empty_lines(20)"
+visible_blocker = true
+all = [
+  { regex = ['\A> You are in [^\r\n]+(?:\r?\n|$)'] },
+  { regex = ['(?s)Do\s+you\s+trust\s+the\s+contents\s+of\s+this\s+directory\?'] },
+]
+
+[[rules]]
+id = "startup_update"
+state = "blocked"
+priority = 950
+region = "bottom_non_empty_lines(20)"
+visible_blocker = true
+contains = ["Update available!", "Update now"]
+regex = ['Skip\s+until\s+next\s+version', 'Press enter to continue\s*\z']
+
+[[rules]]
 id = "live_strong_blocker"
 state = "blocked"
 priority = 900
@@ -42,13 +62,16 @@ any = [
   { contains = ["enter to submit answer"] },
   { contains = ["enter to submit all"] },
   { contains = ["allow command?"] },
+  { contains = ["All Results", "Filesystem Only", "Plugins"] },
 ]
 
 [[rules]]
 id = "weak_blocker"
 state = "blocked"
 priority = 600
-region = "whole_recent"
+region = "whole_recent_without_current_prompt_marker"
+# Sparkles can replace the space after ›. A later response marker makes that prompt stale.
+not = [{ regex = ['(?m)^›[⠁⠂⠄⠈⠐⠠⡀⢀][^\n]*(?:\n(?:[^•■✗✓\n][^\n]*)?)*\z'] }]
 any = [
   { contains = ["[y/n]"] },
   { contains = ["yes (y)"] },
@@ -57,48 +80,15 @@ any = [
 ]
 
 [[rules]]
-id = "codex_tool_working"
-state = "working"
-priority = 92
-region = "bottom_non_empty_lines(6)"
-visible_working = true
-any = [
-  { line_regex = ['(?i)(running|executing|applying)\s+(command|tool|edit)'] },
-  { line_regex = ['(?i)(ruff|pytest|uv\s+run)'] },
-  { line_regex = ['(?i)utrecht\s+(parse|normalize|index|embed|eval|ask|serve)'] },
-  { line_regex = ['(?i)(fleet|probe|mesh)\s+(status|check)'] },
-  { line_regex = ['(?i)test\.py\s+(fast|pr|integration)'] },
-]
-
-[[rules]]
-id = "codex_eval_gate"
-state = "working"
-priority = 91
-region = "bottom_non_empty_lines(4)"
-visible_working = true
-any = [
-  { line_regex = ['(?i)(eval|gate|baseline|threshold)'] },
-  { line_regex = ['(?i)ruff\s+check'] },
-]
-
-[[rules]]
 id = "screen_working_fallback"
 state = "working"
 priority = 500
-region = "bottom_non_empty_lines(3)"
+region = "before_current_prompt_marker"
 visible_working = true
-line_regex = ['^[•◦]\s+Working \([^)]*esc to interrupt\)(?: · .*)?$']
-not = [{ contains = ["■ Conversation interrupted"] }]
-
-
-[[rules]]
-id = "osc_title_idle"
-state = "idle"
-priority = 100
-region = "osc_title"
-visible_idle = true
-regex = ['\S']
-not = [
-  { regex = ['(?:^| )[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏](?: |$)'] },
-  { contains = ["Action Required"] },
-]
+# Support animated and reduced-motion status, including dynamic activity labels.
+# The interrupt hint can be remapped, unbound, or hidden, and queued inputs can
+# sit below the status. Require the live timer suffix with no later response.
+any = [{ contains = [" to interrupt)"] }, { contains = ["s)"] }]
+regex = ['(?m)^(?:[•◦][ \t]+)?[^\s›•◦■✗✓─][^\r\n]* \((?:[0-9]+[hm] )*[0-9]+s(?: • [^\r\n]+? to interrupt)?\)(?: · [^\r\n]*)?(?:\r?\n(?:[^•◦›■✗✓─\r\n][^\r\n]*|•[ \t]+(?:Queued\s+follow-up\s+inputs|Messages\s+to\s+be\s+submitted\s+after\s+next\s+tool\s+call(?:\s+\(press\s+[^\r\n]+?\s+to\s+interrupt\s+and\s+send\s+immediately\))?|Messages\s+to\s+be\s+submitted\s+at\s+end\s+of\s+turn)|›[⠁⠂⠄⠈⠐⠠⡀⢀][^\r\n]*)?)*\s*\z']
+# A failed reconnect keeps its final elapsed timer but is no longer working.
+not = [{ line_regex = ['^(?:[•◦][ \t]+)?Reconnect failed — check the endpoint, then relaunch \([0-9hms ]+\)$'] }]

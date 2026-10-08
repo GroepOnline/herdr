@@ -1,7 +1,7 @@
 id = "copilot"
-version = "2026.07.07.1"
+version = "2026.08.29.1"
 min_engine_version = 1
-updated_at = "2026-07-07T14:15:00Z"
+updated_at = "2026-08-29T00:00:00Z"
 aliases = ["github-copilot", "ghcs"]
 
 [[rules]]
@@ -24,16 +24,12 @@ all = [
 ]
 
 [[rules]]
-id = "copilot_tool_working"
+id = "background_agents_working"
 state = "working"
-priority = 95
+priority = 110
 region = "bottom_non_empty_lines(6)"
 visible_working = true
-any = [
-  { line_regex = ['(?i)(running|executing|applying)\s+(command|tool|edit)'] },
-  { line_regex = ['(?i)(ruff|pytest|uv\s+run)'] },
-  { line_regex = ['(?i)utrecht\s+(parse|normalize|index|embed|eval|ask|serve)'] },
-]
+line_regex = ['^\s*◎\s+Waiting for background agents(?:\s|·|$)']
 
 [[rules]]
 id = "working_cancel_hint"
