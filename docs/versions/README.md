@@ -1,17 +1,13 @@
 # Versioned documentation
 
-This directory contains the published documentation for stable Herdr releases.
+This directory contains immutable documentation snapshots for stable Herdr releases.
 
-Release CI creates each version from the tagged `docs/next` tree after the GitHub Release succeeds. Maintainers can correct published documentation in its version directory afterward. When a correction also applies to future releases, make the same focused change under `docs/next`; do not replace a published tree with the current draft.
-
-Validate every published version with:
+Do not edit snapshot files manually. They must match the release tag recorded in `manifest.json`. Validate them with:
 
 ```bash
-node scripts/docs/versions.mjs check
+node website/scripts/docs-versions.mjs check
 ```
 
-The private website renders each maintained version at `/docs/<version>/`, uses the version selected by `manifest.json` for `/docs/`, and renders the active preview snapshot at `/docs/preview/`. The source snapshots in this directory remain public release evidence; the private repository owns only their presentation.
-
-The `tag`, `commit`, and `source` fields in `manifest.json` record where release CI initially published a version. Git history records later documentation corrections.
+Release CI creates a new snapshot from the tagged `docs/next` tree after the GitHub Release succeeds. `website/scripts/prepare-docs.mjs` renders these snapshots at `/docs/<version>/` while keeping `/docs/` on the latest stable documentation and `/docs/preview/` on unreleased work.
 
 The historical backfill starts at v0.5.11, the first release that included the Astro/Starlight documentation site.

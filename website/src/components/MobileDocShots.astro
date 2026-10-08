@@ -1,0 +1,31 @@
+---
+interface Props {
+  sessionAlt: string;
+  sessionCaption: string;
+  menuAlt: string;
+  menuCaption: string;
+}
+
+const { sessionAlt, sessionCaption, menuAlt, menuCaption } = Astro.props;
+---
+
+<div class="mobile-doc-shots">
+  <figure>
+    <img
+      src="/assets/mobile-agent-session-v2.jpeg"
+      alt={sessionAlt}
+      loading="lazy"
+      decoding="async"
+    />
+    <figcaption>{sessionCaption}</figcaption>
+  </figure>
+  <figure>
+    <img
+      src="/assets/mobile-switch-menu-v2.jpeg"
+      alt={menuAlt}
+      loading="lazy"
+      decoding="async"
+    />
+    <figcaption>{menuCaption}</figcaption>
+  </figure>
+</div>

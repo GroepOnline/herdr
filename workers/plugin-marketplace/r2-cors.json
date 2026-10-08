@@ -1,0 +1,13 @@
+{
+  "rules": [
+    {
+      "allowed": {
+        "origins": ["https://herdr.dev", "https://herdr.pages.dev", "https://herdr.chefgroep.nl"],
+        "methods": ["GET", "HEAD"],
+        "headers": ["*"]
+      },
+      "exposeHeaders": ["Content-Type", "Cache-Control", "ETag"],
+      "maxAgeSeconds": 3600
+    }
+  ]
+}

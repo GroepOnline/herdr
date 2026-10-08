@@ -1,0 +1,24 @@
+id = "com.chefgroep.fleet-health"
+name = "Fleet Health"
+version = "0.1.0"
+min_herdr_version = "0.7.5"
+description = "Tailscale node health + SSH probes for Fleet Ops Bar (SSOT: host/Tailscale)"
+platforms = ["linux"]
+
+[[actions]]
+id = "scan-fleet"
+title = "Scan fleet"
+description = "Probe fleet nodes and refresh fleet_ops.json"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "scan-fleet"]
+
+[[actions]]
+id = "scan-node"
+title = "Scan node"
+description = "Probe one fleet node and refresh fleet_ops.json"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "scan-node"]
+
+[[events]]
+on = "workspace.focused"
+command = ["node", "src/index.js", "on-workspace-focused"]

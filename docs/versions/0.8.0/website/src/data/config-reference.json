@@ -53,6 +53,12 @@
           "description": "Override the panel_bg color token on top of the base theme. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
         },
         {
+          "key": "theme.custom.sidebar_bg",
+          "type": "color",
+          "default": "unset",
+          "description": "Set the desktop sidebar background without changing other panel surfaces. Accepts hex, named colors, rgb(r,g,b), or reset aliases."
+        },
+        {
           "key": "theme.custom.surface0",
           "type": "color",
           "default": "unset",
@@ -181,23 +187,24 @@
           "key": "update.channel",
           "type": "enum",
           "default": "\"stable\" (\"preview\" on Windows)",
-          "description": "Update channel used by background version checks and herdr update. Homebrew, mise, and Nix installs ignore the preview channel.",
+          "description": "Update channel used by background version checks and herdr update. Homebrew, mise, and Nix installs ignore the preview and dev channels, which are direct-install only. The dev channel publishes a fresh build for every push to main.",
           "values": [
             "stable",
-            "preview"
+            "preview",
+            "dev"
           ]
         },
         {
           "key": "update.version_check",
           "type": "boolean",
           "default": "true",
-          "description": "Check herdr.dev for new Herdr versions in the background."
+          "description": "Check herdr.chefgroep.nl for new Herdr versions in the background."
         },
         {
           "key": "update.manifest_check",
           "type": "boolean",
           "default": "true",
-          "description": "Check herdr.dev for remote agent-detection manifest updates in the background. Bundled manifests and local overrides still apply."
+          "description": "Check herdr.chefgroep.nl for remote agent-detection manifest updates in the background. Bundled manifests and local overrides still apply."
         }
       ]
     },
@@ -597,7 +604,7 @@
           "key": "ui.copy_on_select",
           "type": "boolean",
           "default": "true",
-          "description": "Automatically copy text selected by mouse drag or double-click. When disabled, Ctrl+C or a host-forwarded Cmd+C copies and clears the retained selection."
+          "description": "Copy text selected with the mouse."
         },
         {
           "key": "ui.host_cursor",
@@ -697,6 +704,16 @@
           ]
         },
         {
+          "key": "ui.status_indicators",
+          "type": "enum",
+          "default": "\"dots\"",
+          "description": "Choose compact color dots or distinct static symbols for agent states.",
+          "values": [
+            "dots",
+            "symbols"
+          ]
+        },
+        {
           "key": "ui.sidebar.agents.row_gap",
           "type": "integer",
           "default": "0",
@@ -718,7 +735,7 @@
           "key": "ui.sidebar.spaces.row_gap",
           "type": "integer",
           "default": "0",
-          "description": "Blank terminal rows between worktree groups and unrelated top-level Spaces. Worktree parents and their indented children remain packed."
+          "description": "Blank terminal rows between expanded Space sidebar entries. Set to 1 to restore the previous spacing. Consecutive indented worktree children remain packed as one group."
         },
         {
           "key": "ui.sidebar.spaces.rows",
@@ -731,6 +748,100 @@
           "type": "color",
           "default": "\"cyan\"",
           "description": "Accent color for highlights, borders, and navigation UI. Accepts hex (#89b4fa), named colors (cyan, blue), or RGB (rgb(137,180,250))."
+        },
+        {
+          "key": "ui.fleet_ops_bar",
+          "type": "boolean",
+          "default": "true",
+          "description": "Show the Fleet Ops Bar under pane borders."
+        },
+        {
+          "key": "ui.spinner_style",
+          "type": "enum",
+          "default": "\"dots\"",
+          "description": "Agent working spinner animation style.",
+          "values": [
+            "dots",
+            "dots-full",
+            "dots-corner",
+            "arc",
+            "circle",
+            "circle-quarters",
+            "circle-halves",
+            "square-corners",
+            "triangle",
+            "star",
+            "star2",
+            "arrow",
+            "arrow3",
+            "bounce",
+            "box-bounce",
+            "pipe",
+            "noise",
+            "aesthetic",
+            "grow-vertical",
+            "grow-horizontal",
+            "point",
+            "beta-wave",
+            "layer",
+            "liquid",
+            "crystal",
+            "galaxy",
+            "vortex",
+            "toggle",
+            "flip",
+            "sandwich",
+            "bouncing-bar",
+            "bouncing-ball",
+            "pong",
+            "shark",
+            "fish",
+            "binary",
+            "dots-circle",
+            "sand",
+            "dots8-bit",
+            "moon",
+            "clock",
+            "earth",
+            "weather",
+            "hearts",
+            "balloon",
+            "grenade",
+            "finger-dance",
+            "fist-bump",
+            "smiley",
+            "monkey",
+            "speaker",
+            "runner",
+            "soccer-header",
+            "mindblown",
+            "orange-pulse",
+            "blue-pulse",
+            "orange-blue-pulse",
+            "time-travel",
+            "christmas",
+            "flame",
+            "pizza",
+            "dizzy",
+            "ninja",
+            "magic",
+            "robot",
+            "boom",
+            "unicorn",
+            "bee",
+            "dragon",
+            "ghost",
+            "pumpkin",
+            "wizard",
+            "crown",
+            "diamond",
+            "fire",
+            "rocket",
+            "star-spin",
+            "confetti",
+            "cthulhu",
+            "dwarf-fortress"
+          ]
         }
       ]
     },
@@ -1026,6 +1137,63 @@
             "on",
             "off"
           ]
+        },
+        {
+          "key": "ui.sound.agents.freebuff",
+          "type": "enum",
+          "default": "\"default\"",
+          "description": "Sound override for detected FreeBuff agents.",
+          "values": [
+            "default",
+            "on",
+            "off"
+          ]
+        },
+        {
+          "key": "ui.sound.agents.junie",
+          "type": "enum",
+          "default": "\"default\"",
+          "description": "Sound override for detected Junie agents.",
+          "values": [
+            "default",
+            "on",
+            "off"
+          ]
+        },
+        {
+          "key": "ui.sound.agents.open_claude",
+          "type": "enum",
+          "default": "\"default\"",
+          "description": "Sound override for detected OpenClaude agents.",
+          "values": [
+            "default",
+            "on",
+            "off"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "clipboard",
+      "title": "Clipboard",
+      "keys": [
+        {
+          "key": "clipboard.history_enabled",
+          "type": "boolean",
+          "default": "true",
+          "description": "Persist clipboard writes to a local history (clipboard manager)."
+        },
+        {
+          "key": "clipboard.max_entries",
+          "type": "integer",
+          "default": "1000",
+          "description": "Maximum number of history entries retained."
+        },
+        {
+          "key": "clipboard.max_bytes",
+          "type": "integer",
+          "default": "1000000",
+          "description": "Maximum bytes stored per entry (longer clips are truncated)."
         }
       ]
     },

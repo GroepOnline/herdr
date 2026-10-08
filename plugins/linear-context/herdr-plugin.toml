@@ -1,0 +1,35 @@
+id = "com.chefgroep.linear-context"
+name = "Linear Issue Context"
+version = "0.1.0"
+min_herdr_version = "0.7.5"
+description = "Linear issue context in Fleet Ops Bar (SSOT: Linear GraphQL)"
+platforms = ["linux", "macos", "windows"]
+
+[[actions]]
+id = "fetch-issue"
+title = "Fetch Linear issue"
+description = "Refresh issue fields into fleet_ops.json"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "fetch-issue"]
+
+[[actions]]
+id = "fetch-cycle"
+title = "Fetch Linear cycle"
+description = "Refresh cycle fields into fleet_ops.json"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "fetch-cycle"]
+
+[[actions]]
+id = "set-issue"
+title = "Set Linear issue"
+description = "Pin an issue id and refresh fleet_ops.json"
+contexts = ["global", "workspace", "pane"]
+command = ["node", "src/index.js", "set-issue"]
+
+[[events]]
+on = "worktree.created"
+command = ["node", "src/index.js", "on-worktree-created"]
+
+[[events]]
+on = "workspace.focused"
+command = ["node", "src/index.js", "on-workspace-focused"]

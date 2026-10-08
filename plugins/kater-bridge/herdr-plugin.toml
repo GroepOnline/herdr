@@ -1,0 +1,30 @@
+id = "com.chefgroep.kater-bridge"
+name = "Kater MCP Bridge"
+version = "0.1.0"
+min_herdr_version = "0.7.5"
+description = "Bridge to Kater MCP Gateway for Utrecht Data OS fleet status"
+platforms = ["linux"]
+
+[[actions]]
+id = "fleet-status"
+title = "Fleet Status"
+description = "Get live fleet inventory from Utrecht Data OS"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "fleet-status"]
+
+[[actions]]
+id = "pipeline-health"
+title = "Pipeline Health"
+description = "Check Utrecht data pipeline status"
+contexts = ["global"]
+command = ["node", "src/index.js", "pipeline-health"]
+
+[[panes]]
+id = "fleet-dashboard"
+title = "Utrecht Fleet"
+placement = "tab"
+command = ["node", "src/index.js", "fleet-dashboard"]
+
+[[events]]
+on = "workspace.focused"
+command = ["node", "src/index.js", "on-workspace-focused"]

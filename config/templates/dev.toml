@@ -1,0 +1,40 @@
+name = "dev"
+description = "Editor + agent terminal + fleet monitor"
+version = 1
+
+[workspace]
+label = "dev"
+cwd = "follow"
+focus = true
+
+[[tabs]]
+label = "code"
+focus = true
+
+  [[tabs.panes]]
+  label = "editor"
+  cwd = "follow"
+  command = ["nvim"]
+
+  [[tabs.panes]]
+  split = "right"
+  ratio = 0.4
+  label = "agent"
+  cwd = "follow"
+  command = ["claude"]
+
+[[tabs]]
+label = "fleet"
+
+  [[tabs.panes]]
+  label = "monitor"
+  cwd = "~"
+  command = ["bash", "-c", "watch -n5 'herdr workspace list 2>/dev/null || echo herdr-not-running'"]
+
+  [[tabs.panes]]
+  split = "down"
+  ratio = 0.5
+  label = "logs"
+  cwd = "~"
+  command = ["bash", "-c", "tail -f /var/log/syslog 2>/dev/null || journalctl --user -f"]
+

@@ -1,0 +1,8 @@
+{
+  "name": "@chefgroep/cloudflare-tunnel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "description": "CHEF Cloudflare tunnel + DNS health for Fleet Ops Bar"
+}

@@ -1,0 +1,37 @@
+{
+  "name": "groeponline-herdr",
+  "version": "0.8.8",
+  "description": "Herdr - fast terminal multiplexer with AI agent detection (GroepOnline distribution)",
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GroepOnline/herdr.git"
+  },
+  "homepage": "https://herdr.chefgroep.nl",
+  "keywords": [
+    "terminal",
+    "multiplexer",
+    "tmux",
+    "herdr",
+    "ai-agent",
+    "rust"
+  ],
+  "bin": {
+    "herdr": "./bin/herdr.js"
+  },
+  "files": [
+    "bin/herdr.js",
+    "install.js",
+    "README.md"
+  ],
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "linux",
+    "darwin"
+  ]
+}

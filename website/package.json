@@ -1,0 +1,25 @@
+{
+  "name": "herdr-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare-docs": "node scripts/prepare-docs.mjs",
+    "dev": "node scripts/prepare-docs.mjs && astro dev",
+    "test": "node --experimental-strip-types --test src/docs-path.test.ts src/prepare-docs.test.ts",
+    "build": "npm test && node scripts/prepare-docs.mjs && astro build",
+    "preview": "astro preview",
+    "test:e2e": "playwright test"
+  },
+  "x-dependency-justifications": {
+    "@astrojs/markdown-remark": "Required by the docs Markdown pipeline for consistent remark parsing; Astro/Starlight do not provide this integration directly."
+  },
+  "dependencies": {
+    "@astrojs/markdown-remark": "^7.2.2",
+    "@astrojs/starlight": "^0.41.3",
+    "astro": "^7.1.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "@playwright/test": "^1.50.0"
+  }
+}

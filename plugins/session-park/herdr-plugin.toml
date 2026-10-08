@@ -1,0 +1,49 @@
+id = "com.chefgroep.session-park"
+name = "Session Parking"
+version = "0.1.0"
+min_herdr_version = "0.7.5"
+description = "Snapshot and resume agent sessions (SSOT: Herdr session snapshots)"
+platforms = ["linux", "macos", "windows"]
+
+[[actions]]
+id = "park"
+title = "Park session"
+description = "Park the focused pane/session into parked/"
+contexts = ["pane", "workspace"]
+command = ["node", "src/index.js", "park"]
+
+[[actions]]
+id = "park-workspace"
+title = "Park workspace"
+description = "Park all parkable panes in the workspace"
+contexts = ["workspace"]
+command = ["node", "src/index.js", "park-workspace"]
+
+[[actions]]
+id = "resume"
+title = "Resume parked session"
+description = "Resume a parked session record"
+contexts = ["global", "workspace"]
+command = ["node", "src/index.js", "resume"]
+
+[[actions]]
+id = "list-parked"
+title = "List parked sessions"
+description = "List parked session records and refresh fleet_ops.json"
+contexts = ["global"]
+command = ["node", "src/index.js", "list-parked"]
+
+[[actions]]
+id = "expire"
+title = "Expire parked sessions"
+description = "Expire stale parked records"
+contexts = ["global"]
+command = ["node", "src/index.js", "expire"]
+
+[[events]]
+on = "pane.agent_status_changed"
+command = ["node", "src/index.js", "on-pane-agent-status-changed"]
+
+[[events]]
+on = "pane.exited"
+command = ["node", "src/index.js", "on-pane-exited"]

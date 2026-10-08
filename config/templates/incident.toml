@@ -1,0 +1,47 @@
+name = "incident"
+description = "Incident response: SSH monitors + kubectl + fleet"
+version = 1
+
+[workspace]
+label = "incident"
+cwd = "~"
+focus = true
+
+[[tabs]]
+label = "fleet"
+focus = true
+
+  [[tabs.panes]]
+  label = "sofie"
+  cwd = "~"
+  command = ["bash", "-c", "ssh sofie-lan htop"]
+
+  [[tabs.panes]]
+  split = "right"
+  ratio = 0.5
+  label = "bc-scan"
+  cwd = "~"
+  command = ["bash", "-c", "ssh bc-scan-arm htop"]
+
+  [[tabs.panes]]
+  split = "down"
+  ratio = 0.4
+  label = "k3s"
+  cwd = "~"
+  command = ["bash", "-c", "ssh udo-burst-azure-01 kubectl get pods -A"]
+
+[[tabs]]
+label = "logs"
+
+  [[tabs.panes]]
+  label = "grafana"
+  cwd = "~"
+  command = ["bash", "-c", "curl -s http://bc-scan-arm:3000/api/health || echo grafana-down"]
+
+  [[tabs.panes]]
+  split = "down"
+  ratio = 0.5
+  label = "tailscale"
+  cwd = "~"
+  command = ["bash", "-c", "watch -n10 tailscale status"]
+

@@ -1,0 +1,8 @@
+{
+  "name": "@chefgroep/session-park",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "description": "CHEF session parking and resume for Fleet Ops Bar"
+}
