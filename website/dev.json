@@ -3,18 +3,31 @@
   "channel": "dev",
   "enabled": true,
   "base_version": "0.8.8",
-  "build_id": "2026-09-07-ae5e4f9fbaaf",
-  "commit": "ae5e4f9fbaaf06f828fa72cd8a54dedeaff44740",
-  "built_at": "2026-09-07T22:51:16Z",
+  "build_id": "2026-10-27-41ab28ab4a1e",
+  "commit": "41ab28ab4a1eebcca88ba5aebc1cda299c76e4f0",
+  "built_at": "2026-10-27T12:41:23Z",
   "protocol": 18,
-  "notes": "Dev build 2026-09-07-ae5e4f9fbaaf\n\nBuilt from `ae5e4f9fbaaf` on `main`.\nBase stable: v0.8.8\nCompare: https://github.com/GroepOnline/herdr/compare/v0.8.8...ae5e4f9fbaaf06f828fa72cd8a54dedeaff44740\n\n### Maintenance\n- Atomically promote v0.8.8",
+  "notes": "Dev build 2026-10-27-41ab28ab4a1e\n\nBuilt from `41ab28ab4a1e` on `main`.\nBase stable: v0.8.8\nCompare: https://github.com/GroepOnline/herdr/compare/ae5e4f9fbaaf06f828fa72cd8a54dedeaff44740...41ab28ab4a1eebcca88ba5aebc1cda299c76e4f0\n\n### Maintenance\n- Bump the github-actions group across 1 directory with 5 updates (#97)\n- Bump the cargo-dependencies group across 1 directory with 7 updates (#96)\n- Bump svgo from 4.0.2 to 4.1.0 in /website in the npm_and_yarn group across 1 directory (#93)",
   "assets": {
     "linux-x86_64": {
-      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-09-07-ae5e4f9fbaaf/herdr-linux-x86_64",
-      "sha256": "c19b9d8c702998e98412576a8c5341d89cb96809b003848011d53e3249ddd6d5"
+      "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-10-27-41ab28ab4a1e/herdr-linux-x86_64",
+      "sha256": "ba5f607a05deef49278facffb577ca25bc3315198726a6481c47f35a6eec1356"
     }
   },
   "builds": {
+    "2026-10-27-41ab28ab4a1e": {
+      "base_version": "0.8.8",
+      "commit": "41ab28ab4a1eebcca88ba5aebc1cda299c76e4f0",
+      "built_at": "2026-10-27T12:41:23Z",
+      "protocol": 18,
+      "tag": "dev-2026-10-27-41ab28ab4a1e",
+      "assets": {
+        "linux-x86_64": {
+          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-10-27-41ab28ab4a1e/herdr-linux-x86_64",
+          "sha256": "ba5f607a05deef49278facffb577ca25bc3315198726a6481c47f35a6eec1356"
+        }
+      }
+    },
     "2026-09-07-ae5e4f9fbaaf": {
       "base_version": "0.8.8",
       "commit": "ae5e4f9fbaaf06f828fa72cd8a54dedeaff44740",
@@ -259,19 +272,6 @@
         "linux-x86_64": {
           "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-10-f37d8ceb6ee3/herdr-linux-x86_64",
           "sha256": "9467c311e8b230c9869e82a4eefd63b7a4f31d9765c994e18f79fcb5d9d3aa1e"
-        }
-      }
-    },
-    "2026-08-10-7ffcead162e9": {
-      "base_version": "0.8.0",
-      "commit": "7ffcead162e9fb4b19678ef807ac92cb20adfdca",
-      "built_at": "2026-08-10T03:52:04Z",
-      "protocol": 18,
-      "tag": "dev-2026-08-10-7ffcead162e9",
-      "assets": {
-        "linux-x86_64": {
-          "url": "https://github.com/GroepOnline/herdr/releases/download/dev-2026-08-10-7ffcead162e9/herdr-linux-x86_64",
-          "sha256": "99cc898c831f695e4c01eefaf2b9cc6f007685605378360d65f58c8a265ce30d"
         }
       }
     }
