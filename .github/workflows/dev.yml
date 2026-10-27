@@ -189,6 +189,7 @@ jobs:
             ${{ matrix.name }}
             ${{ matrix.name }}.sha256
             BUILD_INFO.txt
+          retention-days: 7
 
   publish:
     needs: [preflight, build]

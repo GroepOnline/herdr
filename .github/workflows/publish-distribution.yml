@@ -207,3 +207,4 @@ jobs:
             ${{ runner.temp }}/groeponline-herdr.rb
             release-assets/SHA256SUMS
           if-no-files-found: error
+          retention-days: 1

@@ -213,6 +213,7 @@ jobs:
           name: ${{ matrix.name }}
           path: ${{ matrix.name }}
           if-no-files-found: error
+          retention-days: 7
 
   publish:
     name: Publish portable assets
