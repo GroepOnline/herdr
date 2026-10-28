@@ -702,6 +702,7 @@ impl App {
             pane_graphics_revision: 0,
             popup_pane: None,
             plugin_command_logs: Vec::new(),
+            pending_plugin_command_logs: std::collections::HashMap::new(),
             next_plugin_command_log_id: 1,
             plugin_commands_in_flight: 0,
             global_menu: state::MenuListState::new(0),
