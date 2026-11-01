@@ -232,7 +232,7 @@ jobs:
           SCCACHE_GHA_ENABLED: "true"
 
       - name: Install Rust tools
-        uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
         with:
           tool: cargo-nextest
 
@@ -342,7 +342,7 @@ jobs:
           toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
           components: clippy
 
-      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
         with:
           key: ci-windows-lint-native
 
@@ -440,7 +440,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build musl-tools
 
-      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
         with:
           key: ci-release-smoke-${{ matrix.target }}
 
