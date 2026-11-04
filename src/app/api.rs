@@ -194,7 +194,15 @@ impl App {
         {
             self.state.plugin_commands_in_flight =
                 self.state.plugin_commands_in_flight.saturating_sub(1);
-            let mut succeeded = false;
+            let terminal_status = if error.is_none() && exit_code == Some(0) {
+                crate::api::schema::PluginCommandStatus::Succeeded
+            } else {
+                crate::api::schema::PluginCommandStatus::Failed
+            };
+            let succeeded = matches!(
+                terminal_status,
+                crate::api::schema::PluginCommandStatus::Succeeded
+            );
             let mut completed_log = None;
             if let Some(log) = self
                 .state
@@ -207,20 +215,31 @@ impl App {
                 log.stdout = Some(stdout);
                 log.stderr = Some(stderr);
                 log.error = error;
-                log.status = if log.error.is_none() && log.exit_code == Some(0) {
-                    crate::api::schema::PluginCommandStatus::Succeeded
-                } else {
-                    crate::api::schema::PluginCommandStatus::Failed
-                };
-                succeeded = matches!(
-                    log.status,
-                    crate::api::schema::PluginCommandStatus::Succeeded
-                );
+                log.status = terminal_status;
                 completed_log = Some(log.clone());
+            } else if let Some(mut record) = self
+                .state
+                .plugin_commands_in_flight_records
+                .get(&log_id)
+                .cloned()
+            {
+                // The live log is bounded: a long-running command can be
+                // evicted before it finishes. Fall back to the durable
+                // in-flight record so the final JSONL entry and summary
+                // update are still written.
+                record.finished_unix_ms = Some(finished_unix_ms);
+                record.exit_code = exit_code;
+                record.stdout = Some(stdout);
+                record.stderr = Some(stderr);
+                record.error = error;
+                record.status = terminal_status;
+                self.reinsert_completed_plugin_command_log(record.clone());
+                completed_log = Some(record);
             }
             if let Some(log) = completed_log.as_ref() {
                 self.persist_finished_plugin_command_log(log);
             }
+            self.complete_plugin_command_record_for(&log_id);
             // Follow configured `[plugins].chains` only after the trigger
             // command actually finished successfully.
             if let Err(err) = self.resume_plugin_chain_after_finish(&log_id, succeeded) {

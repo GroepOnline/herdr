@@ -1846,6 +1846,11 @@ pub struct AppState {
     pub(crate) plugin_command_logs: Vec<crate::api::schema::PluginCommandLogInfo>,
     pub(crate) next_plugin_command_log_id: u64,
     pub(crate) plugin_commands_in_flight: usize,
+    /// Durable completion records for in-flight commands. Kept outside the
+    /// bounded live log so a finished command can still be persisted even
+    /// after its entry was evicted from `plugin_command_logs`.
+    pub(crate) plugin_commands_in_flight_records:
+        std::collections::HashMap<String, crate::api::schema::PluginCommandLogInfo>,
     /// Highlight state for the bottom-right global launcher menu.
     pub global_menu: MenuListState,
     /// Resolved host terminal default colors for theming embedded panes.
@@ -2255,6 +2260,7 @@ impl AppState {
             plugin_command_logs: Vec::new(),
             next_plugin_command_log_id: 1,
             plugin_commands_in_flight: 0,
+            plugin_commands_in_flight_records: std::collections::HashMap::new(),
             global_menu: MenuListState::new(0),
             host_terminal_theme: TerminalTheme::default(),
             host_cell_size: crate::kitty_graphics::HostCellSize::default(),

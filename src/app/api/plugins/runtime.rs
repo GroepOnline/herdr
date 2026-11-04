@@ -272,7 +272,37 @@ impl App {
 
     fn push_plugin_command_log(&mut self, log: PluginCommandLogInfo) {
         persist_plugin_command_log(&log);
+        if !matches!(log.status, PluginCommandStatus::Running) {
+            // Terminal records stay out of the in-flight map so a rejected
+            // command cannot leak a stale completion entry.
+            self.state.plugin_command_logs.push(log);
+            self.trim_plugin_command_logs();
+            return;
+        }
+        // Keep a durable copy of the running record outside the bounded live
+        // log so the final JSONL entry and summary update can still be
+        // written even if this command is evicted before it finishes.
+        self.state
+            .plugin_commands_in_flight_records
+            .insert(log.log_id.clone(), log.clone());
         self.state.plugin_command_logs.push(log);
+        self.trim_plugin_command_logs();
+    }
+
+    /// Drop the durable in-flight record once its command finishes so the
+    /// map cannot leak entries for commands that never get cleaned up.
+    pub(crate) fn complete_plugin_command_record_for(&mut self, log_id: &str) {
+        self.state.plugin_commands_in_flight_records.remove(log_id);
+    }
+
+    /// Add a finished record back to the live log after it was evicted while
+    /// its command was still running, so the completion stays visible.
+    pub(crate) fn reinsert_completed_plugin_command_log(&mut self, log: PluginCommandLogInfo) {
+        self.state.plugin_command_logs.push(log);
+        self.trim_plugin_command_logs();
+    }
+
+    fn trim_plugin_command_logs(&mut self) {
         if self.state.plugin_command_logs.len() > PLUGIN_COMMAND_LOG_LIMIT {
             let extra = self.state.plugin_command_logs.len() - PLUGIN_COMMAND_LOG_LIMIT;
             self.state.plugin_command_logs.drain(0..extra);
@@ -538,5 +568,136 @@ mod persistent_log_tests {
             "succeeded"
         );
         assert_eq!(persistent_status(PluginCommandStatus::Failed), "failed");
+    }
+
+    fn test_app() -> App {
+        let (_api_tx, api_rx) = tokio::sync::mpsc::unbounded_channel();
+        App::new(
+            &crate::config::Config::default(),
+            true,
+            None,
+            api_rx,
+            crate::api::EventHub::default(),
+        )
+    }
+
+    // Regression test for the bounded live log being used as the durable
+    // completion index: a running command must still get its final JSONL
+    // record and summary update after PLUGIN_COMMAND_LOG_LIMIT later
+    // commands evict it from the live log.
+    #[test]
+    fn evicted_running_command_still_persists_final_record() {
+        let _guard = crate::config::test_config_env_lock().lock().unwrap();
+        let previous_state_home = std::env::var_os("XDG_STATE_HOME");
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or(0);
+        let state_home = std::env::temp_dir().join(format!(
+            "herdr-plugin-evict-persist-{}-{nanos}",
+            std::process::id()
+        ));
+        std::env::set_var("XDG_STATE_HOME", &state_home);
+
+        let mut app = test_app();
+        let running_log_id = "plugin-log-evict-1".to_string();
+        let plugin_id = "com.example.eviction-test".to_string();
+        let running = PluginCommandLogInfo {
+            log_id: running_log_id.clone(),
+            plugin_id: plugin_id.clone(),
+            action_id: None,
+            event: Some("plugin.startup".to_string()),
+            command: vec!["slow-command".to_string()],
+            status: PluginCommandStatus::Running,
+            started_unix_ms: 1_000,
+            finished_unix_ms: None,
+            exit_code: None,
+            stdout: None,
+            stderr: None,
+            error: None,
+        };
+        let running_template = running.clone();
+        app.push_plugin_command_log(running);
+
+        // Outlive the running command with PLUGIN_COMMAND_LOG_LIMIT later
+        // commands so the running entry is evicted from the live log.
+        for index in 0..PLUGIN_COMMAND_LOG_LIMIT {
+            let mut later = running_template.clone();
+            later.log_id = format!("plugin-log-evict-later-{index}");
+            later.status = PluginCommandStatus::Failed;
+            later.started_unix_ms = 1_100;
+            later.finished_unix_ms = Some(1_200);
+            later.exit_code = Some(1);
+            later.stdout = Some(String::new());
+            later.stderr = Some(String::new());
+            later.error = Some("later command failed".to_string());
+            app.push_plugin_command_log(later);
+        }
+
+        assert_eq!(app.state.plugin_command_logs.len(), PLUGIN_COMMAND_LOG_LIMIT);
+        assert!(app
+            .state
+            .plugin_command_logs
+            .iter()
+            .all(|log| log.log_id != running_log_id));
+        assert!(app
+            .state
+            .plugin_commands_in_flight_records
+            .contains_key(&running_log_id));
+
+        app.handle_internal_event(crate::events::AppEvent::PluginCommandFinished {
+            log_id: running_log_id.clone(),
+            finished_unix_ms: 5_000,
+            exit_code: Some(0),
+            stdout: String::new(),
+            stderr: String::new(),
+            error: None,
+        });
+
+        // The durable record was consumed.
+        assert!(!app
+            .state
+            .plugin_commands_in_flight_records
+            .contains_key(&running_log_id));
+        // The completion is visible in the live log again.
+        let completed = app
+            .state
+            .plugin_command_logs
+            .iter()
+            .find(|log| log.log_id == running_log_id)
+            .expect("completed record should be reinserted into the live log");
+        assert_eq!(completed.status, PluginCommandStatus::Succeeded);
+        assert_eq!(completed.exit_code, Some(0));
+
+        // The final JSONL record for the evicted command was written.
+        let history_dir = plugin_history_dir();
+        let history = history_dir.join("commands.jsonl");
+        let contents = std::fs::read_to_string(&history).expect("commands.jsonl should exist");
+        let final_record: serde_json::Value = contents
+            .lines()
+            .last()
+            .expect("commands.jsonl should have records")
+            .parse()
+            .expect("final record should be valid JSON");
+        assert_eq!(final_record["log_id"], running_log_id.as_str());
+        assert_eq!(final_record["status"], "succeeded");
+
+        // The summary includes the evicted command's completion.
+        let summary: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(history_dir.join("summary.json"))
+                .expect("summary.json should exist"),
+        )
+        .expect("summary.json should be valid JSON");
+        let stats = &summary["plugins"][&plugin_id];
+        assert_eq!(stats["succeeded"], 1);
+        assert_eq!(stats["failed"], PLUGIN_COMMAND_LOG_LIMIT as u64);
+        assert_eq!(stats["total"], (PLUGIN_COMMAND_LOG_LIMIT + 1) as u64);
+        assert_eq!(stats["last_status"], "succeeded");
+
+        match previous_state_home {
+            Some(previous) => std::env::set_var("XDG_STATE_HOME", previous),
+            None => std::env::remove_var("XDG_STATE_HOME"),
+        }
+        let _ = std::fs::remove_dir_all(&state_home);
     }
 }
